@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SmartCloset Demo</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SmartCloset MVP</p>
+        <h1>Demo UI</h1>
+      </div>
+      <label class="user-control">
+        <span>userId</span>
+        <input id="userId" type="number" min="1" value="1">
+      </label>
+    </header>
+
+    <section class="toolbar" aria-label="주요 작업">
+      <button id="loadClothesButton" type="button">옷 목록 조회</button>
+      <button id="createRecommendationButton" type="button">추천 생성</button>
+      <button id="markWornButton" type="button" disabled>착용 완료 처리</button>
+    </section>
+
+    <section id="status" class="status" role="status" aria-live="polite">준비되었습니다.</section>
+
+    <section class="grid">
+      <form id="clothingForm" class="panel">
+        <div class="panel-heading">
+          <h2>옷 등록</h2>
+        </div>
+        <label>
+          <span>이름</span>
+          <input id="name" name="name" type="text" maxlength="50" value="그레이 후드" required>
+        </label>
+        <div class="form-row">
+          <label>
+            <span>카테고리</span>
+            <select id="category" name="category" required>
+              <option value="TOP">TOP</option>
+              <option value="BOTTOM">BOTTOM</option>
+              <option value="OUTER">OUTER</option>
+            </select>
+          </label>
+          <label>
+            <span>색상</span>
+            <select id="color" name="color" required>
+              <option value="BLACK">BLACK</option>
+              <option value="WHITE">WHITE</option>
+              <option value="GRAY" selected>GRAY</option>
+              <option value="NAVY">NAVY</option>
+              <option value="BLUE">BLUE</option>
+              <option value="BROWN">BROWN</option>
+              <option value="BEIGE">BEIGE</option>
+              <option value="RED">RED</option>
+              <option value="GREEN">GREEN</option>
+              <option value="YELLOW">YELLOW</option>
+              <option value="UNKNOWN">UNKNOWN</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            <span>소재</span>
+            <select id="material" name="material" required>
+              <option value="COTTON" selected>COTTON</option>
+              <option value="DENIM">DENIM</option>
+              <option value="KNIT">KNIT</option>
+              <option value="WOOL">WOOL</option>
+              <option value="POLYESTER">POLYESTER</option>
+              <option value="NYLON">NYLON</option>
+              <option value="UNKNOWN">UNKNOWN</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input id="rainSuitable" name="rainSuitable" type="checkbox">
+            <span>비 오는 날 적합</span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            <span>최저 기온</span>
+            <input id="minTemperature" name="minTemperature" type="number" value="5" required>
+          </label>
+          <label>
+            <span>최고 기온</span>
+            <input id="maxTemperature" name="maxTemperature" type="number" value="18" required>
+          </label>
+        </div>
+        <button type="submit">등록</button>
+      </form>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>옷 목록</h2>
+          <span id="clothesCount" class="meta">0개</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>이름</th>
+                <th>카테고리</th>
+                <th>색상</th>
+                <th>소재</th>
+                <th>온도</th>
+              </tr>
+            </thead>
+            <tbody id="clothesTableBody">
+              <tr>
+                <td colspan="6" class="empty">옷 목록을 조회하세요.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel recommendation-panel">
+      <div class="panel-heading">
+        <h2>추천 결과</h2>
+        <span id="recommendationMeta" class="meta">아직 생성되지 않음</span>
+      </div>
+      <div id="recommendationView" class="recommendation-empty">추천 생성을 실행하세요.</div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

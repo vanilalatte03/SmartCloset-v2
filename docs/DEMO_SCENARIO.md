@@ -249,7 +249,7 @@ POST /api/recommendations?userId=1
 추천 실패는 비즈니스 실패이므로 HTTP `422 Unprocessable Entity`로 응답한다.
 
 ## Demo UI 시나리오
-P1 최소 데모 UI가 구현된 경우 아래 경로에서 API 흐름을 확인한다.
+P1 최소 데모 UI는 아래 경로에서 API 흐름을 확인한다.
 
 ```text
 http://localhost:8080/demo/index.html
@@ -263,3 +263,4 @@ Demo UI 기능은 아래로 제한한다.
 - 착용 완료 처리
 
 Demo UI는 제품용 프론트가 아니라 API 흐름 공유용 Spring Boot static resource 기반 단일 페이지다.
+기본 `userId`는 `1`이며 화면에서 변경할 수 있다.

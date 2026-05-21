@@ -89,9 +89,9 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 ## 접속 경로
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
-- Demo UI(P1 구현 후): http://localhost:8080/demo/index.html
+- Demo UI: http://localhost:8080/demo/index.html
 
-현재 P0 공유 검증은 Swagger UI와 OpenAPI JSON 경로를 기준으로 합니다.
+P0 공유 검증은 Swagger UI에서 수행할 수 있고, P1 최소 Demo UI에서도 같은 핵심 흐름을 확인할 수 있습니다.
 
 ## StaticWeatherProvider 기준
 1차 MVP는 외부 Weather API를 사용하지 않습니다. 추천 로직은 아래 고정 테스트 날씨를 사용합니다.
@@ -139,6 +139,14 @@ OpenAPI JSON 확인:
 ```bash
 curl -s http://localhost:8080/v3/api-docs
 ```
+
+Demo UI 확인:
+
+```text
+http://localhost:8080/demo/index.html
+```
+
+Demo UI에서는 `userId=1` 기준으로 옷 목록 조회, 옷 등록, 추천 생성, 착용 완료 처리를 실행할 수 있습니다.
 
 ## 테스트 명령어
 Step 1 전에는 Harness 운영 스크립트 검증을 먼저 사용합니다.

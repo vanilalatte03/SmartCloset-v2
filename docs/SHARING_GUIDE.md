@@ -16,7 +16,7 @@ AWS 배포는 제공하지 않는다. 외부 Weather API를 사용하지 않으�
 - seed data
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
-- Demo UI 경로(P1 구현 시): http://localhost:8080/demo/index.html
+- Demo UI 경로: http://localhost:8080/demo/index.html
 
 ## 실행 명령
 
@@ -33,7 +33,7 @@ Swagger UI 접속:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-P1 Demo UI 구현 후 접속:
+Demo UI 접속:
 
 ```text
 http://localhost:8080/demo/index.html
