@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "clothing-p0-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T11:43:56+0900",
+      "summary": "P0 Clothing 등록과 활성 목록 조회 API, 요청 검증, 통합 테스트를 구현했습니다.",
+      "completed_at": "2026-05-21T11:48:55+0900"
     },
     {
       "step": 4,
