@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "recommendation-api-kma-integration",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T19:14:31+0900",
+      "summary": "추천 생성 API 통합 테스트로 KMA weather snapshot 저장, fallback 성공, strict mode 500과 미저장을 검증했다.",
+      "completed_at": "2026-05-21T19:19:56+0900"
     },
     {
       "step": 5,
