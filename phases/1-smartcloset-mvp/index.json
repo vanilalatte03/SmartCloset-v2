@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "recommendation-domain",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T11:49:43+0900",
+      "summary": "StaticWeatherProvider와 순수 추천 도메인 필터/후보 생성/점수/이유 생성 규칙 및 단위 테스트를 구현했습니다.",
+      "completed_at": "2026-05-21T11:56:50+0900"
     },
     {
       "step": 5,
