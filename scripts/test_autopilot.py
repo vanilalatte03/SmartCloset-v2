@@ -200,6 +200,9 @@ def test_review_fail_fixes_same_pr_then_merges_and_continues(runner, tmp_repo):
     assert fix_calls == [(1, "codex/1-smartcloset-mvp-step0-project-scaffold", 0, 1)]
     assert dirty_commits == [0]
     assert pushed == ["codex/1-smartcloset-mvp-step0-project-scaffold"]
+    issue_text = (tmp_repo / "issues" / "1-smartcloset-mvp" / "issue-1.md").read_text(encoding="utf-8")
+    assert "## 자동 수정 완료" in issue_text
+    assert any(call[:2] == ("issue", "close") and call[2] == "https://github.com/org/repo/issues/1" for call in gh_calls)
     assert ("pr", "merge", "https://github.com/org/repo/pull/1", "--squash", "--delete-branch") in gh_calls
     assert ("pr", "merge", "https://github.com/org/repo/pull/2", "--squash", "--delete-branch") in gh_calls
     assert "https://github.com/org/repo/pull/1" in pr_urls

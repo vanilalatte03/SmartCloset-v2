@@ -204,6 +204,8 @@ class AutopilotRunner:
             last_review = review
             self._comment_review(pr_url, review)
             if review.passed:
+                if issue is not None:
+                    self._resolve_failure_issue(issue, review, step)
                 return review
 
             if issue is None:
@@ -629,7 +631,19 @@ class AutopilotRunner:
         self._comment_issue(issue, body)
         self._commit_issue_record(issue.local_path, step)
 
-    def _commit_issue_record(self, local_path: Path, step: dict):
+    def _resolve_failure_issue(self, issue: IssueRecord, review: ReviewResult, step: dict):
+        body = (
+            "## 자동 수정 완료\n\n"
+            "같은 PR 브랜치에서 자동 수정 후 리뷰 gate를 통과했습니다.\n\n"
+            f"{review.to_markdown()}\n"
+        )
+        existing = issue.local_path.read_text(encoding="utf-8")
+        issue.local_path.write_text(f"{existing.rstrip()}\n\n---\n\n{body}", encoding="utf-8")
+        if issue.github_url:
+            self._gh("issue", "close", issue.github_url, "--comment", body, check=False)
+        self._commit_issue_record(issue.local_path, step, message_suffix="자동 리뷰 해결 기록")
+
+    def _commit_issue_record(self, local_path: Path, step: dict, *, message_suffix: str = "자동 리뷰 실패 기록"):
         try:
             rel_path = local_path.relative_to(self.root)
         except ValueError:
@@ -640,7 +654,7 @@ class AutopilotRunner:
         if self._git("diff", "--cached", "--quiet", check=False).returncode == 0:
             return
 
-        message = f"chore: {self.phase} {step['step']}단계 자동 리뷰 실패 기록"
+        message = f"chore: {self.phase} {step['step']}단계 {message_suffix}"
         if self._git("commit", "-m", message, check=False).returncode == 0:
             self._git("push", check=False)
 
