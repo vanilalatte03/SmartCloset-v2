@@ -177,12 +177,47 @@ def test_parse_codex_review_json(runner):
     assert result.findings == []
 
 
+def test_parse_codex_review_json_from_event_stream(runner):
+    stdout = "\n".join([
+        '{"type":"started"}',
+        '{"type":"message","message":{"content":[{"type":"output_text","text":"{\\"pass\\": true, \\"summary\\": \\"ok\\", \\"findings\\": []}"}]}}',
+    ])
+
+    result = runner._parse_review_result(stdout)
+
+    assert result.passed is True
+    assert result.summary == "ok"
+    assert result.findings == []
+
+
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     def fake_git(*args, check=True):
         assert args[:2] == ("diff", "--unified=0")
         return cp(
             stdout="\n".join([
+                "diff --git a/scripts/autopilot.py b/scripts/autopilot.py",
+                "+++ b/scripts/autopilot.py",
+                '@@ -1,0 +1,1 @@',
+                '+            if "GET /api/recommendations/today" in line:',
+                "diff --git a/issues/1-smartcloset-mvp/issue-1.md b/issues/1-smartcloset-mvp/issue-1.md",
+                "+++ b/issues/1-smartcloset-mvp/issue-1.md",
+                '@@ -1,0 +1,1 @@',
+                '+- Redis 범위가 추가되었습니다.',
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,1 @@",
+                "+## 1차 MVP 제외 범위",
+                "+- AI/GPT 추천",
+                "+- Redis 캐싱",
+                "+## P2: 1차 이후 또는 시간이 남을 경우",
+                "+- 외부 Weather API 연동",
+                "+- AWS 수동 배포",
+                "+## 구현 범위",
                 "+외부 Weather API는 구현하지 않는다.",
+                "+AWS 배포는 제공하지 않는다.",
+                "+회원가입/로그인은 구현하지 않는다.",
+                "+SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 규칙 기반 추천이다.",
+                '+rg -n "GET /api/recommendations/today" .',
                 "+Redis 캐싱을 구현한다.",
                 "+GET /api/recommendations/today",
             ])
@@ -195,3 +230,6 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert "Redis 범위가 추가되었습니다." in findings
     assert "금지 API `GET /api/recommendations/today`가 추가되었습니다." in findings
     assert not any("외부 Weather API" in finding for finding in findings)
+    assert not any("AWS 배포" in finding for finding in findings)
+    assert not any("로그인/회원가입" in finding for finding in findings)
+    assert not any("AI/GPT" in finding for finding in findings)

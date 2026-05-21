@@ -49,12 +49,40 @@ class AutopilotRunner:
         "제외",
         "사용하지",
         "구현하지",
+        "추가하지",
+        "제공하지",
         "필수처럼 보이지",
+        "범위가 아니다",
+        "후속 mvp",
+        "1차 이후",
+        "후보로 이동",
+        "아니라",
+        "필요 없다",
         "not ",
         "do not",
         "out of scope",
         "비범위",
         "제거",
+    )
+    SAFE_SECTION_MARKERS = (
+        "제외 범위",
+        "비범위",
+        "out of scope",
+        "1차 이후",
+        "후속",
+        "p2",
+    )
+    SAFE_COMMAND_PREFIXES = (
+        "rg ",
+        "grep ",
+        "git grep ",
+    )
+    FORBIDDEN_SCAN_EXCLUDED_PATHS = (
+        "scripts/autopilot.py",
+        "scripts/test_autopilot.py",
+    )
+    FORBIDDEN_SCAN_EXCLUDED_PREFIXES = (
+        "issues/",
     )
 
     def __init__(self, phase: str, *, base: str = "main",
@@ -214,12 +242,30 @@ class AutopilotRunner:
             return [self._command_failure(["git", "diff", "--unified=0", f"origin/{self.base}...HEAD"], result)]
 
         findings: list[str] = []
+        safe_section = False
+        current_file = ""
         for raw in result.stdout.splitlines():
+            if raw.startswith("diff --git"):
+                current_file = self._diff_new_path(raw)
+                safe_section = False
+                continue
+            if raw.startswith("@@"):
+                safe_section = False
+                continue
+            if self._skip_forbidden_scan_file(current_file):
+                continue
             if not raw.startswith("+") or raw.startswith("+++"):
                 continue
             line = raw[1:].strip()
             lowered = line.lower()
-            if any(marker in lowered for marker in self.SAFE_NEGATION_MARKERS):
+            if line.startswith("#"):
+                safe_section = any(marker in lowered for marker in self.SAFE_SECTION_MARKERS)
+                continue
+            if (
+                safe_section
+                or any(marker in lowered for marker in self.SAFE_NEGATION_MARKERS)
+                or any(lowered.startswith(prefix) for prefix in self.SAFE_COMMAND_PREFIXES)
+            ):
                 continue
             if "GET /api/recommendations/today" in line:
                 findings.append("금지 API `GET /api/recommendations/today`가 추가되었습니다.")
@@ -234,6 +280,18 @@ class AutopilotRunner:
             if "Redis" in line:
                 findings.append("Redis 범위가 추가되었습니다.")
         return findings
+
+    def _diff_new_path(self, diff_header: str) -> str:
+        parts = diff_header.split()
+        if len(parts) >= 4 and parts[3].startswith("b/"):
+            return parts[3][2:]
+        return ""
+
+    def _skip_forbidden_scan_file(self, path: str) -> bool:
+        return (
+            path in self.FORBIDDEN_SCAN_EXCLUDED_PATHS
+            or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
+        )
 
     def _run_codex_review(self) -> ReviewResult:
         prompt = self._codex_review_prompt()
@@ -280,6 +338,10 @@ class AutopilotRunner:
                     nested = self._try_parse_review_candidate(value)
                     if nested is not None:
                         return nested
+                if isinstance(value, (dict, list)):
+                    nested = self._try_parse_review_payload(value)
+                    if nested is not None:
+                        return nested
 
             passed = data.get("pass", data.get("passed"))
             if isinstance(passed, str):
@@ -292,6 +354,25 @@ class AutopilotRunner:
                     findings = [str(findings)]
                 summary = str(data.get("summary", ""))
                 return ReviewResult(passed, [str(item) for item in findings], summary)
+        return None
+
+    def _try_parse_review_payload(self, payload: object) -> ReviewResult | None:
+        if isinstance(payload, str):
+            return self._try_parse_review_candidate(payload)
+        if isinstance(payload, list):
+            for item in reversed(payload):
+                nested = self._try_parse_review_payload(item)
+                if nested is not None:
+                    return nested
+            return None
+        if isinstance(payload, dict):
+            for key in ("text", "value", "output", "result", "message", "content", "final"):
+                value = payload.get(key)
+                if isinstance(value, (str, dict, list)):
+                    nested = self._try_parse_review_payload(value)
+                    if nested is not None:
+                        return nested
+            return self._try_parse_review_candidate(json.dumps(payload, ensure_ascii=False))
         return None
 
     # --- issue and fix ---
