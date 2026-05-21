@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -15,12 +16,40 @@ def cp(cmd=None, returncode=0, stdout="", stderr=""):
 @pytest.fixture
 def tmp_repo(tmp_path):
     (tmp_path / "issues").mkdir()
+    phase_dir = tmp_path / "phases" / "1-smartcloset-mvp"
+    phase_dir.mkdir(parents=True)
+    (phase_dir / "index.json").write_text(
+        json.dumps(
+            {
+                "project": "SmartCloset",
+                "phase": "1-smartcloset-mvp",
+                "steps": [
+                    {"step": 0, "name": "project-scaffold", "status": "pending"},
+                    {"step": 1, "name": "clothing-p0-api", "status": "pending"},
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (phase_dir / "step0.md").write_text("# 단계 0\n\n## 작업\n프로젝트 골격을 만든다.\n", encoding="utf-8")
+    (phase_dir / "step1.md").write_text("# 단계 1\n\n## 작업\nClothing P0 API를 만든다.\n", encoding="utf-8")
     return tmp_path
 
 
 @pytest.fixture
 def runner(tmp_repo):
     return ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+
+
+def _mark_step_complete(tmp_repo, step_num, summary="완료"):
+    index_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    for step in index["steps"]:
+        if step["step"] == step_num:
+            step["status"] = "completed"
+            step["summary"] = summary
+    index_path.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
 
 
 def test_preconditions_stop_on_dirty_worktree(runner):
@@ -52,39 +81,64 @@ def test_preconditions_stop_on_gh_auth_failure(runner):
     assert "gh auth failed" in str(exc_info.value)
 
 
-def test_phase_success_creates_draft_pr_and_merges(runner):
+def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
     gh_calls = []
-    phase_branches = []
+    executed = []
 
     runner._ensure_preconditions = lambda: None
-    runner._run_phase = lambda branch: phase_branches.append(branch)
-    runner._run_review_gate = lambda: ap.ReviewResult(True, [], "ok")
+    runner._sync_base = lambda: None
+
+    def fake_run_step(branch, step):
+        executed.append((branch, step["step"]))
+        _mark_step_complete(tmp_repo, step["step"], f"{step['name']} 완료")
+
+    runner._run_step = fake_run_step
+    runner._run_review_gate = lambda: ap.ReviewResult(True, [], "ok", commands=("cmd",))
 
     def fake_gh(*args, check=True):
         gh_calls.append(args)
         if args[:2] == ("pr", "create"):
-            return cp(stdout="https://github.com/org/repo/pull/7\n")
+            return cp(stdout=f"https://github.com/org/repo/pull/{len([c for c in gh_calls if c[:2] == ('pr', 'create')])}\n")
         return cp()
 
     runner._gh = fake_gh
 
-    pr_url = runner.run()
+    pr_urls = runner.run()
 
-    assert phase_branches == ["codex/1-smartcloset-mvp"]
-    assert pr_url == "https://github.com/org/repo/pull/7"
-    assert ("pr", "create", "--base", "main", "--head", "codex/1-smartcloset-mvp",
-            "--title", "[codex] 1-smartcloset-mvp 자동 구현") == gh_calls[0][:8]
+    assert executed == [
+        ("codex/1-smartcloset-mvp-step0-project-scaffold", 0),
+        ("codex/1-smartcloset-mvp-step1-clothing-p0-api", 1),
+    ]
+    assert "https://github.com/org/repo/pull/1" in pr_urls
+    assert "https://github.com/org/repo/pull/2" in pr_urls
+    assert gh_calls[0][:8] == (
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "codex/1-smartcloset-mvp-step0-project-scaffold",
+        "--title",
+        "feat: 1-smartcloset-mvp 0단계 project-scaffold 구현",
+    )
     assert "--draft" in gh_calls[0]
-    assert ("pr", "ready", "https://github.com/org/repo/pull/7") in gh_calls
-    assert ("pr", "merge", "https://github.com/org/repo/pull/7", "--squash", "--delete-branch") in gh_calls
+    assert any(call[:2] == ("pr", "comment") and "## 자체 리뷰" in call[4] for call in gh_calls)
+    assert ("pr", "ready", "https://github.com/org/repo/pull/1") in gh_calls
+    assert ("pr", "merge", "https://github.com/org/repo/pull/2", "--squash", "--delete-branch") in gh_calls
 
 
-def test_review_fail_creates_local_and_github_issue_and_closes_pr(runner, tmp_repo):
+def test_review_fail_records_issue_and_leaves_pr_open(runner, tmp_repo):
     gh_calls = []
     runner.max_review_fixes = 0
     runner._ensure_preconditions = lambda: None
-    runner._run_phase = lambda branch: None
-    runner._run_review_gate = lambda: ap.ReviewResult(False, ["테스트 실패"], "fail")
+    runner._sync_base = lambda: None
+    runner._run_step = lambda branch, step: _mark_step_complete(tmp_repo, step["step"], "완료")
+    runner._run_review_gate = lambda: ap.ReviewResult(
+        False,
+        ["src/main/java/App.java:10 - 테스트 실패"],
+        "fail",
+        checks_passed=False,
+    )
 
     def fake_gh(*args, check=True):
         gh_calls.append(args)
@@ -101,64 +155,79 @@ def test_review_fail_creates_local_and_github_issue_and_closes_pr(runner, tmp_re
 
     issue_path = tmp_repo / "issues" / "1-smartcloset-mvp" / "issue-1.md"
     assert issue_path.exists()
-    assert "테스트 실패" in issue_path.read_text(encoding="utf-8")
+    issue_text = issue_path.read_text(encoding="utf-8")
+    assert "Step: 0 `project-scaffold`" in issue_text
+    assert "src/main/java/App.java:10 - 테스트 실패" in issue_text
     assert any(call[:2] == ("issue", "create") for call in gh_calls)
-    assert ("pr", "comment", "https://github.com/org/repo/pull/8", "--body",
-            "자동 리뷰 gate가 실패했습니다.\n\nfail\n\n- 테스트 실패") in gh_calls
-    assert any(call[:3] == ("pr", "close", "https://github.com/org/repo/pull/8") for call in gh_calls)
+    assert any(call[:2] == ("pr", "comment") and "## 자체 리뷰" in call[4] for call in gh_calls)
+    assert not any(call[:2] == ("pr", "close") for call in gh_calls)
+    assert not any(call[:2] == ("pr", "merge") for call in gh_calls)
 
 
-def test_review_fix_branch_retries_and_merges(runner):
+def test_review_fail_fixes_same_pr_then_merges_and_continues(runner, tmp_repo):
     gh_calls = []
-    fix_branches = []
+    fix_calls = []
+    dirty_commits = []
     pushed = []
-    review_results = [
-        ap.ReviewResult(False, ["리뷰 실패"], "fail"),
+    runner._ensure_preconditions = lambda: None
+    runner._sync_base = lambda: None
+    runner._run_step = lambda branch, step: _mark_step_complete(tmp_repo, step["step"], "완료")
+    reviews = [
+        ap.ReviewResult(False, ["src/App.java:1 - 실패"], "fail"),
+        ap.ReviewResult(True, [], "ok"),
         ap.ReviewResult(True, [], "ok"),
     ]
-
-    runner._ensure_preconditions = lambda: None
-    runner._run_phase = lambda branch: None
-    runner._run_review_gate = lambda: review_results.pop(0)
-    runner._prepare_fix_branch = lambda fix_branch, source_branch: fix_branches.append((fix_branch, source_branch))
-    runner._invoke_codex_fix = lambda issue, fix_branch: None
-    runner._commit_dirty_fix = lambda issue: None
+    runner._run_review_gate = lambda: reviews.pop(0)
+    runner._invoke_codex_fix = lambda issue, branch, step, review, attempt: fix_calls.append(
+        (issue.number, branch, step["step"], attempt)
+    )
+    runner._commit_dirty_fix = lambda step: dirty_commits.append(step["step"])
     runner._push_branch = lambda branch: pushed.append(branch)
 
     def fake_gh(*args, check=True):
         gh_calls.append(args)
         if args[:2] == ("pr", "create"):
-            pr_number = len([call for call in gh_calls if call[:2] == ("pr", "create")])
-            return cp(stdout=f"https://github.com/org/repo/pull/{pr_number}\n")
+            pr_count = len([call for call in gh_calls if call[:2] == ("pr", "create")])
+            return cp(stdout=f"https://github.com/org/repo/pull/{pr_count}\n")
         if args[:2] == ("issue", "create"):
             return cp(stdout="https://github.com/org/repo/issues/1\n")
         return cp()
 
     runner._gh = fake_gh
 
-    pr_url = runner.run()
+    pr_urls = runner.run()
 
-    assert fix_branches == [("codex/1-smartcloset-mvp-fix-1-1", "codex/1-smartcloset-mvp")]
-    assert pushed == ["codex/1-smartcloset-mvp-fix-1-1"]
-    assert pr_url == "https://github.com/org/repo/pull/2"
+    assert fix_calls == [(1, "codex/1-smartcloset-mvp-step0-project-scaffold", 0, 1)]
+    assert dirty_commits == [0]
+    assert pushed == ["codex/1-smartcloset-mvp-step0-project-scaffold"]
+    assert ("pr", "merge", "https://github.com/org/repo/pull/1", "--squash", "--delete-branch") in gh_calls
     assert ("pr", "merge", "https://github.com/org/repo/pull/2", "--squash", "--delete-branch") in gh_calls
+    assert "https://github.com/org/repo/pull/1" in pr_urls
+    assert "https://github.com/org/repo/pull/2" in pr_urls
 
 
-def test_review_stops_after_max_retry(runner):
+def test_review_stops_after_max_fix_attempts_without_closing_pr(runner, tmp_repo):
+    gh_calls = []
+    fix_calls = []
     runner.max_review_fixes = 1
     runner._ensure_preconditions = lambda: None
-    runner._run_phase = lambda branch: None
-    runner._run_review_gate = lambda: ap.ReviewResult(False, ["계속 실패"], "fail")
-    runner._prepare_fix_branch = lambda fix_branch, source_branch: None
-    runner._invoke_codex_fix = lambda issue, fix_branch: None
-    runner._commit_dirty_fix = lambda issue: None
+    runner._sync_base = lambda: None
+    runner._run_step = lambda branch, step: _mark_step_complete(tmp_repo, step["step"], "완료")
+    reviews = [
+        ap.ReviewResult(False, ["첫 실패"], "fail"),
+        ap.ReviewResult(False, ["재시도 실패"], "fail again"),
+    ]
+    runner._run_review_gate = lambda: reviews.pop(0)
+    runner._invoke_codex_fix = lambda issue, branch, step, review, attempt: fix_calls.append(attempt)
+    runner._commit_dirty_fix = lambda step: None
     runner._push_branch = lambda branch: None
 
     def fake_gh(*args, check=True):
+        gh_calls.append(args)
         if args[:2] == ("pr", "create"):
-            return cp(stdout="https://github.com/org/repo/pull/9\n")
+            return cp(stdout="https://github.com/org/repo/pull/8\n")
         if args[:2] == ("issue", "create"):
-            return cp(stdout="https://github.com/org/repo/issues/9\n")
+            return cp(stdout="https://github.com/org/repo/issues/1\n")
         return cp()
 
     runner._gh = fake_gh
@@ -166,7 +235,13 @@ def test_review_stops_after_max_retry(runner):
     with pytest.raises(ap.AutopilotError) as exc_info:
         runner.run()
 
+    issue_path = tmp_repo / "issues" / "1-smartcloset-mvp" / "issue-1.md"
+    assert "재시도 1 리뷰 실패" in issue_path.read_text(encoding="utf-8")
+    assert fix_calls == [1]
     assert "최대 횟수" in str(exc_info.value)
+    assert any(call[:2] == ("issue", "comment") for call in gh_calls)
+    assert not any(call[:2] == ("pr", "close") for call in gh_calls)
+    assert not any(call[:2] == ("pr", "merge") for call in gh_calls)
 
 
 def test_parse_codex_review_json(runner):
@@ -204,6 +279,18 @@ def test_parse_codex_review_json_from_nested_item_event(runner):
     assert result.findings == []
 
 
+def test_parse_codex_review_returns_none_when_json_missing(runner):
+    assert runner._parse_review_result("plain text only") is None
+
+
+def test_codex_review_prompt_excludes_issue_records(runner):
+    prompt = runner._codex_review_prompt()
+
+    assert "issues/**" in prompt
+    assert "audit logs" in prompt
+    assert "not implementation changes" in prompt
+
+
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     def fake_git(*args, check=True):
         assert args[:2] == ("diff", "--unified=0")
@@ -211,15 +298,15 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
             stdout="\n".join([
                 "diff --git a/scripts/autopilot.py b/scripts/autopilot.py",
                 "+++ b/scripts/autopilot.py",
-                '@@ -1,0 +1,1 @@',
+                "@@ -1,0 +1,1 @@",
                 '+            if "GET /api/recommendations/today" in line:',
                 "diff --git a/issues/1-smartcloset-mvp/issue-1.md b/issues/1-smartcloset-mvp/issue-1.md",
                 "+++ b/issues/1-smartcloset-mvp/issue-1.md",
-                '@@ -1,0 +1,1 @@',
-                '+- Redis 범위가 추가되었습니다.',
+                "@@ -1,0 +1,1 @@",
+                "+- Redis 범위가 추가되었습니다.",
                 "diff --git a/docs/PRD.md b/docs/PRD.md",
                 "+++ b/docs/PRD.md",
-                "@@ -1,0 +1,1 @@",
+                "@@ -1,0 +1,12 @@",
                 "+## 1차 MVP 제외 범위",
                 "+- AI/GPT 추천",
                 "+- Redis 캐싱",
@@ -241,9 +328,26 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
 
     findings = runner._scan_forbidden_diff()
 
-    assert "Redis 범위가 추가되었습니다." in findings
-    assert "금지 API `GET /api/recommendations/today`가 추가되었습니다." in findings
+    assert any("docs/PRD.md:" in finding and "Redis 범위" in finding for finding in findings)
+    assert any("docs/PRD.md:" in finding and "GET /api/recommendations/today" in finding for finding in findings)
     assert not any("외부 Weather API" in finding for finding in findings)
     assert not any("AWS 배포" in finding for finding in findings)
     assert not any("로그인/회원가입" in finding for finding in findings)
     assert not any("AI/GPT" in finding for finding in findings)
+    assert len(findings) == len(set(findings))
+
+
+def test_review_markdown_is_table_and_dedupes_findings():
+    review = ap.ReviewResult(
+        False,
+        ["a.java:1 - 실패", "a.java:1 - 실패"],
+        "블로커가 있어 merge하지 않습니다.",
+        forbidden_passed=False,
+        commands=("python3 scripts/checks.py --stage manual",),
+    )
+
+    markdown = review.to_markdown()
+
+    assert "| 금지 범위 | 실패 |" in markdown
+    assert markdown.count("a.java:1 - 실패") == 1
+    assert "## 리뷰 결론" in markdown

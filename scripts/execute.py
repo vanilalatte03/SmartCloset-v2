@@ -62,7 +62,9 @@ class StepExecutor:
     TZ = timezone(timedelta(hours=9))
 
     def __init__(self, phase_dir_name: str, *, auto_push: bool = False,
-                 unsafe: bool = False, branch_name: Optional[str] = None):
+                 unsafe: bool = False, branch_name: Optional[str] = None,
+                 step_number: Optional[int] = None,
+                 next_step_only: bool = False):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
@@ -71,6 +73,8 @@ class StepExecutor:
         self._auto_push = auto_push
         self._unsafe = unsafe
         self._branch_name = branch_name
+        self._step_number = step_number
+        self._next_step_only = next_step_only
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -96,7 +100,16 @@ class StepExecutor:
         guardrails = self._load_guardrails()
         command_context = self._load_command_context()
         self._ensure_created_at()
-        self._execute_all_steps(guardrails, command_context)
+        if self._step_number is not None or self._next_step_only:
+            ran = self._execute_one_step(guardrails, command_context)
+            if not ran:
+                return
+            if self._has_pending_steps():
+                self._push_current_branch()
+                print(f"\n  Step-only run completed for '{self._phase_name}'.")
+                return
+        else:
+            self._execute_all_steps(guardrails, command_context)
         self._finalize()
 
     # --- timestamps ---
@@ -441,6 +454,61 @@ class StepExecutor:
 
             self._execute_single_step(pending, guardrails, command_context)
 
+    def _execute_one_step(self, guardrails: str, command_context: str) -> bool:
+        step = self._select_single_step()
+        if step is None:
+            print("\n  No pending steps.")
+            return False
+
+        step_num = step["step"]
+        index = self._read_json(self._index_file)
+        for s in index["steps"]:
+            if s["step"] == step_num and "started_at" not in s:
+                s["started_at"] = self._stamp()
+                self._write_json(self._index_file, index)
+                break
+
+        self._execute_single_step(step, guardrails, command_context)
+        return True
+
+    def _select_single_step(self) -> Optional[dict]:
+        index = self._read_json(self._index_file)
+        steps = index["steps"]
+        pending = next((s for s in steps if s["status"] == "pending"), None)
+        if pending is None:
+            return None
+        if self._next_step_only:
+            return pending
+
+        target = next((s for s in steps if s["step"] == self._step_number), None)
+        if target is None:
+            print(f"  ERROR: Step {self._step_number} not found.")
+            sys.exit(1)
+        if target["step"] != pending["step"]:
+            print(
+                f"  ERROR: Step {self._step_number} cannot run before "
+                f"pending Step {pending['step']} ({pending['name']})."
+            )
+            sys.exit(1)
+        if target.get("status") != "pending":
+            print(f"  ERROR: Step {self._step_number} is not pending.")
+            sys.exit(1)
+        return target
+
+    def _has_pending_steps(self) -> bool:
+        index = self._read_json(self._index_file)
+        return any(s.get("status") == "pending" for s in index["steps"])
+
+    def _push_current_branch(self):
+        if not self._auto_push:
+            return
+        branch = self._branch_name
+        r = self._run_git("push", "-u", "origin", branch)
+        if r.returncode != 0:
+            print(f"\n  ERROR: git push 실패: {r.stderr.strip()}")
+            sys.exit(1)
+        print(f"  ✓ Pushed to origin/{branch}")
+
     def _finalize(self):
         index = self._read_json(self._index_file)
         index["completed_at"] = self._stamp()
@@ -476,13 +544,20 @@ def main():
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
     parser.add_argument("--branch", help="Branch name to use instead of codex/<phase>")
     parser.add_argument("--unsafe", action="store_true", help="Run codex exec with sandbox and approval bypass")
+    parser.add_argument("--step", type=int, help="Run only this pending step number")
+    parser.add_argument("--next-step-only", action="store_true", help="Run only the next pending step")
     args = parser.parse_args()
+
+    if args.step is not None and args.next_step_only:
+        parser.error("--step and --next-step-only cannot be used together")
 
     StepExecutor(
         args.phase_dir,
         auto_push=args.push,
         unsafe=args.unsafe,
         branch_name=args.branch,
+        step_number=args.step,
+        next_step_only=args.next_step_only,
     ).run()
 
 
