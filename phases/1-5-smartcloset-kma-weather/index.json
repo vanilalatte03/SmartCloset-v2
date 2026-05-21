@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "kma-http-client",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T18:39:31+0900",
+      "summary": "KMA getVilageFcst HTTP client와 fake transport 기반 요청/응답 실패 처리 테스트를 구현했다.",
+      "completed_at": "2026-05-21T18:43:58+0900"
     },
     {
       "step": 3,
