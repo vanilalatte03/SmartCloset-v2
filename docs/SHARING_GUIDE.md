@@ -85,7 +85,7 @@ WEATHER_FALLBACK_ENABLED=true
 
 ### KMA 연동 공유 성공 기준
 - `.env`에 유효한 `KMA_SERVICE_KEY`를 설정한 뒤 앱이 실행된다.
-- 추천 생성 시 KMA `getVilageFcst` JSON 호출이 성공하면 `weather`가 KMA 기반 값으로 반환된다.
+- Swagger 또는 Demo UI에서 추천 생성 시 KMA `getVilageFcst` JSON 호출이 성공하면 `weather`가 KMA 기반 값으로 반환된다.
 - KMA `NODATA` 또는 장애가 발생해도 fallback이 활성화되어 있으면 추천 생성은 성공한다.
 
 ## Weather 기준

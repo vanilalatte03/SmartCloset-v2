@@ -25,6 +25,7 @@ git config core.hooksPath .githooks
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 앱과 MySQL 실행 |
 | compose-down | `docker compose down -v` | yes | Docker Compose 중지 및 DB volume 초기화 |
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
+| autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
 | autopilot | `python3 scripts/autopilot.py 1-5-smartcloset-kma-weather --base main --max-review-fixes 2 --unsafe` | no | 1.5차 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
@@ -61,7 +62,7 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 ```bash
 git diff --check
 ! rg -n 'GET /api/recommendations/(today)' . --glob '!archive/**'
-rg -n "POST /api/recommendations" .
+rg -n "POST /api/recommendations\\?userId" README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 ```
 
 ## 자동 PR 루프

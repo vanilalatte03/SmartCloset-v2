@@ -233,8 +233,8 @@ POST /api/recommendations?userId=1
 1. `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 2. `KMA_NX=60`, `KMA_NY=127`을 유지하거나 원하는 격자로 변경한다.
 3. `docker compose up --build`를 실행한다.
-4. Swagger에서 `POST /api/recommendations?userId=1`을 호출한다.
-5. 응답의 `weather`가 호출 시점의 기상청 예보값에 맞게 달라질 수 있음을 확인한다.
+4. Swagger에서 `POST /api/recommendations?userId=1`을 호출하거나 Demo UI에서 추천 생성을 실행한다.
+5. 응답 또는 Demo UI의 `weather`가 호출 시점의 기상청 예보값에 맞게 달라질 수 있음을 확인한다.
 
 주의:
 - 실제 서비스키는 출력, 문서, 커밋에 남기지 않는다.
