@@ -42,6 +42,32 @@ class KmaVilageForecastClientTest {
     }
 
     @Test
+    void encodesDecodedServiceKeyReservedCharactersForQueryString() {
+        FakeTransport transport = FakeTransport.responding(200, successResponse());
+        KmaVilageForecastClient client = newClient(transport, "abc+def/ghi==");
+
+        client.getVilageForecast(baseTime);
+
+        assertThat(transport.requestedUri().getRawQuery())
+                .contains("serviceKey=abc%2Bdef%2Fghi%3D%3D")
+                .doesNotContain("serviceKey=abc+def/ghi==");
+    }
+
+    @Test
+    void doesNotDoubleEncodeAlreadyEncodedServiceKey() {
+        FakeTransport transport = FakeTransport.responding(200, successResponse());
+        KmaVilageForecastClient client = newClient(transport, "abc%2Bdef%2Fghi%3D%3D");
+
+        client.getVilageForecast(baseTime);
+
+        assertThat(transport.requestedUri().getRawQuery())
+                .contains("serviceKey=abc%2Bdef%2Fghi%3D%3D")
+                .doesNotContain("%252B")
+                .doesNotContain("%252F")
+                .doesNotContain("%253D");
+    }
+
+    @Test
     void failsWhenResultCodeIsNotSuccess() {
         KmaVilageForecastClient client = newClient(FakeTransport.responding(200, """
                 {
@@ -135,8 +161,12 @@ class KmaVilageForecastClientTest {
     }
 
     private KmaVilageForecastClient newClient(FakeTransport transport) {
+        return newClient(transport, "test-service-key");
+    }
+
+    private KmaVilageForecastClient newClient(FakeTransport transport, String serviceKey) {
         KmaWeatherProperties properties = new KmaWeatherProperties();
-        properties.getKma().setServiceKey("test-service-key");
+        properties.getKma().setServiceKey(serviceKey);
         properties.getKma().setBaseUrl("http://example.test/kma");
         properties.getKma().setNx(61);
         properties.getKma().setNy(128);

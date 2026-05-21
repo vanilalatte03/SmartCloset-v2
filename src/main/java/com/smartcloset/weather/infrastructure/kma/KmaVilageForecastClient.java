@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 @Component
 public class KmaVilageForecastClient implements KmaForecastClient {
@@ -49,7 +52,7 @@ public class KmaVilageForecastClient implements KmaForecastClient {
     URI buildUri(KmaForecastBaseTime baseTime) {
         return UriComponentsBuilder.fromUriString(properties.baseUrl())
                 .pathSegment(GET_VILAGE_FCST_PATH)
-                .queryParam("serviceKey", properties.serviceKey())
+                .queryParam("serviceKey", encodedServiceKey())
                 .queryParam("pageNo", "1")
                 .queryParam("numOfRows", "1000")
                 .queryParam("dataType", "JSON")
@@ -57,8 +60,23 @@ public class KmaVilageForecastClient implements KmaForecastClient {
                 .queryParam("base_time", baseTime.baseTime())
                 .queryParam("nx", properties.nx())
                 .queryParam("ny", properties.ny())
-                .build()
+                .build(true)
                 .toUri();
+    }
+
+    private String encodedServiceKey() {
+        // data.go.kr keys may be decoded or percent-encoded; send exactly one form-encoded value.
+        String serviceKey = properties.serviceKey();
+        String decodedServiceKey = decodePercentEncodedServiceKey(serviceKey);
+        return URLEncoder.encode(decodedServiceKey, StandardCharsets.UTF_8);
+    }
+
+    private String decodePercentEncodedServiceKey(String serviceKey) {
+        try {
+            return UriUtils.decode(serviceKey, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException exception) {
+            return serviceKey;
+        }
     }
 
     private KmaHttpResponse execute(URI uri) {
