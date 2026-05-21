@@ -6,6 +6,11 @@ tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 
+# Gradle
+.gradle/
+.gradle-user-home/
+build/
+
 # local workspace files
 .idea/
 prompt-summary.txt

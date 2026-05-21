@@ -3,10 +3,9 @@
 이 파일은 프로젝트 실행 명령의 단일 출처입니다.
 
 현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose 기준으로 구현할 계획이
-확정되어 있습니다. 다만 Gradle wrapper, Dockerfile, Docker Compose 파일은
-아직 생성 전입니다. Step 1 전에는 Harness 운영 스크립트 검증을 활성 명령으로
-사용하고, Step 1에서 Gradle wrapper가 생성된 뒤 `test`와 `build`를 Gradle
-기준으로 갱신합니다. 비어 있는 명령은 실행하지 않습니다.
+확정되어 있습니다. Gradle wrapper가 생성되어 `test`와 `build`는 Gradle 기준으로
+실행합니다. Dockerfile, Docker Compose 파일은 아직 생성 전입니다. 비어 있는 명령은
+실행하지 않습니다.
 
 ## 개발 전 준비
 
@@ -21,8 +20,8 @@ git config core.hooksPath .githooks
 | --- | --- | --- | --- |
 | dev |  | no | 개발 서버 또는 watch 실행 |
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
-| test | `python3 -m pytest scripts/test_checks.py scripts/test_guard.py scripts/test_execute.py scripts/test_autopilot.py` | yes | Step 1 전 Harness 운영 테스트, Step 1 이후 `./gradlew test`로 갱신 |
-| build |  | yes | Step 1 이후 `./gradlew build`로 갱신 |
+| test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
+| build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
 | autopilot | `python3 scripts/autopilot.py 1-smartcloset-mvp --base main` | no | phase 실행, PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |

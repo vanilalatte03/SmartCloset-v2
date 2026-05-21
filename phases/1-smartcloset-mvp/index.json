@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "project-scaffold",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T11:04:16+0900",
+      "summary": "Spring Boot 4.0.6 Gradle 프로젝트 골격, 공통 응답/예외 처리, OpenAPI 설정, 기본 context load 테스트를 추가했습니다.",
+      "completed_at": "2026-05-21T11:28:18+0900"
     },
     {
       "step": 2,
