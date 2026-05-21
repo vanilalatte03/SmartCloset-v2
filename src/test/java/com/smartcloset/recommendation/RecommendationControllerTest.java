@@ -20,6 +20,7 @@ import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
+import com.smartcloset.weather.domain.WeatherType;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -106,6 +107,10 @@ class RecommendationControllerTest {
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(OutfitSlot.class)));
 
         assertThat(saved.getUser().getId()).isEqualTo(user.getId());
+        assertThat(saved.getWeatherTemperature()).isEqualTo(12);
+        assertThat(saved.getWeatherType()).isEqualTo(WeatherType.CLOUDY);
+        assertThat(saved.isRainy()).isFalse();
+        assertThat(saved.isWindy()).isFalse();
         assertThat(saved.getItems()).hasSize(3);
         assertThat(slots).containsExactlyInAnyOrder(OutfitSlot.TOP, OutfitSlot.BOTTOM, OutfitSlot.OUTER);
         assertThat(savedReasons).hasSizeBetween(3, 5);
