@@ -13,6 +13,7 @@ build/
 
 # local workspace files
 .idea/
+.env
 prompt-summary.txt
 
 # phase execution outputs

@@ -90,7 +90,7 @@ Content-Type: application/json
 ```json
 {
   "data": {
-    "id": 10,
+    "id": 6,
     "userId": 1,
     "name": "그레이 후드",
     "category": "TOP",
@@ -147,17 +147,19 @@ POST /api/recommendations?userId=1
       }
     },
     "score": {
-      "totalScore": 88,
-      "weatherScore": 35,
+      "totalScore": 99,
+      "weatherScore": 34,
       "colorScore": 25,
       "wearHistoryScore": 20,
-      "recommendationHistoryScore": 8,
-      "diversityScore": 0
+      "recommendationHistoryScore": 10,
+      "diversityScore": 10
     },
     "reasons": [
       "현재 기온이 낮아 아우터를 포함한 조합을 추천했습니다.",
       "상의와 하의 색상이 무채색 중심이라 안정적인 조합입니다.",
-      "최근 착용 이력이 적어 반복 착용 부담이 낮습니다."
+      "최근 착용 이력이 적어 반복 착용 부담이 낮습니다.",
+      "니트 또는 울 소재가 현재 기온에 적합해 보온성을 보완합니다.",
+      "최근 추천된 동일 조합이 아니어서 반복 추천 부담이 낮습니다."
     ],
     "worn": false,
     "createdAt": "2026-05-20T10:00:00"
