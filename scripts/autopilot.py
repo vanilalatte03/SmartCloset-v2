@@ -323,11 +323,13 @@ class AutopilotRunner:
         try:
             data = json.loads(candidate)
         except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", candidate, re.DOTALL)
+            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
+            if not match:
+                match = re.search(r"(\{.*\})", candidate, re.DOTALL)
             if not match:
                 return None
             try:
-                data = json.loads(match.group(0))
+                data = json.loads(match.group(1))
             except json.JSONDecodeError:
                 return None
 
@@ -354,6 +356,11 @@ class AutopilotRunner:
                     findings = [str(findings)]
                 summary = str(data.get("summary", ""))
                 return ReviewResult(passed, [str(item) for item in findings], summary)
+            for value in data.values():
+                if isinstance(value, (str, dict, list)):
+                    nested = self._try_parse_review_payload(value)
+                    if nested is not None:
+                        return nested
         return None
 
     def _try_parse_review_payload(self, payload: object) -> ReviewResult | None:
@@ -368,6 +375,11 @@ class AutopilotRunner:
         if isinstance(payload, dict):
             for key in ("text", "value", "output", "result", "message", "content", "final"):
                 value = payload.get(key)
+                if isinstance(value, (str, dict, list)):
+                    nested = self._try_parse_review_payload(value)
+                    if nested is not None:
+                        return nested
+            for value in payload.values():
                 if isinstance(value, (str, dict, list)):
                     nested = self._try_parse_review_payload(value)
                     if nested is not None:

@@ -190,6 +190,20 @@ def test_parse_codex_review_json_from_event_stream(runner):
     assert result.findings == []
 
 
+def test_parse_codex_review_json_from_nested_item_event(runner):
+    stdout = "\n".join([
+        '{"type":"started"}',
+        '{"type":"event","item":{"type":"message","content":[{"type":"output_text","text":"```json\\n{\\"pass\\": true, \\"summary\\": \\"ok\\", \\"findings\\": []}\\n```"}]}}',
+        '{"type":"result","status":"success"}',
+    ])
+
+    result = runner._parse_review_result(stdout)
+
+    assert result.passed is True
+    assert result.summary == "ok"
+    assert result.findings == []
+
+
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     def fake_git(*args, check=True):
         assert args[:2] == ("diff", "--unified=0")
