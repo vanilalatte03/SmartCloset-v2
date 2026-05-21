@@ -48,7 +48,7 @@
       "status": "completed",
       "started_at": "2026-05-21T11:58:02+0900",
       "summary": "P0 추천 생성/착용 완료 API와 RecommendationResult/WearHistory 저장 흐름 및 통합 테스트를 구현했습니다.",
-      "completed_at": "2026-05-21T12:03:20+0900"
+      "completed_at": "2026-05-21T12:04:36+0900"
     },
     {
       "step": 6,
