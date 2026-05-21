@@ -24,6 +24,12 @@ class KmaWeatherPropertiesApplicationContextTest {
     private KmaWeatherProperties properties;
 
     @Autowired
+    private WeatherProvider weatherProvider;
+
+    @Autowired
+    private StaticWeatherProvider staticWeatherProvider;
+
+    @Autowired
     private List<WeatherProvider> weatherProviders;
 
     @Test
@@ -36,8 +42,12 @@ class KmaWeatherPropertiesApplicationContextTest {
     }
 
     @Test
-    void keepsStaticWeatherProviderAsOnlyWeatherProvider() {
-        assertThat(weatherProviders).hasSize(1);
-        assertThat(weatherProviders.getFirst()).isInstanceOf(StaticWeatherProvider.class);
+    void resolvesPrimaryWeatherProviderToKmaProviderAndKeepsStaticFallbackProvider() {
+        assertThat(weatherProvider).isInstanceOf(KmaVilageForecastWeatherProvider.class);
+        assertThat(staticWeatherProvider).isNotNull();
+        assertThat(weatherProviders).hasSize(2);
+        assertThat(weatherProviders)
+                .anySatisfy(provider -> assertThat(provider).isInstanceOf(KmaVilageForecastWeatherProvider.class))
+                .anySatisfy(provider -> assertThat(provider).isInstanceOf(StaticWeatherProvider.class));
     }
 }

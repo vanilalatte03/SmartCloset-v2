@@ -36,7 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 @ActiveProfiles("test")
-@SpringBootTest
+@SpringBootTest(properties = {
+        "KMA_SERVICE_KEY=",
+        "WEATHER_FALLBACK_ENABLED=true"
+})
 @Transactional
 class RecommendationControllerTest {
 
