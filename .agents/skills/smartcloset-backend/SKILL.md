@@ -1,6 +1,6 @@
 ---
 name: smartcloset-backend
-description: Use when implementing or reviewing the SmartCloset Spring Boot 4.0.6 backend, including rule-based outfit recommendations, KMA weather provider/fallback weather, JPA entities, APIs, tests, Docker Compose sharing, and documentation sync.
+description: Use when implementing or reviewing the SmartCloset Spring Boot 4.0.6 backend, including rule-based outfit recommendations, KMA weather provider/fallback weather, user location APIs, JPA entities, APIs, tests, Docker Compose sharing, and documentation sync.
 ---
 
 # SmartCloset Backend Skill
@@ -8,11 +8,11 @@ description: Use when implementing or reviewing the SmartCloset Spring Boot 4.0.
 ## Purpose
 Use this skill before implementing SmartCloset backend work.
 
-The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recommendation and Docker Compose sharing. The current 1.5차 scope adds KMA `getVilageFcst` JSON weather integration with `StaticWeatherProvider` fallback. 문서 규칙은 `AGENTS.md`를 따른다.
+The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recommendation, KMA weather, user location selection, React+Vite+TypeScript frontend sharing, and Docker Compose sharing. The current 2차 scope adds user location storage, built-in KMA location catalog APIs, and a formal frontend app on top of the KMA `getVilageFcst` JSON provider with `StaticWeatherProvider` fallback. 문서 규칙은 `AGENTS.md`를 따른다.
 
 ## Scope
 
-### P0
+### 1차 P0 완료 기준
 - Seed user 기준 동작
 - Spring Boot 4.0.6 기반 프로젝트 구성
 - Clothing 등록/목록 API
@@ -24,22 +24,32 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 - Docker Compose 실행 기준
 - README와 `docs/DEMO_SCENARIO.md` 기준 충족
 
-### P1
+### 1차 P1 완료 기준
 - Spring Boot static resource 기반 최소 Demo UI
 - 옷 상세/수정/보관 API
 - GitHub Actions test/build
 
-### 1.5 P0
+### 1.5 P0 완료 기준
 - 기상청 단기예보 `getVilageFcst` JSON 연동
 - `WeatherProvider` 인터페이스 유지
 - `KmaVilageForecastWeatherProvider` + `StaticWeatherProvider` fallback
 - 환경변수 기반 `KMA_SERVICE_KEY`, `KMA_NX`, `KMA_NY`, `KMA_BASE_URL`, `WEATHER_FALLBACK_ENABLED`
 - 추천 생성 API 계약 유지
 
+### 2차 P0
+- 사용자별 위치 저장
+- 내장 KMA 대표 격자 catalog 조회/검색
+- 사용자 위치 선택 API
+- 추천 생성 시 사용자 위치 `nx`, `ny` 사용
+- seed user 기본 위치는 서울특별시 `SEOUL`, `nx=60`, `ny=127`
+- React+Vite+TypeScript frontend app 기준 문서화 및 구현
+- Docker Compose 공유 흐름에 frontend 포함
+
 ### Out of Scope
 - 기상청 단기예보 `getVilageFcst` 외의 외부 Weather API
-- 사용자별 위치 저장
-- 위치 변경 API
+- 외부 주소/지도 API
+- 사용자 현재 위치 자동 감지
+- 위경도-KMA 격자 변환 API
 - Weather source DB 저장
 - Redis 날씨 캐싱
 - AWS 수동 배포
@@ -51,7 +61,6 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 - Redis
 - 쇼핑몰 추천
 - 관리자 기능
-- 정식 프론트엔드 앱
 
 ## API Rules
 - 추천 생성은 반드시 `POST /api/recommendations?userId={userId}`를 사용한다.
@@ -62,6 +71,8 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 - 추천 실패는 HTTP `422 Unprocessable Entity`로 응답한다.
 - `/worn` 처리는 idempotent하게 성공해야 한다.
 - archive 처리는 idempotent하게 성공해야 한다.
+- 위치 선택은 `GET /api/locations?keyword={keyword}`, `GET /api/users/location?userId={userId}`, `PUT /api/users/location?userId={userId}`를 사용한다.
+- 위치 선택 API도 `userId`를 request parameter로 전달한다.
 
 ## Domain Rules
 - 추천 로직은 Controller에 두지 않는다.
@@ -76,12 +87,31 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## Weather Rules
 - `WeatherProvider` 인터페이스에 의존한다.
-- 1.5차 기본 구현체는 KMA `getVilageFcst` JSON 기반 provider이며 `@Primary`로 둔다.
+- 기본 구현체는 KMA `getVilageFcst` JSON 기반 provider이며 `@Primary`로 둔다.
 - `StaticWeatherProvider`는 fallback/test 구현체로 유지하고, KMA provider에서는 concrete fallback으로 주입받는다.
 - fallback 날씨는 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`다.
 - KMA 연동은 `TMP`, `SKY`, `PTY`, `PCP`, `WSD`를 내부 `WeatherCondition`으로 매핑한다.
 - `WEATHER_FALLBACK_ENABLED=false`는 strict KMA mode이며 KMA 실패 시 fallback하지 않는다.
 - 추천 도메인은 KMA 응답 DTO에 직접 의존하지 않는다.
+- 2차에서는 KMA 요청 `nx`, `ny`를 사용자 위치에서 가져온다.
+- 2차 추천 경로에서 `KMA_NX`, `KMA_NY`는 source of truth가 아니며 기존 구현/로컬 기본값 호환용이다.
+- 사용자 위치가 없으면 서울특별시 `SEOUL`, `60`, `127`로 보정한다.
+
+## Location Rules
+- 위치 catalog는 DB 테이블이 아니라 서버 내장 대표 격자 목록으로 시작한다.
+- 최소 catalog는 `SEOUL`, `BUSAN`, `DAEGU`, `INCHEON`, `GWANGJU`, `DAEJEON`, `ULSAN`, `SEJONG`, `JEJU`를 포함한다.
+- 존재하지 않는 위치 code는 `LOCATION_NOT_FOUND`로 응답한다.
+- 외부 지도/주소 API를 추가하지 않는다.
+- 위치 선택은 인증 없는 seed/test user 기준으로만 제공한다.
+- 기존 사용자 row에 위치가 없어서 서울 기본값으로 backfill해야 하는 조회 경로는 write transaction으로 처리한다.
+
+## Frontend Rules
+- 2차 frontend는 `frontend/` 아래 React+Vite+TypeScript SPA로 둔다.
+- 현재 문서 전환 시점에 `frontend/`가 없으면 첫 frontend 구현 step에서 스캐폴드와 Docker Compose `frontend` 서비스를 함께 추가한다.
+- TypeScript `strict` 기준을 사용한다.
+- API 요청/응답 DTO는 명시적 타입으로 관리한다.
+- 대형 상태 관리 라이브러리 없이 React state와 작은 API client로 시작한다.
+- frontend 기준 문서는 `docs/FRONTEND.md`를 따른다.
 
 ## Recommendation Rules
 - 추천 규칙은 `docs/RECOMMENDATION_RULES.md`를 기준으로 구현한다.
@@ -118,8 +148,9 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## Documentation Sync Rules
 - API 변경 시 `docs/API.md`, `README.md`, `docs/DEMO_SCENARIO.md`를 함께 확인한다.
+- frontend 변경 시 `docs/FRONTEND.md`, `README.md`, `docs/SHARING_GUIDE.md`를 함께 확인한다.
 - today 추천 GET 경로 표현이 API 계약처럼 생기면 제거한다.
-- KMA 기본 격자와 fallback 값이 문서 간 다르면 수정한다.
+- 사용자 기본 위치, KMA fallback 값이 문서 간 다르면 수정한다.
 - Docker Compose가 유일한 필수 공유 방식인지 확인한다.
 
 ## Implementation Attitude

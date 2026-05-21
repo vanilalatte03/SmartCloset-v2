@@ -1,16 +1,16 @@
-# 추천 규칙: SmartCloset 1.5차 MVP
+# 추천 규칙: SmartCloset 2차 MVP
 
 ## 1. 추천 규칙의 목적
-SmartCloset 1.5차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset 2차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-1.5차는 날씨 입력 source를 기상청 단기예보 JSON으로 확장하지만, 후보 생성, 점수 계산, 실패 판단, 최종 tie-break는 1차 MVP와 같은 결정 가능한 규칙을 유지한다.
+2차는 사용자별 위치의 기상청 단기예보 JSON을 날씨 입력 source로 사용하지만, 후보 생성, 점수 계산, 실패 판단, 최종 tie-break는 기존 결정 가능한 규칙을 유지한다.
 
 추천 이유는 AI가 생성하는 자유 문장이 아니다. 각 규칙의 판단 결과를 `RecommendationReasonGenerator`가 템플릿 문장으로 변환한다.
 
 ## 2. Weather source 정책
 추천 도메인은 외부 API 응답 모델에 직접 의존하지 않는다. 추천 규칙은 항상 내부 `WeatherCondition`만 입력으로 받는다.
 
-1.5차 기본 weather source는 기상청 단기예보 조회서비스 `getVilageFcst` JSON 응답이다. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락, 파싱 실패 시에는 `StaticWeatherProvider` fallback 날씨를 사용한다.
+2차 기본 weather source는 사용자 위치 `nx`, `ny`로 조회한 기상청 단기예보 조회서비스 `getVilageFcst` JSON 응답이다. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락, 파싱 실패 시에는 `StaticWeatherProvider` fallback 날씨를 사용한다.
 
 KMA forecast group 선택은 provider 책임이다. provider는 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` group을 선택해 `WeatherCondition`을 만든다. 선택 group에 필수 category가 누락되면 다른 forecast group으로 이동하지 않고 fallback 또는 strict mode 실패로 처리한다.
 
@@ -52,7 +52,7 @@ KMA `getVilageFcst` JSON 응답의 `response.body.items.item[]`에서 같은 for
 
 forecast time 선택, KMA 오류 처리, fallback 또는 strict mode 실패 판단은 추천 도메인이 아니라 `WeatherProvider` 구현 책임이다.
 
-1.5차 추천에 필요한 category는 아래 5개다.
+2차 추천에 필요한 category는 아래 5개다.
 
 | Category | Name | WeatherCondition field |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ forecast time 선택, KMA 오류 처리, fallback 또는 strict mode 실패 판�
 - `WSD >= 4.0`이면 `true`다.
 - `WSD < 4.0`이면 `false`다.
 
-`POP`, `REH`, `TMN`, `TMX`, `SNO`, `UUU`, `VVV`, `VEC` 등은 1.5차 추천 점수에는 사용하지 않는다.
+`POP`, `REH`, `TMN`, `TMX`, `SNO`, `UUU`, `VVV`, `VEC` 등은 2차 추천 점수에는 사용하지 않는다.
 
 ## 5. ClothingItem 최소 속성
 추천 규칙에서 사용하는 `ClothingItem` 최소 속성은 다음과 같다.
@@ -328,7 +328,7 @@ Strong clash는 아래 조합으로 제한한다.
 
 동일 조합 판단은 TOP, BOTTOM, OUTER의 id 집합이 모두 같은 경우로 한다. OUTER가 없는 조합과 OUTER가 있는 조합은 서로 다른 조합이다.
 
-색상/재질 기반 다양성은 1.5차 MVP에서 구현하지 않고 2차 MVP 후보로 이동한다.
+색상/재질 기반 다양성 고도화는 2차 MVP에서 구현하지 않고 후속 MVP 후보로 이동한다.
 
 ## 15. 최종 후보 선택 규칙
 후보가 여러 개일 때 아래 순서로 정렬한다.
@@ -440,5 +440,5 @@ Strong clash는 아래 조합으로 제한한다.
 ## 정합성 메모
 - PRD와 ARCHITECTURE와 충돌하는 내용은 없다.
 - 추천 생성 API 계약은 `POST /api/recommendations?userId={userId}`를 기준으로 한다.
-- 색상별 세부 선호도나 계절성 개인화는 1.5차 MVP 범위에서 제외한다.
+- 색상별 세부 선호도나 계절성 개인화는 2차 MVP 범위에서 제외한다.
 - `RecommendationResult`의 물리 DB 저장 구조는 `docs/ERD.md`를 따른다.
