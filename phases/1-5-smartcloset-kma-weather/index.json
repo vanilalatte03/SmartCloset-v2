@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "kma-time-and-mapping-core",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T18:31:53+0900",
+      "summary": "KST 기준 KMA 발표시각 계산과 forecast group 선택 및 TMP/SKY/PTY/PCP/WSD WeatherCondition 매핑 core를 구현했다.",
+      "completed_at": "2026-05-21T18:35:48+0900"
     },
     {
       "step": 2,
