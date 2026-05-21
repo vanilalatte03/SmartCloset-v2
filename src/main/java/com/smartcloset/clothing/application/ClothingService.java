@@ -1,6 +1,7 @@
 package com.smartcloset.clothing.application;
 
 import com.smartcloset.clothing.domain.ClothingItem;
+import com.smartcloset.clothing.dto.ClothingArchiveResponse;
 import com.smartcloset.clothing.dto.ClothingRequest;
 import com.smartcloset.clothing.dto.ClothingResponse;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
@@ -49,8 +50,43 @@ public class ClothingService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ClothingResponse getClothing(Long userId, Long clothingId) {
+        findUser(userId);
+        return ClothingResponse.from(findClothingOwnedByUser(clothingId, userId));
+    }
+
+    @Transactional
+    public ClothingResponse updateClothing(Long userId, Long clothingId, ClothingRequest request) {
+        findUser(userId);
+        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, userId);
+        clothingItem.updateDetails(
+                request.name(),
+                request.category(),
+                request.color(),
+                request.material(),
+                request.minTemperature(),
+                request.maxTemperature(),
+                request.rainSuitable()
+        );
+        return ClothingResponse.from(clothingItem);
+    }
+
+    @Transactional
+    public ClothingArchiveResponse archiveClothing(Long userId, Long clothingId) {
+        findUser(userId);
+        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, userId);
+        clothingItem.archive();
+        return ClothingArchiveResponse.from(clothingItem);
+    }
+
     private User findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private ClothingItem findClothingOwnedByUser(Long clothingId, Long userId) {
+        return clothingItemRepository.findByIdAndUserId(clothingId, userId)
+                .orElseThrow(() -> new SmartClosetException(ErrorCode.CLOTHING_NOT_FOUND));
     }
 }

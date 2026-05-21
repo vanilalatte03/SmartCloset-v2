@@ -61,7 +61,10 @@
     {
       "step": 7,
       "name": "clothing-p1-api-ci",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T12:15:42+0900",
+      "summary": "P1 Clothing 상세/수정/보관 API와 GitHub Actions test/build 워크플로를 추가했습니다.",
+      "completed_at": "2026-05-21T12:17:38+0900"
     },
     {
       "step": 8,

@@ -2,7 +2,9 @@ package com.smartcloset.clothing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -178,6 +180,98 @@ class ClothingControllerTest {
                 .andExpect(jsonPath("$.details").isArray());
     }
 
+    @Test
+    void getsClothingOnlyWhenOwnedByRequestedUser() throws Exception {
+        User targetUser = userRepository.save(User.createSeedUser("target-user"));
+        User otherUser = userRepository.save(User.createSeedUser("other-user"));
+        ClothingItem targetClothing = clothingItemRepository.save(createTop(targetUser, "화이트 셔츠"));
+        ClothingItem otherClothing = clothingItemRepository.save(createTop(otherUser, "다른 사용자 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(get("/api/clothes/{clothingId}", targetClothing.getId())
+                        .param("userId", targetUser.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(targetClothing.getId()))
+                .andExpect(jsonPath("$.data.userId").value(targetUser.getId()))
+                .andExpect(jsonPath("$.data.name").value("화이트 셔츠"));
+
+        mockMvc.perform(get("/api/clothes/{clothingId}", otherClothing.getId())
+                        .param("userId", targetUser.getId().toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+    }
+
+    @Test
+    void updatesClothingDetailsWithoutChangingArchived() throws Exception {
+        User user = userRepository.save(User.createSeedUser("target-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+
+        Map<String, Object> request = validRequest();
+        request.put("name", "웜 그레이 니트");
+        request.put("material", "KNIT");
+        request.put("minTemperature", 3);
+        request.put("maxTemperature", 16);
+
+        mockMvc.perform(put("/api/clothes/{clothingId}", clothing.getId())
+                        .param("userId", user.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.name").value("웜 그레이 니트"))
+                .andExpect(jsonPath("$.data.material").value("KNIT"))
+                .andExpect(jsonPath("$.data.minTemperature").value(3))
+                .andExpect(jsonPath("$.data.maxTemperature").value(16))
+                .andExpect(jsonPath("$.data.archived").value(false));
+    }
+
+    @Test
+    void archivesClothingIdempotentlyAndExcludesItFromActiveList() throws Exception {
+        User user = userRepository.save(User.createSeedUser("target-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
+                        .param("userId", user.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.userId").value(user.getId()))
+                .andExpect(jsonPath("$.data.archived").value(true))
+                .andExpect(jsonPath("$.data.updatedAt").exists());
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
+                        .param("userId", user.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.archived").value(true));
+
+        mockMvc.perform(get("/api/clothes")
+                        .param("userId", user.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void returnsClothingNotFoundWhenUpdatingOrArchivingOtherUsersClothing() throws Exception {
+        User targetUser = userRepository.save(User.createSeedUser("target-user"));
+        User otherUser = userRepository.save(User.createSeedUser("other-user"));
+        ClothingItem otherClothing = clothingItemRepository.save(createTop(otherUser, "다른 사용자 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(put("/api/clothes/{clothingId}", otherClothing.getId())
+                        .param("userId", targetUser.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validRequest())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/archive", otherClothing.getId())
+                        .param("userId", targetUser.getId().toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+    }
+
     private Map<String, Object> validRequest() {
         return new java.util.LinkedHashMap<>(Map.of(
                 "name", "그레이 후드",
@@ -188,5 +282,18 @@ class ClothingControllerTest {
                 "maxTemperature", 18,
                 "rainSuitable", false
         ));
+    }
+
+    private ClothingItem createTop(User user, String name) {
+        return ClothingItem.create(
+                user,
+                name,
+                ClothingCategory.TOP,
+                ClothingColor.WHITE,
+                ClothingMaterial.COTTON,
+                0,
+                25,
+                false
+        );
     }
 }
