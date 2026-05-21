@@ -1,0 +1,36 @@
+{
+  "project": "SmartCloset",
+  "phase": "2-smartcloset-location-frontend",
+  "steps": [
+    {
+      "step": 0,
+      "name": "location-domain-and-schema",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "location-api",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "kma-user-grid-integration",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "frontend-scaffold-and-compose",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "frontend-core-flows",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "sharing-verification-and-doc-sync",
+      "status": "pending"
+    }
+  ]
+}

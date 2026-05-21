@@ -4,6 +4,7 @@
 - `.agents/skills/smartcloset-backend/SKILL.md`
 - `docs/PRD.md`
 - `docs/ARCHITECTURE.md`
+- `docs/FRONTEND.md`
 - `docs/RECOMMENDATION_RULES.md`
 - `docs/API.md`
 - `docs/ERD.md`
@@ -17,9 +18,11 @@
 - 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
 - `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
 - `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
-- 승인된 1.5차 범위는 기상청 단기예보 `getVilageFcst` JSON 연동까지로 제한한다.
+- 승인된 2차 범위는 사용자 위치 저장, 내장 대표 격자 위치 선택 API, React+Vite+TypeScript 프론트엔드 앱까지로 제한한다.
+- `frontend/`가 없는 상태에서 2차 프론트를 구현할 때는 스캐폴드와 Docker Compose `frontend` 서비스를 같은 구현 흐름에서 함께 추가한다.
 - Spring Boot 버전은 `4.0.6`으로 고정한다.
-- 1차 MVP에서는 외부 Weather API를 구현하지 않았지만, 1.5차에서는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
+- 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
+- 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
 - AWS 배포, 로그인/회원가입, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
 - 추천 생성 API는 `POST /api/recommendations?userId={userId}`만 사용한다.
 - today 추천 GET 경로는 사용하지 않는다.

@@ -9,6 +9,10 @@
       "dir": "1-5-smartcloset-kma-weather",
       "status": "completed",
       "completed_at": "2026-05-21T19:32:27+0900"
+    },
+    {
+      "dir": "2-smartcloset-location-frontend",
+      "status": "pending"
     }
   ]
 }

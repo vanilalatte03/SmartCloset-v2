@@ -1,20 +1,20 @@
-# ERD: SmartCloset 1.5차 MVP
+# ERD: SmartCloset 2차 MVP
 
-## 0. 1.5차 DB 변경 여부
-1.5차 MVP는 기상청 단기예보 JSON 연동을 추가하지만 DB 스키마는 변경하지 않는다.
+## 0. 2차 DB 변경
+2차 MVP는 사용자별 위치 저장을 위해 `users` 테이블에 위치 snapshot 컬럼을 추가한다.
 
-- 사용자별 위치 저장은 1.5차 범위에서 제외한다.
-- `weather_source`, `nx`, `ny`, KMA 원본 category 저장은 1.5차 범위에서 제외한다.
-- `recommendation_results`의 기존 weather snapshot 필드만 계속 사용한다.
-- 외부 API 실패 시 fallback 여부는 1.5차에서 DB에 저장하지 않는다.
+- 별도 `locations` 테이블은 만들지 않는다.
+- 위치 선택지는 서버 내장 catalog로 관리한다.
+- 추천 결과에는 기존 weather snapshot만 저장한다.
+- weather source, `nx`, `ny`, KMA 원본 category snapshot 저장은 2차 범위에서 제외한다.
+- 기존 사용자 데이터에 위치가 없으면 애플리케이션에서 서울특별시 `SEOUL`, `nx=60`, `ny=127`로 backfill한다.
+- 후속 migration 도구 도입 전까지 위치 컬럼에 DB non-null 제약을 강제하지 않는다.
 
 ## 1. 공통 DB 정책
 - DB는 MySQL 기준으로 설계한다.
 - 모든 JPA Entity는 `BaseTimeEntity`를 상속한다.
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
-- `RecommendationResultItem`과 `WearHistory`도 구현 단순성을 위해 `updated_at`을 포함한다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
-- 시간 컬럼은 애플리케이션에서 ISO-8601 문자열로 응답한다.
 - `recommendation_results.reasons_json`은 `JSON NOT NULL`로 저장한다.
 - Entity에서는 구현 단순성을 위해 `String reasonsJson`으로 보관한다.
 - Application 계층 또는 converter에서 string list와 JSON string 변환을 담당한다.
@@ -32,6 +32,10 @@ erDiagram
   users {
     BIGINT id PK
     VARCHAR name
+    VARCHAR location_code
+    VARCHAR location_name
+    INT location_nx
+    INT location_ny
     DATETIME created_at
     DATETIME updated_at
   }
@@ -96,16 +100,31 @@ erDiagram
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
 | `name` | `VARCHAR(50)` | no | none | seed/test user name |
+| `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code. 애플리케이션 기본값은 `SEOUL` |
+| `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름. 애플리케이션 기본값은 `서울특별시` |
+| `location_nx` | `INT` | yes | none | KMA grid X. 애플리케이션 기본값은 `60` |
+| `location_ny` | `INT` | yes | none | KMA grid Y. 애플리케이션 기본값은 `127` |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
 - Primary key: `id`
+- Index: `(location_code)`
 
 Relations:
 - `users.id` 1:N `clothing_items.user_id`
 - `users.id` 1:N `recommendation_results.user_id`
 - `users.id` 1:N `wear_histories.user_id`
+
+Location methods:
+- `updateLocation(LocationOption location)`
+- `ensureDefaultLocation()`
+
+Migration policy:
+- 위치 컬럼은 nullable로 추가한다.
+- seed user 생성 시 기본 위치를 함께 채운다.
+- 기존 row는 위치 조회 또는 추천 생성 전에 `ensureDefaultLocation()`으로 backfill한다.
+- backfill 저장이 필요한 조회 경로는 write transaction으로 처리한다.
 
 ### clothing_items
 | Column | Type | Nullable | Default | Description |
@@ -127,10 +146,6 @@ Indexes:
 - Primary key: `id`
 - Index: `(user_id, archived, id)`
 - Index: `(user_id, category, archived)`
-
-Relations:
-- `clothing_items.user_id` N:1 `users.id`
-- `clothing_items.id` 1:N `recommendation_result_items.clothing_item_id`
 
 ### recommendation_results
 | Column | Type | Nullable | Default | Description |
@@ -157,15 +172,7 @@ Indexes:
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 
-Relations:
-- `recommendation_results.user_id` N:1 `users.id`
-- `recommendation_results.id` 1:N `recommendation_result_items.recommendation_result_id`
-- `recommendation_results.id` 1:0..1 `wear_histories.recommendation_result_id`
-
-Reasons storage:
-- DB column: `reasons_json JSON NOT NULL`
-- Entity field: `String reasonsJson`
-- Conversion: Application 계층 또는 converter가 string list와 JSON string을 변환한다.
+2차에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
 
 ### recommendation_result_items
 | Column | Type | Nullable | Default | Description |
@@ -183,10 +190,6 @@ Indexes:
 - Index: `(clothing_item_id)`
 - Unique: `(recommendation_result_id, slot)`
 
-Relations:
-- `recommendation_result_items.recommendation_result_id` N:1 `recommendation_results.id`
-- `recommendation_result_items.clothing_item_id` N:1 `clothing_items.id`
-
 ### wear_histories
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -202,174 +205,25 @@ Indexes:
 - Index: `(user_id, worn_at)`
 - Unique: `(recommendation_result_id)`
 
-Relations:
-- `wear_histories.user_id` N:1 `users.id`
-- `wear_histories.recommendation_result_id` 1:1 `recommendation_results.id`
-
 WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실제 포함 옷은 `recommendation_result_items`를 통해 조회한다.
 
-## 4. Entity 설계 기준
+## 4. 내장 위치 catalog
+내장 위치 catalog는 DB 테이블이 아니라 애플리케이션 코드 또는 설정으로 제공한다.
 
-### BaseTimeEntity
-- 모든 JPA Entity는 `BaseTimeEntity`를 상속한다.
-- `BaseTimeEntity`는 `createdAt`, `updatedAt`을 가진다.
-- JPA Auditing으로 `created_at`, `updated_at`을 관리한다.
+| Code | Name | nx | ny |
+| --- | --- | ---: | ---: |
+| `SEOUL` | 서울특별시 | 60 | 127 |
+| `BUSAN` | 부산광역시 | 98 | 76 |
+| `DAEGU` | 대구광역시 | 89 | 90 |
+| `INCHEON` | 인천광역시 | 55 | 124 |
+| `GWANGJU` | 광주광역시 | 58 | 74 |
+| `DAEJEON` | 대전광역시 | 67 | 100 |
+| `ULSAN` | 울산광역시 | 102 | 84 |
+| `SEJONG` | 세종특별자치시 | 66 | 103 |
+| `JEJU` | 제주특별자치도 | 52 | 38 |
 
-### 공통 Entity 정책
-- 외부에서 setter를 남발하지 않는다.
-- Entity 생성은 factory/static constructor 또는 명시적 생성 메서드로 제한한다.
-- Entity 변경은 의도가 드러나는 메서드로 제한한다.
+## 5. Entity 설계 기준
 - Entity에 Lombok `@Data`, `@Setter`를 사용하지 않는다.
-- Entity에는 `@Getter`와 protected no-args constructor 정도만 허용한다.
-
-### User
-주요 필드:
-- `id`
-- `name`
-- `createdAt`
-- `updatedAt`
-
-연관관계:
-- `User`는 `ClothingItem`, `RecommendationResult`, `WearHistory`의 소유자다.
-
-생성/변경 메서드 후보:
-- `createSeedUser(String name)`
-- `rename(String name)`
-
-### ClothingItem
-주요 필드:
-- `id`
-- `user`
-- `name`
-- `category`
-- `color`
-- `material`
-- `minTemperature`
-- `maxTemperature`
-- `rainSuitable`
-- `archived`
-- `createdAt`
-- `updatedAt`
-
-연관관계:
-- `ClothingItem`은 하나의 `User`에 속한다.
-- `RecommendationResultItem`에서 추천 결과의 슬롯별 옷으로 참조된다.
-
-생성/변경 메서드 후보:
-- `create(User user, String name, ClothingCategory category, ClothingColor color, ClothingMaterial material, int minTemperature, int maxTemperature, boolean rainSuitable)`
-- `updateDetails(String name, ClothingCategory category, ClothingColor color, ClothingMaterial material, int minTemperature, int maxTemperature, boolean rainSuitable)`
-- `archive()`
-- `belongsTo(Long userId)`
-
-`archive()`는 idempotent하게 동작한다.
-
-### RecommendationResult
-주요 필드:
-- `id`
-- `user`
-- weather snapshot fields
-- score breakdown fields
-- `String reasonsJson`
-- `worn`
-- `items`
-- `createdAt`
-- `updatedAt`
-
-연관관계:
-- `RecommendationResult`는 하나의 `User`에 속한다.
-- `RecommendationResult`는 여러 `RecommendationResultItem`을 가진다.
-- `RecommendationResult`는 0개 또는 1개의 `WearHistory`를 가진다.
-
-생성/변경 메서드 후보:
-- `create(User user, WeatherCondition weather, RecommendationScore score, String reasonsJson)`
-- `addItem(ClothingItem clothingItem, OutfitSlot slot)`
-- `markWorn()`
-- `isWorn()`
-
-`markWorn()`은 idempotent하게 동작한다.
-
-### RecommendationResultItem
-주요 필드:
-- `id`
-- `recommendationResult`
-- `clothingItem`
-- `slot`
-- `createdAt`
-- `updatedAt`
-
-연관관계:
-- `RecommendationResultItem`은 하나의 `RecommendationResult`에 속한다.
-- `RecommendationResultItem`은 하나의 `ClothingItem`을 참조한다.
-
-생성/변경 메서드 후보:
-- `of(RecommendationResult recommendationResult, ClothingItem clothingItem, OutfitSlot slot)`
-
-### WearHistory
-주요 필드:
-- `id`
-- `user`
-- `recommendationResult`
-- `wornAt`
-- `createdAt`
-- `updatedAt`
-
-연관관계:
-- `WearHistory`는 하나의 `User`에 속한다.
-- `WearHistory`는 하나의 `RecommendationResult`를 참조한다.
-
-생성/변경 메서드 후보:
-- `record(User user, RecommendationResult recommendationResult, LocalDateTime wornAt)`
-
-## 5. Enum 확정
-
-### ClothingCategory
-- `TOP`
-- `BOTTOM`
-- `OUTER`
-
-### ClothingColor
-- `BLACK`
-- `WHITE`
-- `GRAY`
-- `NAVY`
-- `BLUE`
-- `BROWN`
-- `BEIGE`
-- `RED`
-- `GREEN`
-- `YELLOW`
-- `UNKNOWN`
-
-### ClothingMaterial
-- `COTTON`
-- `DENIM`
-- `KNIT`
-- `WOOL`
-- `POLYESTER`
-- `NYLON`
-- `UNKNOWN`
-
-### WeatherType
-- `SUNNY`
-- `CLOUDY`
-- `RAINY`
-- `SNOWY`
-- `WINDY`
-
-### OutfitSlot
-- `TOP`
-- `BOTTOM`
-- `OUTER`
-
-### RecommendationFailureCode
-- `NO_TOP_AVAILABLE`
-- `NO_BOTTOM_AVAILABLE`
-- `NO_WEATHER_SUITABLE_ITEM`
-- `OUTER_REQUIRED_BUT_NOT_AVAILABLE`
-- `INSUFFICIENT_CLOSET_ITEMS`
-
-## 정합성 메모
-- PRD, ARCHITECTURE, RECOMMENDATION_RULES와 충돌하는 내용은 없다.
-- 추천 생성 API의 최종 계약은 `POST /api/recommendations?userId={userId}`이다.
-- `RecommendationResult`의 물리 저장 구조는 이 문서를 기준으로 한다.
-- 1.5차 KMA 연동은 기존 weather snapshot 컬럼에 매핑된 내부 날씨만 저장한다.
+- Entity 변경은 의도가 드러나는 메서드로 제한한다.
+- `User` 위치 변경은 `updateLocation` 같은 명시적 메서드로만 수행한다.
+- Repository에는 추천 점수 계산, 위치 catalog 검색 규칙, KMA 매핑 로직을 넣지 않는다.
