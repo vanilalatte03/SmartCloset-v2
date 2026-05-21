@@ -188,7 +188,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-그 다음 Swagger에서 `POST /api/recommendations?userId=1`을 호출하고 응답의 `weather`를 확인합니다.
+그 다음 Swagger 또는 Demo UI에서 추천 생성을 실행하고 응답 또는 화면의 `weather`를 확인합니다. 공개 API 계약은 `POST /api/recommendations?userId=1`이며, Demo UI도 이 백엔드 API만 호출합니다.
 
 주의:
 - 실제 서비스키는 커밋하지 않습니다.
