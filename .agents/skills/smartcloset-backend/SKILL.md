@@ -1,14 +1,14 @@
 ---
 name: smartcloset-backend
-description: Use when implementing or reviewing the SmartCloset 1차 MVP Spring Boot 4.0.6 backend, including rule-based outfit recommendations, StaticWeatherProvider, JPA entities, APIs, tests, Docker Compose sharing, and documentation sync.
+description: Use when implementing or reviewing the SmartCloset Spring Boot 4.0.6 backend, including rule-based outfit recommendations, KMA weather provider/fallback weather, JPA entities, APIs, tests, Docker Compose sharing, and documentation sync.
 ---
 
 # SmartCloset Backend Skill
 
 ## Purpose
-Use this skill before implementing SmartCloset 1차 MVP backend work.
+Use this skill before implementing SmartCloset backend work.
 
-The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recommendation and Docker Compose sharing. Keep implementation consistent with `docs/PRD.md`, `docs/API.md`, `docs/ERD.md`, and `docs/RECOMMENDATION_RULES.md`.
+The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recommendation and Docker Compose sharing. The current 1.5차 scope adds KMA `getVilageFcst` JSON weather integration with `StaticWeatherProvider` fallback. 문서 규칙은 `AGENTS.md`를 따른다.
 
 ## Scope
 
@@ -29,8 +29,19 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 - 옷 상세/수정/보관 API
 - GitHub Actions test/build
 
+### 1.5 P0
+- 기상청 단기예보 `getVilageFcst` JSON 연동
+- `WeatherProvider` 인터페이스 유지
+- `KmaVilageForecastWeatherProvider` + `StaticWeatherProvider` fallback
+- 환경변수 기반 `KMA_SERVICE_KEY`, `KMA_NX`, `KMA_NY`, `KMA_BASE_URL`, `WEATHER_FALLBACK_ENABLED`
+- 추천 생성 API 계약 유지
+
 ### Out of Scope
-- 외부 Weather API
+- 기상청 단기예보 `getVilageFcst` 외의 외부 Weather API
+- 사용자별 위치 저장
+- 위치 변경 API
+- Weather source DB 저장
+- Redis 날씨 캐싱
 - AWS 수동 배포
 - CD 자동화
 - 로그인/회원가입
@@ -44,7 +55,7 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## API Rules
 - 추천 생성은 반드시 `POST /api/recommendations?userId={userId}`를 사용한다.
-- `GET /api/recommendations/today`는 사용하지 않는다.
+- today 추천 GET 경로는 사용하지 않는다.
 - `userId`는 request parameter로 전달한다.
 - 성공 응답은 `{ "data": ... }` 형태를 따른다.
 - 실패 응답은 `{ "code": "...", "message": "...", "details": [] }` 형태를 따른다.
@@ -65,9 +76,12 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## Weather Rules
 - `WeatherProvider` 인터페이스에 의존한다.
-- 구현체는 `StaticWeatherProvider` 하나로 둔다.
-- 기본 날씨는 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`다.
-- 외부 Weather API를 호출하지 않는다.
+- 1.5차 기본 구현체는 KMA `getVilageFcst` JSON 기반 provider이며 `@Primary`로 둔다.
+- `StaticWeatherProvider`는 fallback/test 구현체로 유지하고, KMA provider에서는 concrete fallback으로 주입받는다.
+- fallback 날씨는 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`다.
+- KMA 연동은 `TMP`, `SKY`, `PTY`, `PCP`, `WSD`를 내부 `WeatherCondition`으로 매핑한다.
+- `WEATHER_FALLBACK_ENABLED=false`는 strict KMA mode이며 KMA 실패 시 fallback하지 않는다.
+- 추천 도메인은 KMA 응답 DTO에 직접 의존하지 않는다.
 
 ## Recommendation Rules
 - 추천 규칙은 `docs/RECOMMENDATION_RULES.md`를 기준으로 구현한다.
@@ -104,8 +118,8 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## Documentation Sync Rules
 - API 변경 시 `docs/API.md`, `README.md`, `docs/DEMO_SCENARIO.md`를 함께 확인한다.
-- `GET /api/recommendations/today` 표현이 생기면 제거한다.
-- `StaticWeatherProvider` 값이 문서 간 다르면 수정한다.
+- today 추천 GET 경로 표현이 API 계약처럼 생기면 제거한다.
+- KMA 기본 격자와 fallback 값이 문서 간 다르면 수정한다.
 - Docker Compose가 유일한 필수 공유 방식인지 확인한다.
 
 ## Implementation Attitude

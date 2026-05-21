@@ -1,14 +1,20 @@
-# 추천 규칙: SmartCloset 1차 MVP
+# 추천 규칙: SmartCloset 1.5차 MVP
 
 ## 1. 추천 규칙의 목적
-SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset 1.5차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-추천 결과는 같은 seed data와 같은 `StaticWeatherProvider` 조건에서 항상 같은 결과가 나와야 한다. 후보 생성, 점수 계산, 실패 판단, 최종 tie-break는 모두 결정 가능한 규칙으로 작성한다.
+1.5차는 날씨 입력 source를 기상청 단기예보 JSON으로 확장하지만, 후보 생성, 점수 계산, 실패 판단, 최종 tie-break는 1차 MVP와 같은 결정 가능한 규칙을 유지한다.
 
 추천 이유는 AI가 생성하는 자유 문장이 아니다. 각 규칙의 판단 결과를 `RecommendationReasonGenerator`가 템플릿 문장으로 변환한다.
 
-## 2. StaticWeatherProvider 고정 날씨
-1차 MVP의 기본 `StaticWeatherProvider`는 아래 고정 테스트 날씨를 반환한다.
+## 2. Weather source 정책
+추천 도메인은 외부 API 응답 모델에 직접 의존하지 않는다. 추천 규칙은 항상 내부 `WeatherCondition`만 입력으로 받는다.
+
+1.5차 기본 weather source는 기상청 단기예보 조회서비스 `getVilageFcst` JSON 응답이다. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락, 파싱 실패 시에는 `StaticWeatherProvider` fallback 날씨를 사용한다.
+
+KMA forecast group 선택은 provider 책임이다. provider는 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` group을 선택해 `WeatherCondition`을 만든다. 선택 group에 필수 category가 누락되면 다른 forecast group으로 이동하지 않고 fallback 또는 strict mode 실패로 처리한다.
+
+fallback 값은 1차 MVP와 동일하다.
 
 | Field | Value |
 | --- | --- |
@@ -17,12 +23,12 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 | `rainy` | `false` |
 | `windy` | `false` |
 
-이 값은 기본 seed data 추천 흐름에서 OUTER 필수 조건을 검증하기 위해 선택한다. `temperature=12`는 아우터가 필요한 날씨를 재현하며, `rainy=false`, `windy=false`는 비/바람 보정 없이 기본 온도와 색상, 이력 규칙을 안정적으로 테스트하게 해준다.
+fallback 값은 API key 없이도 Docker Compose 데모와 OUTER 필수 흐름을 재현하기 위해 유지한다.
 
 비, 바람, 더운 날씨, 추운 날씨의 세부 점수 테스트는 단위 테스트에서 별도 `WeatherCondition`을 직접 구성해 검증한다.
 
 ## 3. WeatherCondition 필드
-`WeatherCondition`은 추천 로직에서 사용하는 내부 날씨 모델이다. 외부 Weather API 응답 모델과 분리한다.
+`WeatherCondition`은 추천 로직에서 사용하는 내부 날씨 모델이다. KMA 응답 DTO와 분리한다.
 
 최소 필드는 다음과 같다.
 
@@ -31,7 +37,7 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 - `rainy`: 비 또는 눈처럼 젖는 조건이 있는지 여부.
 - `windy`: 바람이 강한지 여부.
 
-`weatherType` enum은 1차 MVP에서 아래 값으로 제한한다.
+`weatherType` enum은 아래 값으로 제한한다.
 
 - `SUNNY`
 - `CLOUDY`
@@ -41,7 +47,49 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 
 `weatherType=RAINY` 또는 `weatherType=SNOWY`이면 `rainy=true`로 다루는 것을 권장한다. `weatherType=WINDY`이면 `windy=true`로 다루는 것을 권장한다.
 
-## 4. ClothingItem 최소 속성
+## 4. KMA category 매핑
+KMA `getVilageFcst` JSON 응답의 `response.body.items.item[]`에서 같은 forecast time의 category를 묶어 사용한다.
+
+forecast time 선택, KMA 오류 처리, fallback 또는 strict mode 실패 판단은 추천 도메인이 아니라 `WeatherProvider` 구현 책임이다.
+
+1.5차 추천에 필요한 category는 아래 5개다.
+
+| Category | Name | WeatherCondition field |
+| --- | --- | --- |
+| `TMP` | 1시간 기온 | `temperature` |
+| `PTY` | 강수형태 | `weatherType`, `rainy` |
+| `SKY` | 하늘상태 | `weatherType` |
+| `PCP` | 1시간 강수량 | `rainy` |
+| `WSD` | 풍속 | `windy` |
+
+`temperature`:
+
+- `TMP` 값을 정수 섭씨로 변환한다.
+- 소수값이 들어오면 가장 가까운 정수로 반올림하거나 구현에서 정한 단일 정책으로 변환하되, 테스트에서 고정한다.
+
+`weatherType`:
+
+| KMA value | WeatherType |
+| --- | --- |
+| `PTY=1`, `PTY=2`, `PTY=4` | `RAINY` |
+| `PTY=3` | `SNOWY` |
+| `PTY=0`, `SKY=1` | `SUNNY` |
+| `PTY=0`, `SKY=3` 또는 `SKY=4` | `CLOUDY` |
+
+`rainy`:
+
+- `PTY != 0`이면 `true`다.
+- `PTY=0`이어도 `PCP`가 유효 강수량이면 `true`다.
+- `PCP` 값이 `-`, `null`, `0`, `강수없음`이면 강수 없음으로 본다.
+
+`windy`:
+
+- `WSD >= 4.0`이면 `true`다.
+- `WSD < 4.0`이면 `false`다.
+
+`POP`, `REH`, `TMN`, `TMX`, `SNO`, `UUU`, `VVV`, `VEC` 등은 1.5차 추천 점수에는 사용하지 않는다.
+
+## 5. ClothingItem 최소 속성
 추천 규칙에서 사용하는 `ClothingItem` 최소 속성은 다음과 같다.
 
 - `id`
@@ -61,7 +109,7 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 - `BOTTOM`
 - `OUTER`
 
-`color` enum은 1차 MVP에서 아래 값으로 제한한다.
+`color` enum은 아래 값으로 제한한다.
 
 - `BLACK`
 - `WHITE`
@@ -75,7 +123,7 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 - `YELLOW`
 - `UNKNOWN`
 
-`material` enum은 1차 MVP에서 아래 값으로 제한한다.
+`material` enum은 아래 값으로 제한한다.
 
 - `COTTON`
 - `DENIM`
@@ -87,7 +135,7 @@ SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 
 `UNKNOWN`은 사용자가 색상 또는 재질을 확신하지 못하는 경우를 위한 값이다. `UNKNOWN`은 강한 가산점이나 감점 없이 중립 처리한다.
 
-## 5. 후보 필터링 규칙
+## 6. 후보 필터링 규칙
 후보 필터링은 조합 생성 전에 수행하는 hard filter다. hard filter를 통과하지 못한 옷은 어떤 조합에도 포함하지 않는다.
 
 Hard filter 규칙은 다음과 같다.
@@ -99,9 +147,9 @@ Hard filter 규칙은 다음과 같다.
 - hard filter 이후 BOTTOM이 1개도 없으면 `NO_BOTTOM_AVAILABLE` 실패로 처리한다.
 - OUTER 필수 조건에서 hard filter를 통과한 OUTER가 1개도 없으면 `OUTER_REQUIRED_BUT_NOT_AVAILABLE` 실패로 처리한다.
 
-`rainSuitable`과 `material`은 1차 MVP에서 기본적으로 hard filter가 아니라 `weatherScore` 보정에 사용한다. 즉, 비 오는 날 `rainSuitable=false`이거나 `WOOL` 소재인 옷도 바로 제외하지 않고 감점한다. 단, 온도 범위를 벗어난 옷은 항상 제외한다.
+`rainSuitable`과 `material`은 hard filter가 아니라 `weatherScore` 보정에 사용한다. 즉, 비 오는 날 `rainSuitable=false`이거나 `WOOL` 소재인 옷도 바로 제외하지 않고 감점한다. 단, 온도 범위를 벗어난 옷은 항상 제외한다.
 
-## 6. OUTER 필수/선택 규칙
+## 7. OUTER 필수/선택 규칙
 OUTER 포함 기준은 현재 `temperature`, `rainy`, `windy`를 기준으로 판단한다.
 
 | Condition | Rule |
@@ -114,7 +162,7 @@ OUTER 포함 기준은 현재 `temperature`, `rainy`, `windy`를 기준으로 �
 
 `rainy=true` 또는 `windy=true`여도 `temperature >= 17`이면 OUTER를 필수로 만들지 않는다. 이 경우 OUTER 포함은 가산점 요소일 뿐이다.
 
-## 7. 후보 조합 생성 규칙
+## 8. 후보 조합 생성 규칙
 `OutfitCandidate`는 추천 계산 중 생성되는 도메인 모델 또는 value object다. DB Entity로 만들 필요는 없다.
 
 조합 생성 규칙은 다음과 같다.
@@ -127,7 +175,7 @@ OUTER 포함 기준은 현재 `temperature`, `rainy`, `windy`를 기준으로 �
 
 후보 생성 순서는 결정 가능해야 한다. 구현 시 정렬된 `id` 오름차순 TOP, BOTTOM, OUTER 목록을 순회해 후보를 생성한다.
 
-## 8. 점수 계산 기준
+## 9. 점수 계산 기준
 추천 총점은 100점 기준이다.
 
 | Score | Max |
@@ -150,7 +198,7 @@ totalScore = weatherScore
 
 각 세부 점수는 0점 미만이 될 수 없고, 각 최대 점수를 넘을 수 없다.
 
-## 9. weatherScore 규칙
+## 10. weatherScore 규칙
 `weatherScore`는 35점 만점이며, 온도 범위 적합성, OUTER 정책, 비 적합성, material 기반 날씨 보정을 포함한다.
 
 ```text
@@ -169,7 +217,7 @@ weatherScore = temperatureRangeScore
 | `rainScore` | 6 | 비 조건과 `rainSuitable` 적합도 |
 | `materialWeatherScore` | 6 | 소재 기반 보온/방수/불편 가능성 보정 |
 
-1차 MVP에서는 온도 적합성을 hard filter에서 이미 보장한다. 따라서 `temperatureRangeScore`는 hard filter를 통과한 후보에 대해 기본 15점으로 처리한다. 세밀한 체감 온도, 일교차, 습도 기반 온도 점수는 향후 MVP에서 고도화한다.
+현재 규칙에서는 온도 적합성을 hard filter에서 이미 보장한다. 따라서 `temperatureRangeScore`는 hard filter를 통과한 후보에 대해 기본 15점으로 처리한다. 세밀한 체감 온도, 일교차, 습도 기반 온도 점수는 향후 MVP에서 고도화한다.
 
 `outerScore`는 다음과 같이 계산한다.
 
@@ -200,7 +248,7 @@ weatherScore = temperatureRangeScore
 - `rainy=true`에서 `WOOL` 소재가 포함되면 옷 1개당 -2점.
 - `UNKNOWN` material은 가산점이나 감점을 적용하지 않는다.
 
-## 10. colorScore 규칙
+## 11. colorScore 규칙
 `colorScore`는 25점 만점이며, 후보에 포함된 옷 색상들의 조합 안정성을 평가한다.
 
 Color group은 다음과 같다.
@@ -241,10 +289,10 @@ Strong clash는 아래 조합으로 제한한다.
 
 같은 pair가 여러 규칙에 걸릴 경우 더 구체적인 규칙을 우선한다. 예를 들어 `UNKNOWN`이 포함되면 15점으로 처리하고 다른 color group 규칙을 적용하지 않는다.
 
-## 11. wearHistoryScore 규칙
+## 12. wearHistoryScore 규칙
 `wearHistoryScore`는 20점 만점이며, 실제 착용 완료 이력을 기준으로 반복 착용 부담을 줄인다.
 
-1차 MVP에서는 구현 단순성을 위해 후보에 포함된 옷 중 하나라도 최근 착용 이력에 걸리면 가장 큰 감점 규칙을 적용한다.
+현재 규칙에서는 구현 단순성을 위해 후보에 포함된 옷 중 하나라도 최근 착용 이력에 걸리면 가장 큰 감점 규칙을 적용한다.
 
 | Most Recent Worn Item In Candidate | Score |
 | --- | ---: |
@@ -255,7 +303,7 @@ Strong clash는 아래 조합으로 제한한다.
 
 최근 N일 기준은 추천 요청일을 기준으로 계산한다. 후보 내 여러 옷에 착용 이력이 있으면 가장 최근 착용된 옷을 기준으로 점수를 계산한다.
 
-## 12. recommendationHistoryScore 규칙
+## 13. recommendationHistoryScore 규칙
 `recommendationHistoryScore`는 10점 만점이며, 최근 추천된 동일 조합이나 일부 옷의 반복 노출을 줄인다. 실제 착용 이력보다 약하게 반영한다.
 
 | Recent Recommendation History | Score |
@@ -268,10 +316,10 @@ Strong clash는 아래 조합으로 제한한다.
 
 동일 조합 판단은 TOP, BOTTOM, OUTER의 id 집합이 모두 같은 경우로 한다. OUTER가 없는 조합과 OUTER가 있는 조합은 서로 다른 조합으로 판단한다.
 
-## 13. diversityScore 규칙
+## 14. diversityScore 규칙
 `diversityScore`는 10점 만점이며, 동점 또는 유사 점수 후보가 반복 추천되는 것을 줄이기 위한 보조 점수다.
 
-1차 MVP에서는 동일 조합 반복 방지에만 사용한다.
+현재 규칙에서는 동일 조합 반복 방지에만 사용한다.
 
 | Recent Recommendation History | Score |
 | --- | ---: |
@@ -280,9 +328,9 @@ Strong clash는 아래 조합으로 제한한다.
 
 동일 조합 판단은 TOP, BOTTOM, OUTER의 id 집합이 모두 같은 경우로 한다. OUTER가 없는 조합과 OUTER가 있는 조합은 서로 다른 조합이다.
 
-색상/재질 기반 다양성은 1차 MVP에서 구현하지 않고 2차 MVP 후보로 이동한다.
+색상/재질 기반 다양성은 1.5차 MVP에서 구현하지 않고 2차 MVP 후보로 이동한다.
 
-## 14. 최종 후보 선택 규칙
+## 15. 최종 후보 선택 규칙
 후보가 여러 개일 때 아래 순서로 정렬한다.
 
 1. `totalScore` 높은 순
@@ -294,7 +342,7 @@ Strong clash는 아래 조합으로 제한한다.
 
 후보 생성 순서는 TOP id 오름차순, BOTTOM id 오름차순, OUTER id 오름차순 순회 기준이다. OUTER가 없는 후보는 OUTER id를 `null`로 보고, 같은 TOP/BOTTOM 조합에서는 OUTER 없는 후보를 먼저 생성한다. 이 규칙으로 같은 입력에서 항상 같은 추천 결과를 반환한다.
 
-## 15. 추천 실패 케이스
+## 16. 추천 실패 케이스
 추천 실패는 아래 우선순위로 판단한다.
 
 1. 활성 옷 기준 TOP 또는 BOTTOM 구성이 불가능하면 `INSUFFICIENT_CLOSET_ITEMS`
@@ -314,7 +362,7 @@ Strong clash는 아래 조합으로 제한한다.
 
 실패 응답에는 실패 코드와 사용자 메시지를 포함한다. 임의 조합을 만들어 성공 응답으로 반환하지 않는다.
 
-## 16. 추천 이유 생성 규칙
+## 17. 추천 이유 생성 규칙
 `RecommendationReasonGenerator`는 점수 규칙 결과를 템플릿 문장으로 변환한다. 한 추천 결과에는 3개 이상 5개 이하의 추천 이유를 포함한다.
 
 추천 이유는 아래 우선순위로 선택한다.
@@ -362,7 +410,7 @@ Strong clash는 아래 조합으로 제한한다.
 - 동일 조합 반복 없음: "최근 추천된 동일 조합이 아니어서 반복 추천 부담이 낮습니다."
 - 동일 조합 반복 있음: "최근 추천된 동일 조합이라 다양성 점수는 낮게 반영되었습니다."
 
-## 17. 테스트 케이스 목록
+## 18. 테스트 케이스 목록
 추천 규칙 구현 시 아래 테스트를 작성한다.
 
 - `archived=true`인 옷은 추천 후보에서 제외된다.
@@ -387,10 +435,10 @@ Strong clash는 아래 조합으로 제한한다.
 - 동일 조합이 최근 5개 추천 결과에 있으면 `diversityScore`가 0점이다.
 - 추천 이유가 3개 이상 5개 이하로 생성된다.
 - 추천 이유가 날씨/OUTER, 색상, 이력, material, 다양성 우선순위를 따른다.
-- 동일 seed data와 동일 `StaticWeatherProvider` 입력에서 동일 추천 결과를 반환한다.
+- 동일 seed data와 동일 `WeatherCondition` 입력에서 동일 추천 결과를 반환한다.
 
 ## 정합성 메모
 - PRD와 ARCHITECTURE와 충돌하는 내용은 없다.
 - 추천 생성 API 계약은 `POST /api/recommendations?userId={userId}`를 기준으로 한다.
-- 색상별 세부 선호도나 계절성 개인화는 1차 MVP 범위에서 제외한다.
+- 색상별 세부 선호도나 계절성 개인화는 1.5차 MVP 범위에서 제외한다.
 - `RecommendationResult`의 물리 DB 저장 구조는 `docs/ERD.md`를 따른다.

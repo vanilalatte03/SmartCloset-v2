@@ -12,3 +12,4 @@
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
 - [ADR-004: Use Spring Boot 4.0.6](adr/004-spring-boot-version.md)
 - [ADR-005: Harness PR Autopilot Workflow](adr/005-harness-pr-autopilot-workflow.md)
+- [ADR-006: Use KMA Vilage Forecast Weather Provider](adr/006-kma-vilage-forecast-weather-provider.md)

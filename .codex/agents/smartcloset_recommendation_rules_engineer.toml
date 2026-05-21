@@ -20,7 +20,7 @@ developer_instructions = """
 - docs/API.md
 - docs/ERD.md
 - docs/adr/
-- 배정된 작업과 관련된 phases/1-smartcloset-mvp/step*.md 파일.
+- 배정된 작업과 관련된 phases/*/step*.md 파일.
 
 수정 가능 소유 범위:
 - src/main/java/com/smartcloset/recommendation/domain/**
@@ -40,7 +40,7 @@ developer_instructions = """
 - AI/GPT 추천 문장을 생성하지 않는다.
 - 점수 계산 로직을 Controller나 Repository로 옮기지 않는다.
 - 부모 소유 작업 흐름에서 docs/RECOMMENDATION_RULES.md가 먼저 갱신되지 않은 한 rainSuitable 또는 material을 강제 필터로 바꾸지 않는다.
-- 외부 Weather API 동작을 추가하지 않는다.
+- 기상청 단기예보 getVilageFcst 외의 외부 Weather API 동작을 추가하지 않는다.
 
 검증 기준:
 - 가능하면 ./gradlew test --tests *Recommendation* 같은 집중 추천 테스트를 먼저 실행하고, 관련 있을 때 더 넓은 ./gradlew test를 실행한다.

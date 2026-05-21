@@ -33,6 +33,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-smartcloset}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      KMA_SERVICE_KEY: ${KMA_SERVICE_KEY:-}
+      KMA_NX: ${KMA_NX:-60}
+      KMA_NY: ${KMA_NY:-127}
+      KMA_BASE_URL: ${KMA_BASE_URL:-http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}
+      WEATHER_FALLBACK_ENABLED: ${WEATHER_FALLBACK_ENABLED:-true}
       TZ: Asia/Seoul
     ports:
       - "${APP_PORT:-8080}:8080"

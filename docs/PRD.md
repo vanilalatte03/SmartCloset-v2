@@ -1,89 +1,105 @@
-# PRD: SmartCloset 1차 MVP
+# PRD: SmartCloset 1.5차 MVP
 
 ## 한 줄 정의
-SmartCloset은 사용자의 옷장 데이터와 고정 테스트 날씨 정보를 기반으로 입을 수 있는 옷 후보를 좁히고, 색상 조합과 최근 이력을 점수화해 설명 가능한 코디를 추천하는 Spring Boot 4.0.6 백엔드 서비스다.
+SmartCloset 1.5차 MVP는 1차 규칙 기반 코디 추천 백엔드에 기상청 단기예보 조회서비스 JSON 연동을 추가해, 실제 날씨 기반으로 설명 가능한 옷 조합을 추천하는 Spring Boot 4.0.6 백엔드 서비스다.
+
+## 배경
+1차 MVP는 `StaticWeatherProvider`의 고정 테스트 날씨로 추천 도메인, API 계약, Docker Compose 공유 흐름을 검증했다.
+
+1.5차 MVP는 추천 알고리즘 자체를 키우기보다 날씨 입력을 실제 API로 바꿔 제품 사용감을 높인다. 추천 생성 API, 사용자 모델, 옷 관리 API, 점수 체계는 1차 MVP 계약을 유지한다.
+
+공식 날씨 API 기준은 공공데이터포털의 기상청_단기예보 조회서비스다.
+
+- 데이터: 기상청_단기예보 조회서비스
+- URL: https://www.data.go.kr/data/15084084/openapi.do
+- 상세 기능: `getVilageFcst`
+- 데이터 포맷: JSON
+- 참고문서: `기상청41_단기예보 조회서비스_오픈API활용가이드_2510.zip`
 
 ## 해결하려는 문제
-사용자는 날씨에 맞는 옷을 고르는 데 매일 반복적인 판단 비용을 쓴다. 특히 "지금 입을 수 있는가", "색이 어울리는가", "최근에 너무 자주 입지 않았는가"를 동시에 고려해야 한다.
+사용자는 날씨에 맞는 옷을 고르는 데 매일 반복적인 판단 비용을 쓴다. 1차 MVP는 이 판단을 규칙 기반으로 설명 가능하게 만들었지만, 고정 날씨만 사용해 실제 사용 환경과 차이가 있었다.
 
-SmartCloset 1차 MVP는 AI 생성 추천이 아니라, 검증 가능한 규칙 기반 추천으로 이 판단을 빠르고 설명 가능하게 만든다.
+1.5차 MVP는 기상청 단기예보 JSON 응답을 내부 `WeatherCondition`으로 변환해 추천에 사용한다. 외부 API가 실패해도 fallback 날씨로 데모와 공유 흐름을 유지한다.
 
 ## 핵심 사용자 시나리오
 1. 사용자는 seed user 또는 테스트용 `userId`로 서비스를 사용한다.
 2. 사용자는 옷을 등록하고 목록을 조회한다.
-3. 서비스는 `StaticWeatherProvider`가 제공하는 고정 테스트 날씨를 내부 `WeatherCondition`으로 사용한다.
-4. 서비스는 날씨상 입기 어려운 옷을 먼저 제외한다.
-5. 남은 옷으로 TOP/BOTTOM 또는 TOP/BOTTOM/OUTER 조합을 만든다.
-6. 각 조합은 날씨 적합도, 색상 조합, 최근 착용 이력, 최근 추천 이력, 다양성 보정으로 점수화된다.
-7. 사용자는 생성된 오늘의 추천 결과에서 총점, 세부 점수, 추천 이유를 확인한다.
-8. 사용자가 추천 결과를 착용 완료 처리하면 이후 추천에 이력이 반영된다.
-9. 공유 대상자는 Docker Compose 실행 후 P0에서는 Swagger로 핵심 흐름을 확인하고, P1 Demo UI가 구현된 경우에는 최소 데모 UI로도 같은 흐름을 확인한다.
+3. 서비스는 `WeatherProvider`를 통해 현재 추천에 사용할 `WeatherCondition`을 조회한다.
+4. 1.5차 기본 구현은 기상청 `getVilageFcst` JSON 응답을 사용한다.
+5. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락 시 `StaticWeatherProvider` 값으로 fallback한다.
+6. 서비스는 날씨상 입기 어려운 옷을 먼저 제외한다.
+7. 남은 옷으로 TOP/BOTTOM 또는 TOP/BOTTOM/OUTER 조합을 만든다.
+8. 각 조합은 날씨 적합도, 색상 조합, 최근 착용 이력, 최근 추천 이력, 다양성 보정으로 점수화된다.
+9. 사용자는 생성된 추천 결과에서 날씨 snapshot, 총점, 세부 점수, 추천 이유를 확인한다.
+10. 사용자가 추천 결과를 착용 완료 처리하면 이후 추천에 이력이 반영된다.
+11. 공유 대상자는 Docker Compose 실행 후 Swagger 또는 Demo UI로 같은 흐름을 확인한다.
 
-## 1차 MVP 우선순위
+## 1.5차 MVP 우선순위
 
-### P0: 공유 가능한 핵심 백엔드
-- Docker Compose로 Spring Boot 4.0.6 + MySQL 실행
-- seed user와 seed data 제공
-- `StaticWeatherProvider` 기반 고정 날씨 제공
-- 옷 등록 API
-- 옷 목록 조회 API
-- 오늘의 추천 생성 API
-- 추천 결과 착용 완료 처리 API
-- Swagger/OpenAPI에서 P0 API 호출 가능
-- 추천 결과에 총점, 세부 점수, 추천 이유 포함
-- README에 실행 방법과 테스트 시나리오 작성
+### P0: 실제 날씨 연동 문서/백엔드 기준
+- 기상청 단기예보 조회서비스 `getVilageFcst` JSON 연동
+- `KmaVilageForecastWeatherProvider`를 통한 `WeatherCondition` 생성
+- `StaticWeatherProvider` fallback 유지
+- 환경변수 기반 기본 위치 설정
+- API key를 민감정보로 관리
+- 추천 생성 API 계약 유지
+- 추천 응답의 weather snapshot 유지
+- Docker Compose에서 API key 없이도 fallback 데모 가능
+- README, API, 데모, 공유 문서 동기화
 
-### P1: 공유 품질 강화
-- Spring Boot 정적 리소스 기반 최소 데모 UI
-- GitHub Actions test/build
-- 옷 상세 조회 API
-- 옷 수정 API
-- 옷 보관 처리 API
+### P1: 연동 신뢰도 강화
+- KMA 응답 매핑 테스트
+- 외부 API 실패/fallback 테스트
+- base date/time 계산 테스트
+- 서비스키 설정 시 Docker Compose 기반 수동 검증 시나리오
 
-### P2: 1차 이후 또는 시간이 남을 경우
-- 상세 조회/수정/보관 처리 UI
-- UI 스타일 개선
-- 외부 Weather API 연동
-- AWS 수동 배포
+### P2: 1.5차 이후 후보
+- 사용자별 위치 저장
+- 위치 검색/선택 API
+- 실시간 관측/초단기예보 혼합
+- 날씨 source, nx, ny snapshot DB 저장
+- 최근 성공 날씨 캐싱
+- 체감온도, 습도, 일교차 기반 점수 고도화
 
-## 1차 MVP 포함 범위
-- Java 21 기반 Spring Boot 4.0.6 백엔드
-- Spring Web 기반 REST API
-- Spring Data JPA 기반 MySQL 저장
-- Validation 기반 요청 검증
-- JUnit 기반 추천 로직 테스트
-- Docker Compose 기반 실행 환경
-- Swagger/OpenAPI 기반 API 문서
-- seed user와 seed data
-- `StaticWeatherProvider` 기반 고정 테스트 날씨
-- 내부 `WeatherCondition` 기반 추천 로직
-- 규칙 기반 추천 점수 계산
-- 추천 이유 제공
-- 추천 결과 저장
-- 추천 결과 착용 완료 처리
-- README 실행 가이드와 공유용 테스트 시나리오
+## 1.5차 포함 범위
+- Java 21 기반 Spring Boot 4.0.6 백엔드 유지
+- 기존 REST API 계약 유지
+- 기존 JPA/MySQL 저장 구조 유지
+- 기존 규칙 기반 추천 점수 체계 유지
+- 기상청 단기예보 JSON 호출 계약 문서화
+- `WeatherProvider` 구현체 확장
+- 외부 API 응답을 내부 `WeatherCondition`으로 매핑
+- `StaticWeatherProvider` fallback
+- 환경변수 기반 API key, base URL, nx, ny 설정
+- Docker Compose 공유 방식 유지
+- README와 문서 정합성 갱신
 
-## 1차 MVP 제외 범위
+## 1.5차 제외 범위
+- 로그인/회원가입
+- 사용자별 위치 저장
+- 위치 변경 API
+- Weather source DB 저장
+- 날씨 응답 캐싱용 Redis
+- 최근 성공 날씨 DB 캐시
 - AI/GPT 추천
 - 옷 이미지 업로드
 - 이미지 자동 분석/태깅
-- Redis 캐싱
 - 캘린더 연동
 - 쇼핑몰 추천
 - 관리자 기능
 - 소셜/공유 기능
-- 회원가입/로그인
-- 복잡한 권한 시스템
 - 정식 프론트엔드 앱 구현
 - React/Next/Vue 등 정식 프론트 기술 결정
-- 외부 Weather API 실제 연동
-- AWS 수동 배포
+- AWS 배포
 - CD 자동화
 
 ## 공유 방식
-1차 MVP 공유 방식은 Docker Compose로 고정한다.
+1.5차 MVP 공유 방식은 Docker Compose로 유지한다.
+
+서비스키가 없어도 앱은 실행되어야 한다. 이 경우 추천은 fallback 날씨로 생성된다. 실제 기상청 API 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 
 필수 제공 파일은 다음과 같다.
+
 - `Dockerfile`
 - `docker-compose.yml`
 - `.env.example`
@@ -91,80 +107,126 @@ SmartCloset 1차 MVP는 AI 생성 추천이 아니라, 검증 가능한 규칙 �
 - seed data
 
 README에는 다음 정보를 포함한다.
+
 - Docker Compose 실행 방법
 - seed user 정보
 - seed data 설명
 - Swagger 접속 경로
-- P1 Demo UI 구현 시 데모 UI 접속 경로
-- 공유용 테스트 시나리오
-
-AWS 수동 배포는 1차 MVP 범위에서 제외하고, 공유 이후 후보로 이동한다.
+- Demo UI 접속 경로
+- 기상청 API key 설정 방법
+- fallback 데모 시나리오
+- 실제 API 연동 수동 확인 시나리오
 
 ## Weather 정책
-1차 MVP는 외부 Weather API를 연동하지 않는다.
+추천 로직은 외부 API 응답 모델에 직접 의존하지 않는다. 모든 추천 도메인 로직은 내부 `WeatherCondition`만 사용한다.
 
-`WeatherProvider` 인터페이스를 정의하고, 기본 구현은 `StaticWeatherProvider`로 고정한다. `StaticWeatherProvider`는 고정된 테스트 날씨 데이터를 반환한다.
+`WeatherProvider` 인터페이스는 유지한다.
 
-추천 로직은 외부 API 응답이 아니라 내부 `WeatherCondition` 기준으로만 동작한다. 외부 Weather API 실제 연동은 1.5차 또는 2차 MVP 후보로 둔다.
+- 기본 1.5차 구현: `KmaVilageForecastWeatherProvider`
+- fallback/test 구현: `StaticWeatherProvider`
+
+`KmaVilageForecastWeatherProvider`는 기상청 단기예보 `getVilageFcst` JSON 응답에서 필요한 category를 읽어 내부 `WeatherCondition`을 생성한다.
+
+`WEATHER_FALLBACK_ENABLED`의 기본값은 `true`다. `true`이면 서비스키 미설정, KMA 호출 실패, `resultCode != 00`, `NODATA`, 필수 category 누락, 파싱 실패 시 `StaticWeatherProvider` fallback 값을 사용한다. `false`이면 strict KMA mode로 동작하며 같은 상황에서 fallback하지 않고 `INTERNAL_SERVER_ERROR`로 실패한다. strict mode 실패는 추천 실패 코드 5종에 포함하지 않고 `RecommendationResult`를 저장하지 않는다.
+
+`StaticWeatherProvider` fallback 값은 1차 MVP와 동일하게 유지한다.
+
+| Field | Value |
+| --- | --- |
+| `temperature` | `12` |
+| `weatherType` | `CLOUDY` |
+| `rainy` | `false` |
+| `windy` | `false` |
+
+## KMA API 계약
+1.5차에서 사용하는 외부 요청은 아래 하나로 제한한다.
+
+```text
+GET {KMA_BASE_URL}/getVilageFcst
+```
+
+기본 base URL:
+
+```text
+http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
+```
+
+요청 parameter:
+
+| Parameter | Value |
+| --- | --- |
+| `serviceKey` | `KMA_SERVICE_KEY` 환경변수 |
+| `pageNo` | `1` |
+| `numOfRows` | `1000` |
+| `dataType` | `JSON` |
+| `base_date` | 계산된 발표일자 `yyyyMMdd` |
+| `base_time` | 계산된 발표시각 |
+| `nx` | `KMA_NX`, 기본 `60` |
+| `ny` | `KMA_NY`, 기본 `127` |
+
+기본 위치는 첨부 격자 위경도 XLSX의 서울특별시 대표 격자 기준이다.
+
+| Location | nx | ny |
+| --- | ---: | ---: |
+| 서울특별시 | `60` | `127` |
+
+단기예보 발표시각은 아래 값을 사용한다.
+
+```text
+0200, 0500, 0800, 1100, 1400, 1700, 2000, 2300
+```
+
+API 제공 시각은 각 발표시각 10분 이후로 본다. 현재 KST 기준으로 제공 가능한 최신 발표시각을 선택해 `base_date`, `base_time`으로 요청한다.
+
+## WeatherCondition 매핑
+KMA 응답은 `response.body.items.item[]`의 category별 `fcstValue`를 사용한다.
+
+추천 기준 forecast target time은 현재 KST 이후 가장 가까운 예보시각으로 확정한다. KMA 응답의 `fcstDate`, `fcstTime`을 묶어 오름차순으로 정렬하고, 요청 시각 이후의 첫 forecast group을 선택한다. 선택된 forecast group의 category를 함께 사용해야 하며, `TMP`, `SKY`, `PTY`, `PCP`, `WSD` 중 하나라도 누락되면 다른 forecast group으로 이동하지 않고 fallback 또는 strict mode 실패로 처리한다.
+
+| WeatherCondition | KMA category | Rule |
+| --- | --- | --- |
+| `temperature` | `TMP` | 정수 섭씨로 변환 |
+| `weatherType` | `PTY`, `SKY` | `PTY` 우선, 없으면 `SKY` |
+| `rainy` | `PTY`, `PCP` | `PTY != 0` 또는 강수량 존재 시 true |
+| `windy` | `WSD` | `WSD >= 4.0`이면 true |
+
+`weatherType` 세부 매핑:
+
+| KMA value | WeatherType |
+| --- | --- |
+| `PTY=1`, `PTY=2`, `PTY=4` | `RAINY` |
+| `PTY=3` | `SNOWY` |
+| `PTY=0` + `SKY=1` | `SUNNY` |
+| `PTY=0` + `SKY=3` 또는 `SKY=4` | `CLOUDY` |
+
+`PCP` 값이 `-`, `null`, `0`, `강수없음`이면 강수 없음으로 본다.
+
+`POP`, `REH`, `TMN`, `TMX`, `SNO`, `UUU`, `VVV`, `VEC` 등은 1.5차 추천 점수에 사용하지 않는다.
 
 ## 사용자 모델
-1차 MVP에서는 회원가입과 로그인을 구현하지 않는다.
+1.5차에서도 회원가입과 로그인을 구현하지 않는다.
 
 API는 테스트용 `userId`를 request parameter로 전달받는다. seed data에는 기본 seed user를 포함한다.
 
+사용자별 위치 저장은 1.5차 범위가 아니다. 위치는 앱 전역 환경변수 `KMA_NX`, `KMA_NY`로 설정한다.
+
 ## 옷 관리 범위
-API 기준으로는 다음 기능을 제공한다.
+API 기준으로는 1차 MVP에서 제공한 기능을 유지한다.
+
 - 옷 등록
 - 옷 목록 조회
 - 옷 상세 조회
 - 옷 수정
 - 옷 보관 처리
 
-최소 데모 UI 기준으로는 다음 기능만 제공한다.
-- 옷 등록
-- 옷 목록 조회
-
-옷 상세 조회, 수정, 보관 처리는 Swagger/API 호출로 검증한다.
-
-## ClothingItem 최소 속성
-`ClothingItem`은 1차 MVP에서 아래 속성을 가진다.
-
-- `category`: `TOP` / `BOTTOM` / `OUTER`
-- `color`
-- `material`
-- `minTemperature`
-- `maxTemperature`
-- `rainSuitable`
-- `archived`
-
-`material` enum은 1차 MVP에서 아래 값으로 제한한다.
-
-- `COTTON`
-- `DENIM`
-- `KNIT`
-- `WOOL`
-- `POLYESTER`
-- `NYLON`
-- `UNKNOWN`
-
-`material`은 필수 입력값으로 두되, 사용자가 확신하지 못하는 경우 `UNKNOWN`을 선택할 수 있다.
-
-## 최소 데모 UI
-정식 프론트엔드 앱은 1차 MVP에서 제외한다.
-
-최소 데모 UI는 제품용 프론트가 아니라 API 흐름 공유용 단일 페이지다. Spring Boot 정적 리소스로 제공하며, React/Next/Vue 등 정식 프론트 기술 결정은 2차 MVP로 넘긴다.
-
-최소 데모 UI 범위는 다음으로 제한한다.
-- 옷 등록
-- 옷 목록 조회
-- 오늘의 추천 생성
-- 추천 결과 착용 완료 처리
+옷 속성, enum, validation 규칙은 1차 MVP와 동일하다.
 
 ## 핵심 도메인
 - `ClothingItem`: 사용자가 등록한 옷. 카테고리, 색상, 재질, 온도 적합 범위, 비 적합 여부, 보관 여부를 가진다.
 - `WeatherCondition`: 추천 로직에서 사용하는 내부 날씨 상태.
-- `WeatherProvider`: 현재 날씨를 내부 `WeatherCondition`으로 제공하는 인터페이스.
-- `StaticWeatherProvider`: 고정 테스트 날씨를 `WeatherCondition`으로 제공하는 1차 MVP 기본 날씨 제공자.
+- `WeatherProvider`: 현재 추천에 사용할 내부 `WeatherCondition`을 제공하는 인터페이스.
+- `KmaVilageForecastWeatherProvider`: 기상청 단기예보 JSON 응답을 `WeatherCondition`으로 매핑하는 1.5차 기본 구현체.
+- `StaticWeatherProvider`: 외부 API 실패 또는 테스트에서 사용하는 fallback 제공자.
 - `OutfitCandidate`: TOP/BOTTOM 또는 TOP/BOTTOM/OUTER로 구성된 추천 후보 조합.
 - `RecommendationScore`: 후보 조합의 총점과 세부 점수.
 - `RecommendationReason`: 점수 근거를 사용자에게 설명하는 문장 목록.
@@ -173,7 +235,7 @@ API 기준으로는 다음 기능을 제공한다.
 - `User`: 인증 없는 테스트용 사용자 식별자.
 
 ## 추천 점수 기준
-추천 총점은 100점 기준이다.
+추천 총점은 100점 기준으로 유지한다.
 
 - 날씨 적합도: 35점
 - 색상 조합: 25점
@@ -181,21 +243,7 @@ API 기준으로는 다음 기능을 제공한다.
 - 최근 추천 이력: 10점
 - 다양성 보정: 10점
 
-추천 응답에는 최종 코디, 총점, 세부 점수, 추천 이유 문장을 포함한다. 추천 이유는 AI 생성 문장이 아니라 점수 규칙의 결과를 사람이 읽기 쉬운 문장으로 변환한 것이다.
-
-`material`은 독립 점수 항목으로 분리하지 않는다. `material`은 날씨 적합도 계산과 추천 이유 생성에 보조적으로 사용한다.
-
-소재 기반 초기 규칙은 다음과 같다.
-- 더운 날씨에 `WOOL` 또는 `KNIT` 소재는 감점 또는 제외한다.
-- 추운 날씨에 `KNIT` 또는 `WOOL` 소재는 가산점으로 반영한다.
-- 비 오는 날 `NYLON`은 가산점으로 반영한다.
-- 비 오는 날 `WOOL`은 감점으로 반영한다.
-- `UNKNOWN`은 소재 기반 가산/감점을 적용하지 않는다.
-
-소재 기반 추천 이유 예시는 다음과 같다.
-- "추운 날씨에 적합한 KNIT 소재가 날씨 점수에 긍정적으로 반영되었습니다."
-- "비 오는 날 WOOL 소재는 젖었을 때 불편할 수 있어 날씨 점수가 낮아졌습니다."
-- "NYLON 소재는 비 오는 날 착용에 유리해 날씨 점수에 긍정적으로 반영되었습니다."
+KMA 연동은 날씨 입력 source를 바꾸는 작업이며, 점수 배점과 후보 선택 규칙을 변경하지 않는다.
 
 ## 추천 실패 케이스
 추천 가능한 조합이 없으면 임의 추천을 만들지 않고 명시적 실패 코드를 반환한다.
@@ -206,52 +254,52 @@ API 기준으로는 다음 기능을 제공한다.
 - `OUTER_REQUIRED_BUT_NOT_AVAILABLE`
 - `INSUFFICIENT_CLOSET_ITEMS`
 
+외부 기상청 API 실패는 추천 실패 코드로 노출하지 않는다. fallback이 활성화된 경우 fallback 날씨로 추천을 계속 생성한다.
+
 ## 주요 API
 - `POST /api/clothes?userId={userId}`: 옷 등록
 - `GET /api/clothes?userId={userId}`: 옷 목록 조회
 - `GET /api/clothes/{clothingId}?userId={userId}`: 옷 상세 조회
 - `PUT /api/clothes/{clothingId}?userId={userId}`: 옷 수정
 - `PATCH /api/clothes/{clothingId}/archive?userId={userId}`: 옷 보관 처리
-- `POST /api/recommendations?userId={userId}`: 오늘의 추천 생성
+- `POST /api/recommendations?userId={userId}`: 추천 생성
 - `PATCH /api/recommendations/{recommendationId}/worn?userId={userId}`: 추천 결과 착용 완료 처리
 
-## 주요 기능별 완료 기준
-- Docker Compose로 Spring Boot 4.0.6 앱과 MySQL이 실행된다.
-- seed user와 seed data가 제공된다.
-- `StaticWeatherProvider`가 고정 테스트 `WeatherCondition`을 제공한다.
-- 사용자는 API로 옷을 등록하고 목록을 조회할 수 있다.
-- 옷 등록 요청에서 `material`을 저장하고 조회 응답에 포함한다.
-- 사용자는 API로 오늘의 추천을 생성할 수 있다.
-- 추천 결과에는 총점, 세부 점수, 추천 이유가 포함된다.
-- `material` 기반 규칙은 날씨 적합도 세부 이유에 포함될 수 있다.
-- 사용자는 추천 결과를 착용 완료 처리할 수 있다.
-- Swagger/OpenAPI에서 P0 API를 호출할 수 있다.
-- README만 보고 Docker Compose 실행과 테스트 시나리오 재현이 가능하다.
-- P1 완료 시 최소 데모 UI에서 핵심 추천 흐름을 확인할 수 있다.
+today 추천 GET 경로는 API 계약으로 사용하지 않는다.
+
+## 완료 기준
+- `WeatherProvider`가 KMA JSON 기반 날씨와 fallback 날씨를 모두 제공할 수 있다.
+- 서비스키 미설정 상태에서도 Docker Compose 실행과 추천 생성이 성공한다.
+- 서비스키 설정 시 `getVilageFcst` JSON 응답의 `TMP`, `SKY`, `PTY`, `PCP`, `WSD`가 내부 `WeatherCondition`에 반영된다.
+- 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` forecast group을 선택한다.
+- `WEATHER_FALLBACK_ENABLED=false` strict KMA mode에서는 KMA 설정/호출/매핑 실패 시 추천 결과를 저장하지 않고 `INTERNAL_SERVER_ERROR`로 실패한다.
+- 추천 생성 API 계약은 `POST /api/recommendations?userId={userId}`로 유지된다.
+- 추천 결과에는 weather snapshot, outfit, score breakdown, reasons, worn, createdAt이 포함된다.
+- 추천 도메인의 100점 배점과 실패 코드 5종이 변경되지 않는다.
+- README만 보고 fallback 데모와 실제 API 연동 확인 방법을 이해할 수 있다.
 
 ## 테스트/검증 기준
-- 추천 스코어링은 순수 도메인 서비스로 분리하고 JUnit 단위 테스트를 작성한다.
-- 날씨 필터링, 색상 점수, 최근 착용 패널티, 최근 추천 패널티, 다양성 보정은 각각 독립 테스트를 가진다.
-- 추천 실패 코드 5종을 테스트한다.
-- 추천 이유는 점수 근거와 문장이 어긋나지 않는지 테스트한다.
-- `StaticWeatherProvider` 기준 seed data 추천 흐름이 재현되어야 한다.
-- 옷 등록 요청에서 `material`을 저장하고 조회 응답에 포함되는지 검증한다.
-- `material=UNKNOWN`일 때 소재 기반 가산/감점이 적용되지 않는지 검증한다.
-- 더운 날 `WOOL`/`KNIT`, 추운 날 `WOOL`/`KNIT`, 비 오는 날 `NYLON`/`WOOL` 규칙을 weatherScore 테스트에 포함한다.
-- 추천 이유에 소재 기반 weatherScore 근거가 포함되는 케이스를 테스트한다.
-- 기존 총점 배점 100점 구조가 변경되지 않았는지 검증한다.
-- Swagger에서 P0 API를 호출할 수 있어야 한다.
-- Docker Compose 실행 후 README의 공유용 테스트 시나리오가 성공해야 한다.
-- P1 완료 시 GitHub Actions에서 test/build가 실행된다.
+- KMA JSON 정상 응답에서 `TMP`, `SKY`, `PTY`, `PCP`, `WSD` 매핑을 검증한다.
+- 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` forecast group 선택을 검증한다.
+- 선택 forecast group의 필수 category 누락 시 다른 group으로 이동하지 않는지 검증한다.
+- `WEATHER_FALLBACK_ENABLED=true`에서 `resultCode != 00`, `NODATA_ERROR`, 필수 category 누락, 서비스키 미설정 시 fallback을 검증한다.
+- `WEATHER_FALLBACK_ENABLED=false`에서 같은 오류가 `INTERNAL_SERVER_ERROR`와 추천 결과 미저장으로 이어지는지 검증한다.
+- base date/time 계산이 단기예보 발표시각과 API 제공 시각 기준을 따른다.
+- 추천 스코어링, 날씨 필터링, 색상 점수, 최근 착용 패널티, 최근 추천 패널티, 다양성 보정 테스트는 계속 통과해야 한다.
+- 추천 실패 코드 5종을 계속 테스트한다.
+- Docker Compose는 서비스키 없이도 fallback으로 데모 가능해야 한다.
+- 실제 서비스키가 있는 로컬 환경에서는 Swagger 또는 Demo UI에서 KMA 기반 추천 날씨가 응답에 반영되는지 수동 확인한다.
 
 ## 향후 MVP 후보
-- 1.5차 MVP: 외부 Weather API 실제 연동
-- 2차 MVP: 정식 프론트엔드 앱, React/Next/Vue 등 기술 결정, 사용자 UX 검증
+- 2차 MVP: 사용자 위치 저장, 위치 선택 API, 정식 프론트엔드 앱
 - 3차 MVP: 옷 이미지 업로드, S3 연동, 이미지 기반 수동 태깅 보조
 - 4차 MVP: 개인화 추천 고도화, 계절/선호도/스타일 태그, 추천 피드백 반영
 - 5차 MVP: AI/GPT 설명 보조, 캘린더 연동, 쇼핑몰 추천, Redis 캐싱, 관리자 기능, AWS 배포, CD 자동화
 
 ## 결정된 사항
-- Lombok 사용 정책은 `docs/adr/003-mvp-scope-decisions.md`를 따른다.
-- 색상 규칙의 세부 매핑은 `docs/RECOMMENDATION_RULES.md`를 따른다.
-- OUTER 필수 조건은 `temperature <= 12` 기준이며 `StaticWeatherProvider`의 기본 `temperature=12`에서 OUTER 필수 흐름을 검증한다.
+- Spring Boot 버전은 `4.0.6`으로 고정한다.
+- 추천 생성 API는 `POST /api/recommendations?userId={userId}`를 유지한다.
+- 1.5차 위치는 환경변수 `KMA_NX`, `KMA_NY`로만 관리한다.
+- 기본 격자는 서울특별시 `nx=60`, `ny=127`이다.
+- 외부 API 실패는 fallback으로 처리한다.
+- KMA 연동 결정은 `docs/adr/006-kma-vilage-forecast-weather-provider.md`를 따른다.

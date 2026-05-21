@@ -1,4 +1,12 @@
-# ERD: SmartCloset 1차 MVP
+# ERD: SmartCloset 1.5차 MVP
+
+## 0. 1.5차 DB 변경 여부
+1.5차 MVP는 기상청 단기예보 JSON 연동을 추가하지만 DB 스키마는 변경하지 않는다.
+
+- 사용자별 위치 저장은 1.5차 범위에서 제외한다.
+- `weather_source`, `nx`, `ny`, KMA 원본 category 저장은 1.5차 범위에서 제외한다.
+- `recommendation_results`의 기존 weather snapshot 필드만 계속 사용한다.
+- 외부 API 실패 시 fallback 여부는 1.5차에서 DB에 저장하지 않는다.
 
 ## 1. 공통 DB 정책
 - DB는 MySQL 기준으로 설계한다.
@@ -129,10 +137,10 @@ Relations:
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
 | `user_id` | `BIGINT` | no | none | FK to `users.id` |
-| `weather_temperature` | `INT` | no | none | 추천 생성 시점의 기온 snapshot |
-| `weather_type` | `VARCHAR(30)` | no | none | `WeatherType` snapshot |
-| `rainy` | `BOOLEAN` | no | none | 비 조건 snapshot |
-| `windy` | `BOOLEAN` | no | none | 바람 조건 snapshot |
+| `weather_temperature` | `INT` | no | none | 추천 생성 시점의 내부 `WeatherCondition.temperature` snapshot |
+| `weather_type` | `VARCHAR(30)` | no | none | 내부 `WeatherCondition.weatherType` snapshot |
+| `rainy` | `BOOLEAN` | no | none | 내부 `WeatherCondition.rainy` snapshot |
+| `windy` | `BOOLEAN` | no | none | 내부 `WeatherCondition.windy` snapshot |
 | `total_score` | `INT` | no | none | 총점 |
 | `weather_score` | `INT` | no | none | 날씨 적합도 점수 |
 | `color_score` | `INT` | no | none | 색상 조합 점수 |
@@ -364,3 +372,4 @@ WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실�
 - PRD, ARCHITECTURE, RECOMMENDATION_RULES와 충돌하는 내용은 없다.
 - 추천 생성 API의 최종 계약은 `POST /api/recommendations?userId={userId}`이다.
 - `RecommendationResult`의 물리 저장 구조는 이 문서를 기준으로 한다.
+- 1.5차 KMA 연동은 기존 weather snapshot 컬럼에 매핑된 내부 날씨만 저장한다.

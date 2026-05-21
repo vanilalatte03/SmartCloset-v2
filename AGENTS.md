@@ -13,12 +13,16 @@
 
 ## 규칙
 - 구현 전 반드시 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
+- 구현 기준 문서는 루트 `README.md`와 `docs/` 아래 현재 문서다.
 - 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
-- 1차 MVP 범위를 넘는 기능을 임의로 구현하지 않는다.
+- `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
+- `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
+- 승인된 1.5차 범위는 기상청 단기예보 `getVilageFcst` JSON 연동까지로 제한한다.
 - Spring Boot 버전은 `4.0.6`으로 고정한다.
-- 외부 Weather API, AWS 배포, 로그인/회원가입, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
+- 1차 MVP에서는 외부 Weather API를 구현하지 않았지만, 1.5차에서는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
+- AWS 배포, 로그인/회원가입, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
 - 추천 생성 API는 `POST /api/recommendations?userId={userId}`만 사용한다.
-- `GET /api/recommendations/today`는 사용하지 않는다.
+- today 추천 GET 경로는 사용하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
 - 커밋은 항상 Codex 앱 커밋 지침을 따른다.
 - 자동 PR 루프는 clean worktree에서만 실행하고, Codex 앱 커밋/PR 지침을 따른다.

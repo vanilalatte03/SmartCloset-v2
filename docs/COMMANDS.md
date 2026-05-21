@@ -26,7 +26,7 @@ git config core.hooksPath .githooks
 | compose-down | `docker compose down -v` | yes | Docker Compose 중지 및 DB volume 초기화 |
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
-| autopilot | `python3 scripts/autopilot.py 1-smartcloset-mvp --base main` | no | step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
+| autopilot | `python3 scripts/autopilot.py 1-5-smartcloset-kma-weather --base main --max-review-fixes 2 --unsafe` | no | 1.5차 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
 ## P0 공유 검증 명령
 
@@ -60,7 +60,7 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 
 ```bash
 git diff --check
-rg -n "GET /api/recommendations/today" .
+! rg -n 'GET /api/recommendations/(today)' . --glob '!archive/**'
 rg -n "POST /api/recommendations" .
 ```
 
@@ -69,7 +69,7 @@ rg -n "POST /api/recommendations" .
 아래 명령은 clean worktree, 유효한 `gh auth status`, `origin` 원격, 최신 `main` 브랜치를 전제로 한다.
 
 ```bash
-python3 scripts/autopilot.py 1-smartcloset-mvp --base main
+python3 scripts/autopilot.py 1-5-smartcloset-kma-weather --base main --max-review-fixes 2 --unsafe
 ```
 
 자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다. 재시도 후에도 실패하면 PR과 Issue를 열어둔 채 중단한다.
