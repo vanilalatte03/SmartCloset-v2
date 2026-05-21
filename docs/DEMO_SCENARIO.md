@@ -1,28 +1,39 @@
-# Demo Scenario: SmartCloset 1차 MVP
+# Demo Scenario: SmartCloset 1.5차 MVP
 
 ## 데모 목표
-Docker Compose로 SmartCloset을 실행한 뒤 P0는 Swagger에서 추천 흐름을 확인한다. P1 Demo UI가 구현된 경우에는 Demo UI에서도 같은 흐름을 확인한다.
+Docker Compose로 SmartCloset을 실행한 뒤 Swagger 또는 Demo UI에서 옷장 기반 추천 흐름을 확인한다.
 
-P0 기준으로 Spring Boot 4.0.6 백엔드 추천 도메인과 API가 동작하는지 검증한다. 정식 프론트엔드 앱, 외부 Weather API, AI/GPT 추천, 이미지 업로드는 데모 범위가 아니다.
+1.5차 데모는 두 경로를 모두 지원한다.
+
+- 서비스키 없음: `StaticWeatherProvider` fallback으로 1차 MVP와 같은 안정적인 추천 흐름 확인
+- 서비스키 있음: 기상청 단기예보 `getVilageFcst` JSON 기반 날씨가 추천 응답의 `weather`에 반영되는지 확인
+
+정식 프론트엔드 앱, 로그인/회원가입, 사용자별 위치 저장, AI/GPT 추천, 이미지 업로드는 데모 범위가 아니다.
 
 ## 데모 전제
 - Docker Compose 실행 완료
 - Swagger UI 접속 가능
+- Demo UI 접속 가능
 - seed user: `userId=1`, `name=demo-user`
-- `StaticWeatherProvider` 고정 날씨 사용
+- 기본 위치: 서울특별시 격자 `KMA_NX=60`, `KMA_NY=127`
 
-| Field | Value |
-| --- | --- |
-| `temperature` | `12` |
-| `weatherType` | `CLOUDY` |
-| `rainy` | `false` |
-| `windy` | `false` |
+## 환경변수
+서비스키 없이 실행하면 fallback 날씨를 사용한다.
 
-`temperature=12`이므로 추천 생성 시 OUTER 필수 조합이 생성되어야 한다.
+```env
+KMA_SERVICE_KEY=
+KMA_NX=60
+KMA_NY=127
+KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
+WEATHER_FALLBACK_ENABLED=true
+```
 
-## Swagger 접속
+실제 API 연동을 확인하려면 `.env`에 공공데이터포털에서 발급받은 서비스키를 설정한다. 실제 서비스키는 문서, 코드, 커밋에 남기지 않는다.
+
+## 접속 경로
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
+- Demo UI: http://localhost:8080/demo/index.html
 
 ## Swagger 데모 시나리오
 
@@ -34,8 +45,6 @@ API:
 ```http
 GET /api/clothes?userId=1
 ```
-
-요청 body는 없다.
 
 기대 응답 핵심:
 
@@ -110,7 +119,7 @@ Content-Type: application/json
 - `material`이 저장되고 조회 응답에 포함된다.
 
 ### 3. 추천 생성
-목적: 현재 옷장과 고정 날씨 기준으로 오늘의 추천을 생성하고 저장하는지 확인한다.
+목적: 현재 옷장과 `WeatherProvider`가 제공한 날씨 기준으로 추천을 생성하고 저장하는지 확인한다.
 
 API:
 
@@ -157,9 +166,7 @@ POST /api/recommendations?userId=1
     "reasons": [
       "현재 기온이 낮아 아우터를 포함한 조합을 추천했습니다.",
       "상의와 하의 색상이 무채색 중심이라 안정적인 조합입니다.",
-      "최근 착용 이력이 적어 반복 착용 부담이 낮습니다.",
-      "니트 또는 울 소재가 현재 기온에 적합해 보온성을 보완합니다.",
-      "최근 추천된 동일 조합이 아니어서 반복 추천 부담이 낮습니다."
+      "최근 착용 이력이 적어 반복 착용 부담이 낮습니다."
     ],
     "worn": false,
     "createdAt": "2026-05-20T10:00:00"
@@ -169,10 +176,12 @@ POST /api/recommendations?userId=1
 
 확인 포인트:
 - HTTP status는 `201 Created`다.
-- `weather.temperature=12`다.
-- `outfit.top`, `outfit.bottom`, `outfit.outer`가 모두 존재한다.
-- `score.totalScore`가 존재한다.
-- `score.weatherScore`, `colorScore`, `wearHistoryScore`, `recommendationHistoryScore`, `diversityScore`가 모두 존재한다.
+- `weather`가 존재한다.
+- 서비스키 없음 상태에서는 fallback 값 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`가 반환된다.
+- 서비스키 설정 상태에서는 기상청 단기예보 JSON에서 매핑된 값이 반환될 수 있다.
+- `outfit.top`, `outfit.bottom`이 존재한다.
+- `outfit.outer`는 날씨 조건에 따라 객체 또는 `null`일 수 있다.
+- `score.totalScore`와 세부 점수가 존재한다.
 - `reasons`는 3개 이상 5개 이하이다.
 - `worn=false`다.
 - `createdAt`이 존재한다.
@@ -185,8 +194,6 @@ API:
 ```http
 PATCH /api/recommendations/{recommendationId}/worn?userId=1
 ```
-
-요청 body는 없다.
 
 기대 응답 핵심:
 
@@ -215,41 +222,37 @@ API:
 POST /api/recommendations?userId=1
 ```
 
-요청 body는 없다.
-
 기대 응답 핵심:
 - 새 `recommendationId`가 반환된다.
 - 최근 착용한 옷이 포함되면 `wearHistoryScore`가 낮아질 수 있다.
 - 동일 조합이 최근 추천 결과에 있으면 `recommendationHistoryScore` 또는 `diversityScore`가 낮아질 수 있다.
-- 전체 추천 결과는 규칙과 seed data 상태에 따라 달라질 수 있다.
 
-확인 포인트:
-- 추천이 새로 생성되고 DB에 저장된다.
-- 최근 착용 이력 때문에 점수 또는 추천 결과가 달라질 수 있음을 확인한다.
+## KMA 연동 수동 확인
+서비스키가 있을 때만 수행한다.
+
+1. `.env`에 `KMA_SERVICE_KEY`를 설정한다.
+2. `KMA_NX=60`, `KMA_NY=127`을 유지하거나 원하는 격자로 변경한다.
+3. `docker compose up --build`를 실행한다.
+4. Swagger에서 `POST /api/recommendations?userId=1`을 호출한다.
+5. 응답의 `weather`가 호출 시점의 기상청 예보값에 맞게 달라질 수 있음을 확인한다.
+
+주의:
+- 실제 서비스키는 출력, 문서, 커밋에 남기지 않는다.
+- 기상청 `NODATA` 또는 호출 실패가 발생해도 fallback이 활성화되어 있으면 추천은 성공할 수 있다.
 
 ## 실패 케이스 데모 후보
-아래 실패 케이스는 P1의 옷 보관 처리 API가 구현된 경우 Swagger로 확인할 수 있는 선택 시나리오다.
+아래 실패 케이스는 옷 보관 처리 API로 확인할 수 있는 선택 시나리오다.
 
 | Scenario | Expected Failure |
 | --- | --- |
 | TOP을 모두 archive 처리 | `NO_TOP_AVAILABLE` |
 | BOTTOM을 모두 archive 처리 | `NO_BOTTOM_AVAILABLE` |
-| `temperature=12`에서 OUTER를 모두 archive 처리 | `OUTER_REQUIRED_BUT_NOT_AVAILABLE` |
-
-실패 응답 예시:
-
-```json
-{
-  "code": "OUTER_REQUIRED_BUT_NOT_AVAILABLE",
-  "message": "현재 기온에는 아우터가 필요하지만 추천 가능한 아우터가 없습니다.",
-  "details": []
-}
-```
+| OUTER 필수 날씨에서 OUTER를 모두 archive 처리 | `OUTER_REQUIRED_BUT_NOT_AVAILABLE` |
 
 추천 실패는 비즈니스 실패이므로 HTTP `422 Unprocessable Entity`로 응답한다.
 
 ## Demo UI 시나리오
-P1 최소 데모 UI는 아래 경로에서 API 흐름을 확인한다.
+Demo UI는 아래 경로에서 API 흐름을 확인한다.
 
 ```text
 http://localhost:8080/demo/index.html

@@ -1,0 +1,36 @@
+{
+  "project": "SmartCloset",
+  "phase": "1-5-smartcloset-kma-weather",
+  "steps": [
+    {
+      "step": 0,
+      "name": "kma-configuration-contract",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "kma-time-and-mapping-core",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "kma-http-client",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "kma-provider-fallback-wiring",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "recommendation-api-kma-integration",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "sharing-verification-and-doc-sync",
+      "status": "pending"
+    }
+  ]
+}

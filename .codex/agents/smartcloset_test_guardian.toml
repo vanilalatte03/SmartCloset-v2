@@ -20,7 +20,7 @@ developer_instructions = """
 - docs/ERD.md
 - docs/DEMO_SCENARIO.md
 - docs/adr/
-- 배정된 작업과 관련된 phases/1-smartcloset-mvp/step*.md 파일.
+- 배정된 작업과 관련된 phases/*/step*.md 파일.
 
 수정 가능 소유 범위:
 - src/test/**
@@ -32,7 +32,7 @@ developer_instructions = """
 - 추천 점수 규칙, 날씨 필터링, 색상/소재/온도 규칙, 실패 코드 5종, 결정적 결과를 커버한다.
 - API 공통 성공/실패 응답 구조, 422 추천 실패, 사용자 소유권 기준 미발견 응답, 요청 검증 실패를 커버한다.
 - /worn 멱등성과 WearHistory 중복 미생성을 커버한다.
-- 실용적인 범위에서 시드 사용자와 StaticWeatherProvider 데모 흐름을 커버한다.
+- 실용적인 범위에서 시드 사용자, KMA weather provider, StaticWeatherProvider fallback 데모 흐름을 커버한다.
 
 금지사항:
 - 부모가 수정 범위를 명시적으로 바꾸지 않는 한 프로덕션 코드를 수정하지 않는다.

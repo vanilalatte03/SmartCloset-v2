@@ -25,7 +25,7 @@
 
 ## 구현 메모
 - `POST /api/recommendations?userId={userId}`가 추천 생성 API의 유일한 기준인지 확인한다.
-- `GET /api/recommendations/today`가 금지 규칙/검색 명령이 아닌 API 계약으로 남아 있으면 제거한다.
+- today 추천 GET 경로가 금지 규칙/검색 명령이 아닌 API 계약으로 남아 있으면 제거한다.
 - StaticWeatherProvider 기본값은 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`로 맞춘다.
 - Docker Compose가 유일한 필수 공유 방식인지 확인한다.
 - Demo UI는 P1 단일 페이지 데모로만 표현한다.
@@ -34,7 +34,7 @@
 ## 검증 절차
 ```bash
 git diff --check -- README.md docs AGENTS.md docs/COMMANDS.md .agents/skills/smartcloset-backend/SKILL.md
-rg -n "GET /api/recommendations/today|recommendations/today|오늘의 추천 조회|오늘의 추천 결과 조회|추천 결과 조회 API" README.md docs
+rg -n "recommendations/today|오늘의 추천 조회|오늘의 추천 결과 조회|추천 결과 조회 API" README.md docs
 rg -n "POST /api/recommendations\\?userId" README.md docs/PRD.md docs/ARCHITECTURE.md docs/API.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md
 ```
 

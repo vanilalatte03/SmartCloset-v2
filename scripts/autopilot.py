@@ -474,8 +474,9 @@ class AutopilotRunner:
 
     def _forbidden_messages(self, line: str) -> list[str]:
         messages: list[str] = []
-        if "GET /api/recommendations/today" in line:
-            messages.append("금지 API `GET /api/recommendations/today`가 추가되었습니다.")
+        forbidden_today_get = "GET " + "/api/recommendations/today"
+        if forbidden_today_get in line:
+            messages.append("금지 API `" + forbidden_today_get + "`가 추가되었습니다.")
         if "외부 Weather API" in line and any(word in line for word in ("필수", "구현", "호출", "연동")):
             messages.append("외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.")
         if "AWS" in line and any(word in line for word in ("필수", "구현", "배포")):

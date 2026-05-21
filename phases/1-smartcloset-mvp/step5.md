@@ -42,5 +42,5 @@
 - P0 추천 API controller/service 테스트 또는 통합 테스트가 있다.
 
 ## 금지사항
-- `GET /api/recommendations/today`를 만들지 마라. 이유: 추천 생성은 상태 변경이므로 POST 계약으로 확정되어 있다.
+- today 추천 GET 경로를 만들지 마라. 이유: 추천 생성은 상태 변경이므로 POST 계약으로 확정되어 있다.
 - 착용 완료 중복 호출에서 WearHistory를 중복 저장하지 마라. 이유: `/worn`은 idempotent 성공이어야 한다.

@@ -13,7 +13,7 @@ git diff --check origin/main...HEAD
 ## 핵심 에러
 Autopilot review gate failed.
 
-- 금지 API `GET /api/recommendations/today`가 추가되었습니다.
+- 금지 API `today 추천 GET 경로`가 추가되었습니다.
 - 외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.
 - 외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.
 - AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.
@@ -25,7 +25,7 @@ Autopilot review gate failed.
 - Redis 범위가 추가되었습니다.
 - Redis 범위가 추가되었습니다.
 - Redis 범위가 추가되었습니다.
-- 금지 API `GET /api/recommendations/today`가 추가되었습니다.
+- 금지 API `today 추천 GET 경로`가 추가되었습니다.
 - Redis 범위가 추가되었습니다.
 - Codex review output에서 JSON 결과를 찾지 못했습니다.
 

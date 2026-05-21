@@ -4,6 +4,10 @@
       "dir": "1-smartcloset-mvp",
       "status": "completed",
       "completed_at": "2026-05-21T12:23:59+0900"
+    },
+    {
+      "dir": "1-5-smartcloset-kma-weather",
+      "status": "pending"
     }
   ]
 }

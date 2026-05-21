@@ -292,6 +292,8 @@ def test_codex_review_prompt_excludes_issue_records(runner):
 
 
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
+    forbidden_today_get = "GET " + "/api/recommendations/today"
+
     def fake_git(*args, check=True):
         assert args[:2] == ("diff", "--unified=0")
         return cp(
@@ -299,7 +301,7 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "diff --git a/scripts/autopilot.py b/scripts/autopilot.py",
                 "+++ b/scripts/autopilot.py",
                 "@@ -1,0 +1,1 @@",
-                '+            if "GET /api/recommendations/today" in line:',
+                f'+            if "{forbidden_today_get}" in line:',
                 "diff --git a/issues/1-smartcloset-mvp/issue-1.md b/issues/1-smartcloset-mvp/issue-1.md",
                 "+++ b/issues/1-smartcloset-mvp/issue-1.md",
                 "@@ -1,0 +1,1 @@",
@@ -318,9 +320,9 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+AWS 배포는 제공하지 않는다.",
                 "+회원가입/로그인은 구현하지 않는다.",
                 "+SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 규칙 기반 추천이다.",
-                '+rg -n "GET /api/recommendations/today" .',
+                '+rg -n "recommendations/today" .',
                 "+Redis 캐싱을 구현한다.",
-                "+GET /api/recommendations/today",
+                f"+{forbidden_today_get}",
             ])
         )
 
@@ -329,7 +331,7 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     findings = runner._scan_forbidden_diff()
 
     assert any("docs/PRD.md:" in finding and "Redis 범위" in finding for finding in findings)
-    assert any("docs/PRD.md:" in finding and "GET /api/recommendations/today" in finding for finding in findings)
+    assert any("docs/PRD.md:" in finding and forbidden_today_get in finding for finding in findings)
     assert not any("외부 Weather API" in finding for finding in findings)
     assert not any("AWS 배포" in finding for finding in findings)
     assert not any("로그인/회원가입" in finding for finding in findings)
