@@ -16,6 +16,8 @@ issues/{phase-name}/issue-N.md
 ## 발생 위치
 - Phase: <phase-name>
 - Step: <step-number 또는 review>
+- PR: <GitHub PR URL>
+- GitHub Issue: <GitHub Issue URL>
 
 ## 재현 명령
 ```bash
@@ -24,6 +26,9 @@ issues/{phase-name}/issue-N.md
 
 ## 핵심 에러
 <가장 중요한 에러 메시지 또는 관찰 결과>
+
+## Review Findings
+- <자체 리뷰 또는 자동 gate finding>
 
 ## 수정 방향
 - <fix step에서 처리할 작업>

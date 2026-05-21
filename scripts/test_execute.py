@@ -384,7 +384,7 @@ class TestCheckoutBranch:
 
     def test_already_on_branch(self, executor):
         self._mock_git(executor, [
-            MagicMock(returncode=0, stdout="feat-mvp\n", stderr=""),
+            MagicMock(returncode=0, stdout="codex/mvp\n", stderr=""),
         ])
         executor._checkout_branch()  # should return without checkout
 
@@ -395,6 +395,42 @@ class TestCheckoutBranch:
             MagicMock(returncode=0, stdout="", stderr=""),
         ])
         executor._checkout_branch()
+
+    def test_default_branch_uses_codex_prefix(self, executor):
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            if args == ("rev-parse", "--abbrev-ref", "HEAD"):
+                return MagicMock(returncode=0, stdout="main\n", stderr="")
+            if args == ("rev-parse", "--verify", "refs/heads/codex/mvp"):
+                return MagicMock(returncode=1, stdout="", stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._run_git = fake_git
+
+        executor._checkout_branch()
+
+        assert ("checkout", "-b", "codex/mvp") in calls
+
+    def test_explicit_branch_is_used(self, tmp_project, phase_dir):
+        with patch.object(ex, "ROOT", tmp_project):
+            inst = ex.StepExecutor("0-mvp", branch_name="codex/custom")
+
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            if args == ("rev-parse", "--abbrev-ref", "HEAD"):
+                return MagicMock(returncode=0, stdout="main\n", stderr="")
+            if args == ("rev-parse", "--verify", "refs/heads/codex/custom"):
+                return MagicMock(returncode=1, stdout="", stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        inst._run_git = fake_git
+        inst._checkout_branch()
+
+        assert ("checkout", "-b", "codex/custom") in calls
 
     def test_branch_not_exists_create(self, executor):
         self._mock_git(executor, [
@@ -679,6 +715,32 @@ class TestMainCli:
                 with pytest.raises(SystemExit) as exc_info:
                     ex.main()
                 assert exc_info.value.code == 1
+
+    def test_branch_arg_passed_to_executor(self, tmp_project, phase_dir):
+        captured = {}
+
+        class FakeExecutor:
+            def __init__(self, phase_dir_name, *, auto_push=False, unsafe=False, branch_name=None):
+                captured["phase_dir_name"] = phase_dir_name
+                captured["auto_push"] = auto_push
+                captured["unsafe"] = unsafe
+                captured["branch_name"] = branch_name
+
+            def run(self):
+                captured["ran"] = True
+
+        with patch("sys.argv", ["execute.py", "0-mvp", "--branch", "codex/custom"]):
+            with patch.object(ex, "ROOT", tmp_project):
+                with patch.object(ex, "StepExecutor", FakeExecutor):
+                    ex.main()
+
+        assert captured == {
+            "phase_dir_name": "0-mvp",
+            "auto_push": False,
+            "unsafe": False,
+            "branch_name": "codex/custom",
+            "ran": True,
+        }
 
 
 # ---------------------------------------------------------------------------

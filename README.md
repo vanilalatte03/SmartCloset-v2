@@ -134,7 +134,7 @@ Step 1 전에는 Harness 운영 스크립트 검증을 먼저 사용합니다.
 
 ```bash
 python3 -m compileall scripts
-python3 -m pytest scripts/test_checks.py scripts/test_guard.py scripts/test_execute.py
+python3 -m pytest scripts/test_checks.py scripts/test_guard.py scripts/test_execute.py scripts/test_autopilot.py
 ```
 
 Gradle wrapper가 생성된 뒤에는 아래 명령을 사용합니다.
