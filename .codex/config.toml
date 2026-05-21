@@ -1,5 +1,9 @@
 [features]
-# The public Codex hooks docs use `codex_hooks`; current CLI builds expose the
-# same stable feature as `hooks`.
+# 공개 Codex hooks 문서는 `codex_hooks`를 사용한다. 현재 CLI 빌드는
+# 같은 안정 기능을 `hooks`로도 제공한다.
 codex_hooks = true
 hooks = true
+
+[agents]
+max_threads = 3
+max_depth = 1

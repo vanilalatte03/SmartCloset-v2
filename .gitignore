@@ -6,6 +6,10 @@ tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 
+# local workspace files
+.idea/
+prompt-summary.txt
+
 # phase execution outputs
 phases/**/phase*-output.json
 phases/**/step*-output.json

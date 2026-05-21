@@ -56,8 +56,9 @@ class StepExecutor:
     """Phase 디렉토리 안의 step들을 순차 실행하는 하네스."""
 
     MAX_RETRIES = 3
-    FEAT_MSG = "feat({phase}): step {num} — {name}"
-    CHORE_MSG = "chore({phase}): step {num} output"
+    FEAT_MSG = "feat: {phase} {num}단계 {name} 구현"
+    CHORE_MSG = "chore: {phase} {num}단계 실행 기록 정리"
+    COMPLETION_MSG = "chore: {phase} 완료 상태 기록"
     TZ = timezone(timedelta(hours=9))
 
     def __init__(self, phase_dir_name: str, *, auto_push: bool = False, unsafe: bool = False):
@@ -86,6 +87,7 @@ class StepExecutor:
     def run(self):
         self._print_header()
         self._check_blockers()
+        self._ensure_clean_worktree()
         self._checkout_branch()
         guardrails = self._load_guardrails()
         command_context = self._load_command_context()
@@ -113,6 +115,30 @@ class StepExecutor:
     def _run_git(self, *args) -> subprocess.CompletedProcess:
         cmd = ["git"] + list(args)
         return subprocess.run(cmd, cwd=self._root, capture_output=True, text=True)
+
+    def _ensure_clean_worktree(self):
+        r = self._run_git("status", "--short", "--untracked-files=all")
+        if r.returncode != 0:
+            print("  ERROR: git status 확인 실패.")
+            print(f"  {r.stderr.strip()}")
+            sys.exit(1)
+
+        status = r.stdout.strip()
+        if not status:
+            return
+
+        print("  ERROR: 작업트리에 커밋되지 않은 변경사항이 있습니다.")
+        print("  Harness는 unrelated 변경 커밋 방지를 위해 clean worktree에서만 실행합니다.")
+        print("  변경사항을 commit 또는 stash한 뒤 다시 실행하세요.")
+        print("\n  현재 변경사항:")
+        for line in status.splitlines():
+            print(f"    {line}")
+        sys.exit(1)
+
+    def _stage_existing_paths(self, *paths: str):
+        existing = [path for path in paths if (Path(self._root) / path).exists()]
+        if existing:
+            self._run_git("add", "-A", "--", *existing)
 
     def _checkout_branch(self):
         branch = f"feat-{self._phase_name}"
@@ -153,7 +179,7 @@ class StepExecutor:
             else:
                 print(f"  WARN: 코드 커밋 실패: {r.stderr.strip()}")
 
-        self._run_git("add", "-A")
+        self._stage_existing_paths(output_rel, index_rel)
         if self._run_git("diff", "--cached", "--quiet").returncode != 0:
             msg = self.CHORE_MSG.format(phase=self._phase_name, num=step_num)
             r = self._run_git("commit", "-m", msg)
@@ -417,9 +443,12 @@ class StepExecutor:
         self._write_json(self._index_file, index)
         self._update_top_index("completed")
 
-        self._run_git("add", "-A")
+        self._stage_existing_paths(
+            f"phases/{self._phase_dir_name}/index.json",
+            "phases/index.json",
+        )
         if self._run_git("diff", "--cached", "--quiet").returncode != 0:
-            msg = f"chore({self._phase_name}): mark phase completed"
+            msg = self.COMPLETION_MSG.format(phase=self._phase_name)
             r = self._run_git("commit", "-m", msg)
             if r.returncode == 0:
                 print(f"  ✓ {msg}")

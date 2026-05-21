@@ -287,7 +287,7 @@ class TestBuildPreamble:
 
     def test_includes_commit_example(self, executor):
         result = executor._build_preamble("", "")
-        assert "feat(mvp):" in result
+        assert "feat: mvp N단계 <step-name> 구현" in result
 
     def test_includes_rules(self, executor):
         result = executor._build_preamble("", "")
@@ -424,6 +424,75 @@ class TestCheckoutBranch:
 
 
 # ---------------------------------------------------------------------------
+# _ensure_clean_worktree
+# ---------------------------------------------------------------------------
+
+class TestEnsureCleanWorktree:
+    def test_clean_worktree_returns(self, executor):
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._run_git = fake_git
+
+        executor._ensure_clean_worktree()
+
+        assert calls == [("status", "--short", "--untracked-files=all")]
+
+    def test_dirty_worktree_exits_1(self, executor, capsys):
+        def fake_git(*args):
+            return MagicMock(returncode=0, stdout=" M README.md\n?? tmp.txt\n", stderr="")
+
+        executor._run_git = fake_git
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._ensure_clean_worktree()
+
+        captured = capsys.readouterr()
+        assert exc_info.value.code == 1
+        assert "작업트리에 커밋되지 않은 변경사항" in captured.out
+        assert "M README.md" in captured.out
+        assert "?? tmp.txt" in captured.out
+
+    def test_status_failure_exits_1(self, executor, capsys):
+        def fake_git(*args):
+            return MagicMock(returncode=1, stdout="", stderr="not a git repo")
+
+        executor._run_git = fake_git
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._ensure_clean_worktree()
+
+        captured = capsys.readouterr()
+        assert exc_info.value.code == 1
+        assert "git status 확인 실패" in captured.out
+        assert "not a git repo" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# run() flow
+# ---------------------------------------------------------------------------
+
+class TestRunFlow:
+    def test_dirty_worktree_stops_before_checkout(self, executor):
+        def fake_git(*args):
+            if args == ("status", "--short", "--untracked-files=all"):
+                return MagicMock(returncode=0, stdout=" M README.md\n", stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._run_git = fake_git
+        executor._checkout_branch = MagicMock()
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor.run()
+
+        assert exc_info.value.code == 1
+        executor._checkout_branch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # _commit_step (mocked)
 # ---------------------------------------------------------------------------
 
@@ -441,8 +510,25 @@ class TestCommitStep:
 
         commit_calls = [c for c in calls if c[0] == "commit"]
         assert len(commit_calls) == 2
-        assert "feat(mvp):" in commit_calls[0][2]
-        assert "chore(mvp):" in commit_calls[1][2]
+        assert commit_calls[0][2] == "feat: mvp 2단계 ui 구현"
+        assert commit_calls[1][2] == "chore: mvp 2단계 실행 기록 정리"
+
+    def test_housekeeping_commit_stages_only_step_metadata(self, executor):
+        output_file = executor._phase_dir / "step2-output.json"
+        output_file.write_text("{}")
+        calls = []
+
+        def fake_git(*args):
+            calls.append(args)
+            if args[:2] == ("diff", "--cached"):
+                return MagicMock(returncode=1)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._run_git = fake_git
+
+        executor._commit_step(2, "ui")
+
+        assert ("add", "-A", "--", "phases/0-mvp/step2-output.json", "phases/0-mvp/index.json") in calls
 
     def test_no_code_changes_skips_feat_commit(self, executor):
         call_count = {"diff": 0}
@@ -461,7 +547,31 @@ class TestCommitStep:
 
         commit_msgs = [c[2] for c in calls if c[0] == "commit"]
         assert len(commit_msgs) == 1
-        assert "chore" in commit_msgs[0]
+        assert commit_msgs[0] == "chore: mvp 2단계 실행 기록 정리"
+
+
+# ---------------------------------------------------------------------------
+# _finalize
+# ---------------------------------------------------------------------------
+
+class TestFinalize:
+    def test_stages_only_phase_indexes(self, executor, top_index):
+        calls = []
+        executor._top_index_file = top_index
+
+        def fake_git(*args):
+            calls.append(args)
+            if args[:2] == ("diff", "--cached"):
+                return MagicMock(returncode=1)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._run_git = fake_git
+
+        executor._finalize()
+
+        assert ("add", "-A", "--", "phases/0-mvp/index.json", "phases/index.json") in calls
+        assert ("add", "-A") not in calls
+        assert ("commit", "-m", "chore: mvp 완료 상태 기록") in calls
 
 
 # ---------------------------------------------------------------------------

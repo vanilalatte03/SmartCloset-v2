@@ -1,6 +1,6 @@
 {
-  "projectName": "<project-name>",
-  "profile": "mixed",
+  "projectName": "SmartCloset",
+  "profile": "spring-boot-gradle",
   "guardMode": "soft",
   "commands": {
     "dev": [],
@@ -10,12 +10,10 @@
     "review": []
   },
   "sourceRoots": [
-    "src",
-    "app"
+    "src/main/java",
+    "src/main/resources"
   ],
   "testRoots": [
-    "tests",
-    "test",
-    "src/test"
+    "src/test/java"
   ]
 }

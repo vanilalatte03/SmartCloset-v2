@@ -13,7 +13,7 @@ description: "Codex가 이 Harness 프레임워크로 작업해야 할 때 사�
 
 ### 탐색
 
-`/docs/` 아래의 `PRD.md`, `ARCHITECTURE.md`, `ADR.md`, `COMMANDS.md` 같은 문서를 읽고 제품 의도, 아키텍처, 제약 조건, 검증 명령을 파악한다. 프로젝트 규칙은 `AGENTS.md`를 읽는다. `docs/adr/` 디렉터리가 있으면 분리된 ADR도 함께 읽는다.
+`/docs/` 아래의 `PRD.md`, `ARCHITECTURE.md`, `ADR.md`, `COMMANDS.md` 같은 문서를 읽고 제품 의도, 아키텍처, 제약 조건, 검증 명령을 파악한다. 프로젝트 규칙은 `AGENTS.md`를 읽는다. `docs/adr/` 디렉터리가 있으면 분리된 ADR도 함께 읽는다. 프로젝트별 skill 문서가 있으면 AGENTS.md의 안내에 따라 해당 skill도 반드시 읽는다. 예: `skills/<project-skill>/SKILL.md`.
 
 ### 논의
 
@@ -32,6 +32,8 @@ description: "Codex가 이 Harness 프레임워크로 작업해야 할 때 사�
 5. `docs/COMMANDS.md`에 정의된 lint/test/build 명령을 인수 기준에 반영한다.
 6. 주의사항은 `"X를 하지 마라. 이유: Y."` 형식으로 구체적으로 작성한다.
 7. 단계 이름은 `project-setup`, `api-layer`, `auth-flow`처럼 kebab-case를 사용한다.
+8. 각 단계는 Must-have / Should-have / Later 중 어느 범위에 속하는지 명시한다. 프로젝트가 P0/P1/P2 같은 용어를 쓰면 해당 프로젝트 skill의 정의를 따른다.
+9. 문서 간 API, 범위, 실행 방법 충돌이 발견되면 구현 단계에 섞지 말고 별도 문서 동기화 step으로 분리한다.
 
 ## 생성할 파일
 
@@ -121,7 +123,7 @@ python3 scripts/checks.py --stage manual
    - ARCHITECTURE.md의 디렉터리 구조를 따르는가?
    - ADR의 기술 스택을 벗어나지 않았는가?
    - AGENTS.md의 CRITICAL 규칙을 위반하지 않았는가?
-   - COMMANDS.md의 검증 명령을 실행했는가?
+   - docs/COMMANDS.md의 검증 명령을 실행했는가?
 3. 결과에 따라 `phases/{작업명}/index.json`의 해당 단계를 업데이트한다:
    - 성공 -> `"status": "completed"`, `"summary": "산출물 한 줄 요약"`
    - 수정 3회 시도 후에도 실패 -> `"status": "error"`, `"error_message": "구체적 에러 내용"`
