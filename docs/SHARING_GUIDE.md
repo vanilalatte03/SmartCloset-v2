@@ -16,7 +16,7 @@ AWS 배포는 제공하지 않는다. 외부 Weather API를 사용하지 않으�
 - seed data
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
-- Demo UI 경로(P1 구현 시): http://localhost:8080/demo/index.html
+- Demo UI 경로: http://localhost:8080/demo/index.html
 
 ## 실행 명령
 
@@ -33,7 +33,7 @@ Swagger UI 접속:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-P1 Demo UI 구현 후 접속:
+Demo UI 접속:
 
 ```text
 http://localhost:8080/demo/index.html
@@ -83,10 +83,10 @@ P0만 완료되어도 1차 MVP 공유 조건을 만족한다.
 
 | Problem | Resolution |
 | --- | --- |
-| 8080 포트 충돌 | 기존 8080 사용 프로세스를 종료하거나 구현 단계에서 포트 변경 방법을 README에 추가한다. |
-| 3306 포트 충돌 | 로컬 MySQL을 중지하거나 Docker Compose의 MySQL host port를 조정한다. |
+| 8080 포트 충돌 | 기존 8080 사용 프로세스를 종료하거나 `.env`의 `APP_PORT`를 변경한다. |
+| MySQL host port 충돌 | 로컬 MySQL을 중지하거나 `.env`의 `MYSQL_PORT`를 변경한다. 기본값은 `3307`이다. |
 | 이전 DB 데이터가 남아 있음 | `docker compose down -v`로 volume을 제거한 뒤 다시 실행한다. |
-| MySQL 준비 전에 Spring Boot가 먼저 뜸 | `depends_on`과 healthcheck 또는 애플리케이션 재시도 설정을 구현 단계에서 적용한다. |
+| MySQL 준비 전에 Spring Boot가 먼저 뜸 | Docker Compose의 MySQL healthcheck와 `depends_on` 설정을 확인한다. |
 | Swagger 접속 경로 오타 | `http://localhost:8080/swagger-ui/index.html`로 접속한다. |
 | `.env` 누락 | `.env.example`을 `.env`로 복사한다. |
 | 추천 생성 시 OUTER가 없음 | seed data에 `temperature=12`에 맞는 OUTER가 포함되어 있는지 확인한다. |

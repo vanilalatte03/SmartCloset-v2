@@ -144,8 +144,11 @@ python3 scripts/checks.py --stage manual
 ```bash
 python3 scripts/execute.py {작업명}
 python3 scripts/execute.py {작업명} --push
+python3 scripts/autopilot.py {작업명} --base main
 ```
 
 `scripts/execute.py`는 브랜치 생성, `AGENTS.md`와 `docs/*.md`, `docs/adr/*.md`, `docs/COMMANDS.md`의 가드레일 주입, 완료된 단계의 `summary` 컨텍스트 전달, 재시도 피드백, 코드 변경과 메타데이터의 2단계 커밋, 타임스탬프 기록, 선택적 push를 처리한다. 기본 실행은 Codex 승인과 sandbox를 유지하며, 필요한 경우에만 `--unsafe`를 명시한다.
+
+`scripts/autopilot.py`는 `execute.py` 위에서 phase 실행, draft PR 생성, 로컬 검증, 자체 리뷰, GitHub/로컬 이슈 기록, fix PR 재시도, 자동 병합을 처리한다. 완전 자동 운영이 필요하면 `autopilot.py`를 사용한다.
 
 복구가 필요하면 `phases/{작업명}/index.json`에서 실패 또는 blocked 상태의 단계를 다시 `pending`으로 바꾸고, `error_message` 또는 `blocked_reason`을 제거한 뒤 원인을 해결하고 페이즈를 다시 실행한다.

@@ -21,6 +21,9 @@
 - `GET /api/recommendations/today`는 사용하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
 - 커밋은 항상 Codex 앱 커밋 지침을 따른다.
+- 자동 PR 루프는 clean worktree에서만 실행하고, Codex 앱 커밋/PR 지침을 따른다.
+- 자동 병합은 로컬 검증과 자체 리뷰가 모두 통과한 PR에만 허용한다.
+- 자동 리뷰 실패는 GitHub Issue와 `issues/{phase}/issue-N.md`에 함께 기록한다.
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 
 ## 서브에이전트

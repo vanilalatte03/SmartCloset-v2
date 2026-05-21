@@ -6,8 +6,14 @@ tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 
+# Gradle
+.gradle/
+.gradle-user-home/
+build/
+
 # local workspace files
 .idea/
+.env
 prompt-summary.txt
 
 # phase execution outputs

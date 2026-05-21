@@ -47,17 +47,20 @@ git config core.hooksPath .githooks
 ```
 
 ## 환경 변수 기준
-실제 `.env.example` 파일은 구현 단계에서 작성합니다. 1차 MVP 로컬 공유용 기본값은 아래 기준을 따릅니다.
+1차 MVP 로컬 공유용 기본값은 [.env.example](.env.example)를 기준으로 합니다.
 
 ```env
 MYSQL_DATABASE=smartcloset
 MYSQL_USER=smartcloset
 MYSQL_PASSWORD=smartcloset
 MYSQL_ROOT_PASSWORD=root
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/smartcloset
+MYSQL_PORT=3307
+SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/smartcloset?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
 SPRING_DATASOURCE_USERNAME=smartcloset
 SPRING_DATASOURCE_PASSWORD=smartcloset
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
 SPRING_PROFILES_ACTIVE=local
+APP_PORT=8080
 ```
 
 위 값은 실제 운영 비밀번호가 아니라 Docker Compose 로컬 공유용 값입니다. 민감정보를 코드와 문서에 커밋하지 않습니다.
@@ -65,6 +68,7 @@ SPRING_PROFILES_ACTIVE=local
 ## Docker Compose 실행
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -80,13 +84,14 @@ DB까지 초기화:
 docker compose down -v
 ```
 
+MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본값은 충돌을 줄이기 위해 `3307`입니다. 필요하면 `.env`의 `MYSQL_PORT`를 조정합니다.
+
 ## 접속 경로
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
-- Demo UI(P1 구현 후): http://localhost:8080/demo/index.html
-- Health Check 후보: http://localhost:8080/actuator/health
+- Demo UI: http://localhost:8080/demo/index.html
 
-Health Check는 Actuator 사용 여부 또는 별도 endpoint 제공 여부를 구현 단계에서 확정합니다.
+P0 공유 검증은 Swagger UI에서 수행할 수 있고, P1 최소 Demo UI에서도 같은 핵심 흐름을 확인할 수 있습니다.
 
 ## StaticWeatherProvider 기준
 1차 MVP는 외부 Weather API를 사용하지 않습니다. 추천 로직은 아래 고정 테스트 날씨를 사용합니다.
@@ -101,7 +106,7 @@ Health Check는 Actuator 사용 여부 또는 별도 endpoint 제공 여부를 �
 `temperature=12`이므로 OUTER 필수 조합이 생성되어야 합니다.
 
 ## Seed Data 기준
-구현 완료 후 seed data는 아래 조건을 만족해야 합니다.
+애플리케이션 시작 시 seed initializer가 아래 조건을 만족하는 데이터를 생성합니다.
 
 - seed user 1명 제공
 - 기본 사용자: `userId=1`, `name=demo-user`
@@ -129,12 +134,26 @@ Swagger UI에서 P0 흐름을 아래 순서로 확인합니다.
 5. 추천 결과 착용 완료 처리: `PATCH /api/recommendations/{recommendationId}/worn?userId=1`
 6. 추천 재생성 후 최근 착용 이력 반영 확인
 
+OpenAPI JSON 확인:
+
+```bash
+curl -s http://localhost:8080/v3/api-docs
+```
+
+Demo UI 확인:
+
+```text
+http://localhost:8080/demo/index.html
+```
+
+Demo UI에서는 `userId=1` 기준으로 옷 목록 조회, 옷 등록, 추천 생성, 착용 완료 처리를 실행할 수 있습니다.
+
 ## 테스트 명령어
 Step 1 전에는 Harness 운영 스크립트 검증을 먼저 사용합니다.
 
 ```bash
 python3 -m compileall scripts
-python3 -m pytest scripts/test_checks.py scripts/test_guard.py scripts/test_execute.py
+python3 -m pytest scripts/test_checks.py scripts/test_guard.py scripts/test_execute.py scripts/test_autopilot.py
 ```
 
 Gradle wrapper가 생성된 뒤에는 아래 명령을 사용합니다.
@@ -144,7 +163,14 @@ Gradle wrapper가 생성된 뒤에는 아래 명령을 사용합니다.
 ./gradlew build
 ```
 
-Docker 환경에서 실행할지, 로컬 Gradle로 실행할지는 구현 단계에서 확정합니다.
+Docker Compose 공유 검증은 아래 명령으로 확인합니다.
+
+```bash
+cp .env.example .env
+docker compose up --build
+curl -s http://localhost:8080/v3/api-docs
+docker compose down -v
+```
 
 ## 문서
 - [PRD](docs/PRD.md)

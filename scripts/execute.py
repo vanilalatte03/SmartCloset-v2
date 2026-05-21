@@ -3,7 +3,7 @@
 Harness Step Executor — phase 내 step을 순차 실행하고 자가 교정한다.
 
 Usage:
-    python3 scripts/execute.py <phase-dir> [--push]
+    python3 scripts/execute.py <phase-dir> [--push] [--branch <branch-name>]
 """
 
 import argparse
@@ -61,7 +61,8 @@ class StepExecutor:
     COMPLETION_MSG = "chore: {phase} 완료 상태 기록"
     TZ = timezone(timedelta(hours=9))
 
-    def __init__(self, phase_dir_name: str, *, auto_push: bool = False, unsafe: bool = False):
+    def __init__(self, phase_dir_name: str, *, auto_push: bool = False,
+                 unsafe: bool = False, branch_name: Optional[str] = None):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
@@ -69,6 +70,7 @@ class StepExecutor:
         self._top_index_file = self._phases_dir / "index.json"
         self._auto_push = auto_push
         self._unsafe = unsafe
+        self._branch_name = branch_name
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -83,6 +85,8 @@ class StepExecutor:
         self._project = idx.get("project", "project")
         self._phase_name = idx.get("phase", phase_dir_name)
         self._total = len(idx["steps"])
+        if self._branch_name is None:
+            self._branch_name = f"codex/{self._phase_name}"
 
     def run(self):
         self._print_header()
@@ -141,7 +145,7 @@ class StepExecutor:
             self._run_git("add", "-A", "--", *existing)
 
     def _checkout_branch(self):
-        branch = f"feat-{self._phase_name}"
+        branch = self._branch_name
 
         r = self._run_git("rev-parse", "--abbrev-ref", "HEAD")
         if r.returncode != 0:
@@ -152,7 +156,7 @@ class StepExecutor:
         if r.stdout.strip() == branch:
             return
 
-        r = self._run_git("rev-parse", "--verify", branch)
+        r = self._run_git("rev-parse", "--verify", f"refs/heads/{branch}")
         r = self._run_git("checkout", branch) if r.returncode == 0 else self._run_git("checkout", "-b", branch)
 
         if r.returncode != 0:
@@ -454,7 +458,7 @@ class StepExecutor:
                 print(f"  ✓ {msg}")
 
         if self._auto_push:
-            branch = f"feat-{self._phase_name}"
+            branch = self._branch_name
             r = self._run_git("push", "-u", "origin", branch)
             if r.returncode != 0:
                 print(f"\n  ERROR: git push 실패: {r.stderr.strip()}")
@@ -470,10 +474,16 @@ def main():
     parser = argparse.ArgumentParser(description="Harness Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
+    parser.add_argument("--branch", help="Branch name to use instead of codex/<phase>")
     parser.add_argument("--unsafe", action="store_true", help="Run codex exec with sandbox and approval bypass")
     args = parser.parse_args()
 
-    StepExecutor(args.phase_dir, auto_push=args.push, unsafe=args.unsafe).run()
+    StepExecutor(
+        args.phase_dir,
+        auto_push=args.push,
+        unsafe=args.unsafe,
+        branch_name=args.branch,
+    ).run()
 
 
 if __name__ == "__main__":
