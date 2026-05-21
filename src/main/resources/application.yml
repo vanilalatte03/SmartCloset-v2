@@ -19,3 +19,12 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui/index.html
+
+smartcloset:
+  weather:
+    fallback-enabled: ${WEATHER_FALLBACK_ENABLED:true}
+    kma:
+      service-key: "${KMA_SERVICE_KEY:}"
+      nx: ${KMA_NX:60}
+      ny: ${KMA_NY:127}
+      base-url: "${KMA_BASE_URL:http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}"
