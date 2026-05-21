@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "persistence-and-seed",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-21T11:37:32+0900",
+      "summary": "ERD 기준 JPA Entity, enum, repository, auditing 설정과 demo seed user/clothes 로딩을 구현했습니다.",
+      "completed_at": "2026-05-21T11:42:44+0900"
     },
     {
       "step": 3,
