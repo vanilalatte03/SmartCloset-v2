@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // TODO Step 7: connect Spring Security CORS with WebConfig before enabling protected APIs.
+                // TODO Step 7: connect CORS handling with WebConfig before enabling protected APIs.
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .build();
     }
