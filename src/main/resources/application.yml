@@ -21,6 +21,9 @@ springdoc:
     path: /swagger-ui/index.html
 
 smartcloset:
+  security:
+    jwt:
+      secret: "${JWT_SECRET:change-me-local-development-only}"
   weather:
     fallback-enabled: ${WEATHER_FALLBACK_ENABLED:true}
     kma:
