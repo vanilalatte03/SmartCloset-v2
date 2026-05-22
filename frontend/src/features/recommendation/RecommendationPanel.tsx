@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   createRecommendation,
+  getRecommendationHistory,
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
@@ -30,17 +31,57 @@ function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
   );
 }
 
+function validationError(message: string): ErrorResponse {
+  return {
+    code: 'INVALID_REQUEST',
+    message,
+    details: [],
+  };
+}
+
 export function RecommendationPanel({
   accessToken,
   location,
   onAuthExpired,
 }: RecommendationPanelProps) {
   const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
+  const [history, setHistory] = useState<RecommendationResponse[]>([]);
+  const [historyLimit, setHistoryLimit] = useState(20);
   const [wornAt, setWornAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [markingWorn, setMarkingWorn] = useState(false);
+  const [historyWornId, setHistoryWornId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    if (!Number.isInteger(historyLimit) || historyLimit < 1 || historyLimit > 50) {
+      setError(validationError('History limit must be between 1 and 50.'));
+      return;
+    }
+
+    setHistoryLoading(true);
+    setError(null);
+
+    try {
+      const nextHistory = await getRecommendationHistory(accessToken, historyLimit);
+      setHistory(nextHistory);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setHistory([]);
+      setError(toErrorResponse(caught, 'Unable to load recommendation history.'));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [accessToken, historyLimit, onAuthExpired]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const handleCreate = async () => {
     setLoading(true);
@@ -52,6 +93,7 @@ export function RecommendationPanel({
       setRecommendation(nextRecommendation);
       setWornAt(null);
       setStatus('Recommendation generated.');
+      await loadHistory();
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -78,6 +120,13 @@ export function RecommendationPanel({
         ...recommendation,
         worn: response.worn,
       });
+      setHistory((currentHistory) =>
+        currentHistory.map((item) =>
+          item.recommendationId === response.recommendationId
+            ? { ...item, worn: response.worn }
+            : item
+        )
+      );
       setWornAt(response.wornAt);
       setStatus('Recommendation marked as worn.');
     } catch (caught) {
@@ -91,20 +140,39 @@ export function RecommendationPanel({
     }
   };
 
+  const handleMarkHistoryWorn = async (historyItem: RecommendationResponse) => {
+    setHistoryWornId(historyItem.recommendationId);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await markRecommendationWorn(accessToken, historyItem.recommendationId);
+      setHistory((currentHistory) =>
+        currentHistory.map((item) =>
+          item.recommendationId === response.recommendationId
+            ? { ...item, worn: response.worn }
+            : item
+        )
+      );
+      if (recommendation?.recommendationId === response.recommendationId) {
+        setRecommendation({ ...recommendation, worn: response.worn });
+        setWornAt(response.wornAt);
+      }
+      setStatus('History item marked as worn.');
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setError(toErrorResponse(caught, 'Unable to mark the history item as worn.'));
+    } finally {
+      setHistoryWornId(null);
+    }
+  };
+
   return (
-    <article className="panel">
+    <article className="panel recommendation-panel">
       <h2>Recommendation</h2>
-      <div className="section-title-row">
-        <h3>Current result</h3>
-        <button
-          className="primary-button"
-          type="button"
-          onClick={() => void handleCreate()}
-          disabled={loading || markingWorn}
-        >
-          {loading ? 'Generating' : 'Generate'}
-        </button>
-      </div>
 
       {error ? <ApiErrorMessage error={error} /> : null}
       {status ? (
@@ -113,8 +181,22 @@ export function RecommendationPanel({
         </p>
       ) : null}
 
-      {recommendation ? (
-        <>
+      <div className="recommendation-layout">
+        <section aria-label="Current recommendation">
+          <div className="section-title-row">
+            <h3>Current result</h3>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => void handleCreate()}
+              disabled={loading || markingWorn}
+            >
+              {loading ? 'Generating' : 'Generate'}
+            </button>
+          </div>
+
+          {recommendation ? (
+            <>
           <section className="panel-section" aria-label="Recommendation context">
             <dl className="metric-list compact">
               <div>
@@ -211,10 +293,87 @@ export function RecommendationPanel({
                   : 'Mark worn'}
             </button>
           </section>
-        </>
-      ) : (
-        <p className="muted">No recommendation generated.</p>
-      )}
+            </>
+          ) : (
+            <p className="muted">No recommendation generated.</p>
+          )}
+        </section>
+
+        <section aria-label="Recommendation history">
+          <div className="section-title-row">
+            <h3>History</h3>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void loadHistory()}
+              disabled={historyLoading || historyWornId !== null}
+            >
+              Refresh
+            </button>
+          </div>
+
+          <form
+            className="inline-form compact-history-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void loadHistory();
+            }}
+          >
+            <label className="field">
+              <span>Limit</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={historyLimit}
+                onChange={(event) => setHistoryLimit(Number(event.target.value))}
+              />
+            </label>
+            <button className="secondary-button" type="submit" disabled={historyLoading}>
+              Apply
+            </button>
+          </form>
+
+          {historyLoading ? (
+            <p className="muted">Loading recommendation history.</p>
+          ) : history.length > 0 ? (
+            <div className="item-list history-list">
+              {history.map((item) => (
+                <div className="item-row history-row" key={item.recommendationId}>
+                  <div>
+                    <strong>#{item.recommendationId}</strong>
+                    <span>
+                      {item.createdAt} - {item.weather.temperature}C - total{' '}
+                      {item.score.totalScore} - preference {item.score.preferenceScore}
+                    </span>
+                    <span>
+                      {item.outfit.top.name} / {item.outfit.bottom.name}
+                      {item.outfit.outer ? ` / ${item.outfit.outer.name}` : ''}
+                    </span>
+                  </div>
+                  <div className="history-actions">
+                    <span className="item-meta">{item.worn ? 'Worn' : 'Not worn'}</span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => void handleMarkHistoryWorn(item)}
+                      disabled={item.worn || historyWornId !== null || markingWorn}
+                    >
+                      {item.worn
+                        ? 'Worn'
+                        : historyWornId === item.recommendationId
+                          ? 'Saving'
+                          : 'Mark worn'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No recommendation history loaded.</p>
+          )}
+        </section>
+      </div>
     </article>
   );
 }

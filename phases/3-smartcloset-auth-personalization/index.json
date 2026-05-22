@@ -77,7 +77,10 @@
     {
       "step": 9,
       "name": "frontend-personalization-flows",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T20:25:44+0900",
+      "summary": "로그인 후 위치, 선호도, 옷장, 추천 생성, 추천 이력, 착용 완료 프론트 흐름을 3차 인증 API에 연결했다.",
+      "completed_at": "2026-05-22T20:28:31+0900"
     },
     {
       "step": 10,

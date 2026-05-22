@@ -6,6 +6,7 @@ import { StatusBadge } from './components/StatusBadge';
 import { AuthPanel } from './features/auth/AuthPanel';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
 import { LocationPanel } from './features/location/LocationPanel';
+import { PreferencesPanel } from './features/preferences/PreferencesPanel';
 import { RecommendationPanel } from './features/recommendation/RecommendationPanel';
 import type { AuthResponse, CurrentUserResponse, ErrorResponse, UserLocationResponse } from './types/api';
 import './App.css';
@@ -161,6 +162,7 @@ function App() {
             onAuthExpired={handleAuthExpired}
             onLocationChange={handleLocationChange}
           />
+          <PreferencesPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           <ClosetPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           <RecommendationPanel
             accessToken={accessToken}
