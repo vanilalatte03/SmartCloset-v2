@@ -1,6 +1,9 @@
 node_modules/
 .next/
 out/
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
 next-env.d.ts
 tsconfig.tsbuildinfo
 __pycache__/

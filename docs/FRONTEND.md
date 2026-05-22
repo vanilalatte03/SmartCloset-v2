@@ -3,7 +3,7 @@
 ## 목표
 2차 프론트엔드는 Swagger나 Spring static Demo UI 없이도 사용자가 주요 제품 흐름을 확인할 수 있는 React+Vite+TypeScript SPA다.
 
-현재 문서 전환 시점에는 `frontend/` 디렉터리가 아직 없다. 2차 첫 frontend 구현 step은 `frontend/` 스캐폴드와 Docker Compose `frontend` 서비스를 함께 추가해야 한다.
+`frontend/` 디렉터리는 React+Vite+TypeScript SPA이며 Docker Compose `frontend` 서비스와 함께 유지한다.
 
 주요 흐름:
 

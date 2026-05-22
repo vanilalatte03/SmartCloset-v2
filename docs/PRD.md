@@ -156,7 +156,7 @@ today 추천 GET 경로는 API 계약으로 사용하지 않는다.
 ## 프론트엔드 정책
 2차 프론트엔드는 `frontend/` 아래 React+Vite+TypeScript SPA로 둔다.
 
-현재 문서 전환 시점에는 `frontend/`가 아직 없으므로 첫 frontend 구현 step에서 `frontend/` 스캐폴드와 Docker Compose `frontend` 서비스를 함께 추가한다.
+`frontend/` 스캐폴드와 Docker Compose `frontend` 서비스는 함께 유지한다.
 
 - TypeScript `strict` 기준을 사용한다.
 - API 요청/응답 DTO는 명시적 타입으로 관리한다.

@@ -20,8 +20,8 @@ git config core.hooksPath .githooks
 | 이름 | 명령 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | dev | `./gradlew bootRun` | no | 백엔드 로컬 개발 서버 실행 |
-| frontend-dev | `cd frontend && npm run dev` | after-frontend | `frontend/` 스캐폴드 추가 후 프론트엔드 Vite 개발 서버 실행 |
-| frontend-build | `cd frontend && npm run build` | after-frontend | `frontend/` 스캐폴드 추가 후 TypeScript type check 및 build |
+| frontend-dev | `cd frontend && npm run dev` | no | 프론트엔드 Vite 개발 서버 실행 |
+| frontend-build | `cd frontend && npm run build` | yes | TypeScript type check 및 Vite build |
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
@@ -42,6 +42,9 @@ git config core.hooksPath .githooks
 # 빌드
 ./gradlew build
 
+# 프론트 빌드
+(cd frontend && npm run build)
+
 # Docker Compose 실행
 test -f .env || cp .env.example .env
 docker compose up --build
@@ -59,7 +62,7 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Frontend(2차 frontend step 완료 후): `http://localhost:5173`
+- Frontend: `http://localhost:5173`
 - 보조 Demo UI: `http://localhost:8080/demo/index.html`
 
 ## 문서 검증
@@ -71,7 +74,7 @@ rg -n "POST /api/recommendations\\?userId" README.md docs AGENTS.md .agents/skil
 rg -n "docs/FRONTEND.md|React\\+Vite\\+TypeScript" README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 ```
 
-`frontend/` 스캐폴드와 Docker Compose `frontend` 서비스가 추가된 뒤에는 아래 명령도 필수로 통과해야 한다.
+프론트 스캐폴드와 Docker Compose `frontend` 서비스가 포함되어 있으므로 아래 명령도 필수로 통과해야 한다.
 
 ```bash
 cd frontend && npm run build

@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "frontend-scaffold-and-compose",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T09:55:14+0900",
+      "summary": "React+Vite+TypeScript 프론트 스캐폴드, typed API client shell, Docker Compose frontend 서비스와 공유 문서/env를 추가했습니다."
     },
     {
       "step": 4,
