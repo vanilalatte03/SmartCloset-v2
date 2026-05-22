@@ -1,0 +1,61 @@
+{
+  "project": "SmartCloset",
+  "phase": "3-smartcloset-auth-personalization",
+  "steps": [
+    {
+      "step": 0,
+      "name": "user-account-schema-and-token-infra",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "auth-api-and-session-contract",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "clothing-current-user-api",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "location-current-user-api",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "preferences-api-and-storage",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "preference-score-rules",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "recommendation-current-user-api",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "security-boundary-and-regression-tests",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "frontend-auth-session",
+      "status": "pending"
+    },
+    {
+      "step": 9,
+      "name": "frontend-personalization-flows",
+      "status": "pending"
+    },
+    {
+      "step": 10,
+      "name": "sharing-verification-and-doc-sync",
+      "status": "pending"
+    }
+  ]
+}
