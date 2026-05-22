@@ -4,6 +4,7 @@ import {
   createRecommendation,
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
+import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
   ErrorResponse,
   OutfitItemResponse,
@@ -95,11 +96,7 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
         </button>
       </div>
 
-      {error ? (
-        <p className="panel-error" role="status">
-          <strong>{error.code}</strong> {error.message}
-        </p>
-      ) : null}
+      {error ? <ApiErrorMessage error={error} /> : null}
       {status ? (
         <p className="panel-success" role="status">
           {status}

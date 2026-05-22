@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toErrorResponse } from './api/errorHelpers';
 import { getApiBaseUrl, getUserLocation } from './api/smartClosetApi';
+import { ApiErrorMessage } from './components/ApiErrorMessage';
 import { StatusBadge } from './components/StatusBadge';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
 import { LocationPanel } from './features/location/LocationPanel';
@@ -76,12 +77,7 @@ function App() {
         </button>
       </section>
 
-      {error ? (
-        <section className="error-banner" role="status">
-          <strong>{error.code}</strong>
-          <span>{error.message}</span>
-        </section>
-      ) : null}
+      {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
 
       <section className="panel-grid" aria-label="SmartCloset workspace">
         <LocationPanel
