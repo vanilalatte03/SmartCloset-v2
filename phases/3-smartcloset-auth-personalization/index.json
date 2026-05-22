@@ -5,7 +5,10 @@
     {
       "step": 0,
       "name": "user-account-schema-and-token-infra",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T17:01:11+0900",
+      "summary": "User 계정 필드와 JWT/BCrypt/Step0 임시 permit-all Security 인프라 및 테스트를 추가했다.",
+      "completed_at": "2026-05-22T17:12:02+0900"
     },
     {
       "step": 1,
@@ -57,5 +60,6 @@
       "name": "sharing-verification-and-doc-sync",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-05-22T17:01:11+0900"
 }
