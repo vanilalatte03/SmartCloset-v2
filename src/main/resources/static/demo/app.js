@@ -1,38 +1,45 @@
 const state = {
+  accessToken: sessionStorage.getItem("smartcloset.accessToken"),
+  currentUser: null,
   lastRecommendationId: null
 };
 
-const userIdInput = document.querySelector("#userId");
 const statusBox = document.querySelector("#status");
+const authForm = document.querySelector("#authForm");
 const clothingForm = document.querySelector("#clothingForm");
 const clothesTableBody = document.querySelector("#clothesTableBody");
 const clothesCount = document.querySelector("#clothesCount");
 const recommendationView = document.querySelector("#recommendationView");
 const recommendationMeta = document.querySelector("#recommendationMeta");
+const sessionUser = document.querySelector("#sessionUser");
+const logoutButton = document.querySelector("#logoutButton");
 const markWornButton = document.querySelector("#markWornButton");
 
+document.querySelector("#signupButton").addEventListener("click", signup);
+logoutButton.addEventListener("click", logout);
 document.querySelector("#loadClothesButton").addEventListener("click", loadClothes);
 document.querySelector("#createRecommendationButton").addEventListener("click", createRecommendation);
 markWornButton.addEventListener("click", markWorn);
+authForm.addEventListener("submit", login);
 clothingForm.addEventListener("submit", createClothing);
 
-window.addEventListener("DOMContentLoaded", loadClothes);
-
-function currentUserId() {
-  const userId = Number(userIdInput.value);
-  if (!Number.isInteger(userId) || userId < 1) {
-    throw new Error("userId는 1 이상의 정수여야 합니다.");
-  }
-  return userId;
-}
+window.addEventListener("DOMContentLoaded", restoreSession);
 
 async function requestJson(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+  if (options.auth) {
+    if (!state.accessToken) {
+      throw new Error("로그인이 필요합니다.");
+    }
+    headers.Authorization = `Bearer ${state.accessToken}`;
+  }
+
   const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
+    ...options,
+    headers
   });
   const body = await response.json().catch(() => null);
 
@@ -45,11 +52,101 @@ async function requestJson(path, options = {}) {
   return body?.data;
 }
 
+async function restoreSession() {
+  updateSessionView();
+  if (!state.accessToken) {
+    setStatus("로그인 후 보호 API smoke를 실행할 수 있습니다.");
+    return;
+  }
+
+  try {
+    setStatus("세션을 복구하는 중입니다.");
+    state.currentUser = await requestJson("/api/users/me", { auth: true });
+    updateSessionView();
+    await loadClothes();
+    setStatus("세션을 복구했습니다.");
+  } catch (error) {
+    logout();
+    showError(error);
+  }
+}
+
+async function signup() {
+  try {
+    setStatus("회원가입 중입니다.");
+    const response = await requestJson("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(authPayload(true))
+    });
+    setSession(response);
+    await loadClothes();
+    setStatus("회원가입하고 로그인했습니다.");
+  } catch (error) {
+    showError(error);
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+
+  try {
+    setStatus("로그인 중입니다.");
+    const response = await requestJson("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(authPayload(false))
+    });
+    setSession(response);
+    await loadClothes();
+    setStatus("로그인했습니다.");
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function logout() {
+  state.accessToken = null;
+  state.currentUser = null;
+  state.lastRecommendationId = null;
+  sessionStorage.removeItem("smartcloset.accessToken");
+  renderClothes([]);
+  recommendationMeta.textContent = "아직 생성되지 않음";
+  recommendationView.className = "recommendation-empty";
+  recommendationView.textContent = "추천 생성을 실행하세요.";
+  markWornButton.disabled = true;
+  updateSessionView();
+  setStatus("로그아웃했습니다.");
+}
+
+function authPayload(includeName) {
+  const payload = {
+    email: document.querySelector("#email").value.trim(),
+    password: document.querySelector("#password").value
+  };
+  if (includeName) {
+    payload.name = document.querySelector("#displayName").value.trim();
+  }
+  return payload;
+}
+
+function setSession(response) {
+  state.accessToken = response.accessToken;
+  state.currentUser = response.user;
+  sessionStorage.setItem("smartcloset.accessToken", response.accessToken);
+  updateSessionView();
+}
+
+function updateSessionView() {
+  const isAuthenticated = Boolean(state.accessToken && state.currentUser);
+  sessionUser.textContent = isAuthenticated
+    ? `${state.currentUser.name} <${state.currentUser.email}>`
+    : "로그인 필요";
+  logoutButton.disabled = !state.accessToken;
+}
+
 async function loadClothes() {
   try {
     setStatus("옷 목록을 불러오는 중입니다.");
-    const userId = currentUserId();
-    const clothes = await requestJson(`/api/clothes?userId=${userId}`);
+    const clothes = await requestJson("/api/clothes", { auth: true });
     renderClothes(clothes);
     setStatus("옷 목록을 조회했습니다.");
   } catch (error) {
@@ -68,7 +165,6 @@ async function createClothing(event) {
     }
 
     setStatus("옷을 등록하는 중입니다.");
-    const userId = currentUserId();
     const payload = {
       name: document.querySelector("#name").value.trim(),
       category: document.querySelector("#category").value,
@@ -79,8 +175,9 @@ async function createClothing(event) {
       rainSuitable: document.querySelector("#rainSuitable").checked
     };
 
-    await requestJson(`/api/clothes?userId=${userId}`, {
+    await requestJson("/api/clothes", {
       method: "POST",
+      auth: true,
       body: JSON.stringify(payload)
     });
     await loadClothes();
@@ -93,9 +190,9 @@ async function createClothing(event) {
 async function createRecommendation() {
   try {
     setStatus("추천을 생성하는 중입니다.");
-    const userId = currentUserId();
-    const recommendation = await requestJson(`/api/recommendations?userId=${userId}`, {
-      method: "POST"
+    const recommendation = await requestJson("/api/recommendations", {
+      method: "POST",
+      auth: true
     });
 
     state.lastRecommendationId = recommendation.recommendationId;
@@ -114,10 +211,9 @@ async function markWorn() {
     }
 
     setStatus("착용 완료 처리 중입니다.");
-    const userId = currentUserId();
     const worn = await requestJson(
-      `/api/recommendations/${state.lastRecommendationId}/worn?userId=${userId}`,
-      { method: "PATCH" }
+      `/api/recommendations/${state.lastRecommendationId}/worn`,
+      { method: "PATCH", auth: true }
     );
 
     markWornButton.disabled = true;
@@ -169,7 +265,7 @@ function renderRecommendation(recommendation) {
       ${renderScore("색상", score.colorScore)}
       ${renderScore("착용 이력", score.wearHistoryScore)}
       ${renderScore("추천 이력", score.recommendationHistoryScore)}
-      ${renderScore("다양성", score.diversityScore)}
+      ${renderScore("선호도", score.preferenceScore)}
     </div>
     <ol class="reasons">
       ${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
