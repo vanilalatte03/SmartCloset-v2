@@ -30,6 +30,10 @@
   min-height: 32px;
 }
 
+.header-meta > span {
+  overflow-wrap: anywhere;
+}
+
 .status-badge {
   align-items: center;
   border: 1px solid var(--border);
@@ -161,6 +165,16 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.auth-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-error {
+  grid-column: 1 / -1;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -242,6 +256,12 @@
 .panel-form {
   border-top: 1px solid var(--border);
   padding-top: 16px;
+}
+
+.compact-form {
+  border-top: 0;
+  margin-top: 14px;
+  padding-top: 0;
 }
 
 .field-grid {
@@ -420,6 +440,10 @@
   }
 
   .panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-layout {
     grid-template-columns: 1fr;
   }
 

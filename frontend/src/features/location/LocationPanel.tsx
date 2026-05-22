@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { toErrorResponse } from '../../api/errorHelpers';
+import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import { getLocations, updateUserLocation } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
@@ -10,16 +10,18 @@ import type {
 } from '../../types/api';
 
 type LocationPanelProps = {
-  userId: number;
+  accessToken: string;
   location: UserLocationResponse | null;
   loading: boolean;
+  onAuthExpired: () => void;
   onLocationChange: (location: UserLocationResponse) => void;
 };
 
 export function LocationPanel({
-  userId,
+  accessToken,
   location,
   loading,
+  onAuthExpired,
   onLocationChange,
 }: LocationPanelProps) {
   const [keyword, setKeyword] = useState('');
@@ -35,15 +37,19 @@ export function LocationPanel({
     setError(null);
 
     try {
-      const nextOptions = await getLocations(submittedKeyword);
+      const nextOptions = await getLocations(accessToken, submittedKeyword);
       setOptions(nextOptions);
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setOptions([]);
       setError(toErrorResponse(caught, 'Unable to load the location catalog.'));
     } finally {
       setOptionsLoading(false);
     }
-  }, [submittedKeyword]);
+  }, [accessToken, onAuthExpired, submittedKeyword]);
 
   useEffect(() => {
     void loadLocations();
@@ -61,10 +67,14 @@ export function LocationPanel({
     setStatus(null);
 
     try {
-      const updatedLocation = await updateUserLocation(userId, option.code);
+      const updatedLocation = await updateUserLocation(accessToken, option.code);
       onLocationChange(updatedLocation);
       setStatus(`${updatedLocation.name} saved as the current location.`);
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to save the selected location.'));
     } finally {
       setSavingCode(null);

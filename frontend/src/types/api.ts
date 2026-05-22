@@ -11,6 +11,29 @@ export type ErrorResponse = {
   }>;
 };
 
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type SignupRequest = LoginRequest & {
+  name: string;
+};
+
+export type CurrentUserResponse = {
+  email: string;
+  name: string;
+  role: 'USER';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AuthResponse = {
+  accessToken: string;
+  tokenType: 'Bearer';
+  user: CurrentUserResponse;
+};
+
 export type ClothingCategory = 'TOP' | 'BOTTOM' | 'OUTER';
 
 export type ClothingColor =
@@ -65,7 +88,6 @@ export type LocationOptionResponse = {
 };
 
 export type UserLocationResponse = {
-  userId: number;
   code: string;
   name: string;
   nx: number;
@@ -76,6 +98,14 @@ export type UserLocationResponse = {
 export type UpdateUserLocationRequest = {
   locationCode: string;
 };
+
+export type UserPreferencesResponse = {
+  preferredColors: ClothingColor[];
+  preferredMaterials: ClothingMaterial[];
+  styleTags: string[];
+};
+
+export type UpdateUserPreferencesRequest = UserPreferencesResponse;
 
 export type WeatherResponse = {
   temperature: number;
@@ -104,7 +134,7 @@ export type RecommendationScoreResponse = {
   colorScore: number;
   wearHistoryScore: number;
   recommendationHistoryScore: number;
-  diversityScore: number;
+  preferenceScore: number;
 };
 
 export type RecommendationResponse = {
