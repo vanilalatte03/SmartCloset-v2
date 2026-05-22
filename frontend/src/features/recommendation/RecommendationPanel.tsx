@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toErrorResponse } from '../../api/errorHelpers';
+import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   createRecommendation,
   markRecommendationWorn,
@@ -13,8 +13,9 @@ import type {
 } from '../../types/api';
 
 type RecommendationPanelProps = {
-  userId: number;
+  accessToken: string;
   location: UserLocationResponse | null;
+  onAuthExpired: () => void;
 };
 
 function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
@@ -29,7 +30,11 @@ function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
   );
 }
 
-export function RecommendationPanel({ userId, location }: RecommendationPanelProps) {
+export function RecommendationPanel({
+  accessToken,
+  location,
+  onAuthExpired,
+}: RecommendationPanelProps) {
   const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
   const [wornAt, setWornAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,11 +48,15 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
     setStatus(null);
 
     try {
-      const nextRecommendation = await createRecommendation(userId);
+      const nextRecommendation = await createRecommendation(accessToken);
       setRecommendation(nextRecommendation);
       setWornAt(null);
       setStatus('Recommendation generated.');
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to create a recommendation.'));
     } finally {
       setLoading(false);
@@ -64,10 +73,7 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
     setStatus(null);
 
     try {
-      const response = await markRecommendationWorn(
-        userId,
-        recommendation.recommendationId
-      );
+      const response = await markRecommendationWorn(accessToken, recommendation.recommendationId);
       setRecommendation({
         ...recommendation,
         worn: response.worn,
@@ -75,6 +81,10 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
       setWornAt(response.wornAt);
       setStatus('Recommendation marked as worn.');
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to mark the recommendation as worn.'));
     } finally {
       setMarkingWorn(false);
@@ -160,8 +170,8 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
                 <dd>{recommendation.score.recommendationHistoryScore}</dd>
               </div>
               <div>
-                <dt>Diversity</dt>
-                <dd>{recommendation.score.diversityScore}</dd>
+                <dt>Preference</dt>
+                <dd>{recommendation.score.preferenceScore}</dd>
               </div>
             </dl>
           </section>

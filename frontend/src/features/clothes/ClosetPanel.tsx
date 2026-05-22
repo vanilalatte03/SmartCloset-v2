@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { toErrorResponse } from '../../api/errorHelpers';
+import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import { createClothing, getClothes } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
@@ -54,7 +54,12 @@ function validationError(message: string): ErrorResponse {
   };
 }
 
-export function ClosetPanel() {
+type ClosetPanelProps = {
+  accessToken: string;
+  onAuthExpired: () => void;
+};
+
+export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
   const [loading, setLoading] = useState(true);
@@ -67,15 +72,19 @@ export function ClosetPanel() {
     setError(null);
 
     try {
-      const activeClothes = await getClothes();
+      const activeClothes = await getClothes(accessToken);
       setClothes(activeClothes);
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setClothes([]);
       setError(toErrorResponse(caught, 'Unable to load active clothes.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accessToken, onAuthExpired]);
 
   useEffect(() => {
     void loadClothes();
@@ -98,7 +107,7 @@ export function ClosetPanel() {
 
     setSubmitting(true);
     try {
-      const created = await createClothing({
+      const created = await createClothing(accessToken, {
         ...form,
         name: trimmedName,
       });
@@ -106,6 +115,10 @@ export function ClosetPanel() {
       setForm(defaultForm);
       await loadClothes();
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to register clothing.'));
     } finally {
       setSubmitting(false);

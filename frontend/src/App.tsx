@@ -1,41 +1,99 @@
 import { useCallback, useEffect, useState } from 'react';
-import { toErrorResponse } from './api/errorHelpers';
-import { getApiBaseUrl, getUserLocation } from './api/smartClosetApi';
+import { isUnauthorizedError, toErrorResponse } from './api/errorHelpers';
+import { getApiBaseUrl, getCurrentUser, getUserLocation } from './api/smartClosetApi';
 import { ApiErrorMessage } from './components/ApiErrorMessage';
 import { StatusBadge } from './components/StatusBadge';
+import { AuthPanel } from './features/auth/AuthPanel';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
 import { LocationPanel } from './features/location/LocationPanel';
 import { RecommendationPanel } from './features/recommendation/RecommendationPanel';
-import type { ErrorResponse, UserLocationResponse } from './types/api';
+import type { AuthResponse, CurrentUserResponse, ErrorResponse, UserLocationResponse } from './types/api';
 import './App.css';
 
-const userId = 1;
+const accessTokenStorageKey = 'smartcloset.accessToken';
 
+type SessionState = 'restoring' | 'anonymous' | 'authenticated';
 type ConnectionState = 'checking' | 'connected' | 'error';
 
+function readStoredAccessToken(): string | null {
+  return sessionStorage.getItem(accessTokenStorageKey);
+}
+
 function App() {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
+  const [accessToken, setAccessToken] = useState<string | null>(() => readStoredAccessToken());
+  const [sessionState, setSessionState] = useState<SessionState>(
+    accessToken ? 'restoring' : 'anonymous'
+  );
+  const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    accessToken ? 'checking' : 'connected'
+  );
   const [location, setLocation] = useState<UserLocationResponse | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
-  const checkConnection = useCallback(async () => {
+  const clearSession = useCallback(() => {
+    sessionStorage.removeItem(accessTokenStorageKey);
+    setAccessToken(null);
+    setCurrentUser(null);
+    setLocation(null);
+    setSessionState('anonymous');
+    setConnectionState('connected');
+  }, []);
+
+  const handleAuthExpired = useCallback(() => {
+    clearSession();
+    setError({
+      code: 'UNAUTHORIZED',
+      message: 'Your session has expired. Please log in again.',
+      details: [],
+    });
+  }, [clearSession]);
+
+  const loadCurrentSession = useCallback(async (token: string) => {
     setConnectionState('checking');
     setError(null);
 
     try {
-      const userLocation = await getUserLocation(userId);
+      const user = await getCurrentUser(token);
+      const userLocation = await getUserLocation(token);
+      setCurrentUser(user);
       setLocation(userLocation);
+      setSessionState('authenticated');
       setConnectionState('connected');
     } catch (caught) {
-      setLocation(null);
+      if (isUnauthorizedError(caught)) {
+        handleAuthExpired();
+        return;
+      }
+      setSessionState((state) => (state === 'restoring' ? 'anonymous' : state));
       setConnectionState('error');
       setError(toErrorResponse(caught, 'Unable to reach the SmartCloset API.'));
     }
-  }, []);
+  }, [handleAuthExpired]);
 
   useEffect(() => {
-    void checkConnection();
-  }, [checkConnection]);
+    if (!accessToken) {
+      setSessionState('anonymous');
+      setConnectionState('connected');
+      return;
+    }
+
+    void loadCurrentSession(accessToken);
+  }, [accessToken, loadCurrentSession]);
+
+  const handleAuthenticated = useCallback((response: AuthResponse) => {
+    sessionStorage.setItem(accessTokenStorageKey, response.accessToken);
+    setAccessToken(response.accessToken);
+    setCurrentUser(response.user);
+    setSessionState('authenticated');
+    setConnectionState('checking');
+    setError(null);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearSession();
+    setError(null);
+  }, [clearSession]);
 
   const handleLocationChange = useCallback((updatedLocation: UserLocationResponse) => {
     setLocation(updatedLocation);
@@ -47,11 +105,17 @@ function App() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SmartCloset MVP 2</p>
+          <p className="eyebrow">SmartCloset MVP 3</p>
           <h1>SmartCloset</h1>
         </div>
         <div className="header-meta" aria-label="Runtime status">
-          <span>User ID {userId}</span>
+          {currentUser ? (
+            <span>
+              {currentUser.name} ({currentUser.email})
+            </span>
+          ) : (
+            <span>Signed out</span>
+          )}
           <StatusBadge status={connectionState}>
             {connectionState === 'connected'
               ? 'API connected'
@@ -59,6 +123,11 @@ function App() {
                 ? 'Checking API'
                 : 'API error'}
           </StatusBadge>
+          {currentUser ? (
+            <button className="secondary-button" type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -70,25 +139,43 @@ function App() {
         <button
           type="button"
           className="secondary-button"
-          onClick={() => void checkConnection()}
-          disabled={connectionState === 'checking'}
+          onClick={() => {
+            if (accessToken) {
+              void loadCurrentSession(accessToken);
+            }
+          }}
+          disabled={!accessToken || connectionState === 'checking'}
         >
-          Refresh
+          Refresh session
         </button>
       </section>
 
       {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
 
-      <section className="panel-grid" aria-label="SmartCloset workspace">
-        <LocationPanel
-          userId={userId}
-          location={location}
-          loading={connectionState === 'checking'}
-          onLocationChange={handleLocationChange}
-        />
-        <ClosetPanel />
-        <RecommendationPanel userId={userId} location={location} />
-      </section>
+      {sessionState === 'authenticated' && accessToken && currentUser ? (
+        <section className="panel-grid" aria-label="SmartCloset workspace">
+          <LocationPanel
+            accessToken={accessToken}
+            location={location}
+            loading={connectionState === 'checking'}
+            onAuthExpired={handleAuthExpired}
+            onLocationChange={handleLocationChange}
+          />
+          <ClosetPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
+          <RecommendationPanel
+            accessToken={accessToken}
+            location={location}
+            onAuthExpired={handleAuthExpired}
+          />
+        </section>
+      ) : sessionState === 'restoring' ? (
+        <section className="panel" aria-label="Session restore">
+          <h2>Restoring session</h2>
+          <p className="muted">Checking saved access token.</p>
+        </section>
+      ) : (
+        <AuthPanel onAuthenticated={handleAuthenticated} />
+      )}
     </main>
   );
 }

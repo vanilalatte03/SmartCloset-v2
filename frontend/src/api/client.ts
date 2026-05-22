@@ -18,6 +18,10 @@ export class ApiClientError extends Error {
   }
 }
 
+type ApiRequestInit = RequestInit & {
+  accessToken?: string;
+};
+
 function isErrorResponse(value: unknown): value is ErrorResponse {
   if (!value || typeof value !== 'object') {
     return false;
@@ -56,15 +60,19 @@ async function parseJson(response: Response): Promise<unknown> {
   }
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { accessToken, ...requestInit } = init;
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
+    ...requestInit,
     headers,
   });
   const payload = await parseJson(response);
