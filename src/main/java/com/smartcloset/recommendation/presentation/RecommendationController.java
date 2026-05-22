@@ -1,5 +1,7 @@
 package com.smartcloset.recommendation.presentation;
 
+import com.smartcloset.common.exception.ErrorCode;
+import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.common.response.ApiResponse;
 import com.smartcloset.recommendation.application.RecommendationService;
 import com.smartcloset.recommendation.dto.RecommendationResponse;
@@ -38,9 +40,9 @@ public class RecommendationController {
     @GetMapping
     public ApiResponse<List<RecommendationResponse>> getRecommendationHistory(
             @AuthenticationPrincipal CurrentUserPrincipal principal,
-            @RequestParam(defaultValue = "20") Integer limit
+            @RequestParam(required = false) String limit
     ) {
-        return ApiResponse.of(recommendationService.getRecommendationHistory(principal.userId(), limit));
+        return ApiResponse.of(recommendationService.getRecommendationHistory(principal.userId(), parseLimit(limit)));
     }
 
     @PatchMapping("/{recommendationId}/worn")
@@ -49,5 +51,19 @@ public class RecommendationController {
             @AuthenticationPrincipal CurrentUserPrincipal principal
     ) {
         return ApiResponse.of(recommendationService.markWorn(principal.userId(), recommendationId));
+    }
+
+    private Integer parseLimit(String limit) {
+        if (limit == null) {
+            return null;
+        }
+        if (limit.isBlank()) {
+            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+        }
+        try {
+            return Integer.valueOf(limit);
+        } catch (NumberFormatException exception) {
+            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+        }
     }
 }

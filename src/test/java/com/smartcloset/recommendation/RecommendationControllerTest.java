@@ -342,6 +342,12 @@ class RecommendationControllerTest {
                         .param("limit", "many"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        mockMvc.perform(get("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
+                        .param("limit", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
     private long createRecommendation(User user) throws Exception {
