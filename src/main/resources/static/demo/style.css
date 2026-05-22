@@ -84,14 +84,20 @@ h2 {
   font-size: 18px;
 }
 
-.user-control {
+.session-control {
   align-items: center;
   display: flex;
   gap: 10px;
 }
 
-.user-control input {
-  width: 92px;
+.session-control span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auth-panel {
+  margin-bottom: 16px;
 }
 
 .toolbar {
@@ -99,6 +105,10 @@ h2 {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.toolbar.compact {
+  margin-bottom: 0;
 }
 
 .status {

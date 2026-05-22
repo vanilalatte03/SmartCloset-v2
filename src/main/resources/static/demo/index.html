@@ -11,13 +11,40 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">SmartCloset MVP</p>
-        <h1>Demo UI</h1>
+        <h1>API Smoke UI</h1>
       </div>
-      <label class="user-control">
-        <span>userId</span>
-        <input id="userId" type="number" min="1" value="1">
-      </label>
+      <div class="session-control">
+        <span id="sessionUser">로그인 필요</span>
+        <button id="logoutButton" type="button" disabled>로그아웃</button>
+      </div>
     </header>
+
+    <section class="panel auth-panel">
+      <div class="panel-heading">
+        <h2>인증</h2>
+        <span class="meta">Bearer token은 sessionStorage에 저장됩니다.</span>
+      </div>
+      <form id="authForm">
+        <div class="form-row">
+          <label>
+            <span>이메일</span>
+            <input id="email" name="email" type="email" value="demo@example.com" required>
+          </label>
+          <label>
+            <span>이름</span>
+            <input id="displayName" name="displayName" type="text" maxlength="50" value="Demo User" required>
+          </label>
+        </div>
+        <label>
+          <span>비밀번호</span>
+          <input id="password" name="password" type="password" minlength="8" value="password123!" required>
+        </label>
+        <div class="toolbar compact">
+          <button id="signupButton" type="button">회원가입</button>
+          <button id="loginButton" type="submit">로그인</button>
+        </div>
+      </form>
+    </section>
 
     <section class="toolbar" aria-label="주요 작업">
       <button id="loadClothesButton" type="button">옷 목록 조회</button>

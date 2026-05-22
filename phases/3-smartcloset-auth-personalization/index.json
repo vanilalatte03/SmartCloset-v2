@@ -85,8 +85,12 @@
     {
       "step": 10,
       "name": "sharing-verification-and-doc-sync",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T20:31:42+0900",
+      "summary": "3차 문서 검색 회귀와 Docker Compose 공유 smoke를 통과시키고 보조 Demo UI를 인증 사용자 API 계약에 맞췄다.",
+      "completed_at": "2026-05-22T20:38:06+0900"
     }
   ],
-  "created_at": "2026-05-22T17:01:11+0900"
+  "created_at": "2026-05-22T17:01:11+0900",
+  "completed_at": "2026-05-22T20:38:12+0900"
 }
