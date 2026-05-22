@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "preferences-api-and-storage",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T19:43:29+0900",
+      "summary": "현재 인증 사용자 선호도 조회/저장 API와 users JSON 문자열 컬럼 저장 로직을 구현했다.",
+      "completed_at": "2026-05-22T19:47:53+0900"
     },
     {
       "step": 5,

@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/locations").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/users/me/location").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/users/me/location").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/me/preferences").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/users/me/preferences").authenticated()
                         .requestMatchers("/api/clothes", "/api/clothes/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(
