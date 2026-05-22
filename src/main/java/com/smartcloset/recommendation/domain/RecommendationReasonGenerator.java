@@ -32,7 +32,7 @@ public class RecommendationReasonGenerator {
         reasons.add(historyReason(score));
 
         materialReason(candidate, weather).ifPresent(reasons::add);
-        reasons.add(diversityReason(score));
+        preferenceReason(score).ifPresent(reasons::add);
 
         return reasons.stream()
                 .distinct()
@@ -111,11 +111,11 @@ public class RecommendationReasonGenerator {
         return java.util.Optional.empty();
     }
 
-    private String diversityReason(RecommendationScore score) {
-        if (score.diversityScore() == 0) {
-            return "최근 추천된 동일 조합이라 다양성 점수는 낮게 반영되었습니다.";
+    private java.util.Optional<String> preferenceReason(RecommendationScore score) {
+        if (score.preferenceScore() <= 0) {
+            return java.util.Optional.empty();
         }
-        return "최근 추천된 동일 조합이 아니어서 반복 추천 부담이 낮습니다.";
+        return java.util.Optional.of("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
     }
 
     private boolean isWarmMaterial(ClothingItem item) {

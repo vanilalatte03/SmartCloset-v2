@@ -2,7 +2,9 @@ package com.smartcloset.recommendation.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
+import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
@@ -21,6 +23,7 @@ import com.smartcloset.recommendation.dto.RecommendationResponse;
 import com.smartcloset.recommendation.dto.RecommendationWornResponse;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
+import com.smartcloset.user.domain.PreferenceJsonMapper;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.application.WeatherProvider;
@@ -45,6 +48,7 @@ public class RecommendationService {
     private final RecommendationResultRepository recommendationResultRepository;
     private final WearHistoryRepository wearHistoryRepository;
     private final WeatherProvider weatherProvider;
+    private final PreferenceJsonMapper preferenceJsonMapper;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WeatherSuitabilityFilter weatherSuitabilityFilter = new WeatherSuitabilityFilter();
@@ -58,6 +62,7 @@ public class RecommendationService {
             RecommendationResultRepository recommendationResultRepository,
             WearHistoryRepository wearHistoryRepository,
             WeatherProvider weatherProvider,
+            PreferenceJsonMapper preferenceJsonMapper,
             PlatformTransactionManager transactionManager
     ) {
         this.userRepository = userRepository;
@@ -65,6 +70,7 @@ public class RecommendationService {
         this.recommendationResultRepository = recommendationResultRepository;
         this.wearHistoryRepository = wearHistoryRepository;
         this.weatherProvider = weatherProvider;
+        this.preferenceJsonMapper = preferenceJsonMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -88,6 +94,8 @@ public class RecommendationService {
                 requestedAt.minusDays(7)
         );
         List<RecommendationResult> recommendationHistories = findRecommendationHistories(userId, requestedAt);
+        List<ClothingColor> preferredColors = preferenceJsonMapper.readColors(user.getPreferredColorsJson());
+        List<ClothingMaterial> preferredMaterials = preferenceJsonMapper.readMaterials(user.getPreferredMaterialsJson());
 
         try {
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, weather);
@@ -97,9 +105,11 @@ public class RecommendationService {
                     weather,
                     wearHistories,
                     recommendationHistories,
-                    requestedAt
+                    requestedAt,
+                    preferredColors,
+                    preferredMaterials
             );
-            ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates);
+            ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates, weather);
             List<String> reasons = recommendationReasonGenerator.generate(
                     best.candidate(),
                     best.score(),

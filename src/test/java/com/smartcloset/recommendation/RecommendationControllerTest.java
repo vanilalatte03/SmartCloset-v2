@@ -88,7 +88,7 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.score.colorScore").exists())
                 .andExpect(jsonPath("$.data.score.wearHistoryScore").exists())
                 .andExpect(jsonPath("$.data.score.recommendationHistoryScore").exists())
-                .andExpect(jsonPath("$.data.score.diversityScore").exists())
+                .andExpect(jsonPath("$.data.score.preferenceScore").value(0))
                 .andExpect(jsonPath("$.data.reasons").isArray())
                 .andExpect(jsonPath("$.data.worn").value(false))
                 .andExpect(jsonPath("$.data.createdAt").exists())
@@ -113,8 +113,62 @@ class RecommendationControllerTest {
         assertThat(saved.isWindy()).isFalse();
         assertThat(saved.getItems()).hasSize(3);
         assertThat(slots).containsExactlyInAnyOrder(OutfitSlot.TOP, OutfitSlot.BOTTOM, OutfitSlot.OUTER);
+        assertThat(data.get("score").has("diversity" + "Score")).isFalse();
         assertThat(savedReasons).hasSizeBetween(3, 5);
         assertThat(saved.isWorn()).isFalse();
+    }
+
+    @Test
+    void appliesPreferenceScoreAndReasonFromPreferredColorsAndMaterials() throws Exception {
+        User user = createUserWithP0Closet(
+                "preference-user",
+                "[\"NAVY\"]",
+                "[\"WOOL\"]",
+                "[\"MINIMAL\"]"
+        );
+
+        MvcResult result = mockMvc.perform(post("/api/recommendations")
+                .param("userId", user.getId().toString()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.score.preferenceScore").value(10))
+                .andExpect(jsonPath("$.data.reasons").isArray())
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        long recommendationId = data.get("recommendationId").asLong();
+        RecommendationResult saved = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        List<String> reasons = objectMapper.readValue(
+                data.get("reasons").toString(),
+                new TypeReference<>() {
+                }
+        );
+
+        assertThat(saved.getPreferenceScore()).isEqualTo(10);
+        assertThat(data.get("score").has("diversity" + "Score")).isFalse();
+        assertThat(reasons).contains("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
+    }
+
+    @Test
+    void changingOnlyStyleTagsDoesNotChangeRecommendationScoreOrReasons() throws Exception {
+        User emptyStyleTagsUser = createUserWithP0Closet("empty-style-tags-user", "[]", "[]", "[]");
+        User styleTagsUser = createUserWithP0Closet("style-tags-user", "[]", "[]", "[\"MINIMAL\"]");
+
+        MvcResult emptyStyleTagsResult = mockMvc.perform(post("/api/recommendations")
+                        .param("userId", emptyStyleTagsUser.getId().toString()))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult styleTagsResult = mockMvc.perform(post("/api/recommendations")
+                        .param("userId", styleTagsUser.getId().toString()))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode emptyStyleTagsData = objectMapper.readTree(emptyStyleTagsResult.getResponse().getContentAsString())
+                .get("data");
+        JsonNode styleTagsData = objectMapper.readTree(styleTagsResult.getResponse().getContentAsString())
+                .get("data");
+
+        assertThat(styleTagsData.get("score")).isEqualTo(emptyStyleTagsData.get("score"));
+        assertThat(styleTagsData.get("reasons")).isEqualTo(emptyStyleTagsData.get("reasons"));
     }
 
     @Test
@@ -222,7 +276,17 @@ class RecommendationControllerTest {
     }
 
     private User createUserWithP0Closet(String name) {
+        return createUserWithP0Closet(name, "[]", "[]", "[]");
+    }
+
+    private User createUserWithP0Closet(
+            String name,
+            String preferredColorsJson,
+            String preferredMaterialsJson,
+            String styleTagsJson
+    ) {
         User user = userRepository.save(User.createSeedUser(name));
+        user.updatePreferences(preferredColorsJson, preferredMaterialsJson, styleTagsJson);
         clothingItemRepository.save(ClothingItem.create(
                 user,
                 "아이보리 니트",

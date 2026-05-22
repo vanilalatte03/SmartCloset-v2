@@ -6,7 +6,7 @@ public record RecommendationScore(
         int colorScore,
         int wearHistoryScore,
         int recommendationHistoryScore,
-        int diversityScore
+        int preferenceScore
 ) {
 
     public RecommendationScore {
@@ -15,7 +15,7 @@ public record RecommendationScore(
         requireNonNegative(colorScore, "colorScore");
         requireNonNegative(wearHistoryScore, "wearHistoryScore");
         requireNonNegative(recommendationHistoryScore, "recommendationHistoryScore");
-        requireNonNegative(diversityScore, "diversityScore");
+        requireNonNegative(preferenceScore, "preferenceScore");
     }
 
     public static RecommendationScore of(
@@ -24,7 +24,7 @@ public record RecommendationScore(
             int colorScore,
             int wearHistoryScore,
             int recommendationHistoryScore,
-            int diversityScore
+            int preferenceScore
     ) {
         return new RecommendationScore(
                 totalScore,
@@ -32,7 +32,7 @@ public record RecommendationScore(
                 colorScore,
                 wearHistoryScore,
                 recommendationHistoryScore,
-                diversityScore
+                preferenceScore
         );
     }
 

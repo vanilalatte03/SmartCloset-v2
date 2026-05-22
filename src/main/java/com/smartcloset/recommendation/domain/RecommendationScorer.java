@@ -17,19 +17,34 @@ public class RecommendationScorer {
     private static final int MAX_COLOR_SCORE = 25;
     private static final int MAX_WEAR_HISTORY_SCORE = 20;
     private static final int MAX_RECOMMENDATION_HISTORY_SCORE = 10;
-    private static final int MAX_DIVERSITY_SCORE = 10;
+    private static final int MAX_PREFERENCE_SCORE = 10;
+    private static final Comparator<Long> ID_ASC = Comparator.nullsLast(Long::compareTo);
 
-    private static final Comparator<ScoredOutfitCandidate> BEST_CANDIDATE_COMPARATOR =
-            Comparator.comparingInt((ScoredOutfitCandidate candidate) -> candidate.score().totalScore()).reversed()
-                    .thenComparing(Comparator.comparingInt(
-                            (ScoredOutfitCandidate candidate) -> candidate.score().weatherScore()).reversed())
-                    .thenComparing(Comparator.comparingInt(
-                            (ScoredOutfitCandidate candidate) -> candidate.score().wearHistoryScore()).reversed())
-                    .thenComparing(Comparator.comparingInt(
-                            (ScoredOutfitCandidate candidate) -> candidate.score().recommendationHistoryScore()).reversed())
-                    .thenComparing(Comparator.comparingInt(
-                            (ScoredOutfitCandidate candidate) -> candidate.score().colorScore()).reversed())
-                    .thenComparingInt(candidate -> candidate.candidate().generationOrder());
+    public List<ScoredOutfitCandidate> scoreAll(
+            List<OutfitCandidate> candidates,
+            WeatherCondition weather,
+            List<WearHistory> wearHistories,
+            List<RecommendationResult> recommendationHistories,
+            LocalDateTime requestedAt,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials
+    ) {
+        Objects.requireNonNull(candidates, "candidates must not be null");
+        return candidates.stream()
+                .map(candidate -> new ScoredOutfitCandidate(
+                        candidate,
+                        score(
+                                candidate,
+                                weather,
+                                wearHistories,
+                                recommendationHistories,
+                                requestedAt,
+                                preferredColors,
+                                preferredMaterials
+                        )
+                ))
+                .toList();
+    }
 
     public List<ScoredOutfitCandidate> scoreAll(
             List<OutfitCandidate> candidates,
@@ -38,13 +53,7 @@ public class RecommendationScorer {
             List<RecommendationResult> recommendationHistories,
             LocalDateTime requestedAt
     ) {
-        Objects.requireNonNull(candidates, "candidates must not be null");
-        return candidates.stream()
-                .map(candidate -> new ScoredOutfitCandidate(
-                        candidate,
-                        score(candidate, weather, wearHistories, recommendationHistories, requestedAt)
-                ))
-                .toList();
+        return scoreAll(candidates, weather, wearHistories, recommendationHistories, requestedAt, List.of(), List.of());
     }
 
     public RecommendationScore score(
@@ -52,13 +61,17 @@ public class RecommendationScorer {
             WeatherCondition weather,
             List<WearHistory> wearHistories,
             List<RecommendationResult> recommendationHistories,
-            LocalDateTime requestedAt
+            LocalDateTime requestedAt,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials
     ) {
         Objects.requireNonNull(candidate, "candidate must not be null");
         Objects.requireNonNull(weather, "weather must not be null");
         Objects.requireNonNull(wearHistories, "wearHistories must not be null");
         Objects.requireNonNull(recommendationHistories, "recommendationHistories must not be null");
         Objects.requireNonNull(requestedAt, "requestedAt must not be null");
+        Objects.requireNonNull(preferredColors, "preferredColors must not be null");
+        Objects.requireNonNull(preferredMaterials, "preferredMaterials must not be null");
 
         int weatherScore = calculateWeatherScore(candidate, weather);
         int colorScore = calculateColorScore(candidate);
@@ -68,8 +81,8 @@ public class RecommendationScorer {
                 recommendationHistories,
                 requestedAt
         );
-        int diversityScore = calculateDiversityScore(candidate, recommendationHistories);
-        int totalScore = weatherScore + colorScore + wearHistoryScore + recommendationHistoryScore + diversityScore;
+        int preferenceScore = calculatePreferenceScore(candidate, preferredColors, preferredMaterials);
+        int totalScore = weatherScore + colorScore + wearHistoryScore + recommendationHistoryScore + preferenceScore;
 
         return RecommendationScore.of(
                 totalScore,
@@ -77,14 +90,28 @@ public class RecommendationScorer {
                 colorScore,
                 wearHistoryScore,
                 recommendationHistoryScore,
-                diversityScore
+                preferenceScore
         );
     }
 
+    public RecommendationScore score(
+            OutfitCandidate candidate,
+            WeatherCondition weather,
+            List<WearHistory> wearHistories,
+            List<RecommendationResult> recommendationHistories,
+            LocalDateTime requestedAt
+    ) {
+        return score(candidate, weather, wearHistories, recommendationHistories, requestedAt, List.of(), List.of());
+    }
+
     public ScoredOutfitCandidate selectBest(List<ScoredOutfitCandidate> candidates) {
+        return selectBest(candidates, null);
+    }
+
+    public ScoredOutfitCandidate selectBest(List<ScoredOutfitCandidate> candidates, WeatherCondition weather) {
         Objects.requireNonNull(candidates, "candidates must not be null");
         return candidates.stream()
-                .min(BEST_CANDIDATE_COMPARATOR)
+                .min((left, right) -> compareBest(left, right, weather))
                 .orElseThrow(() -> new RecommendationFailureException(RecommendationFailureCode.INSUFFICIENT_CLOSET_ITEMS));
     }
 
@@ -156,16 +183,28 @@ public class RecommendationScorer {
         return score;
     }
 
-    int calculateDiversityScore(OutfitCandidate candidate, List<RecommendationResult> recommendationHistories) {
-        boolean sameCombinationInRecentFive = recommendationHistories.stream()
-                .sorted(Comparator.comparing(
-                        RecommendationResult::getCreatedAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())
-                ))
-                .limit(5)
-                .map(this::itemIds)
-                .anyMatch(candidate::hasSameItemSet);
-        return sameCombinationInRecentFive ? 0 : MAX_DIVERSITY_SCORE;
+    int calculatePreferenceScore(
+            OutfitCandidate candidate,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials
+    ) {
+        Objects.requireNonNull(candidate, "candidate must not be null");
+        Objects.requireNonNull(preferredColors, "preferredColors must not be null");
+        Objects.requireNonNull(preferredMaterials, "preferredMaterials must not be null");
+        if (preferredColors.isEmpty() && preferredMaterials.isEmpty()) {
+            return 0;
+        }
+
+        int score = 0;
+        if (!preferredColors.isEmpty()
+                && candidate.stream().map(ClothingItem::getColor).anyMatch(preferredColors::contains)) {
+            score += 5;
+        }
+        if (!preferredMaterials.isEmpty()
+                && candidate.stream().map(ClothingItem::getMaterial).anyMatch(preferredMaterials::contains)) {
+            score += 5;
+        }
+        return clamp(score, 0, MAX_PREFERENCE_SCORE);
     }
 
     private int calculateOuterScore(OutfitCandidate candidate, WeatherCondition weather) {
@@ -299,6 +338,70 @@ public class RecommendationScorer {
                 .map(ClothingItem::getId)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private int compareBest(ScoredOutfitCandidate left, ScoredOutfitCandidate right, WeatherCondition weather) {
+        int result = compareHigher(left.score().totalScore(), right.score().totalScore());
+        if (result != 0) {
+            return result;
+        }
+        result = compareHigher(left.score().weatherScore(), right.score().weatherScore());
+        if (result != 0) {
+            return result;
+        }
+        result = compareHigher(left.score().preferenceScore(), right.score().preferenceScore());
+        if (result != 0) {
+            return result;
+        }
+        result = compareHigher(left.score().colorScore(), right.score().colorScore());
+        if (result != 0) {
+            return result;
+        }
+        result = compareHigher(left.score().wearHistoryScore(), right.score().wearHistoryScore());
+        if (result != 0) {
+            return result;
+        }
+        result = compareHigher(
+                left.score().recommendationHistoryScore(),
+                right.score().recommendationHistoryScore()
+        );
+        if (result != 0) {
+            return result;
+        }
+        result = ID_ASC.compare(left.candidate().top().getId(), right.candidate().top().getId());
+        if (result != 0) {
+            return result;
+        }
+        result = ID_ASC.compare(left.candidate().bottom().getId(), right.candidate().bottom().getId());
+        if (result != 0) {
+            return result;
+        }
+        result = compareOuter(left.candidate(), right.candidate(), weather);
+        if (result != 0) {
+            return result;
+        }
+        return Integer.compare(left.candidate().generationOrder(), right.candidate().generationOrder());
+    }
+
+    private int compareHigher(int left, int right) {
+        return Integer.compare(right, left);
+    }
+
+    private int compareOuter(OutfitCandidate left, OutfitCandidate right, WeatherCondition weather) {
+        if (left.hasOuter() && right.hasOuter()) {
+            return ID_ASC.compare(left.outer().getId(), right.outer().getId());
+        }
+        if (left.hasOuter() == right.hasOuter()) {
+            return 0;
+        }
+        boolean preferOuter = weather != null && weather.temperature() <= 16;
+        if (left.hasOuter() == preferOuter) {
+            return -1;
+        }
+        if (right.hasOuter() == preferOuter) {
+            return 1;
+        }
+        return Boolean.compare(left.hasOuter(), right.hasOuter());
     }
 
     private int clamp(int score, int min, int max) {

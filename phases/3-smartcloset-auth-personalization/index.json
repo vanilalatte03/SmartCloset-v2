@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "preference-score-rules",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T19:50:23+0900",
+      "summary": "기존 다양성 점수를 preferenceScore로 교체하고 선호 색상/소재 기반 점수, 저장 snapshot, 응답 DTO, 추천 이유, tie-break 테스트를 구현했다.",
+      "completed_at": "2026-05-22T19:55:19+0900"
     },
     {
       "step": 6,

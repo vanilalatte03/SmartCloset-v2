@@ -93,7 +93,7 @@ class RecommendationScorerTest {
     }
 
     @Test
-    void appliesRecentWearRecommendationAndDiversityHistoryScores() {
+    void appliesRecentWearAndRecommendationHistoryScoresWithEmptyPreferenceScore() {
         User user = user(1);
         ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
         ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
@@ -111,7 +111,25 @@ class RecommendationScorerTest {
 
         assertThat(score.wearHistoryScore()).isEqualTo(10);
         assertThat(score.recommendationHistoryScore()).isEqualTo(2);
-        assertThat(score.diversityScore()).isZero();
+        assertThat(score.preferenceScore()).isZero();
+    }
+
+    @Test
+    void calculatesPreferenceScoreFromPreferredColorsAndMaterialsOnly() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.NAVY, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false)
+        );
+
+        assertThat(scorer.calculatePreferenceScore(candidate, List.of(), List.of())).isZero();
+        assertThat(scorer.calculatePreferenceScore(candidate, List.of(ClothingColor.NAVY), List.of())).isEqualTo(5);
+        assertThat(scorer.calculatePreferenceScore(candidate, List.of(), List.of(ClothingMaterial.COTTON))).isEqualTo(5);
+        assertThat(scorer.calculatePreferenceScore(
+                candidate,
+                List.of(ClothingColor.NAVY),
+                List.of(ClothingMaterial.COTTON)
+        )).isEqualTo(10);
     }
 
     @Test
@@ -139,20 +157,31 @@ class RecommendationScorerTest {
     }
 
     @Test
-    void selectsBestCandidateByScoreTieBreakAndGenerationOrder() {
+    void selectsBestCandidateByDocumentedScoreTieBreakAndGenerationOrder() {
         User user = user(1);
         ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
         ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
         ScoredOutfitCandidate first = new ScoredOutfitCandidate(
                 OutfitCandidate.withoutOuter(top, bottom, 0),
-                RecommendationScore.of(80, 30, 20, 20, 10, 0)
+                RecommendationScore.of(80, 30, 25, 20, 5, 0)
         );
         ScoredOutfitCandidate second = new ScoredOutfitCandidate(
                 OutfitCandidate.withoutOuter(top, bottom, 1),
-                RecommendationScore.of(80, 30, 20, 20, 10, 0)
+                RecommendationScore.of(80, 30, 20, 20, 10, 5)
         );
 
-        assertThat(scorer.selectBest(List.of(second, first))).isSameAs(first);
+        assertThat(scorer.selectBest(List.of(first, second))).isSameAs(second);
+
+        ScoredOutfitCandidate earlierGeneration = new ScoredOutfitCandidate(
+                OutfitCandidate.withoutOuter(top, bottom, 0),
+                RecommendationScore.of(80, 30, 20, 20, 10, 5)
+        );
+        ScoredOutfitCandidate laterGeneration = new ScoredOutfitCandidate(
+                OutfitCandidate.withoutOuter(top, bottom, 1),
+                RecommendationScore.of(80, 30, 20, 20, 10, 5)
+        );
+
+        assertThat(scorer.selectBest(List.of(laterGeneration, earlierGeneration))).isSameAs(earlierGeneration);
     }
 
     @Test
