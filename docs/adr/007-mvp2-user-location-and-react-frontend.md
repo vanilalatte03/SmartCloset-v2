@@ -15,7 +15,7 @@ SmartCloset 1.5차까지는 기상청 단기예보 `getVilageFcst` JSON 연동�
 
 - 위치 catalog는 code, name, nx, ny를 가진다.
 - seed user 기본 위치는 서울특별시 `SEOUL`, `nx=60`, `ny=127`이다.
-- 사용자는 `PUT /api/users/location?userId={userId}`로 catalog code를 선택한다.
+- 사용자는 2차 당시 사용자 위치 선택 API로 catalog code를 선택한다. 3차 이후 현재 인증 사용자 기반 위치 API 계약은 ADR-008을 따른다.
 - 추천 생성은 사용자 위치의 `nx`, `ny`로 KMA `getVilageFcst`를 호출한다.
 - 존재하지 않는 위치 code는 `LOCATION_NOT_FOUND`로 실패한다.
 

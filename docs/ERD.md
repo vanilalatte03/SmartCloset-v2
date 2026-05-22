@@ -1,14 +1,20 @@
-# ERD: SmartCloset 2차 MVP
+# ERD: SmartCloset 3차 MVP
 
-## 0. 2차 DB 변경
-2차 MVP는 사용자별 위치 저장을 위해 `users` 테이블에 위치 snapshot 컬럼을 추가한다.
+## 0. 3차 DB 변경
+3차 MVP는 인증 사용자 기반 전환과 선호도 저장을 위해 `users` 테이블을 확장한다.
 
-- 별도 `locations` 테이블은 만들지 않는다.
-- 위치 선택지는 서버 내장 catalog로 관리한다.
-- 추천 결과에는 기존 weather snapshot만 저장한다.
-- weather source, `nx`, `ny`, KMA 원본 category snapshot 저장은 2차 범위에서 제외한다.
-- 기존 사용자 데이터에 위치가 없으면 애플리케이션에서 서울특별시 `SEOUL`, `nx=60`, `ny=127`로 backfill한다.
-- 후속 migration 도구 도입 전까지 위치 컬럼에 DB non-null 제약을 강제하지 않는다.
+- `users`에 인증 필드 `email`, `password_hash`, `role`을 추가한다.
+- `email`은 unique다.
+- 기존 위치 snapshot 컬럼은 계속 사용한다.
+- 선호도는 `users` 테이블의 JSON 문자열 컬럼으로 저장한다.
+  - `preferred_colors_json`
+  - `preferred_materials_json`
+  - `style_tags_json`
+- 신규 사용자는 기본 위치 `SEOUL`과 빈 선호도 배열로 생성한다.
+- 선호도 별도 테이블 정규화는 4차 이후 후보로 남긴다.
+- 추천 결과에는 기존 weather snapshot과 score snapshot을 저장한다.
+- 추천 결과 위치 source snapshot 저장은 3차 범위에서 제외한다.
+- MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
 
 ## 1. 공통 DB 정책
 - DB는 MySQL 기준으로 설계한다.
@@ -16,8 +22,8 @@
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
 - `recommendation_results.reasons_json`은 `JSON NOT NULL`로 저장한다.
-- Entity에서는 구현 단순성을 위해 `String reasonsJson`으로 보관한다.
-- Application 계층 또는 converter에서 string list와 JSON string 변환을 담당한다.
+- Entity에서는 구현 단순성을 위해 JSON 값을 `String`으로 보관한다.
+- `users.preferred_colors_json`, `users.preferred_materials_json`, `users.style_tags_json`은 JSON array string으로 보관한다.
 
 ## 2. Mermaid ERD
 ```mermaid
@@ -31,11 +37,17 @@ erDiagram
 
   users {
     BIGINT id PK
+    VARCHAR email
+    VARCHAR password_hash
     VARCHAR name
+    VARCHAR role
     VARCHAR location_code
     VARCHAR location_name
     INT location_nx
     INT location_ny
+    TEXT preferred_colors_json
+    TEXT preferred_materials_json
+    TEXT style_tags_json
     DATETIME created_at
     DATETIME updated_at
   }
@@ -67,7 +79,7 @@ erDiagram
     INT color_score
     INT wear_history_score
     INT recommendation_history_score
-    INT diversity_score
+    INT preference_score
     JSON reasons_json
     BOOLEAN worn
     DATETIME created_at
@@ -99,16 +111,23 @@ erDiagram
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
-| `name` | `VARCHAR(50)` | no | none | seed/test user name |
+| `email` | `VARCHAR(255)` | no | none | 로그인 이메일, unique |
+| `password_hash` | `VARCHAR(255)` | no | none | BCrypt hash |
+| `name` | `VARCHAR(50)` | no | none | 사용자 표시 이름 |
+| `role` | `VARCHAR(30)` | no | `USER` | 3차 기본 role |
 | `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code. 애플리케이션 기본값은 `SEOUL` |
 | `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름. 애플리케이션 기본값은 `서울특별시` |
 | `location_nx` | `INT` | yes | none | KMA grid X. 애플리케이션 기본값은 `60` |
 | `location_ny` | `INT` | yes | none | KMA grid Y. 애플리케이션 기본값은 `127` |
+| `preferred_colors_json` | `TEXT` | no | application `[]` | `ClothingColor` 배열 JSON 문자열 |
+| `preferred_materials_json` | `TEXT` | no | application `[]` | `ClothingMaterial` 배열 JSON 문자열 |
+| `style_tags_json` | `TEXT` | no | application `[]` | style tag 문자열 배열 JSON 문자열 |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
 - Primary key: `id`
+- Unique: `(email)`
 - Index: `(location_code)`
 
 Relations:
@@ -116,15 +135,26 @@ Relations:
 - `users.id` 1:N `recommendation_results.user_id`
 - `users.id` 1:N `wear_histories.user_id`
 
-Location methods:
+User methods:
+- `create(email, passwordHash, name)`
 - `updateLocation(LocationOption location)`
 - `ensureDefaultLocation()`
+- `updatePreferences(preferredColors, preferredMaterials, styleTags)`
+
+Signup policy:
+- 신규 사용자는 기본 위치 `SEOUL`, `서울특별시`, `60`, `127`을 가진다.
+- 신규 사용자의 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json`은 모두 `[]`로 생성한다.
+- 기본 role은 `USER`다.
 
 Migration policy:
-- 위치 컬럼은 nullable로 추가한다.
-- seed user 생성 시 기본 위치를 함께 채운다.
-- 기존 row는 위치 조회 또는 추천 생성 전에 `ensureDefaultLocation()`으로 backfill한다.
-- backfill 저장이 필요한 조회 경로는 write transaction으로 처리한다.
+- 3차 로컬 공유/데모는 Docker Compose volume 초기화를 권장한다.
+- 운영 DB migration은 3차 문서 범위에서 다루지 않는다.
+- 기존 row에 인증 필드나 선호도 필드가 없어 충돌할 수 있으므로 로컬 전환 명령은 아래를 기준으로 한다.
+
+```bash
+docker compose down -v
+docker compose up --build
+```
 
 ### clothing_items
 | Column | Type | Nullable | Default | Description |
@@ -161,7 +191,7 @@ Indexes:
 | `color_score` | `INT` | no | none | 색상 조합 점수 |
 | `wear_history_score` | `INT` | no | none | 최근 착용 이력 점수 |
 | `recommendation_history_score` | `INT` | no | none | 최근 추천 이력 점수 |
-| `diversity_score` | `INT` | no | none | 다양성 보정 점수 |
+| `preference_score` | `INT` | no | none | 선호 색상/소재 점수 |
 | `reasons_json` | `JSON` | no | none | 추천 이유 JSON array |
 | `worn` | `BOOLEAN` | no | `FALSE` | 착용 완료 여부 |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
@@ -172,7 +202,7 @@ Indexes:
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 
-2차에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
+3차에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
 
 ### recommendation_result_items
 | Column | Type | Nullable | Default | Description |
@@ -208,7 +238,7 @@ Indexes:
 WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실제 포함 옷은 `recommendation_result_items`를 통해 조회한다.
 
 ## 4. 내장 위치 catalog
-내장 위치 catalog는 DB 테이블이 아니라 애플리케이션 코드 또는 설정으로 제공한다.
+내장 위치 catalog는 DB 테이블이 아니라 애플리케이션 코드 또는 설정으로 제공한다. `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 화면에서만 호출한다.
 
 | Code | Name | nx | ny |
 | --- | --- | ---: | ---: |
@@ -226,4 +256,5 @@ WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실�
 - Entity에 Lombok `@Data`, `@Setter`를 사용하지 않는다.
 - Entity 변경은 의도가 드러나는 메서드로 제한한다.
 - `User` 위치 변경은 `updateLocation` 같은 명시적 메서드로만 수행한다.
+- `User` 선호도 변경은 `updatePreferences` 같은 명시적 메서드로만 수행한다.
 - Repository에는 추천 점수 계산, 위치 catalog 검색 규칙, KMA 매핑 로직을 넣지 않는다.

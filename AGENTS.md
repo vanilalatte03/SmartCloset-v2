@@ -18,14 +18,30 @@
 - 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
 - `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
 - `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
-- 승인된 2차 범위는 사용자 위치 저장, 내장 대표 격자 위치 선택 API, React+Vite+TypeScript 프론트엔드 앱까지로 제한한다.
-- `frontend/`가 없는 상태에서 2차 프론트를 구현할 때는 스캐폴드와 Docker Compose `frontend` 서비스를 같은 구현 흐름에서 함께 추가한다.
+- 승인된 3차 범위는 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API 전환, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전까지로 제한한다.
+- 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`만 둔다.
+- 보호 API는 `Authorization: Bearer {accessToken}`을 요구한다.
+- 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
+- JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정한다.
+- 공개 HTTP API에서 `?userId=` query parameter를 제거한다.
+- 현재 사용자 전용 response DTO에서 `userId` 필드를 제거한다.
+- 추천 생성 API는 `POST /api/recommendations`만 사용한다.
+- today 추천 GET 경로는 사용하지 않는다.
+- 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`를 사용하며 기본 20, 최소 1, 최대 50, 최신순으로 고정한다.
 - Spring Boot 버전은 `4.0.6`으로 고정한다.
 - 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
 - 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
-- AWS 배포, 로그인/회원가입, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
-- 추천 생성 API는 `POST /api/recommendations?userId={userId}`만 사용한다.
-- today 추천 GET 경로는 사용하지 않는다.
+- `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 흐름에서만 사용한다.
+- 선호도는 `users` 테이블 JSON 문자열 컬럼 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json`에 저장한다.
+- 선호도 API는 `preferredColors`, `preferredMaterials`, `styleTags` 배열로 주고받는다.
+- 신규 사용자의 기본 선호도는 모두 빈 배열이다.
+- 기존 다양성 점수는 3차에서 `preferenceScore`로 교체한다.
+- `preferenceScore`는 최대 10점이며 선호 색상 일치 5점, 선호 소재 일치 5점으로 계산한다.
+- 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`이다.
+- `styleTags`는 저장/조회/표시만 하고 추천 점수와 추천 이유에는 반영하지 않는다.
+- 선호도 별도 테이블 정규화는 4차 이후 후보로 남긴다.
+- MVP 3 전환 시 로컬 Docker Compose DB는 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
+- AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
 - 커밋은 항상 Codex 앱 커밋 지침을 따른다.
 - 자동 PR 루프는 clean worktree에서만 실행하고, Codex 앱 커밋/PR 지침을 따른다.

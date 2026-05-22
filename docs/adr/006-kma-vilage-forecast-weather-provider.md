@@ -69,7 +69,7 @@ fallback 값은 1차 MVP와 동일하다.
 - `rainy=false`
 - `windy=false`
 
-추천 API 계약은 변경하지 않는다. 추천 생성은 계속 `POST /api/recommendations?userId={userId}`만 사용한다.
+추천 API 계약은 1.5차 당시 기존 추천 생성 endpoint를 유지했다. 3차 이후 현재 인증 사용자 기반 추천 생성 계약은 ADR-008을 따른다.
 
 ## Consequences
 - 실제 날씨 기반 추천을 확인할 수 있다.

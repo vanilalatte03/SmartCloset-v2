@@ -1,27 +1,38 @@
-# 아키텍처: SmartCloset 2차 MVP
+# 아키텍처: SmartCloset 3차 MVP
 
 ## 전체 아키텍처 개요
-SmartCloset 2차 MVP는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 기존 추천 도메인과 KMA weather provider를 유지하면서 사용자별 위치 저장과 위치 catalog API를 추가한다.
+SmartCloset 3차 MVP는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 기존 추천 도메인과 KMA weather provider를 유지하면서 Spring Security, JWT Bearer 인증, 사용자 선호도, 추천 이력 조회를 추가한다.
 
-전체 백엔드 요청 흐름은 기존 계층 구조를 유지한다.
+전체 백엔드 요청 흐름은 아래 계층 구조를 유지한다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
 ```
 
-Controller는 HTTP 요청과 응답만 처리한다. Application Service는 유스케이스와 트랜잭션 경계를 관리한다. 추천 후보 생성, 점수 계산, 추천 실패 판단, 추천 이유 생성은 Domain Service에서 처리한다. Repository는 JPA 기반 데이터 접근만 담당한다.
+보호 API는 Spring Security filter chain에서 JWT를 검증하고 인증 principal을 만든다. Controller는 principal에서 현재 사용자 id를 얻어 application service에 전달한다. HTTP 계약과 프론트 타입에는 `userId` query parameter를 노출하지 않는다.
 
-프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 백엔드 REST API를 호출한다. 프론트 상세 기준은 `docs/FRONTEND.md`를 따른다.
+프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 로그인 후 access token을 `sessionStorage`에 저장한다. 보호 API 호출 시 `Authorization: Bearer {accessToken}` header를 붙인다.
 
 ## 권장 패키지 구조
 
 ```text
 com.smartcloset
 ├── SmartClosetApplication
+├── auth
+│   ├── application
+│   ├── domain
+│   ├── dto
+│   ├── infrastructure
+│   └── presentation
 ├── common
 │   ├── exception
 │   ├── response
 │   └── config
+├── security
+│   ├── JwtAuthenticationFilter
+│   ├── JwtTokenProvider
+│   ├── CurrentUserPrincipal
+│   └── SecurityConfig
 ├── user
 │   ├── domain
 │   ├── repository
@@ -64,20 +75,30 @@ frontend
     ├── api
     ├── components
     ├── features
+    │   ├── auth
     │   ├── clothes
     │   ├── location
+    │   ├── preferences
     │   └── recommendation
     ├── types
     └── main.tsx
 ```
 
-Spring Boot static Demo UI는 2차의 주 제품 화면이 아니다. 유지하더라도 API smoke 확인용 보조 화면으로만 취급한다.
+Spring Boot static Demo UI는 3차의 주 제품 화면이 아니다. 유지하더라도 API smoke 확인용 보조 화면으로만 취급한다.
 
 ## 계층별 책임
+
+### security
+- 공개 API와 보호 API 분리
+- JWT access token 검증
+- 인증 principal 생성
+- 401/403 처리
+- 비밀번호 hash 검증은 인증 application service와 협력
 
 ### presentation/controller
 - HTTP 요청/응답 처리
 - request validation
+- 인증 principal에서 현재 사용자 id 추출
 - Application Service 호출
 - DTO 변환
 - 비즈니스 규칙 직접 처리 금지
@@ -88,8 +109,10 @@ Spring Boot static Demo UI는 2차의 주 제품 화면이 아니다. 유지하�
 - Repository 호출
 - `WeatherProvider` 호출
 - Domain Service 호출
+- 회원가입/로그인 orchestration
 - 위치 catalog 조회와 사용자 위치 변경 orchestration
-- 응답 DTO 구성
+- 선호도 조회/저장 orchestration
+- 추천 이력 조회 limit 검증
 
 ### domain
 - Entity, Enum, Value Object
@@ -98,24 +121,103 @@ Spring Boot static Demo UI는 2차의 주 제품 화면이 아니다. 유지하�
 - 추천 실패 판단
 - 추천 이유 생성 규칙
 - 위치 catalog 항목 value object
+- 선호도 value object 또는 domain helper
 - 가능한 한 순수 Java 로직으로 유지
 
 ### repository
 - JPA 기반 데이터 접근
 - Entity 저장/조회
+- 소유자 조건을 포함한 조회
 - 추천 점수 계산 로직 금지
 - 후보 조합 생성 로직 금지
 - KMA category 매핑 금지
 
-### infrastructure/provider
-- `WeatherProvider#getCurrentWeather(Long userId)` 구현
-- 사용자 위치의 `nx`, `ny`를 사용한 KMA API 호출
-- JSON 응답 파싱, category 매핑
-- 외부 API 오류를 fallback 또는 strict mode 실패로 변환
-- 추천 도메인이 KMA 응답 DTO에 의존하지 않도록 내부 `WeatherCondition`으로 변환
+## 인증 구조
+3차 인증은 Spring Security + JWT Bearer access token 단일 구조다. refresh token은 3차 범위가 아니다.
+
+```text
+AuthController
+  -> AuthService
+      -> PasswordEncoder
+      -> UserRepository
+      -> JwtTokenProvider
+
+ProtectedController
+  <- JwtAuthenticationFilter
+      <- JwtTokenProvider
+      <- UserRepository
+```
+
+회원가입:
+
+1. email 중복을 확인한다.
+2. password를 BCrypt로 hash한다.
+3. 기본 role `USER`를 설정한다.
+4. 기본 위치 `SEOUL`을 설정한다.
+5. 선호도 JSON 문자열 컬럼을 모두 `[]`로 설정한다.
+6. 사용자를 저장한다.
+
+로그인:
+
+1. email로 사용자를 조회한다.
+2. BCrypt password match를 확인한다.
+3. `HS256`과 `JWT_SECRET`으로 access token을 발급한다.
+4. token과 현재 사용자 정보를 반환한다.
+
+프론트는 access token을 `sessionStorage`에 저장한다.
+
+JWT access token payload 기준:
+
+| Item | Value |
+| --- | --- |
+| `sub` | 현재 사용자 id 문자열 |
+| `email` | 현재 사용자 email |
+| `role` | `USER` |
+| `iat` | 발급 시각 |
+| `exp` | 발급 후 2시간 |
+
+만료된 token, 서명이 잘못된 token, 지원하지 않는 token은 보호 API에서 `401`로 처리한다.
+
+## API 인증 경계
+
+공개 API:
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+
+보호 API:
+
+- `GET /api/users/me`
+- `GET /api/locations?keyword={keyword}`
+- `GET /api/users/me/location`
+- `PUT /api/users/me/location`
+- `GET /api/users/me/preferences`
+- `PUT /api/users/me/preferences`
+- `GET /api/clothes`
+- `POST /api/clothes`
+- `GET /api/clothes/{clothingId}`
+- `PUT /api/clothes/{clothingId}`
+- `PATCH /api/clothes/{clothingId}/archive`
+- `POST /api/recommendations`
+- `GET /api/recommendations?limit={limit}`
+- `PATCH /api/recommendations/{recommendationId}/worn`
+
+`GET /api/locations`는 민감정보를 반환하지 않지만 3차에서는 보호 API로 고정한다. 회원가입 화면은 위치 catalog를 호출하지 않고, 로그인 후 위치 선택 화면에서 호출한다.
+
+## userId 제거 구조
+HTTP query parameter의 `userId`는 제거한다. Controller는 인증 principal에서 현재 사용자 id를 얻는다.
+
+```text
+JwtAuthenticationFilter
+  -> CurrentUserPrincipal(userId, email, role)
+      -> Controller method argument
+          -> service.method(userId, ...)
+```
+
+현재 사용자 전용 response DTO에서도 `userId`를 제거한다. 내부 Entity, Repository, Service에서는 소유자 검증과 조회 조건을 위해 `Long userId`를 유지할 수 있다.
 
 ## Location 구조
-2차 위치 선택은 외부 위치 API 없이 내장 대표 격자 catalog를 사용한다.
+3차 위치 선택은 외부 위치 API 없이 내장 대표 격자 catalog를 사용한다.
 
 ```text
 LocationController
@@ -132,10 +234,34 @@ UserLocationController
 
 - `LocationOption`: code, name, nx, ny를 가진 내장 catalog 항목이다.
 - `LocationCatalog`: 전체 위치 목록, keyword 검색, code 조회를 담당한다.
-- `UserLocationService`: 사용자 위치 조회와 선택을 담당한다.
+- `UserLocationService`: 현재 인증 사용자 위치 조회와 선택을 담당한다.
 - `User`: 현재 선택된 위치 snapshot을 저장한다.
 
 내장 catalog code가 존재하지 않으면 `LOCATION_NOT_FOUND`로 실패한다.
+
+## Preference 구조
+선호도는 `users` 테이블의 JSON 문자열 컬럼으로 시작한다.
+
+```text
+UserPreferencesController
+  -> UserPreferencesService
+      -> UserRepository
+      -> PreferenceJsonMapper
+```
+
+컬럼:
+
+- `preferred_colors_json`
+- `preferred_materials_json`
+- `style_tags_json`
+
+API DTO는 배열을 사용한다.
+
+- `preferredColors`
+- `preferredMaterials`
+- `styleTags`
+
+`preferredColors`와 `preferredMaterials`만 `preferenceScore`에 반영한다. `styleTags`는 저장/조회/표시만 하며 추천 점수와 추천 이유에는 반영하지 않는다.
 
 ## Weather Provider 구조
 `RecommendationService`는 계속 `WeatherProvider` 인터페이스에만 의존한다.
@@ -151,154 +277,76 @@ RecommendationService
           -> StaticWeatherProvider fallback
 ```
 
-2차 변경점:
+3차 기준:
 
-- KMA 요청의 `nx`, `ny`는 환경변수 기본값이 아니라 사용자 위치에서 온다.
-- 기존 `KMA_NX`, `KMA_NY`는 기존 구현/로컬 기본값 호환용이며 2차 사용자별 추천의 source of truth가 아니다.
+- KMA 요청의 `nx`, `ny`는 현재 인증 사용자 위치에서 온다.
+- 기존 `KMA_NX`, `KMA_NY`는 기존 구현/로컬 기본값 호환용이다.
 - 사용자 위치가 비어 있으면 서울특별시 `SEOUL`, `60`, `127`로 보정한다.
-
-내부 인터페이스 기준:
-
-```java
-public record KmaGrid(int nx, int ny) {
-}
-
-public interface KmaForecastClient {
-    List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid);
-}
-```
-
-`KmaVilageForecastClient`는 URI 생성 시 `KmaWeatherProperties#nx`, `KmaWeatherProperties#ny`가 아니라 전달받은 `KmaGrid`를 사용한다.
-
-유지되는 규칙:
-
 - `KmaVilageForecastWeatherProvider`는 기본 `WeatherProvider` bean이며 `@Primary`로 둔다.
 - `StaticWeatherProvider`는 fallback/test 구현체로 유지한다.
-- KMA 응답 DTO는 `weather.infrastructure` 밖으로 노출하지 않는다.
-- 추천 도메인은 내부 `WeatherCondition`만 사용한다.
 
 ## 추천 유스케이스 흐름
-`POST /api/recommendations?userId={userId}` 요청 흐름:
+`POST /api/recommendations` 요청 흐름:
 
-1. `userId`로 seed/test user를 조회한다.
-2. 사용자 위치 snapshot을 조회한다. 없으면 애플리케이션에서 서울 기본값으로 backfill하고 저장한 뒤 사용한다.
-3. `WeatherProvider#getCurrentWeather(Long userId)`로 `WeatherCondition`을 조회한다.
-4. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
-5. KMA 응답에서 `TMP`, `SKY`, `PTY`, `PCP`, `WSD`를 매핑한다.
+1. 인증 principal에서 현재 사용자 id를 얻는다.
+2. 사용자 위치 snapshot을 조회한다. 없으면 서울 기본값으로 backfill하고 저장한 뒤 사용한다.
+3. 사용자 선호 색상/소재를 조회한다.
+4. `WeatherProvider#getCurrentWeather(userId)`로 `WeatherCondition`을 조회한다.
+5. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
 6. KMA 호출 또는 매핑이 실패하면 `WEATHER_FALLBACK_ENABLED=true`에서는 fallback `WeatherCondition`을 사용하고, `false`에서는 `INTERNAL_SERVER_ERROR`로 실패한다.
-7. `archived=false`인 옷 목록을 조회한다.
+7. 현재 사용자 `archived=false`인 옷 목록을 조회한다.
 8. 날씨 조건에 맞지 않는 옷을 필터링한다.
 9. TOP/BOTTOM 또는 TOP/BOTTOM/OUTER 조합을 생성한다.
 10. 후보 조합별 점수를 계산한다.
-11. 최근 착용 이력과 최근 추천 이력을 반영한다.
+11. 최근 착용 이력, 최근 추천 이력, 선호 색상/소재를 반영한다.
 12. 최고 점수 후보를 선택한다.
 13. 추천 이유를 생성한다.
 14. `RecommendationResult`를 생성하고 저장한다.
-15. 응답 DTO를 반환한다.
+15. 현재 사용자 전용 response DTO를 반환한다.
 
-## KMA 요청 구성
-외부 호출은 아래 endpoint로 제한한다.
+기존 다양성 점수는 3차에서 제거하고 `preferenceScore`로 교체한다.
 
-```text
-GET {KMA_BASE_URL}/getVilageFcst
-```
+## 추천 이력 조회 흐름
+`GET /api/recommendations?limit={limit}`는 현재 인증 사용자 추천 결과를 최신순으로 조회한다.
 
-요청 parameter:
+Limit 정책:
 
-| Parameter | Source |
-| --- | --- |
-| `serviceKey` | `KMA_SERVICE_KEY` |
-| `pageNo` | fixed `1` |
-| `numOfRows` | fixed `1000` |
-| `dataType` | fixed `JSON` |
-| `base_date` | `KmaForecastBaseTimeCalculator` |
-| `base_time` | `KmaForecastBaseTimeCalculator` |
-| `nx` | 사용자 위치 `locationNx` |
-| `ny` | 사용자 위치 `locationNy` |
-
-단기예보 발표시각:
-
-```text
-0200, 0500, 0800, 1100, 1400, 1700, 2000, 2300
-```
-
-각 발표시각 10분 이후부터 API에서 사용할 수 있다고 보고, 현재 KST 기준 제공 가능한 최신 발표시각을 선택한다.
-
-## WeatherCondition 매핑
-KMA 응답 item은 같은 forecast time끼리 묶어서 사용한다.
-
-forecast target time 선택 기준은 현재 KST 이후 가장 가까운 예보시각이다. 선택 group에 필수 category가 하나라도 누락되거나 값 파싱에 실패하면 다른 group으로 이동하지 않고 provider에 실패를 반환한다.
-
-| Internal field | KMA category | Mapping |
-| --- | --- | --- |
-| `temperature` | `TMP` | `fcstValue`를 정수 섭씨로 변환 |
-| `weatherType` | `PTY`, `SKY` | `PTY` 우선, `PTY=0`이면 `SKY` 사용 |
-| `rainy` | `PTY`, `PCP` | `PTY != 0` 또는 유효 강수량이면 true |
-| `windy` | `WSD` | `WSD >= 4.0`이면 true |
-
-Weather type:
-
-| KMA value | WeatherType |
-| --- | --- |
-| `PTY=1`, `PTY=2`, `PTY=4` | `RAINY` |
-| `PTY=3` | `SNOWY` |
-| `PTY=0`, `SKY=1` | `SUNNY` |
-| `PTY=0`, `SKY=3` 또는 `SKY=4` | `CLOUDY` |
-
-`PCP`가 `-`, `null`, `0`, `강수없음`이면 강수 없음으로 본다.
+- 기본값 `20`
+- 최소 `1`
+- 최대 `50`
+- 범위 밖 또는 숫자가 아닌 값은 `400 INVALID_REQUEST`
 
 ## 트랜잭션 경계
+- 회원가입: write transaction
+- 로그인: readOnly transaction
+- 현재 사용자 조회: readOnly transaction
 - 옷 등록/수정/보관 처리: write transaction
 - 옷 목록/상세 조회: readOnly transaction
 - 위치 catalog 조회: readOnly 또는 in-memory 조회
 - 사용자 위치 조회: 위치 snapshot이 있으면 readOnly transaction, 서울 기본값 backfill이 필요하면 write transaction
 - 사용자 위치 선택: write transaction
+- 사용자 선호도 조회: readOnly transaction
+- 사용자 선호도 저장: write transaction
 - 추천 생성: 위치 조회/backfill, KMA 호출, 추천 저장을 분리한다. 최종 `RecommendationResult` 저장은 write transaction이다.
+- 추천 이력 조회: readOnly transaction
 - 착용 완료 처리: `RecommendationResult` 상태 변경과 `WearHistory` 저장이 필요하므로 write transaction
 
-외부 KMA 호출은 DB transaction을 길게 잡지 않는다. 권장 흐름은 위치 snapshot 확보와 필요한 backfill 저장을 짧게 끝낸 뒤, KMA 호출을 transaction 밖에서 수행하고, 추천 결과 저장만 별도 write transaction으로 처리하는 것이다. 구현 단순성을 위해 하나의 application service에서 조합하더라도 외부 호출 전에 불필요한 DB lock이나 변경 감지를 오래 유지하지 않게 책임을 분리한다.
+외부 KMA 호출은 DB transaction을 길게 잡지 않는다.
 
-## Frontend 구조
-프론트엔드는 React+Vite+TypeScript SPA다.
+## Docker Compose 공유 기준
+3차 공유 기준은 아래 3개 서비스다.
 
-주요 책임:
+```text
+mysql
+app
+frontend
+```
 
-- 사용자 위치 조회/검색/선택
-- 옷 목록 조회와 등록
-- 추천 생성
-- 추천 결과 표시
-- 착용 완료 처리
-- API 에러와 추천 실패 코드 표시
+MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
 
-프론트는 백엔드 도메인 규칙을 재구현하지 않는다. 추천 가능 여부, 점수 계산, KMA 매핑은 모두 백엔드가 담당한다.
+```bash
+docker compose down -v
+docker compose up --build
+```
 
-## Docker Compose 구성
-2차 공유 기준은 아래 3개 서비스다.
-
-- `mysql`: MySQL DB
-- `app`: Spring Boot API
-- `frontend`: React+Vite+TypeScript 앱
-
-기본 접속 경로:
-
-- Frontend: `http://localhost:5173`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-
-## 의존 방향 규칙
-- Controller는 Application Service에만 의존한다.
-- Service는 Repository, `WeatherProvider`, Domain Service를 조합한다.
-- Domain 로직은 Controller, JPA, HTTP, Swagger, KMA DTO, React DTO에 의존하지 않는다.
-- `RecommendationService`는 KMA client를 직접 호출하지 않는다.
-- Repository는 추천 점수 계산을 하지 않는다.
-- 프론트엔드는 백엔드 API 계약에만 의존하고 DB 구조에 의존하지 않는다.
-
-## 테스트 기준
-- 위치 catalog 검색/조회 테스트
-- 사용자 위치 조회/수정 API 테스트
-- 잘못된 `locationCode`의 `LOCATION_NOT_FOUND` 테스트
-- 사용자 위치 `nx`, `ny`가 KMA 요청에 반영되는 통합 테스트
-- fallback/strict KMA mode 기존 테스트 유지
-- 추천 스코어링, 날씨 필터링, 색상 점수, 최근 착용/추천 이력 테스트 유지
-- 프론트 TypeScript type check와 build
-- React 앱 핵심 흐름 smoke 테스트
+운영 DB migration은 3차 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
