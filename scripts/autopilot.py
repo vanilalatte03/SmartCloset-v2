@@ -96,6 +96,13 @@ class AutopilotRunner:
         "추가하지",
         "제공하지",
         "호출하지",
+        "반환하지",
+        "넣지",
+        "만들지",
+        "허용하지",
+        "남기지",
+        "되살리지",
+        "없어야",
         "필수처럼 보이지",
         "범위가 아니다",
         "후속 mvp",
@@ -200,7 +207,7 @@ class AutopilotRunner:
         last_review: ReviewResult | None = None
 
         for attempt in range(self.max_review_fixes + 1):
-            review = self._run_review_gate()
+            review = self._run_review_gate(step)
             last_review = review
             self._comment_review(pr_url, review)
             if review.passed:
@@ -370,7 +377,7 @@ class AutopilotRunner:
 
     # --- review gate ---
 
-    def _run_review_gate(self) -> ReviewResult:
+    def _run_review_gate(self, step: dict) -> ReviewResult:
         findings: list[str] = []
         commands = self._review_commands()
 
@@ -386,11 +393,11 @@ class AutopilotRunner:
         if not diff_passed:
             findings.append(self._command_failure(diff_cmd, diff_result))
 
-        forbidden_findings = self._scan_forbidden_diff()
+        forbidden_findings = self._scan_forbidden_diff(step)
         findings.extend(forbidden_findings)
         forbidden_passed = not forbidden_findings
 
-        codex_review = self._run_codex_review()
+        codex_review = self._run_codex_review(step)
         if not codex_review.passed:
             findings.extend(codex_review.findings or [codex_review.summary or "Codex 자체 리뷰 실패"])
 
@@ -417,7 +424,8 @@ class AutopilotRunner:
             return output
         return output[:max_chars].rstrip() + "\n... output truncated ..."
 
-    def _scan_forbidden_diff(self) -> list[str]:
+    def _scan_forbidden_diff(self, step: dict | None = None) -> list[str]:
+        del step  # reserved for step-aware scan exceptions.
         result = self._git("diff", "--unified=0", f"origin/{self.base}...HEAD", check=False)
         if result.returncode != 0:
             return [self._command_failure(["git", "diff", "--unified=0", f"origin/{self.base}...HEAD"], result)]
@@ -476,19 +484,34 @@ class AutopilotRunner:
 
     def _forbidden_messages(self, line: str) -> list[str]:
         messages: list[str] = []
+        lowered = line.lower()
         forbidden_today_get = "GET " + "/api/recommendations/today"
         if forbidden_today_get in line:
             messages.append("금지 API `" + forbidden_today_get + "`가 추가되었습니다.")
+        if "refresh token" in lowered or "refreshtoken" in lowered or "리프레시 토큰" in line:
+            messages.append("refresh token 범위가 추가되었습니다.")
+        if "social login" in lowered or "소셜 로그인" in line:
+            messages.append("소셜 로그인 범위가 추가되었습니다.")
+        if "email verification" in lowered or "이메일 인증" in line:
+            messages.append("이메일 인증 범위가 추가되었습니다.")
+        if "password reset" in lowered or "비밀번호 재설정" in line:
+            messages.append("비밀번호 재설정 범위가 추가되었습니다.")
         if "외부 Weather API" in line and any(word in line for word in ("필수", "구현", "호출", "연동")):
             messages.append("외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.")
         if "AWS" in line and any(word in line for word in ("필수", "구현", "배포")):
             messages.append("AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.")
-        if any(term in line for term in ("Spring Security", "로그인", "회원가입")):
-            messages.append("로그인/회원가입/Spring Security 범위가 추가되었습니다.")
+        if "CD" in line and any(word in line for word in ("필수", "구현", "배포", "자동화")):
+            messages.append("CD 자동화 범위가 추가되었습니다.")
         if any(term in line for term in ("AI/GPT", "GPT 추천", "AI 추천")):
             messages.append("AI/GPT 추천 범위가 추가되었습니다.")
         if "Redis" in line:
             messages.append("Redis 범위가 추가되었습니다.")
+        if "이미지 업로드" in line or "image upload" in lowered:
+            messages.append("이미지 업로드 범위가 추가되었습니다.")
+        if any(term in lowered for term in ("external address", "external map", "map api", "address api")):
+            messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
+        if "외부 주소" in line or "외부 지도" in line or "지도 API" in line or "주소 API" in line:
+            messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
         return messages
 
     @staticmethod
@@ -511,8 +534,8 @@ class AutopilotRunner:
             or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
         )
 
-    def _run_codex_review(self) -> ReviewResult:
-        prompt = self._codex_review_prompt()
+    def _run_codex_review(self, step: dict) -> ReviewResult:
+        prompt = self._codex_review_prompt(step)
         result = self._run(["codex", "exec", "--json", prompt], check=False, timeout=1800)
         if result.returncode != 0:
             return ReviewResult(
@@ -531,12 +554,23 @@ class AutopilotRunner:
             )
         return parsed
 
-    def _codex_review_prompt(self) -> str:
+    def _codex_review_prompt(self, step: dict) -> str:
+        step_num = step.get("step", "?")
+        step_name = step.get("name", "unknown")
+        phase_readme = f"phases/{self.phase}/README.md"
+        step_file = f"phases/{self.phase}/step{step_num}.md"
         return (
             "Read-only review only. Do not modify files. "
             f"Review the current branch diff against origin/{self.base} for SmartCloset MVP rules. "
+            f"Current Harness step is Step {step_num} `{step_name}`. "
             "Ignore generated review-failure records under issues/**; they are audit logs, not implementation changes. "
-            "Check AGENTS.md, docs/PRD.md, docs/API.md, docs/RECOMMENDATION_RULES.md, docs/ARCHITECTURE.md, docs/adr/. "
+            f"Check {phase_readme} and {step_file} first, then AGENTS.md, docs/PRD.md, docs/API.md, "
+            "docs/RECOMMENDATION_RULES.md, docs/ARCHITECTURE.md, docs/adr/. "
+            "For intermediate step PRs, the current step file is the step-local review contract. "
+            "Missing functionality assigned to future steps is not a blocker. "
+            "Implementing future-step scope inside the current step is a blocker. "
+            "Do not require frontend auth/session, preferences API, recommendation history, preferenceScore, "
+            "or final all-/api security boundary unless the current step file explicitly requires them. "
             "Focus on blockers: bugs, missing tests, MVP scope violations, API contract violations, build/test risk. "
             "Return only JSON with keys: pass (boolean), summary (string), findings (array of strings)."
         )
@@ -669,6 +703,8 @@ class AutopilotRunner:
             f"- Fix attempt: {attempt}/{self.max_review_fixes}\n"
             "- 새 브랜치나 새 PR을 만들지 마세요.\n"
             "- 기존 변경을 되돌리지 말고, 리뷰 finding을 해결하는 데 필요한 최소 변경만 하세요.\n"
+            "- 현재 step 파일에 없는 미래 step 기능을 구현해서 리뷰를 통과시키지 마세요.\n"
+            "- 미래 step 미구현 finding은 현재 step 범위 밖이면 구현으로 해결하지 마세요.\n"
             "- 커밋과 push는 autopilot runner가 처리하므로 직접 커밋하지 마세요.\n\n"
             "## Issue\n"
             f"{issue.body}\n\n"

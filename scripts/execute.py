@@ -226,6 +226,13 @@ class StepExecutor:
         agents_md = ROOT / "AGENTS.md"
         if agents_md.exists():
             sections.append(f"## 프로젝트 규칙 (AGENTS.md)\n\n{agents_md.read_text()}")
+        phase_dir = getattr(self, "_phase_dir", None)
+        phase_readme = phase_dir / "README.md" if phase_dir is not None else None
+        if phase_readme is not None and phase_readme.exists():
+            sections.append(
+                f"## 현재 Phase README ({getattr(self, '_phase_dir_name', phase_readme.parent.name)}/README.md)\n\n"
+                f"{phase_readme.read_text()}"
+            )
         docs_dir = ROOT / "docs"
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
@@ -241,7 +248,7 @@ class StepExecutor:
         if not selected:
             return (
                 "## 프로젝트 검증 명령\n\n"
-                "`docs/COMMANDS.md`에 lint/test/build 명령이 아직 비어 있습니다. "
+                "`docs/COMMANDS.md`에 lint/test/build/frontend-build 명령이 아직 비어 있습니다. "
                 "step 파일의 인수 기준에 명시된 검증을 우선 실행하고, "
                 "프로젝트 명령이 확정되면 `docs/COMMANDS.md`를 갱신하세요.\n\n"
             )

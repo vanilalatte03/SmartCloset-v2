@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-CHECK_NAMES = ("lint", "test", "build")
+CHECK_NAMES = ("lint", "test", "build", "frontend-build")
 PLACEHOLDER_MARKERS = ("<", ">", "{", "}", "...", "TODO", "TBD")
 
 
@@ -201,7 +201,7 @@ def collect_checks(root: Path = ROOT, stage: str = "manual") -> list[CheckComman
 def run_checks(checks: Iterable[CheckCommand], root: Path = ROOT) -> int:
     checks = list(checks)
     if not checks:
-        print("No lint/test/build commands configured or detected.")
+        print("No lint/test/build/frontend-build commands configured or detected.")
         return 0
 
     for check in checks:

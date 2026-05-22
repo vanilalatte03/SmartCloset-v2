@@ -25,6 +25,35 @@
 
 이 단계의 security 적용 범위는 공개 auth 2종과 `GET /api/users/me` 검증으로 제한한다. 아직 인증 사용자 기준으로 전환하지 않은 기존 2차 API를 `/api/**` 최종 정책으로 한 번에 잠그지 않는다.
 
+## Step 1 리뷰 기준
+허용 범위:
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/users/me`
+- JWT 인증 실패 JSON 응답
+- 위 API를 동작시키기 위한 최소 security wiring
+
+금지 범위:
+- `frontend/**` 인증/session 전환
+- clothing, location, recommendation API의 current-user 전환
+- `GET/PUT /api/users/me/preferences`
+- `preferenceScore` 전환
+- 추천 이력 API 구현
+- static demo 갱신
+
+현재 step의 blocker가 아닌 것:
+- `/api/users/me/preferences`가 아직 404인 상태
+- 프론트가 아직 `sessionStorage`와 Bearer header를 사용하지 않는 상태
+- 추천 이력 API가 아직 없는 상태
+- 추천 점수 DTO나 테스트에 기존 다양성 점수가 남아 있는 상태
+
+현재 step의 blocker:
+- signup/login이 동작하지 않거나 응답 계약이 깨진 경우
+- `GET /api/users/me`가 유효 token으로 동작하지 않는 경우
+- `GET /api/users/me` 응답에 `userId`가 노출되는 경우
+- refresh token을 추가한 경우
+- `/api/**` 전체 인증 필수 정책을 적용해 아직 전환하지 않은 API를 깨뜨린 경우
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/auth/**`
 - `src/main/java/com/smartcloset/security/**`
@@ -88,3 +117,4 @@ rg -n 'http\\.cors|cors\\(' src/main/java/com/smartcloset/security src/test/java
 - password hash 비교를 직접 문자열 비교로 구현하지 마라. 이유: BCrypt `PasswordEncoder#matches`를 사용해야 한다.
 - `/api/**` 전체를 인증 필수로 만들지 마라. 이유: 옷/위치/추천 API는 아직 인증 사용자 기준으로 전환되지 않았다.
 - 옷/위치/추천 controller의 `userId` 제거를 이 단계에 섞지 마라. 이유: 모듈별 전환 step의 리뷰 범위를 흐린다.
+- preferences API, `preferenceScore`, 추천 이력, frontend session flow를 이 단계에 섞지 마라. 이유: 각각 Step 4, 5, 6, 8 이후 책임이다.

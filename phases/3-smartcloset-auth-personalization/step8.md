@@ -46,7 +46,7 @@ React 프론트엔드의 인증 세션, API client, 타입 계약을 3차 API에
 ## 검증 절차
 ```bash
 git diff --check
-! rg -n 'userId=1|\\?userId=|userId:' frontend/src
+! rg -n -F -e 'userId=1' -e '?userId=' -e 'userId:' frontend/src
 (cd frontend && npm run build)
 ```
 

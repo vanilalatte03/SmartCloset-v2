@@ -49,7 +49,8 @@
 ## 검증 절차
 ```bash
 git diff --check
-! rg -n '/api/users/location\\?userId|GET /api/users/location|PUT /api/users/location' src/main/java src/test/java
+! rg -n -F -e '/api/users/location?userId' src/main/java/com/smartcloset/user src/test/java/com/smartcloset/user
+! rg -n -e 'GET /api/users/location' -e 'PUT /api/users/location' -e '@RequestParam.*userId' -e 'RequestParam Long userId' -e '\\.param\\("userId"' src/main/java/com/smartcloset/user src/test/java/com/smartcloset/user
 ! rg -n '/api/recommendations.*401' src/test/java
 ./gradlew test
 ```
