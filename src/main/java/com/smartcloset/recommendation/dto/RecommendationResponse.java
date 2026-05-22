@@ -30,4 +30,16 @@ public record RecommendationResponse(
                 recommendationResult.getCreatedAt()
         );
     }
+
+    public static RecommendationResponse from(RecommendationResult recommendationResult, List<String> reasons) {
+        return new RecommendationResponse(
+                recommendationResult.getId(),
+                WeatherResponse.from(recommendationResult),
+                RecommendationOutfitResponse.from(recommendationResult),
+                RecommendationScoreResponse.from(recommendationResult),
+                List.copyOf(reasons),
+                recommendationResult.isWorn(),
+                recommendationResult.getCreatedAt()
+        );
+    }
 }

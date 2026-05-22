@@ -1,6 +1,7 @@
 package com.smartcloset.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -9,6 +10,8 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.infrastructure.kma.KmaForecastBaseTime;
@@ -27,6 +30,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -58,9 +62,14 @@ class RecommendationTransactionBoundaryTest {
     @Autowired
     private RecordingKmaForecastClient kmaForecastClient;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
         kmaForecastClient.reset();
         kmaForecastClient.returning(completeFutureForecastGroup());
     }
@@ -70,7 +79,7 @@ class RecommendationTransactionBoundaryTest {
         User user = createUserWithKmaSuitableCloset();
 
         mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated());
 
         assertThat(kmaForecastClient.called()).isTrue();
@@ -110,6 +119,14 @@ class RecommendationTransactionBoundaryTest {
                 true
         ));
         return user;
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 
     private List<KmaForecastItem> completeFutureForecastGroup() {

@@ -1,6 +1,7 @@
 package com.smartcloset.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +16,8 @@ import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.location.domain.LocationOption;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.domain.WeatherType;
@@ -36,6 +39,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -77,9 +81,14 @@ class RecommendationControllerKmaIntegrationTest {
     @Autowired
     private ControllableKmaForecastClient kmaForecastClient;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
         weatherProperties.getKma().setServiceKey("test-service-key");
         weatherProperties.setFallbackEnabled(true);
         kmaForecastClient.reset();
@@ -91,7 +100,7 @@ class RecommendationControllerKmaIntegrationTest {
         kmaForecastClient.returning(completeFutureForecastGroup("18", "4", "1", "1.0mm", "4.2"));
 
         MvcResult result = mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.weather.temperature").value(18))
                 .andExpect(jsonPath("$.data.weather.weatherType").value("RAINY"))
@@ -119,7 +128,7 @@ class RecommendationControllerKmaIntegrationTest {
         kmaForecastClient.returning(completeFutureForecastGroup("18", "3", "0", "-", "2.0"));
 
         mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated());
 
         assertThat(kmaForecastClient.requestedGrid()).isEqualTo(new KmaGrid(98, 76));
@@ -131,7 +140,7 @@ class RecommendationControllerKmaIntegrationTest {
         kmaForecastClient.returning(completeFutureForecastGroup("18", "3", "0", "-", "2.0"));
 
         mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated());
 
         User saved = userRepository.findById(user.getId()).orElseThrow();
@@ -148,7 +157,7 @@ class RecommendationControllerKmaIntegrationTest {
         kmaForecastClient.failing(new KmaForecastClientException("NODATA_ERROR"));
 
         MvcResult result = mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.weather.temperature").value(12))
                 .andExpect(jsonPath("$.data.weather.weatherType").value("CLOUDY"))
@@ -174,7 +183,7 @@ class RecommendationControllerKmaIntegrationTest {
         long beforeCount = recommendationResultRepository.count();
 
         mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.details").isArray());
@@ -186,6 +195,14 @@ class RecommendationControllerKmaIntegrationTest {
     private long recommendationIdFrom(MvcResult result) throws Exception {
         JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
         return data.get("recommendationId").asLong();
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 
     private User createUserWithKmaSuitableCloset(String name) {

@@ -4,6 +4,7 @@ import com.smartcloset.recommendation.domain.RecommendationResult;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -19,4 +20,7 @@ public interface RecommendationResultRepository extends JpaRepository<Recommenda
             Long userId,
             LocalDateTime createdAt
     );
+
+    @EntityGraph(attributePaths = {"items", "items.clothingItem"})
+    List<RecommendationResult> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }

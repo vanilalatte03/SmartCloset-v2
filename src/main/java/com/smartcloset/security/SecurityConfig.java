@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/users/me/preferences").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/users/me/preferences").authenticated()
                         .requestMatchers("/api/clothes", "/api/clothes/**").authenticated()
+                        .requestMatchers("/api/recommendations", "/api/recommendations/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, securityErrorResponseWriter),
