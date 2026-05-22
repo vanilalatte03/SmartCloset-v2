@@ -39,3 +39,29 @@ git diff --check origin/main...HEAD
 
 ## 완료 기준
 - 로컬 검증, 금지 범위 검색, Codex 자체 리뷰를 모두 통과한다.
+
+---
+
+## 재시도 1 리뷰 실패
+
+## 자체 리뷰
+
+| 항목 | 결과 | 비고 |
+| --- | --- | --- |
+| 로컬 검증 | 통과 | docs/COMMANDS.md 기준 명령 |
+| diff 검사 | 통과 | git diff --check |
+| 금지 범위 | 통과 | MVP 제외 범위와 금지 API 검색 |
+| 자체 리뷰 | 실패 | Codex read-only review |
+
+## 확인한 명령
+
+```bash
+python3 scripts/checks.py --stage manual
+git diff --check origin/main...HEAD
+```
+
+## 발견사항
+- src/test/java/com/smartcloset/security/TemporarySecurityPermitAllTest.java:31-47 builds MockMvc with MockMvcBuilders.webAppContextSetup(...).build() and never applies Spring Security or uses @AutoConfigureMockMvc. The new test would still pass even if SecurityConfig stopped being permitAll, so it does not verify the intended Step 0 security behavior or protect against Spring Security default redirects/401s. Use @AutoConfigureMockMvc or apply springSecurity() so the SecurityFilterChain is actually exercised.
+
+## 리뷰 결론
+블로커가 있어 merge하지 않습니다.
