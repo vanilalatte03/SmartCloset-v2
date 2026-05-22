@@ -61,7 +61,10 @@
     {
       "step": 7,
       "name": "security-boundary-and-regression-tests",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T20:12:35+0900",
+      "summary": "임시 permit-all 보안 규칙을 제거하고 auth 2종 외 /api/** Bearer 인증, CORS, JSON 401 회귀 테스트를 고정했다.",
+      "completed_at": "2026-05-22T20:15:20+0900"
     },
     {
       "step": 8,
