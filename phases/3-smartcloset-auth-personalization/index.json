@@ -7,7 +7,7 @@
       "name": "user-account-schema-and-token-infra",
       "status": "completed",
       "started_at": "2026-05-22T16:02:14+0900",
-      "summary": "User 인증 스키마, BCrypt PasswordEncoder, HS256 JWT provider, 임시 permit-all Spring Security 설정과 관련 테스트를 추가했다.",
+      "summary": "User 인증 스키마, BCrypt PasswordEncoder, HS256 JWT provider, 임시 permit-all filter chain 설정과 관련 테스트를 추가했다.",
       "completed_at": "2026-05-22T16:11:02+0900"
     },
     {
