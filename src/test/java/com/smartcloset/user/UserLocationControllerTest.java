@@ -1,13 +1,17 @@
 package com.smartcloset.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.util.Map;
@@ -15,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,17 +45,39 @@ class UserLocationControllerTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
     }
 
     @Test
-    void returnsSeedUserDefaultSeoulLocation() throws Exception {
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", "1"))
+    void userLocationApisRequireBearerToken() throws Exception {
+        Map<String, Object> request = Map.of("locationCode", "BUSAN");
+
+        mockMvc.perform(get("/api/users/me/location"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(put("/api/users/me/location")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void returnsCurrentUserDefaultSeoulLocationWithoutUserIdField() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-current-user"));
+
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
                 .andExpect(jsonPath("$.data.nx").value(60))
@@ -66,10 +93,10 @@ class UserLocationControllerTest {
 
         assertThat(userRepository.findById(legacyUser.getId()).orElseThrow().hasLocation()).isFalse();
 
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", legacyUser.getId().toString()))
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(legacyUser)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(legacyUser.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
                 .andExpect(jsonPath("$.data.nx").value(60))
@@ -87,14 +114,16 @@ class UserLocationControllerTest {
 
     @Test
     void updatesUserLocationToSelectedCatalogLocation() throws Exception {
+        User targetUser = userRepository.save(User.createSeedUser("location-target-user"));
+        User otherUser = userRepository.save(User.createSeedUser("location-other-user"));
         Map<String, Object> request = Map.of("locationCode", "BUSAN");
 
-        mockMvc.perform(put("/api/users/location")
-                        .param("userId", "1")
+        mockMvc.perform(put("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("BUSAN"))
                 .andExpect(jsonPath("$.data.name").value("부산광역시"))
                 .andExpect(jsonPath("$.data.nx").value(98))
@@ -104,19 +133,26 @@ class UserLocationControllerTest {
         entityManager.flush();
         entityManager.clear();
 
-        User saved = userRepository.findById(1L).orElseThrow();
+        User saved = userRepository.findById(targetUser.getId()).orElseThrow();
         assertThat(saved.getLocationCode()).isEqualTo("BUSAN");
         assertThat(saved.getLocationName()).isEqualTo("부산광역시");
         assertThat(saved.getLocationNx()).isEqualTo(98);
         assertThat(saved.getLocationNy()).isEqualTo(76);
+
+        User unchangedOtherUser = userRepository.findById(otherUser.getId()).orElseThrow();
+        assertThat(unchangedOtherUser.getLocationCode()).isEqualTo("SEOUL");
+        assertThat(unchangedOtherUser.getLocationName()).isEqualTo("서울특별시");
+        assertThat(unchangedOtherUser.getLocationNx()).isEqualTo(60);
+        assertThat(unchangedOtherUser.getLocationNy()).isEqualTo(127);
     }
 
     @Test
     void returnsLocationNotFoundForUnknownLocationCode() throws Exception {
+        User user = userRepository.save(User.createSeedUser("unknown-location-user"));
         Map<String, Object> request = Map.of("locationCode", "UNKNOWN");
 
-        mockMvc.perform(put("/api/users/location")
-                        .param("userId", "1")
+        mockMvc.perform(put("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -128,11 +164,22 @@ class UserLocationControllerTest {
 
     @Test
     void returnsUserNotFoundWithExistingErrorShape() throws Exception {
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", "99999"))
+        String missingUserToken = "Bearer " + jwtTokenProvider.createAccessToken(
+                new CurrentUserPrincipal(99999L, "missing-location-user@example.com", UserRole.USER));
+
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, missingUserToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."))
                 .andExpect(jsonPath("$.details").isArray());
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 }
