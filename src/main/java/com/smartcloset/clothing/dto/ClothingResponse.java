@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 
 public record ClothingResponse(
         Long id,
-        Long userId,
         String name,
         ClothingCategory category,
         ClothingColor color,
@@ -24,7 +23,6 @@ public record ClothingResponse(
     public static ClothingResponse from(ClothingItem clothingItem) {
         return new ClothingResponse(
                 clothingItem.getId(),
-                clothingItem.getUser().getId(),
                 clothingItem.getName(),
                 clothingItem.getCategory(),
                 clothingItem.getColor(),

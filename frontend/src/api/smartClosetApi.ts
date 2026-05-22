@@ -40,15 +40,14 @@ export function updateUserLocation(
   });
 }
 
-export function getClothes(userId: number): Promise<ClothingResponse[]> {
-  return request<ClothingResponse[]>(`/api/clothes?${userIdParam(userId)}`);
+export function getClothes(): Promise<ClothingResponse[]> {
+  return request<ClothingResponse[]>('/api/clothes');
 }
 
 export function createClothing(
-  userId: number,
   body: ClothingRequest
 ): Promise<ClothingResponse> {
-  return request<ClothingResponse>(`/api/clothes?${userIdParam(userId)}`, {
+  return request<ClothingResponse>('/api/clothes', {
     method: 'POST',
     body: JSON.stringify(body),
   });

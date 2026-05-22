@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 
 public record ClothingArchiveResponse(
         Long id,
-        Long userId,
         boolean archived,
         LocalDateTime updatedAt
 ) {
@@ -13,7 +12,6 @@ public record ClothingArchiveResponse(
     public static ClothingArchiveResponse from(ClothingItem clothingItem) {
         return new ClothingArchiveResponse(
                 clothingItem.getId(),
-                clothingItem.getUser().getId(),
                 clothingItem.isArchived(),
                 clothingItem.getUpdatedAt()
         );

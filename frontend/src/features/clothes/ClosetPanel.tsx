@@ -46,10 +46,6 @@ const defaultForm: ClothingRequest = {
   rainSuitable: false,
 };
 
-type ClosetPanelProps = {
-  userId: number;
-};
-
 function validationError(message: string): ErrorResponse {
   return {
     code: 'INVALID_REQUEST',
@@ -58,7 +54,7 @@ function validationError(message: string): ErrorResponse {
   };
 }
 
-export function ClosetPanel({ userId }: ClosetPanelProps) {
+export function ClosetPanel() {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
   const [loading, setLoading] = useState(true);
@@ -71,7 +67,7 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
     setError(null);
 
     try {
-      const activeClothes = await getClothes(userId);
+      const activeClothes = await getClothes();
       setClothes(activeClothes);
     } catch (caught) {
       setClothes([]);
@@ -79,7 +75,7 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     void loadClothes();
@@ -102,7 +98,7 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
 
     setSubmitting(true);
     try {
-      const created = await createClothing(userId, {
+      const created = await createClothing({
         ...form,
         name: trimmedName,
       });

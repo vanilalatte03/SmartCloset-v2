@@ -86,7 +86,7 @@ function App() {
           loading={connectionState === 'checking'}
           onLocationChange={handleLocationChange}
         />
-        <ClosetPanel userId={userId} />
+        <ClosetPanel />
         <RecommendationPanel userId={userId} location={location} />
       </section>
     </main>
