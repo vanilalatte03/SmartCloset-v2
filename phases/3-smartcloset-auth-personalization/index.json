@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "auth-api-and-session-contract",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T19:14:43+0900",
+      "summary": "회원가입/로그인/current-user API와 JWT 인증 실패 JSON 응답, Step 1 보안 경계를 구현했다.",
+      "completed_at": "2026-05-22T19:19:10+0900"
     },
     {
       "step": 2,

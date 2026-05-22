@@ -45,7 +45,7 @@ class TemporarySecurityPermitAllTest {
     }
 
     @Test
-    void keepsExistingApiReachableWithoutBearerTokenDuringStep0() throws Exception {
+    void keepsUnmigratedApiReachableWithoutBearerTokenDuringStep1() throws Exception {
         mockMvc.perform(get("/api/locations"))
                 .andExpect(status().isOk());
     }
