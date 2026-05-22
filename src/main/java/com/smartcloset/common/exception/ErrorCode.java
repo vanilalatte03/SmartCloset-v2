@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
+    LOCATION_NOT_FOUND(HttpStatus.NOT_FOUND, "위치를 찾을 수 없습니다."),
     CLOTHING_NOT_FOUND(HttpStatus.NOT_FOUND, "옷을 찾을 수 없습니다."),
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "추천 결과를 찾을 수 없습니다."),
     NO_TOP_AVAILABLE(HttpStatus.UNPROCESSABLE_CONTENT, "현재 날씨에 입을 수 있는 상의가 없습니다."),
