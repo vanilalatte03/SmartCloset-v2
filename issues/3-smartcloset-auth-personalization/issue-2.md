@@ -71,3 +71,32 @@ git diff --check origin/main...HEAD
 
 ## 리뷰 결론
 블로커가 있어 merge하지 않습니다.
+
+---
+
+## 재시도 2 리뷰 실패
+
+## 자체 리뷰
+
+| 항목 | 결과 | 비고 |
+| --- | --- | --- |
+| 로컬 검증 | 통과 | docs/COMMANDS.md 기준 명령 |
+| diff 검사 | 통과 | git diff --check |
+| 금지 범위 | 실패 | MVP 제외 범위와 금지 API 검색 |
+| 자체 리뷰 | 실패 | Codex read-only review |
+
+## 확인한 명령
+
+```bash
+python3 scripts/checks.py --stage manual
+git diff --check origin/main...HEAD
+```
+
+## 발견사항
+- phases/3-smartcloset-auth-personalization/index.json:18 - 로그인/회원가입/Spring Security 범위가 추가되었습니다.
+- API contract blocker: docs/API.md:61-62 and docs/PRD.md:206-207 require protected GET/PUT /api/users/me/preferences using preferredColors/preferredMaterials/styleTags. The user package only has CurrentUserController and UserLocationController, and rg finds no UserPreferences controller/service/DTO; with SecurityConfig.java:47-50 authenticating all requests, a valid-token request to /api/users/me/preferences reaches no handler and returns 404.
+- Frontend/MVP scenario blocker: docs/FRONTEND.md:167-174 and docs/FRONTEND.md:299-300 require saving/reloading preferred colors, materials, and styleTags, but frontend/src/api/smartClosetApi.ts:1-109 and frontend/src/types/api.ts:38-148 define no preferences request/response types or API calls, and frontend/src/features has no preferences panel. Normal users therefore cannot create the preference inputs that RecommendationService reads for preferenceScore.
+- Missing coverage tied to the same gap: the only preference-score integration test mutates User directly in src/test/java/com/smartcloset/recommendation/RecommendationControllerTest.java:187-190, bypassing the required GET/PUT /api/users/me/preferences contract, so default/read/update/validation/styleTags-storage behavior is untested.
+
+## 리뷰 결론
+블로커가 있어 merge하지 않습니다.
