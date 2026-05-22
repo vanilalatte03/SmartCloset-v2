@@ -30,6 +30,7 @@ public class SeedDataInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         User demoUser = userRepository.findById(DEMO_USER_ID)
                 .orElseGet(() -> userRepository.save(User.createSeedUser("demo-user")));
+        demoUser.ensureDefaultLocation();
 
         if (clothingItemRepository.countByUserId(demoUser.getId()) == 0) {
             seedClothes(demoUser);

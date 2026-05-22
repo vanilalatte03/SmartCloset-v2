@@ -37,6 +37,10 @@ class SeedDataPersistenceTest {
         List<ClothingItem> clothes = clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(1L);
 
         assertThat(demoUser.getName()).isEqualTo("demo-user");
+        assertThat(demoUser.getLocationCode()).isEqualTo("SEOUL");
+        assertThat(demoUser.getLocationName()).isEqualTo("서울특별시");
+        assertThat(demoUser.getLocationNx()).isEqualTo(60);
+        assertThat(demoUser.getLocationNy()).isEqualTo(127);
         assertThat(clothes).hasSizeGreaterThanOrEqualTo(4);
         assertThat(clothes).isSortedAccordingTo((left, right) -> left.getId().compareTo(right.getId()));
         assertThat(clothes).allSatisfy(item -> {
