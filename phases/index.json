@@ -17,7 +17,8 @@
     },
     {
       "dir": "3-smartcloset-auth-personalization",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-05-22T20:38:12+0900"
     }
   ]
 }
