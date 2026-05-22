@@ -1,13 +1,17 @@
 package com.smartcloset.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.util.Map;
@@ -15,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,17 +45,24 @@ class UserLocationControllerTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
     }
 
     @Test
     void returnsSeedUserDefaultSeoulLocation() throws Exception {
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", "1"))
+        User user = userRepository.findById(1L).orElseThrow();
+
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
                 .andExpect(jsonPath("$.data.nx").value(60))
@@ -66,10 +78,10 @@ class UserLocationControllerTest {
 
         assertThat(userRepository.findById(legacyUser.getId()).orElseThrow().hasLocation()).isFalse();
 
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", legacyUser.getId().toString()))
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(legacyUser)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(legacyUser.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
                 .andExpect(jsonPath("$.data.nx").value(60))
@@ -87,14 +99,15 @@ class UserLocationControllerTest {
 
     @Test
     void updatesUserLocationToSelectedCatalogLocation() throws Exception {
+        User user = userRepository.findById(1L).orElseThrow();
         Map<String, Object> request = Map.of("locationCode", "BUSAN");
 
-        mockMvc.perform(put("/api/users/location")
-                        .param("userId", "1")
+        mockMvc.perform(put("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("BUSAN"))
                 .andExpect(jsonPath("$.data.name").value("부산광역시"))
                 .andExpect(jsonPath("$.data.nx").value(98))
@@ -113,10 +126,11 @@ class UserLocationControllerTest {
 
     @Test
     void returnsLocationNotFoundForUnknownLocationCode() throws Exception {
+        User user = userRepository.findById(1L).orElseThrow();
         Map<String, Object> request = Map.of("locationCode", "UNKNOWN");
 
-        mockMvc.perform(put("/api/users/location")
-                        .param("userId", "1")
+        mockMvc.perform(put("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -128,11 +142,27 @@ class UserLocationControllerTest {
 
     @Test
     void returnsUserNotFoundWithExistingErrorShape() throws Exception {
-        mockMvc.perform(get("/api/users/location")
-                        .param("userId", "99999"))
+        mockMvc.perform(get("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(99999L)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."))
                 .andExpect(jsonPath("$.details").isArray());
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
+    }
+
+    private String bearerToken(Long userId) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                userId,
+                "missing@example.com",
+                UserRole.USER
+        ));
     }
 }

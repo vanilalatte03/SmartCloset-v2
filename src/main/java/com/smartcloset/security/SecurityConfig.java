@@ -15,15 +15,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
-    private static final String[] STEP7_TEMPORARY_PERMIT_ALL_API_MATCHERS = {
-            "/api/locations",
-            "/api/users/location",
-            "/api/clothes",
-            "/api/clothes/**",
-            "/api/recommendations",
-            "/api/recommendations/**"
-    };
-
     private final JwtTokenProvider jwtTokenProvider;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
@@ -56,11 +47,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
-                        // MVP3_STEP7_TEMPORARY_PERMIT_ALL: converted modules remove these matchers in Step 7.
-                        .requestMatchers(STEP7_TEMPORARY_PERMIT_ALL_API_MATCHERS).permitAll()
-                        .requestMatchers("/", "/demo/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .anyRequest().permitAll())
+                        .anyRequest().authenticated())
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, securityErrorResponseWriter),
                         UsernamePasswordAuthenticationFilter.class)

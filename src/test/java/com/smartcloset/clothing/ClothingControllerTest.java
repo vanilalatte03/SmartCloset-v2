@@ -1,6 +1,7 @@
 package com.smartcloset.clothing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,14 +16,18 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -48,22 +53,28 @@ class ClothingControllerTest {
     @Autowired
     private ClothingItemRepository clothingItemRepository;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
     }
 
     @Test
     void createsClothingWithArchivedFalse() throws Exception {
+        User user = userRepository.findById(1L).orElseThrow();
         Map<String, Object> request = validRequest();
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").exists())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.name").value("그레이 후드"))
                 .andExpect(jsonPath("$.data.category").value("TOP"))
                 .andExpect(jsonPath("$.data.color").value("GRAY"))
@@ -126,7 +137,7 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         MvcResult result = mockMvc.perform(get("/api/clothes")
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -135,20 +146,21 @@ class ClothingControllerTest {
         assertThat(data.get(0).get("id").asLong()).isEqualTo(first.getId());
         assertThat(data.get(1).get("id").asLong()).isEqualTo(second.getId());
         for (JsonNode item : data) {
-            assertThat(item.get("userId").asLong()).isEqualTo(targetUser.getId());
+            assertThat(item.has("userId")).isFalse();
             assertThat(item.get("archived").asBoolean()).isFalse();
         }
     }
 
     @Test
     void returnsInvalidRequestWhenRequestValidationFails() throws Exception {
+        User user = userRepository.findById(1L).orElseThrow();
         Map<String, Object> request = validRequest();
         request.put("name", " ");
         request.put("minTemperature", 20);
         request.put("maxTemperature", 10);
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -159,11 +171,12 @@ class ClothingControllerTest {
 
     @Test
     void returnsInvalidRequestWhenRequiredBooleanIsMissing() throws Exception {
+        User user = userRepository.findById(1L).orElseThrow();
         Map<String, Object> request = validRequest();
         request.remove("rainSuitable");
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -174,7 +187,7 @@ class ClothingControllerTest {
     @Test
     void returnsUserNotFoundForUnknownUser() throws Exception {
         mockMvc.perform(get("/api/clothes")
-                        .param("userId", "99999"))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(99999L)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
                 .andExpect(jsonPath("$.details").isArray());
@@ -189,14 +202,14 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(get("/api/clothes/{clothingId}", targetClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(targetClothing.getId()))
-                .andExpect(jsonPath("$.data.userId").value(targetUser.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.name").value("화이트 셔츠"));
 
         mockMvc.perform(get("/api/clothes/{clothingId}", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
     }
@@ -214,7 +227,7 @@ class ClothingControllerTest {
         request.put("maxTemperature", 16);
 
         mockMvc.perform(put("/api/clothes/{clothingId}", clothing.getId())
-                        .param("userId", user.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -233,21 +246,21 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(clothing.getId()))
-                .andExpect(jsonPath("$.data.userId").value(user.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.archived").value(true))
                 .andExpect(jsonPath("$.data.updatedAt").exists());
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(clothing.getId()))
                 .andExpect(jsonPath("$.data.archived").value(true));
 
         mockMvc.perform(get("/api/clothes")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isEmpty());
     }
@@ -260,14 +273,14 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(put("/api/clothes/{clothingId}", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
     }
@@ -295,5 +308,21 @@ class ClothingControllerTest {
                 25,
                 false
         );
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
+    }
+
+    private String bearerToken(Long userId) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                userId,
+                "missing@example.com",
+                UserRole.USER
+        ));
     }
 }

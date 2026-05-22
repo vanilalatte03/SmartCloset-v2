@@ -1,6 +1,7 @@
 package com.smartcloset.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +19,8 @@ import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.domain.WeatherType;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -63,9 +67,14 @@ class RecommendationControllerTest {
     @Autowired
     private WearHistoryRepository wearHistoryRepository;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
     }
 
     @Test
@@ -73,7 +82,7 @@ class RecommendationControllerTest {
         User user = createUserWithP0Closet("recommendation-user");
 
         MvcResult result = mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.recommendationId").exists())
                 .andExpect(jsonPath("$.data.weather.temperature").value(12))
@@ -120,10 +129,10 @@ class RecommendationControllerTest {
     @Test
     void marksRecommendationWornIdempotentlyWithoutDuplicatingWearHistory() throws Exception {
         User user = createUserWithP0Closet("worn-user");
-        long recommendationId = createRecommendation(user.getId());
+        long recommendationId = createRecommendation(user);
 
         MvcResult firstResult = mockMvc.perform(patch("/api/recommendations/{recommendationId}/worn", recommendationId)
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.recommendationId").value(recommendationId))
                 .andExpect(jsonPath("$.data.worn").value(true))
@@ -137,7 +146,7 @@ class RecommendationControllerTest {
                 .asText();
 
         MvcResult secondResult = mockMvc.perform(patch("/api/recommendations/{recommendationId}/worn", recommendationId)
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.recommendationId").value(recommendationId))
                 .andExpect(jsonPath("$.data.worn").value(true))
@@ -190,7 +199,7 @@ class RecommendationControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(post("/api/recommendations")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().is(422))
                 .andExpect(jsonPath("$.code").value("NO_TOP_AVAILABLE"))
                 .andExpect(jsonPath("$.message").value("현재 날씨에 입을 수 있는 상의가 없습니다."))
@@ -201,18 +210,18 @@ class RecommendationControllerTest {
     void returnsRecommendationNotFoundWhenWornTargetDoesNotBelongToUser() throws Exception {
         User owner = createUserWithP0Closet("owner-user");
         User otherUser = createUserWithP0Closet("other-user");
-        long recommendationId = createRecommendation(owner.getId());
+        long recommendationId = createRecommendation(owner);
 
         mockMvc.perform(patch("/api/recommendations/{recommendationId}/worn", recommendationId)
-                        .param("userId", otherUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(otherUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RECOMMENDATION_NOT_FOUND"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
-    private long createRecommendation(Long userId) throws Exception {
+    private long createRecommendation(User user) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/recommendations")
-                        .param("userId", userId.toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString())
@@ -255,5 +264,13 @@ class RecommendationControllerTest {
         ));
         clothingItemRepository.flush();
         return user;
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 }

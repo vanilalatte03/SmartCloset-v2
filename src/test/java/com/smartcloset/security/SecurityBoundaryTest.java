@@ -3,6 +3,7 @@ package com.smartcloset.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +20,7 @@ import org.springframework.web.context.WebApplicationContext;
 @ActiveProfiles("test")
 @SpringBootTest
 @Transactional
-class TemporarySecurityPermitAllTest {
+class SecurityBoundaryTest {
 
     private MockMvc mockMvc;
 
@@ -45,8 +46,12 @@ class TemporarySecurityPermitAllTest {
     }
 
     @Test
-    void keepsConvertedLaterApiReachableWithoutBearerTokenDuringStep1() throws Exception {
+    void rejectsProtectedApisWithoutBearerToken() throws Exception {
         mockMvc.perform(get("/api/locations"))
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/clothes"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/recommendations"))
+                .andExpect(status().isUnauthorized());
     }
 }
