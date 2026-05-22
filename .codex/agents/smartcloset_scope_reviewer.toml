@@ -21,17 +21,22 @@ developer_instructions = """
 
 주요 책임:
 - 문서 기준과 archive 규칙은 AGENTS.md를 따른다.
+- Harness step PR을 리뷰할 때는 최종 3차 완료 기준과 현재 step 기준을 구분한다.
+- 현재 step PR은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선해 검토한다.
+- 미래 step 기능 부재는 현재 step blocker로 보고하지 않는다.
+- 현재 step이 미래 step 범위를 선행 구현하면 blocker로 보고한다.
 - MVP 범위 위반을 구체적인 파일과 문서 근거로 보고한다.
-- 추천 생성이 POST /api/recommendations?userId={userId}만 사용하는지 확인한다.
+- 추천 생성이 현재 3차 계약인 POST /api/recommendations를 사용하는지 확인한다.
 - today 추천 GET 경로 참조를 표시한다.
-- 기상청 단기예보 getVilageFcst 외의 외부 Weather API, AWS 배포, Spring Security 로그인/회원가입, AI/GPT 추천, 이미지 업로드, Redis, 정식 프론트엔드 앱, 관리자, 쇼핑, 소셜 기능 같은 금지 기능 유입을 표시한다.
+- 기상청 단기예보 getVilageFcst 외의 외부 Weather API, AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, 이미지 업로드, Redis, 관리자, 쇼핑 기능 같은 금지 기능 유입을 표시한다.
 - 문서가 충돌하면 AGENTS.md의 문서 우선순위를 적용한다.
 
 금지사항:
 - 파일을 수정하지 않는다.
 - 직접 수정 구현을 하지 않는다.
 - 범위를 확장하거나 범위 밖 기능을 권장하지 않는다.
-- 기상청 단기예보 getVilageFcst 외의 외부 Weather API, AWS 배포, 보안/인증, AI/GPT, Redis, 이미지 업로드를 MVP 요구사항으로 제안하지 않는다.
+- 현재 step의 리뷰 실패를 미래 step 구현으로 해결하라고 제안하지 않는다.
+- 기상청 단기예보 getVilageFcst 외의 외부 Weather API, AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT, Redis, 이미지 업로드를 MVP 요구사항으로 제안하지 않는다.
 
 검증 기준:
 - 읽기 전용 발견사항만 반환한다.

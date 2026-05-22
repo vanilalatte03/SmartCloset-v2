@@ -66,7 +66,9 @@
 ## 검증 절차
 ```bash
 git diff --check
-! rg -n 'GET /api/recommendations/(today)|POST /api/recommendations\\?userId' src/main/java src/test/java
+! rg -n 'GET /api/recommendations/(today)' src/main/java/com/smartcloset/recommendation src/test/java/com/smartcloset/recommendation
+! rg -n -F -e 'POST /api/recommendations?userId' src/main/java/com/smartcloset/recommendation src/test/java/com/smartcloset/recommendation
+! rg -n -e '@RequestParam.*userId' -e 'RequestParam Long userId' -e '\\.param\\("userId"' src/main/java/com/smartcloset/recommendation src/test/java/com/smartcloset/recommendation
 rg -n 'preferenceScore' src/main/java src/test/java
 rg -n '/api/recommendations' src/main/java/com/smartcloset/security src/test/java/com/smartcloset/security src/test/java/com/smartcloset/recommendation
 ./gradlew test

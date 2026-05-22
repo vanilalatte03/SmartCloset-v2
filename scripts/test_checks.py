@@ -19,6 +19,7 @@ def test_commands_from_docs_reads_active_table(tmp_path):
 | lint | `ruff check .` | no | lint |
 | test | `python -m pytest` | yes | tests |
 | build |  | yes | empty |
+| frontend-build | `cd frontend && npm run build` | yes | frontend |
 """.strip()
     )
 
@@ -26,6 +27,7 @@ def test_commands_from_docs_reads_active_table(tmp_path):
 
     assert result["lint"][0].command == "ruff check ."
     assert result["test"][0].command == "python -m pytest"
+    assert result["frontend-build"][0].command == "cd frontend && npm run build"
     assert "build" not in result
 
 

@@ -55,7 +55,8 @@
 git diff --check
 ! rg -n 'permitAll\\(\\).*api|TEMP|temporary|compatibility.*userId|userId.*RequestParam' src/main/java
 ! rg -n 'GET /api/recommendations/(today)' src/main/java src/test/java
-! rg -n 'POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId' src/main/java src/test/java
+! rg -n -F -e 'POST /api/recommendations?userId' -e '/api/clothes?userId' -e '/api/users/location?userId' src/main/java src/test/java
+! rg -n -e '@RequestParam.*userId' -e 'RequestParam Long userId' -e '\\.param\\("userId"' src/main/java src/test/java
 rg -n 'http\\.cors|cors\\(' src/main/java/com/smartcloset/security src/test/java/com/smartcloset/security
 ./gradlew test
 ./gradlew build

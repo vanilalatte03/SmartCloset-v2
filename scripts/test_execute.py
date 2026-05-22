@@ -67,6 +67,7 @@ def phase_dir(tmp_project):
         ],
     }
     (d / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False))
+    (d / "README.md").write_text("# Phase README\n현재 phase-local 규칙")
     (d / "step2.md").write_text("# Step 2: UI\n\nUI를 구현하세요.")
 
     return d
@@ -163,8 +164,18 @@ class TestLoadGuardrails:
             result = executor._load_guardrails()
         assert "# Rules" in result
         assert "rule one" in result
+        assert "# Phase README" in result
+        assert "현재 phase-local 규칙" in result
         assert "# Architecture" in result
         assert "# Guide" in result
+
+    def test_loads_phase_readme_between_agents_and_docs(self, executor, tmp_project):
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        agents_pos = result.index("프로젝트 규칙 (AGENTS.md)")
+        phase_pos = result.index("현재 Phase README")
+        docs_pos = result.index("## COMMANDS")
+        assert agents_pos < phase_pos < docs_pos
 
     def test_sections_separated_by_divider(self, executor, tmp_project):
         with patch.object(ex, "ROOT", tmp_project):

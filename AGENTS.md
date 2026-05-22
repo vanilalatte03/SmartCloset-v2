@@ -49,6 +49,14 @@
 - 자동 리뷰 실패는 GitHub Issue와 `issues/{phase}/issue-N.md`에 함께 기록한다.
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 
+## Harness step PR 리뷰 규칙
+- 최종 3차 MVP 기준은 phase 전체 완료 기준이다.
+- 중간 step PR 구현과 리뷰는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
+- 아직 미래 step에 배정된 기능이 없다는 이유만으로 현재 step PR을 blocker 처리하지 않는다.
+- 현재 step이 미래 step 범위를 선행 구현하면 blocker로 본다.
+- 리뷰 실패를 수정할 때는 현재 step 범위 안에서만 해결하고, 미래 step 기능을 구현해서 통과시키지 않는다.
+- 최종 공개/보호 API 경계, 남은 `userId` 제거, `preferenceScore`, 추천 이력, 프론트 전환은 각 step 문서가 지정한 단계에서 검증한다.
+
 ## 서브에이전트
 - 프로젝트 전용 서브에이전트 정의는 `.codex/agents/*.toml`을 기준으로 한다.
 - 서브에이전트는 사용자가 명시적으로 요청했거나, 병렬로 안전하게 분리 가능한 작업일 때만 사용한다.

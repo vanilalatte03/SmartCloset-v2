@@ -93,7 +93,7 @@ def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
         _mark_step_complete(tmp_repo, step["step"], f"{step['name']} 완료")
 
     runner._run_step = fake_run_step
-    runner._run_review_gate = lambda: ap.ReviewResult(True, [], "ok", commands=("cmd",))
+    runner._run_review_gate = lambda step: ap.ReviewResult(True, [], "ok", commands=("cmd",))
 
     def fake_gh(*args, check=True):
         gh_calls.append(args)
@@ -133,7 +133,7 @@ def test_review_fail_records_issue_and_leaves_pr_open(runner, tmp_repo):
     runner._ensure_preconditions = lambda: None
     runner._sync_base = lambda: None
     runner._run_step = lambda branch, step: _mark_step_complete(tmp_repo, step["step"], "완료")
-    runner._run_review_gate = lambda: ap.ReviewResult(
+    runner._run_review_gate = lambda step: ap.ReviewResult(
         False,
         ["src/main/java/App.java:10 - 테스트 실패"],
         "fail",
@@ -177,7 +177,7 @@ def test_review_fail_fixes_same_pr_then_merges_and_continues(runner, tmp_repo):
         ap.ReviewResult(True, [], "ok"),
         ap.ReviewResult(True, [], "ok"),
     ]
-    runner._run_review_gate = lambda: reviews.pop(0)
+    runner._run_review_gate = lambda step: reviews.pop(0)
     runner._invoke_codex_fix = lambda issue, branch, step, review, attempt: fix_calls.append(
         (issue.number, branch, step["step"], attempt)
     )
@@ -220,7 +220,7 @@ def test_review_stops_after_max_fix_attempts_without_closing_pr(runner, tmp_repo
         ap.ReviewResult(False, ["첫 실패"], "fail"),
         ap.ReviewResult(False, ["재시도 실패"], "fail again"),
     ]
-    runner._run_review_gate = lambda: reviews.pop(0)
+    runner._run_review_gate = lambda step: reviews.pop(0)
     runner._invoke_codex_fix = lambda issue, branch, step, review, attempt: fix_calls.append(attempt)
     runner._commit_dirty_fix = lambda step: None
     runner._push_branch = lambda branch: None
@@ -286,12 +286,46 @@ def test_parse_codex_review_returns_none_when_json_missing(runner):
     assert runner._parse_review_result("plain text only") is None
 
 
-def test_codex_review_prompt_excludes_issue_records(runner):
-    prompt = runner._codex_review_prompt()
+def test_codex_review_prompt_excludes_issue_records_and_uses_step_contract(runner):
+    prompt = runner._codex_review_prompt({"step": 1, "name": "clothing-p0-api"})
 
     assert "issues/**" in prompt
     assert "audit logs" in prompt
     assert "not implementation changes" in prompt
+    assert "phases/1-smartcloset-mvp/README.md" in prompt
+    assert "phases/1-smartcloset-mvp/step1.md" in prompt
+    assert "Current Harness step is Step 1 `clothing-p0-api`" in prompt
+    assert "Missing functionality assigned to future steps is not a blocker" in prompt
+    assert "Implementing future-step scope inside the current step is a blocker" in prompt
+
+
+def test_review_gate_passes_current_step_to_review_components(runner):
+    step = {"step": 1, "name": "clothing-p0-api"}
+    seen = {}
+
+    def fake_run(cmd, check=True, timeout=None):
+        if cmd == ["python3", "scripts/checks.py", "--stage", "manual"]:
+            return cp()
+        if cmd == ["git", "diff", "--check", "origin/main...HEAD"]:
+            return cp()
+        raise AssertionError(cmd)
+
+    def fake_scan(current_step):
+        seen["scan"] = current_step
+        return []
+
+    def fake_codex(current_step):
+        seen["codex"] = current_step
+        return ap.ReviewResult(True, [], "ok")
+
+    runner._run = fake_run
+    runner._scan_forbidden_diff = fake_scan
+    runner._run_codex_review = fake_codex
+
+    review = runner._run_review_gate(step)
+
+    assert review.passed is True
+    assert seen == {"scan": step, "codex": step}
 
 
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
@@ -309,6 +343,10 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+++ b/issues/1-smartcloset-mvp/issue-1.md",
                 "@@ -1,0 +1,1 @@",
                 "+- Redis 범위가 추가되었습니다.",
+                "diff --git a/docs/AUTH.md b/docs/AUTH.md",
+                "+++ b/docs/AUTH.md",
+                "@@ -1,0 +1,1 @@",
+                "+refresh token을 반환하지 않는다.",
                 "diff --git a/docs/PRD.md b/docs/PRD.md",
                 "+++ b/docs/PRD.md",
                 "@@ -1,0 +1,12 @@",
@@ -324,6 +362,16 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+회원가입/로그인은 구현하지 않는다.",
                 "+SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 규칙 기반 추천이다.",
                 '+rg -n "recommendations/today" .',
+                "+Spring Security와 회원가입을 구현한다.",
+                "+AWS 배포를 구현한다.",
+                "+AI/GPT 추천을 구현한다.",
+                "+refresh token을 구현한다.",
+                "+소셜 로그인 기능을 구현한다.",
+                "+이메일 인증을 구현한다.",
+                "+비밀번호 재설정을 구현한다.",
+                "+CD 자동화를 구현한다.",
+                "+이미지 업로드를 구현한다.",
+                "+외부 지도 API를 구현한다.",
                 "+Redis 캐싱을 구현한다.",
                 f"+{forbidden_today_get}",
             ])
@@ -335,10 +383,19 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
 
     assert any("docs/PRD.md:" in finding and "Redis 범위" in finding for finding in findings)
     assert any("docs/PRD.md:" in finding and forbidden_today_get in finding for finding in findings)
+    assert any("refresh token" in finding for finding in findings)
+    assert any("소셜 로그인" in finding for finding in findings)
+    assert any("이메일 인증" in finding for finding in findings)
+    assert any("비밀번호 재설정" in finding for finding in findings)
+    assert any("AWS 배포" in finding for finding in findings)
+    assert any("CD 자동화" in finding for finding in findings)
+    assert any("AI/GPT" in finding for finding in findings)
+    assert any("이미지 업로드" in finding for finding in findings)
+    assert any("외부 주소/지도 API" in finding for finding in findings)
+    assert not any("docs/AUTH.md" in finding for finding in findings)
     assert not any("외부 Weather API" in finding for finding in findings)
-    assert not any("AWS 배포" in finding for finding in findings)
     assert not any("로그인/회원가입" in finding for finding in findings)
-    assert not any("AI/GPT" in finding for finding in findings)
+    assert not any("Spring Security" in finding for finding in findings)
     assert len(findings) == len(set(findings))
 
 

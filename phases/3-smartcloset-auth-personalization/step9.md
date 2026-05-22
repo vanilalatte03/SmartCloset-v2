@@ -69,7 +69,7 @@
 ## 검증 절차
 ```bash
 git diff --check
-! rg -n 'userId=1|\\?userId=|today' frontend/src
+! rg -n -F -e 'userId=1' -e '?userId=' -e 'today' frontend/src
 rg -n 'preferenceScore|sessionStorage|/api/recommendations' frontend/src
 (cd frontend && npm run build)
 ```

@@ -39,6 +39,16 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 
 3차 MVP 작업을 구현할 때 과거 seed/test-user API 계약, 과거 공개 `userId` query parameter, 과거 점수 필드를 되살리지 않는다.
 
+## Harness Step PR Rules
+3차 MVP의 최종 기준과 Harness 중간 step PR 기준을 구분한다.
+
+- 최종 `Current Execution Baseline`은 phase 전체 완료 기준이다.
+- 중간 step PR을 구현하거나 리뷰할 때는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
+- 미래 step에 명시된 기능이 현재 step에 없다는 이유만으로 blocker로 판단하지 않는다.
+- 현재 step이 미래 step 범위를 선행 구현하면 blocker로 판단한다.
+- 리뷰 실패 수정은 현재 step 범위 안에서 해결해야 하며, 미래 step 기능을 끌어와 해결하지 않는다.
+- Step 1 같은 중간 auth step에서는 해당 step이 허용한 auth endpoint와 current-user endpoint만 평가하고, preferences API, recommendation history, `preferenceScore`, frontend session flow 같은 후속 step 산출물을 요구하지 않는다.
+
 ## Strict Out of Scope
 아래 항목은 3차 MVP에서 구현하지 않고, 현재 작업의 일부로 제안하지 않고, 현재 문서/API/프론트엔드 범위에 추가하지 않는다.
 

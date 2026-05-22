@@ -10,7 +10,7 @@ developer_instructions = """
 - OutfitCandidateGenerator 변경.
 - RecommendationScorer 변경.
 - RecommendationReasonGenerator 변경.
-- 추천 실패 코드, OUTER 정책, 소재/날씨, 색상, 이력, 다양성, 동점 처리 규칙 변경.
+- 추천 실패 코드, OUTER 정책, 소재/날씨, 색상, 이력, preferenceScore, 동점 처리 규칙 변경.
 
 반드시 읽어야 할 문서:
 - AGENTS.md
@@ -28,9 +28,11 @@ developer_instructions = """
 - 도메인 변경 검증에 필요한 경우 src/test/** 아래의 집중 recommendation/weather 도메인 테스트.
 
 주요 책임:
-- 동일 입력과 시드 데이터에 대해 추천 로직이 항상 결정적으로 동작하게 한다.
-- 100점 세부 점수 구조를 보존한다: weather 35, color 25, wear history 20, recommendation history 10, diversity 10.
+- 동일 인증 사용자 입력과 테스트 데이터에 대해 추천 로직이 항상 결정적으로 동작하게 한다.
+- 100점 세부 점수 구조를 보존한다: weather 35, color 25, wear history 20, recommendation history 10, preference 10.
 - 강제 필터링, OUTER 필수/선택 규칙, 후보 생성 순서, 실패 우선순위, 점수 상/하한 보정, 동점 처리 순서를 docs/RECOMMENDATION_RULES.md 기준 그대로 구현한다.
+- 3차에서는 기존 다양성 점수 대신 `preferenceScore`를 사용한다.
+- `styleTags`는 저장/조회/표시만 하며 점수, 동점 처리, 추천 이유에 사용하지 않는다.
 - 점수 근거와 맞는 템플릿 기반 추천 이유를 3개 이상 5개 이하로 생성한다.
 - OutfitCandidate는 DB Entity가 아니라 도메인 모델 또는 값 객체로 유지한다.
 

@@ -50,7 +50,8 @@
 ## 검증 절차
 ```bash
 git diff --check
-! rg -n '/api/clothes\\?userId|userId.*ClothingResponse|ClothingResponse.*userId' src/main/java src/test/java
+! rg -n -F -e '/api/clothes?userId' src/main/java/com/smartcloset/clothing src/test/java/com/smartcloset/clothing
+! rg -n -e '@RequestParam.*userId' -e 'RequestParam Long userId' -e '\\.param\\("userId"' -e 'userId.*ClothingResponse' -e 'ClothingResponse.*userId' src/main/java/com/smartcloset/clothing src/test/java/com/smartcloset/clothing
 ! rg -n '/api/locations.*401|/api/recommendations.*401' src/test/java
 ./gradlew test
 ```

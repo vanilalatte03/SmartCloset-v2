@@ -46,6 +46,13 @@ SmartCloset 2차의 위치 기반 React 프론트엔드와 KMA 추천 흐름을 
 - Step 2, 3, 4, 6은 자신이 전환한 API만 보호 API로 잠근다. 최종 “auth 2종 외 전부 보호” 회귀 테스트는 Step 7에서만 추가한다.
 - Step 7을 시작하기 전 `@RequestParam Long userId`, today 추천 GET 경로, 기존 다양성 점수 필드가 남아 있으면 먼저 해당 모듈 step을 수정한다. SecurityConfig로 덮어서 통과시키지 않는다.
 
+## Step PR 리뷰 원칙
+- 각 step PR의 리뷰 기준은 현재 step 파일의 작업, 인수 기준, 금지사항이다.
+- 미래 step에 배정된 API, 프론트 화면, 추천 점수, 문서 동기화가 아직 없다는 사실은 현재 step의 blocker가 아니다.
+- 리뷰 실패를 수정할 때 미래 step 기능을 끌어와 해결하지 않는다. 현재 step 범위 밖 finding은 해당 후속 step에서 처리하도록 남긴다.
+- Step 1 리뷰에서는 preferences API, recommendation history, `preferenceScore`, frontend auth/session, static demo 갱신을 요구하지 않는다.
+- 최종 MVP 기준 위반 여부는 Step 7과 Step 10에서 전체 회귀 기준으로 다시 검증한다.
+
 ## 완료 기준
 - 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`뿐이다.
 - 모든 보호 API는 `Authorization: Bearer {accessToken}`을 요구한다.
@@ -66,7 +73,7 @@ SmartCloset 2차의 위치 기반 React 프론트엔드와 KMA 추천 흐름을 
 ```bash
 git diff --check
 ! rg -n 'GET /api/recommendations/(today)' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
-! rg -n 'POST /api/recommendations\?userId|/api/clothes\?userId|/api/users/location\?userId' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
+! rg -n -F -e 'POST /api/recommendations?userId' -e '/api/clothes?userId' -e '/api/users/location?userId' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'preferenceScore|preferred_colors_json|preferred_materials_json|style_tags_json' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 ./gradlew test
 ./gradlew build
