@@ -2,7 +2,7 @@ const state = {
   lastRecommendationId: null
 };
 
-const userIdInput = document.querySelector("#userId");
+const accessTokenInput = document.querySelector("#accessToken");
 const statusBox = document.querySelector("#status");
 const clothingForm = document.querySelector("#clothingForm");
 const clothesTableBody = document.querySelector("#clothesTableBody");
@@ -18,18 +18,20 @@ clothingForm.addEventListener("submit", createClothing);
 
 window.addEventListener("DOMContentLoaded", loadClothes);
 
-function currentUserId() {
-  const userId = Number(userIdInput.value);
-  if (!Number.isInteger(userId) || userId < 1) {
-    throw new Error("userId는 1 이상의 정수여야 합니다.");
+function currentAccessToken() {
+  const accessToken = accessTokenInput.value.trim();
+  if (!accessToken) {
+    throw new Error("Bearer access token을 입력하세요.");
   }
-  return userId;
+  return accessToken;
 }
 
 async function requestJson(path, options = {}) {
+  const accessToken = currentAccessToken();
   const response = await fetch(path, {
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
       ...(options.headers || {})
     },
     ...options
@@ -48,8 +50,7 @@ async function requestJson(path, options = {}) {
 async function loadClothes() {
   try {
     setStatus("옷 목록을 불러오는 중입니다.");
-    const userId = currentUserId();
-    const clothes = await requestJson(`/api/clothes?userId=${userId}`);
+    const clothes = await requestJson("/api/clothes");
     renderClothes(clothes);
     setStatus("옷 목록을 조회했습니다.");
   } catch (error) {
@@ -68,7 +69,6 @@ async function createClothing(event) {
     }
 
     setStatus("옷을 등록하는 중입니다.");
-    const userId = currentUserId();
     const payload = {
       name: document.querySelector("#name").value.trim(),
       category: document.querySelector("#category").value,
@@ -79,7 +79,7 @@ async function createClothing(event) {
       rainSuitable: document.querySelector("#rainSuitable").checked
     };
 
-    await requestJson(`/api/clothes?userId=${userId}`, {
+    await requestJson("/api/clothes", {
       method: "POST",
       body: JSON.stringify(payload)
     });
@@ -93,8 +93,7 @@ async function createClothing(event) {
 async function createRecommendation() {
   try {
     setStatus("추천을 생성하는 중입니다.");
-    const userId = currentUserId();
-    const recommendation = await requestJson(`/api/recommendations?userId=${userId}`, {
+    const recommendation = await requestJson("/api/recommendations", {
       method: "POST"
     });
 
@@ -114,9 +113,8 @@ async function markWorn() {
     }
 
     setStatus("착용 완료 처리 중입니다.");
-    const userId = currentUserId();
     const worn = await requestJson(
-      `/api/recommendations/${state.lastRecommendationId}/worn?userId=${userId}`,
+      `/api/recommendations/${state.lastRecommendationId}/worn`,
       { method: "PATCH" }
     );
 
@@ -169,7 +167,7 @@ function renderRecommendation(recommendation) {
       ${renderScore("색상", score.colorScore)}
       ${renderScore("착용 이력", score.wearHistoryScore)}
       ${renderScore("추천 이력", score.recommendationHistoryScore)}
-      ${renderScore("다양성", score.diversityScore)}
+      ${renderScore("선호도", score.preferenceScore)}
     </div>
     <ol class="reasons">
       ${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}

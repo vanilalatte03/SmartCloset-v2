@@ -91,7 +91,7 @@ h2 {
 }
 
 .user-control input {
-  width: 92px;
+  width: min(420px, 46vw);
 }
 
 .toolbar {

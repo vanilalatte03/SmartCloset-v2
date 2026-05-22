@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { ApiClientError } from '../../api/client';
 import { toErrorResponse } from '../../api/errorHelpers';
 import { getLocations, updateUserLocation } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
@@ -10,17 +11,19 @@ import type {
 } from '../../types/api';
 
 type LocationPanelProps = {
-  userId: number;
+  accessToken: string;
   location: UserLocationResponse | null;
   loading: boolean;
   onLocationChange: (location: UserLocationResponse) => void;
+  onAuthExpired: () => void;
 };
 
 export function LocationPanel({
-  userId,
+  accessToken,
   location,
   loading,
   onLocationChange,
+  onAuthExpired,
 }: LocationPanelProps) {
   const [keyword, setKeyword] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');
@@ -35,15 +38,19 @@ export function LocationPanel({
     setError(null);
 
     try {
-      const nextOptions = await getLocations(submittedKeyword);
+      const nextOptions = await getLocations(accessToken, submittedKeyword);
       setOptions(nextOptions);
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setOptions([]);
       setError(toErrorResponse(caught, 'Unable to load the location catalog.'));
     } finally {
       setOptionsLoading(false);
     }
-  }, [submittedKeyword]);
+  }, [accessToken, onAuthExpired, submittedKeyword]);
 
   useEffect(() => {
     void loadLocations();
@@ -61,10 +68,14 @@ export function LocationPanel({
     setStatus(null);
 
     try {
-      const updatedLocation = await updateUserLocation(userId, option.code);
+      const updatedLocation = await updateUserLocation(accessToken, option.code);
       onLocationChange(updatedLocation);
       setStatus(`${updatedLocation.name} saved as the current location.`);
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to save the selected location.'));
     } finally {
       setSavingCode(null);

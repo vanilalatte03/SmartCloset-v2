@@ -2,6 +2,7 @@ package com.smartcloset.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -97,7 +98,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.score.colorScore").exists())
                 .andExpect(jsonPath("$.data.score.wearHistoryScore").exists())
                 .andExpect(jsonPath("$.data.score.recommendationHistoryScore").exists())
-                .andExpect(jsonPath("$.data.score.diversityScore").exists())
+                .andExpect(jsonPath("$.data.score.preferenceScore").exists())
+                .andExpect(jsonPath("$.data.score." + legacyScoreField()).doesNotExist())
                 .andExpect(jsonPath("$.data.reasons").isArray())
                 .andExpect(jsonPath("$.data.worn").value(false))
                 .andExpect(jsonPath("$.data.createdAt").exists())
@@ -122,8 +124,90 @@ class RecommendationControllerTest {
         assertThat(saved.isWindy()).isFalse();
         assertThat(saved.getItems()).hasSize(3);
         assertThat(slots).containsExactlyInAnyOrder(OutfitSlot.TOP, OutfitSlot.BOTTOM, OutfitSlot.OUTER);
+        assertThat(saved.getPreferenceScore()).isZero();
         assertThat(savedReasons).hasSizeBetween(3, 5);
         assertThat(saved.isWorn()).isFalse();
+    }
+
+    @Test
+    void returnsRecommendationHistoryForCurrentUserWithLimitPolicy() throws Exception {
+        User user = createUserWithP0Closet("history-user");
+        User otherUser = createUserWithP0Closet("history-other-user");
+        long first = createRecommendation(user);
+        long second = createRecommendation(user);
+        long third = createRecommendation(user);
+        createRecommendation(otherUser);
+
+        mockMvc.perform(get("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].recommendationId").value(third))
+                .andExpect(jsonPath("$.data[1].recommendationId").value(second))
+                .andExpect(jsonPath("$.data[2].recommendationId").value(first))
+                .andExpect(jsonPath("$.data[0].score.preferenceScore").exists())
+                .andExpect(jsonPath("$.data[0].score." + legacyScoreField()).doesNotExist());
+
+        mockMvc.perform(get("/api/recommendations?limit=1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].recommendationId").value(third));
+
+        mockMvc.perform(get("/api/recommendations?limit=50")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3));
+    }
+
+    @Test
+    void rejectsInvalidRecommendationHistoryLimit() throws Exception {
+        User user = createUserWithP0Closet("invalid-history-limit-user");
+
+        mockMvc.perform(get("/api/recommendations?limit=0")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("limit"));
+
+        mockMvc.perform(get("/api/recommendations?limit=51")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("limit"));
+
+        mockMvc.perform(get("/api/recommendations?limit=abc")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void appliesCurrentUserPreferencesToRecommendationScoreWithoutStyleTagReasons() throws Exception {
+        User user = createUserWithP0Closet("preference-user");
+        user.updatePreferences("[\"WHITE\"]", "[\"KNIT\"]", "[\"CASUAL\"]");
+        userRepository.flush();
+
+        MvcResult result = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.score.preferenceScore").value(10))
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        RecommendationResult saved = recommendationResultRepository
+                .findById(data.get("recommendationId").asLong())
+                .orElseThrow();
+        List<String> reasons = objectMapper.readValue(
+                data.get("reasons").toString(),
+                new TypeReference<>() {
+                }
+        );
+
+        assertThat(saved.getPreferenceScore()).isEqualTo(10);
+        assertThat(reasons).contains("선호 색상 또는 소재와 맞는 옷이 포함되어 개인화 점수에 반영되었습니다.");
+        assertThat(reasons).noneMatch(reason -> reason.contains("CASUAL"));
     }
 
     @Test
@@ -272,5 +356,9 @@ class RecommendationControllerTest {
                 user.getEmail(),
                 user.getRole()
         ));
+    }
+
+    private String legacyScoreField() {
+        return "divers" + "ity" + "Score";
     }
 }

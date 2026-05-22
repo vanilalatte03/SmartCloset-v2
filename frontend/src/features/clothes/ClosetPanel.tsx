@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { ApiClientError } from '../../api/client';
 import { toErrorResponse } from '../../api/errorHelpers';
 import { createClothing, getClothes } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
@@ -47,7 +48,8 @@ const defaultForm: ClothingRequest = {
 };
 
 type ClosetPanelProps = {
-  userId: number;
+  accessToken: string;
+  onAuthExpired: () => void;
 };
 
 function validationError(message: string): ErrorResponse {
@@ -58,7 +60,7 @@ function validationError(message: string): ErrorResponse {
   };
 }
 
-export function ClosetPanel({ userId }: ClosetPanelProps) {
+export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
   const [loading, setLoading] = useState(true);
@@ -71,15 +73,19 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
     setError(null);
 
     try {
-      const activeClothes = await getClothes(userId);
+      const activeClothes = await getClothes(accessToken);
       setClothes(activeClothes);
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setClothes([]);
       setError(toErrorResponse(caught, 'Unable to load active clothes.'));
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [accessToken, onAuthExpired]);
 
   useEffect(() => {
     void loadClothes();
@@ -102,7 +108,7 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
 
     setSubmitting(true);
     try {
-      const created = await createClothing(userId, {
+      const created = await createClothing(accessToken, {
         ...form,
         name: trimmedName,
       });
@@ -110,6 +116,10 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
       setForm(defaultForm);
       await loadClothes();
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to register clothing.'));
     } finally {
       setSubmitting(false);

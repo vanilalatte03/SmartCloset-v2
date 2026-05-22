@@ -1,15 +1,20 @@
 package com.smartcloset.recommendation.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
+import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.response.ErrorDetail;
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.OutfitCandidateGenerator;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationFailureException;
+import com.smartcloset.recommendation.domain.RecommendationPreferences;
 import com.smartcloset.recommendation.domain.RecommendationReasonGenerator;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationScorer;
@@ -32,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +45,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class RecommendationService {
+
+    private static final int DEFAULT_HISTORY_LIMIT = 20;
+    private static final int MIN_HISTORY_LIMIT = 1;
+    private static final int MAX_HISTORY_LIMIT = 50;
 
     private final UserRepository userRepository;
     private final ClothingItemRepository clothingItemRepository;
@@ -88,6 +98,7 @@ public class RecommendationService {
                 requestedAt.minusDays(7)
         );
         List<RecommendationResult> recommendationHistories = findRecommendationHistories(userId, requestedAt);
+        RecommendationPreferences preferences = readPreferences(user);
 
         try {
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, weather);
@@ -97,7 +108,8 @@ public class RecommendationService {
                     weather,
                     wearHistories,
                     recommendationHistories,
-                    requestedAt
+                    requestedAt,
+                    preferences
             );
             ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates);
             List<String> reasons = recommendationReasonGenerator.generate(
@@ -113,6 +125,22 @@ public class RecommendationService {
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendationResponse> getRecommendationHistory(Long userId, Integer limit) {
+        findUser(userId);
+        int resolvedLimit = resolveHistoryLimit(limit);
+        return recommendationResultRepository.findByUserIdOrderByCreatedAtDescIdDesc(
+                        userId,
+                        PageRequest.of(0, resolvedLimit)
+                )
+                .stream()
+                .map(recommendation -> RecommendationResponse.from(
+                        recommendation,
+                        readReasonsJson(recommendation.getReasonsJson())
+                ))
+                .toList();
     }
 
     @Transactional
@@ -173,9 +201,43 @@ public class RecommendationService {
         return List.copyOf(histories.values());
     }
 
+    private int resolveHistoryLimit(Integer limit) {
+        int resolved = limit == null ? DEFAULT_HISTORY_LIMIT : limit;
+        if (resolved < MIN_HISTORY_LIMIT || resolved > MAX_HISTORY_LIMIT) {
+            throw new SmartClosetException(
+                    ErrorCode.INVALID_REQUEST,
+                    ErrorCode.INVALID_REQUEST.message(),
+                    List.of(ErrorDetail.of("limit", "must be between 1 and 50"))
+            );
+        }
+        return resolved;
+    }
+
+    private RecommendationPreferences readPreferences(User user) {
+        return RecommendationPreferences.of(
+                readJsonArray(user.getPreferredColorsJson(), new TypeReference<List<ClothingColor>>() {
+                }),
+                readJsonArray(user.getPreferredMaterialsJson(), new TypeReference<List<ClothingMaterial>>() {
+                })
+        );
+    }
+
+    private List<String> readReasonsJson(String reasonsJson) {
+        return readJsonArray(reasonsJson, new TypeReference<List<String>>() {
+        });
+    }
+
     private String writeReasonsJson(List<String> reasons) {
         try {
             return objectMapper.writeValueAsString(reasons);
+        } catch (JsonProcessingException exception) {
+            throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private <T> List<T> readJsonArray(String json, TypeReference<List<T>> typeReference) {
+        try {
+            return objectMapper.readValue(json, typeReference);
         } catch (JsonProcessingException exception) {
             throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
         }

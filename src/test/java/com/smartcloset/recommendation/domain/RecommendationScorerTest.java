@@ -93,7 +93,7 @@ class RecommendationScorerTest {
     }
 
     @Test
-    void appliesRecentWearRecommendationAndDiversityHistoryScores() {
+    void appliesRecentWearRecommendationAndHistoryScores() {
         User user = user(1);
         ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
         ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
@@ -111,7 +111,30 @@ class RecommendationScorerTest {
 
         assertThat(score.wearHistoryScore()).isEqualTo(10);
         assertThat(score.recommendationHistoryScore()).isEqualTo(2);
-        assertThat(score.diversityScore()).isZero();
+        assertThat(score.preferenceScore()).isZero();
+    }
+
+    @Test
+    void calculatesPreferenceScoreFromPreferredColorsAndMaterials() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.NAVY, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false)
+        );
+
+        assertThat(scorer.calculatePreferenceScore(candidate, RecommendationPreferences.empty())).isZero();
+        assertThat(scorer.calculatePreferenceScore(
+                candidate,
+                RecommendationPreferences.of(List.of(ClothingColor.NAVY), List.of())
+        )).isEqualTo(5);
+        assertThat(scorer.calculatePreferenceScore(
+                candidate,
+                RecommendationPreferences.of(List.of(), List.of(ClothingMaterial.COTTON))
+        )).isEqualTo(5);
+        assertThat(scorer.calculatePreferenceScore(
+                candidate,
+                RecommendationPreferences.of(List.of(ClothingColor.BLACK), List.of(ClothingMaterial.DENIM))
+        )).isEqualTo(10);
     }
 
     @Test

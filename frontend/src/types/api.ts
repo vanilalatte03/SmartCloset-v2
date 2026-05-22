@@ -35,6 +35,31 @@ export type ClothingMaterial =
   | 'NYLON'
   | 'UNKNOWN';
 
+export type SignupRequest = {
+  email: string;
+  password: string;
+  name: string;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type CurrentUserResponse = {
+  email: string;
+  name: string;
+  role: 'USER';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AuthResponse = {
+  accessToken: string;
+  tokenType: 'Bearer';
+  user: CurrentUserResponse;
+};
+
 export type ClothingRequest = {
   name: string;
   category: ClothingCategory;
@@ -47,7 +72,6 @@ export type ClothingRequest = {
 
 export type ClothingResponse = ClothingRequest & {
   id: number;
-  userId: number;
   archived: boolean;
   createdAt: string;
   updatedAt: string;
@@ -66,7 +90,6 @@ export type LocationOptionResponse = {
 };
 
 export type UserLocationResponse = {
-  userId: number;
   code: string;
   name: string;
   nx: number;
@@ -105,7 +128,7 @@ export type RecommendationScoreResponse = {
   colorScore: number;
   wearHistoryScore: number;
   recommendationHistoryScore: number;
-  diversityScore: number;
+  preferenceScore: number;
 };
 
 export type RecommendationResponse = {

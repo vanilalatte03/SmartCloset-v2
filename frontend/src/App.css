@@ -161,6 +161,21 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.auth-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px);
+}
+
+.auth-panel {
+  min-height: 0;
+}
+
+.auth-form {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

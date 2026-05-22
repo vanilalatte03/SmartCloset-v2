@@ -1,73 +1,109 @@
 import { apiBaseUrl, request } from './client';
 import type {
+  AuthResponse,
   ClothingRequest,
   ClothingResponse,
+  CurrentUserResponse,
   LocationOptionResponse,
+  LoginRequest,
   RecommendationResponse,
   RecommendationWornResponse,
+  SignupRequest,
   UserLocationResponse,
 } from '../types/api';
-
-function userIdParam(userId: number): string {
-  return new URLSearchParams({ userId: String(userId) }).toString();
-}
 
 export function getApiBaseUrl(): string {
   return apiBaseUrl;
 }
 
-export function getLocations(keyword?: string): Promise<LocationOptionResponse[]> {
+export function signup(body: SignupRequest): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function login(body: LoginRequest): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getCurrentUser(accessToken: string): Promise<CurrentUserResponse> {
+  return request<CurrentUserResponse>('/api/users/me', { accessToken });
+}
+
+export function getLocations(
+  accessToken: string,
+  keyword?: string
+): Promise<LocationOptionResponse[]> {
   const params = new URLSearchParams();
   if (keyword && keyword.trim()) {
     params.set('keyword', keyword.trim());
   }
 
   const query = params.toString();
-  return request<LocationOptionResponse[]>(`/api/locations${query ? `?${query}` : ''}`);
+  return request<LocationOptionResponse[]>(`/api/locations${query ? `?${query}` : ''}`, {
+    accessToken,
+  });
 }
 
-export function getUserLocation(userId: number): Promise<UserLocationResponse> {
-  return request<UserLocationResponse>(`/api/users/location?${userIdParam(userId)}`);
+export function getUserLocation(accessToken: string): Promise<UserLocationResponse> {
+  return request<UserLocationResponse>('/api/users/me/location', { accessToken });
 }
 
 export function updateUserLocation(
-  userId: number,
+  accessToken: string,
   locationCode: string
 ): Promise<UserLocationResponse> {
-  return request<UserLocationResponse>(`/api/users/location?${userIdParam(userId)}`, {
+  return request<UserLocationResponse>('/api/users/me/location', {
+    accessToken,
     method: 'PUT',
     body: JSON.stringify({ locationCode }),
   });
 }
 
-export function getClothes(userId: number): Promise<ClothingResponse[]> {
-  return request<ClothingResponse[]>(`/api/clothes?${userIdParam(userId)}`);
+export function getClothes(accessToken: string): Promise<ClothingResponse[]> {
+  return request<ClothingResponse[]>('/api/clothes', { accessToken });
 }
 
 export function createClothing(
-  userId: number,
+  accessToken: string,
   body: ClothingRequest
 ): Promise<ClothingResponse> {
-  return request<ClothingResponse>(`/api/clothes?${userIdParam(userId)}`, {
+  return request<ClothingResponse>('/api/clothes', {
+    accessToken,
     method: 'POST',
     body: JSON.stringify(body),
   });
 }
 
-export function createRecommendation(userId: number): Promise<RecommendationResponse> {
-  return request<RecommendationResponse>(`/api/recommendations?${userIdParam(userId)}`, {
+export function createRecommendation(accessToken: string): Promise<RecommendationResponse> {
+  return request<RecommendationResponse>('/api/recommendations', {
+    accessToken,
     method: 'POST',
   });
 }
 
 export function markRecommendationWorn(
-  userId: number,
+  accessToken: string,
   recommendationId: number
 ): Promise<RecommendationWornResponse> {
   return request<RecommendationWornResponse>(
-    `/api/recommendations/${recommendationId}/worn?${userIdParam(userId)}`,
+    `/api/recommendations/${recommendationId}/worn`,
     {
+      accessToken,
       method: 'PATCH',
     }
   );
+}
+
+export function getRecommendationHistory(
+  accessToken: string,
+  limit = 20
+): Promise<RecommendationResponse[]> {
+  return request<RecommendationResponse[]>(`/api/recommendations?limit=${limit}`, {
+    accessToken,
+  });
 }

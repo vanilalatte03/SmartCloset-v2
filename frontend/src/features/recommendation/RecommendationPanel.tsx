@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiClientError } from '../../api/client';
 import { toErrorResponse } from '../../api/errorHelpers';
 import {
   createRecommendation,
+  getRecommendationHistory,
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
@@ -13,8 +15,9 @@ import type {
 } from '../../types/api';
 
 type RecommendationPanelProps = {
-  userId: number;
+  accessToken: string;
   location: UserLocationResponse | null;
+  onAuthExpired: () => void;
 };
 
 function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
@@ -29,13 +32,39 @@ function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
   );
 }
 
-export function RecommendationPanel({ userId, location }: RecommendationPanelProps) {
+export function RecommendationPanel({
+  accessToken,
+  location,
+  onAuthExpired,
+}: RecommendationPanelProps) {
   const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
+  const [history, setHistory] = useState<RecommendationResponse[]>([]);
   const [wornAt, setWornAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [markingWorn, setMarkingWorn] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      setHistory(await getRecommendationHistory(accessToken, 20));
+    } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
+      setError(toErrorResponse(caught, 'Unable to load recommendation history.'));
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [accessToken, onAuthExpired]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const handleCreate = async () => {
     setLoading(true);
@@ -43,11 +72,16 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
     setStatus(null);
 
     try {
-      const nextRecommendation = await createRecommendation(userId);
+      const nextRecommendation = await createRecommendation(accessToken);
       setRecommendation(nextRecommendation);
       setWornAt(null);
       setStatus('Recommendation generated.');
+      await loadHistory();
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to create a recommendation.'));
     } finally {
       setLoading(false);
@@ -65,7 +99,7 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
 
     try {
       const response = await markRecommendationWorn(
-        userId,
+        accessToken,
         recommendation.recommendationId
       );
       setRecommendation({
@@ -74,7 +108,12 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
       });
       setWornAt(response.wornAt);
       setStatus('Recommendation marked as worn.');
+      await loadHistory();
     } catch (caught) {
+      if (caught instanceof ApiClientError && caught.status === 401) {
+        onAuthExpired();
+        return;
+      }
       setError(toErrorResponse(caught, 'Unable to mark the recommendation as worn.'));
     } finally {
       setMarkingWorn(false);
@@ -160,8 +199,8 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
                 <dd>{recommendation.score.recommendationHistoryScore}</dd>
               </div>
               <div>
-                <dt>Diversity</dt>
-                <dd>{recommendation.score.diversityScore}</dd>
+                <dt>Preference</dt>
+                <dd>{recommendation.score.preferenceScore}</dd>
               </div>
             </dl>
           </section>
@@ -205,6 +244,43 @@ export function RecommendationPanel({ userId, location }: RecommendationPanelPro
       ) : (
         <p className="muted">No recommendation generated.</p>
       )}
+
+      <section className="panel-section" aria-label="Recommendation history">
+        <div className="section-title-row">
+          <h3>History</h3>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void loadHistory()}
+            disabled={historyLoading}
+          >
+            {historyLoading ? 'Loading' : 'Refresh'}
+          </button>
+        </div>
+        {historyLoading ? (
+          <p className="muted">Loading recent recommendations.</p>
+        ) : history.length > 0 ? (
+          <div className="item-list">
+            {history.map((item) => (
+              <div className="item-row" key={item.recommendationId}>
+                <div>
+                  <strong>Recommendation #{item.recommendationId}</strong>
+                  <span>
+                    {item.outfit.top.name} + {item.outfit.bottom.name}
+                    {item.outfit.outer ? ` + ${item.outfit.outer.name}` : ''}
+                  </span>
+                </div>
+                <span className="item-meta">
+                  score {item.score.totalScore} - preference {item.score.preferenceScore}
+                  {item.worn ? ' - worn' : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No recommendation history yet.</p>
+        )}
+      </section>
     </article>
   );
 }

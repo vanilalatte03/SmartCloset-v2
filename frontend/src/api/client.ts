@@ -6,6 +6,12 @@ export const apiBaseUrl = (
   import.meta.env.VITE_API_BASE_URL?.trim() || defaultApiBaseUrl
 ).replace(/\/$/, '');
 
+export const accessTokenStorageKey = 'smartcloset.accessToken';
+
+export type AuthenticatedRequestInit = RequestInit & {
+  accessToken?: string;
+};
+
 export class ApiClientError extends Error {
   readonly response: ErrorResponse;
   readonly status: number;
@@ -56,15 +62,22 @@ async function parseJson(response: Response): Promise<unknown> {
   }
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(
+  path: string,
+  init: AuthenticatedRequestInit = {}
+): Promise<T> {
+  const { accessToken, ...requestInit } = init;
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
+    ...requestInit,
     headers,
   });
   const payload = await parseJson(response);
