@@ -1,16 +1,22 @@
 package com.smartcloset.location;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
+import com.smartcloset.user.domain.User;
+import com.smartcloset.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -30,14 +36,32 @@ class LocationControllerTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
+    }
+
+    @Test
+    void locationsRequireBearerToken() throws Exception {
+        mockMvc.perform(get("/api/locations"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test
     void returnsNineRepresentativeLocations() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/locations"))
+        User user = userRepository.save(User.createSeedUser("location-catalog-user"));
+
+        MvcResult result = mockMvc.perform(get("/api/locations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andReturn();
@@ -53,7 +77,10 @@ class LocationControllerTest {
 
     @Test
     void searchesLocationsByKoreanName() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-korean-search-user"));
+
         mockMvc.perform(get("/api/locations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .param("keyword", "서울"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
@@ -65,10 +92,21 @@ class LocationControllerTest {
 
     @Test
     void searchesLocationsByCodeCaseInsensitively() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-code-search-user"));
+
         mockMvc.perform(get("/api/locations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .param("keyword", "SEO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].code").value("SEOUL"));
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 }

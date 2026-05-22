@@ -2,7 +2,7 @@ package com.smartcloset.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +45,8 @@ class TemporarySecurityPermitAllTest {
     }
 
     @Test
-    void keepsUnmigratedApiReachableWithoutBearerTokenDuringStep1() throws Exception {
-        mockMvc.perform(get("/api/locations"))
-                .andExpect(status().isOk());
+    void keepsUnmigratedRecommendationApiReachableWithoutBearerTokenUntilStep6() throws Exception {
+        mockMvc.perform(post("/api/recommendations"))
+                .andExpect(status().isBadRequest());
     }
 }

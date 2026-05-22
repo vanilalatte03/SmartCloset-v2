@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "location-current-user-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T19:36:23+0900",
+      "summary": "위치 catalog와 현재 사용자 위치 API를 JWT 인증 사용자 기준으로 전환하고 userId query/response 노출을 제거했다.",
+      "completed_at": "2026-05-22T19:41:13+0900"
     },
     {
       "step": 4,
