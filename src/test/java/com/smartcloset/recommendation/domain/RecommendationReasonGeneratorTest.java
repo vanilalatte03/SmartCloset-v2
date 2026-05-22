@@ -55,4 +55,44 @@ class RecommendationReasonGeneratorTest {
 
         assertThat(reasons).contains("비 오는 날 울 소재는 젖었을 때 불편할 수 있어 날씨 점수가 낮아졌습니다.");
     }
+
+    @Test
+    void generatesPreferenceReasonOnlyWhenPreferenceScoreIsPositive() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.NAVY, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false)
+        );
+        WeatherCondition weather = WeatherCondition.of(20, WeatherType.CLOUDY, false, false);
+        RecommendationScore noPreferenceScore = scorer.score(candidate, weather, List.of(), List.of(), requestedAt);
+        RecommendationScore preferenceScore = scorer.score(
+                candidate,
+                weather,
+                List.of(),
+                List.of(),
+                requestedAt,
+                List.of(ClothingColor.NAVY),
+                List.of()
+        );
+
+        List<String> noPreferenceReasons = generator.generate(
+                candidate,
+                noPreferenceScore,
+                weather,
+                List.of(),
+                List.of(),
+                requestedAt
+        );
+        List<String> preferenceReasons = generator.generate(
+                candidate,
+                preferenceScore,
+                weather,
+                List.of(),
+                List.of(),
+                requestedAt
+        );
+
+        assertThat(noPreferenceReasons).doesNotContain("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
+        assertThat(preferenceReasons).contains("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
+    }
 }

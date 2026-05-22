@@ -72,8 +72,8 @@ public class RecommendationResult extends BaseTimeEntity {
     @Column(name = "recommendation_history_score", nullable = false)
     private int recommendationHistoryScore;
 
-    @Column(name = "diversity_score", nullable = false)
-    private int diversityScore;
+    @Column(name = "preference_score", nullable = false)
+    private int preferenceScore;
 
     @Column(name = "reasons_json", nullable = false, columnDefinition = "json")
     private String reasonsJson;
@@ -104,7 +104,7 @@ public class RecommendationResult extends BaseTimeEntity {
         this.colorScore = requiredScore.colorScore();
         this.wearHistoryScore = requiredScore.wearHistoryScore();
         this.recommendationHistoryScore = requiredScore.recommendationHistoryScore();
-        this.diversityScore = requiredScore.diversityScore();
+        this.preferenceScore = requiredScore.preferenceScore();
         this.reasonsJson = requireReasonsJson(reasonsJson);
         this.worn = false;
     }
@@ -175,8 +175,8 @@ public class RecommendationResult extends BaseTimeEntity {
         return recommendationHistoryScore;
     }
 
-    public int getDiversityScore() {
-        return diversityScore;
+    public int getPreferenceScore() {
+        return preferenceScore;
     }
 
     public String getReasonsJson() {

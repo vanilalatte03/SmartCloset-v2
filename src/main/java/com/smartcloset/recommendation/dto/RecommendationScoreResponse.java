@@ -9,7 +9,7 @@ public record RecommendationScoreResponse(
         int colorScore,
         int wearHistoryScore,
         int recommendationHistoryScore,
-        int diversityScore
+        int preferenceScore
 ) {
 
     public static RecommendationScoreResponse from(RecommendationScore score) {
@@ -19,7 +19,7 @@ public record RecommendationScoreResponse(
                 score.colorScore(),
                 score.wearHistoryScore(),
                 score.recommendationHistoryScore(),
-                score.diversityScore()
+                score.preferenceScore()
         );
     }
 
@@ -30,7 +30,7 @@ public record RecommendationScoreResponse(
                 recommendationResult.getColorScore(),
                 recommendationResult.getWearHistoryScore(),
                 recommendationResult.getRecommendationHistoryScore(),
-                recommendationResult.getDiversityScore()
+                recommendationResult.getPreferenceScore()
         );
     }
 }
