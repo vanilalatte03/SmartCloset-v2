@@ -75,13 +75,15 @@ KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
 WEATHER_FALLBACK_ENABLED=true
 
 APP_PORT=8080
+FRONTEND_PORT=5173
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
 `KMA_SERVICE_KEY`에는 공공데이터포털에서 발급받은 실제 인증키를 로컬 `.env`에만 설정하고, 코드와 문서에 커밋하지 않습니다. `KMA_NX`, `KMA_NY`는 기존 구현과 마이그레이션 호환을 위한 기본값이며, 2차 추천 기준은 사용자별 위치입니다.
 
 서비스키가 비어 있어도 fallback이 활성화되어 있으면 추천 생성은 성공해야 합니다.
 
-2차 frontend step 완료 후에는 프론트 실행을 위해 `FRONTEND_PORT=5173`, `VITE_API_BASE_URL=http://localhost:8080` 같은 값을 `.env.example`에 추가한다.
+프론트는 `FRONTEND_PORT=5173`, `VITE_API_BASE_URL=http://localhost:8080` 기본값으로 실행됩니다.
 
 ## Docker Compose 실행
 
@@ -105,12 +107,12 @@ docker compose down -v
 MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본값은 충돌을 줄이기 위해 `3307`입니다. 필요하면 `.env`의 `MYSQL_PORT`를 조정합니다.
 
 ## 접속 경로
-- Frontend(2차 frontend step 완료 후): http://localhost:5173
+- Frontend: http://localhost:5173
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
 - 보조 Demo UI: http://localhost:8080/demo/index.html
 
-2차의 주 사용 화면은 React 프론트엔드입니다. 현재 문서 전환 시점에는 `frontend/`가 아직 없을 수 있으므로, frontend 구현 step 완료 전에는 Swagger 또는 보조 Demo UI로 API 흐름을 확인합니다.
+2차의 주 사용 화면은 React 프론트엔드입니다. Swagger 또는 보조 Demo UI는 API 흐름을 분리해 확인할 때 사용합니다.
 
 ## 사용자 위치 기준
 2차는 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용합니다.
@@ -179,11 +181,10 @@ React 앱 또는 Swagger UI에서 아래 순서로 확인합니다.
 today 추천 GET 경로는 사용하지 않습니다.
 
 ## 프론트엔드 개발
-프론트 기준 문서는 [docs/FRONTEND.md](docs/FRONTEND.md)를 따릅니다. `frontend/` 스캐폴드와 Docker Compose `frontend` 서비스는 첫 frontend 구현 step에서 함께 추가합니다.
+프론트 기준 문서는 [docs/FRONTEND.md](docs/FRONTEND.md)를 따릅니다. `frontend/`는 React+Vite+TypeScript SPA이며 Docker Compose `frontend` 서비스로 함께 실행됩니다.
 
 ```bash
 cd frontend
-npm install
 npm run dev
 npm run build
 ```
@@ -220,11 +221,8 @@ Gradle 검증:
 ./gradlew build
 ```
 
-프론트 검증은 `frontend/` 스캐폴드 추가 후 실행합니다.
-
 ```bash
 cd frontend
-npm install
 npm run build
 ```
 

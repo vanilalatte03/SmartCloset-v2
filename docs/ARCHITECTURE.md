@@ -11,7 +11,7 @@ Controller -> Application Service -> Domain Service -> Repository / Provider
 
 Controller는 HTTP 요청과 응답만 처리한다. Application Service는 유스케이스와 트랜잭션 경계를 관리한다. 추천 후보 생성, 점수 계산, 추천 실패 판단, 추천 이유 생성은 Domain Service에서 처리한다. Repository는 JPA 기반 데이터 접근만 담당한다.
 
-프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 백엔드 REST API를 호출한다. 현재 문서 전환 시점에는 `frontend/`가 아직 없으므로 첫 frontend 구현 step에서 스캐폴드와 Docker Compose `frontend` 서비스를 함께 추가한다. 프론트 상세 기준은 `docs/FRONTEND.md`를 따른다.
+프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 백엔드 REST API를 호출한다. 프론트 상세 기준은 `docs/FRONTEND.md`를 따른다.
 
 ## 권장 패키지 구조
 
@@ -273,7 +273,7 @@ Weather type:
 프론트는 백엔드 도메인 규칙을 재구현하지 않는다. 추천 가능 여부, 점수 계산, KMA 매핑은 모두 백엔드가 담당한다.
 
 ## Docker Compose 구성
-2차 frontend 구현 완료 후 공유 기준은 아래 3개 서비스다. 현재 문서 전환 직후에는 `frontend/`와 Compose `frontend` 서비스가 아직 없을 수 있다.
+2차 공유 기준은 아래 3개 서비스다.
 
 - `mysql`: MySQL DB
 - `app`: Spring Boot API
@@ -281,7 +281,7 @@ Weather type:
 
 기본 접속 경로:
 
-- Frontend(2차 frontend step 완료 후): `http://localhost:5173`
+- Frontend: `http://localhost:5173`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 

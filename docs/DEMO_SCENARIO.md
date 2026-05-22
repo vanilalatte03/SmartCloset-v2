@@ -29,15 +29,15 @@ WEATHER_FALLBACK_ENABLED=true
 
 실제 API 연동을 확인하려면 `.env`에 공공데이터포털에서 발급받은 서비스키를 설정한다. 실제 서비스키는 문서, 코드, 커밋에 남기지 않는다.
 
-2차 frontend step 완료 후에는 프론트 앱에서 사용할 `VITE_API_BASE_URL=http://localhost:8080`을 추가한다.
+프론트 앱은 `VITE_API_BASE_URL=http://localhost:8080`을 사용한다.
 
 ## 접속 경로
-- Frontend(2차 frontend step 완료 후): http://localhost:5173
+- Frontend: http://localhost:5173
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
 - 보조 Demo UI: http://localhost:8080/demo/index.html
 
-2차의 주 데모 경로는 React 프론트엔드다. 현재 문서 전환 시점에는 `frontend/`가 아직 없을 수 있으므로, frontend 구현 step 완료 전에는 Swagger 또는 Spring static Demo UI를 보조 smoke 확인용으로 사용한다.
+2차의 주 데모 경로는 React 프론트엔드다. Swagger 또는 Spring static Demo UI는 보조 smoke 확인용으로 사용한다.
 
 ## React 앱 데모 시나리오
 

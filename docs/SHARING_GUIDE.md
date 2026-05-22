@@ -3,7 +3,7 @@
 ## 공유 방식
 SmartCloset 2차 MVP 공유 방식은 Docker Compose로 유지한다.
 
-공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드를 함께 실행한다. 다만 현재 문서 전환 시점에는 `frontend/`와 Compose `frontend` 서비스가 아직 없을 수 있으며, 첫 frontend 구현 step에서 둘을 함께 추가한다. AWS 배포는 제공하지 않는다.
+공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드를 함께 실행한다. AWS 배포는 제공하지 않는다.
 
 기상청 API key가 없어도 앱은 실행되어야 한다. 이 경우 추천은 `StaticWeatherProvider` fallback 날씨로 생성된다. 실제 기상청 단기예보 JSON 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 
@@ -15,9 +15,9 @@ SmartCloset 2차 MVP 공유 방식은 Docker Compose로 유지한다.
 - `Dockerfile`
 - `docker-compose.yml`
 - `.env.example`
-- `frontend/`: 2차 frontend step 완료 후 포함
+- `frontend/`: React+Vite+TypeScript SPA
 - seed data
-- Frontend 경로: http://localhost:5173: 2차 frontend step 완료 후 제공
+- Frontend 경로: http://localhost:5173
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
 
@@ -30,7 +30,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Frontend 접속은 2차 frontend step 완료 후 가능하다.
+Frontend 접속:
 
 ```text
 http://localhost:5173
@@ -77,6 +77,8 @@ KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
 WEATHER_FALLBACK_ENABLED=true
 
 APP_PORT=8080
+FRONTEND_PORT=5173
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
 | Variable | Description |
@@ -87,11 +89,6 @@ APP_PORT=8080
 | `KMA_BASE_URL` | 기상청 단기예보 조회서비스 base URL |
 | `WEATHER_FALLBACK_ENABLED` | KMA 실패 시 fallback 사용 여부. 기본 `true` |
 | `APP_PORT` | 백엔드 API host port |
-
-2차 frontend step 완료 후에는 아래 값도 `.env.example`에 추가한다.
-
-| Variable | Description |
-| --- | --- |
 | `FRONTEND_PORT` | 프론트엔드 host port |
 | `VITE_API_BASE_URL` | 브라우저에서 접근할 백엔드 API base URL |
 
@@ -100,10 +97,9 @@ APP_PORT=8080
 ## 공유 성공 기준
 
 ### fallback 공유 성공 기준
-- frontend step 완료 전에는 Docker Compose로 MySQL과 백엔드가 실행된다.
-- frontend step 완료 후에는 Docker Compose로 MySQL, 백엔드, 프론트엔드가 함께 실행된다.
+- Docker Compose로 MySQL, 백엔드, 프론트엔드가 함께 실행된다.
 - 서비스키 없이도 Swagger UI에 접속할 수 있다.
-- frontend step 완료 후에는 Frontend에도 접속할 수 있다.
+- Frontend에도 접속할 수 있다.
 - `userId=1`의 기본 위치가 서울특별시로 표시된다.
 - 위치 catalog 검색과 위치 선택이 동작한다.
 - `userId=1` 기준 옷 목록 조회가 된다.
