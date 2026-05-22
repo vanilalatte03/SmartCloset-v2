@@ -42,7 +42,7 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 - 사용자 위치 선택 API
 - 추천 생성 시 사용자 위치 `nx`, `ny` 사용
 - seed user 기본 위치는 서울특별시 `SEOUL`, `nx=60`, `ny=127`
-- React+Vite+TypeScript frontend app 기준 문서화 및 구현
+- React+Vite+TypeScript frontend app 구현과 문서화
 - Docker Compose 공유 흐름에 frontend 포함
 
 ### Out of Scope
@@ -107,7 +107,7 @@ The project is a Spring Boot 4.0.6 backend centered on rule-based outfit recomme
 
 ## Frontend Rules
 - 2차 frontend는 `frontend/` 아래 React+Vite+TypeScript SPA로 둔다.
-- 현재 문서 전환 시점에 `frontend/`가 없으면 첫 frontend 구현 step에서 스캐폴드와 Docker Compose `frontend` 서비스를 함께 추가한다.
+- `frontend/`와 Docker Compose `frontend` 서비스는 2차 공유 흐름의 일부로 함께 유지한다.
 - TypeScript `strict` 기준을 사용한다.
 - API 요청/응답 DTO는 명시적 타입으로 관리한다.
 - 대형 상태 관리 라이브러리 없이 React state와 작은 API client로 시작한다.

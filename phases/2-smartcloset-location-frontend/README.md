@@ -67,9 +67,9 @@ python3 scripts/autopilot.py 2-smartcloset-location-frontend --base main --max-r
 ## 리스크
 - 위치 컬럼을 DB `NOT NULL`로 바로 추가하면 기존 row가 있는 `ddl-auto=update` 환경에서 실패할 수 있다.
 - KMA client가 계속 전역 `KMA_NX`, `KMA_NY`를 사용하면 사용자별 추천이 동작하지 않는다.
-- 프론트 스캐폴드와 Compose 서비스 추가를 분리하면 README 공유 흐름과 실제 실행 구성이 다시 어긋날 수 있다.
+- 프론트 앱과 Compose `frontend` 서비스를 다시 분리하면 README 공유 흐름과 실제 실행 구성이 어긋날 수 있다.
 - 백엔드 실패 응답의 `details` shape와 프론트 타입이 다르면 에러 화면이 깨질 수 있다.
 
-## 축소 또는 롤백 방안
-- 프론트 구현이 지연되면 백엔드 위치 API와 KMA 사용자 격자 적용을 먼저 완료하고 `docs/COMMANDS.md`에서 프론트 build를 `after-frontend`로 되돌린다.
-- KMA 사용자 격자 적용 중 외부 호출 문제가 생기면 `WEATHER_FALLBACK_ENABLED=true` 기본값과 `StaticWeatherProvider` fallback으로 추천 생성 데모를 유지한다.
+## 운영 메모
+- 프론트와 Compose 서비스는 2차 P0 공유 흐름에 포함되어 있으므로 `docs/COMMANDS.md`의 frontend build와 Compose 검증 기준을 유지한다.
+- KMA 외부 호출 문제가 생기면 `WEATHER_FALLBACK_ENABLED=true` 기본값과 `StaticWeatherProvider` fallback으로 추천 생성 데모를 유지한다.

@@ -2,8 +2,8 @@
 
 이 파일은 프로젝트 실행 명령의 단일 출처입니다.
 
-현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose 기준입니다.
-2차 MVP에서 React/Vite/TypeScript frontend를 추가하면 frontend 명령도 활성 검증 기준에 포함합니다.
+현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose + React/Vite/TypeScript frontend 기준입니다.
+2차 MVP는 `frontend/` 앱과 Docker Compose `frontend` 서비스를 포함하므로 frontend build도 활성 필수 검증 기준입니다.
 Gradle wrapper가 생성되어 `test`와 `build`는 Gradle 기준으로 실행합니다.
 Dockerfile과 Docker Compose 파일이 생성되어 P0 공유 검증은 Docker Compose로
 실행합니다. 비어 있는 명령은 실행하지 않습니다.
@@ -26,8 +26,9 @@ git config core.hooksPath .githooks
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | compose-config | `docker compose config` | no | Docker Compose 파일 구문과 서비스 구성 확인 |
-| compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 앱과 MySQL 실행 |
-| compose-down | `docker compose down -v` | yes | Docker Compose 중지 및 DB volume 초기화 |
+| compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
+| compose-down | `docker compose down` | yes | Docker Compose 중지 |
+| compose-reset | `docker compose down -v` | no | Docker Compose 중지 및 DB volume 초기화 |
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
@@ -74,7 +75,7 @@ rg -n "POST /api/recommendations\\?userId" README.md docs AGENTS.md .agents/skil
 rg -n "docs/FRONTEND.md|React\\+Vite\\+TypeScript" README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 ```
 
-프론트 스캐폴드와 Docker Compose `frontend` 서비스가 포함되어 있으므로 아래 명령도 필수로 통과해야 한다.
+프론트 앱과 Docker Compose `frontend` 서비스가 포함되어 있으므로 아래 명령도 필수로 통과해야 한다.
 
 ```bash
 cd frontend && npm run build

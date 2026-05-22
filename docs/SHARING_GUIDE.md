@@ -8,7 +8,7 @@ SmartCloset 2차 MVP 공유 방식은 Docker Compose로 유지한다.
 기상청 API key가 없어도 앱은 실행되어야 한다. 이 경우 추천은 `StaticWeatherProvider` fallback 날씨로 생성된다. 실제 기상청 단기예보 JSON 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 
 ## 전달해야 할 파일/경로
-구현 완료 후 공유 시 아래 항목을 포함해야 한다.
+공유 시 아래 항목을 포함해야 한다.
 
 - GitHub repository URL
 - `README.md`
@@ -26,7 +26,7 @@ SmartCloset 2차 MVP 공유 방식은 Docker Compose로 유지한다.
 ```bash
 git clone <repository-url>
 cd SmartCloset-v2
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
