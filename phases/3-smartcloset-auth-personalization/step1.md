@@ -23,6 +23,8 @@
 ## 작업
 회원가입, 로그인, 현재 사용자 조회 API를 구현하고 프론트 세션 계약의 백엔드 기반을 완성한다. 기존 옷/위치/추천 API의 `userId` 제거는 이후 모듈별 step에서 수행한다.
 
+이 단계의 security 적용 범위는 공개 auth 2종과 `GET /api/users/me` 검증으로 제한한다. 아직 인증 사용자 기준으로 전환하지 않은 기존 2차 API를 `/api/**` 최종 정책으로 한 번에 잠그지 않는다.
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/auth/**`
 - `src/main/java/com/smartcloset/security/**`
@@ -51,11 +53,19 @@
 - 현재 사용자 DTO에는 `userId`를 넣지 않는다.
 - 중복 email은 `EMAIL_ALREADY_EXISTS`로 실패한다.
 - token 없음, 잘못된 token, 만료 token은 보호 API에서 401 계열로 실패해야 한다.
-- 기존 2차 API 전환 전까지 필요한 임시 permit rule은 명확히 제한하고 step 7에서 제거할 수 있게 테스트나 TODO를 남긴다.
+- `SecurityConfig`는 이 단계에서 아래 경계를 만족해야 한다.
+  - `POST /api/auth/signup`, `POST /api/auth/login`은 `permitAll`
+  - `GET /api/users/me`는 Bearer token 필수
+  - 아직 전환하지 않은 옷/위치/추천 API는 해당 모듈 step까지 임시 허용
+  - 임시 허용 matcher에는 Step 7 제거 대상임을 이름이나 주석으로 표시
+- security filter chain을 실제로 사용하기 시작하면 `http.cors(...)`를 활성화해 React dev server preflight가 막히지 않게 한다.
+- JWT error response가 `ObjectMapper` 등 framework bean에 의존하면 해당 bean 등록을 보장하고 ApplicationContext test로 확인한다.
 
 ## 검증 절차
 ```bash
 git diff --check
+rg -n 'http\\.cors|cors\\(' src/main/java/com/smartcloset/security src/test/java/com/smartcloset/security
+! rg -n 'anyRequest\\(\\)\\.authenticated|/api/\\*\\*.*authenticated' src/main/java/com/smartcloset/security
 ./gradlew test
 ```
 
@@ -66,7 +76,8 @@ git diff --check
 - 잘못된 password 또는 없는 email은 인증 실패로 처리한다.
 - `GET /api/users/me`는 유효 token으로 현재 사용자를 반환한다.
 - `GET /api/users/me` 응답에는 `userId`가 없다.
-- token 없음, 잘못된 token, 만료 token에 대한 controller/security test가 있다.
+- `GET /api/users/me`의 token 없음, 잘못된 token, 만료 token에 대한 controller/security test가 있다.
+- 기존 옷/위치/추천 API 테스트는 이 단계 이후에도 Step 0처럼 통과한다.
 - JWT claim은 `email`, `role`만 사용한다.
 
 ## 금지사항
@@ -75,3 +86,5 @@ git diff --check
 - 현재 사용자 응답에 `userId`를 노출하지 마라. 이유: 현재 사용자 전용 DTO에서는 `userId` 제거가 3차 기준이다.
 - 회원가입 화면을 위해 위치 catalog 조회 API를 공개로 열지 마라. 이유: `GET /api/locations`는 보호 API다.
 - password hash 비교를 직접 문자열 비교로 구현하지 마라. 이유: BCrypt `PasswordEncoder#matches`를 사용해야 한다.
+- `/api/**` 전체를 인증 필수로 만들지 마라. 이유: 옷/위치/추천 API는 아직 인증 사용자 기준으로 전환되지 않았다.
+- 옷/위치/추천 controller의 `userId` 제거를 이 단계에 섞지 마라. 이유: 모듈별 전환 step의 리뷰 범위를 흐린다.
