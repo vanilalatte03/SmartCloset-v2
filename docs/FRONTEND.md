@@ -176,7 +176,7 @@ export type UserLocationResponse = {
 프론트는 today 추천 GET 경로를 호출하지 않는다.
 
 ## 검증 기준
-프론트 구현 후 아래 명령이 통과해야 한다.
+프론트 변경 후 아래 명령이 통과해야 한다.
 
 ```bash
 cd frontend

@@ -87,8 +87,10 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ## Docker Compose 실행
 
+Docker Compose는 `mysql`, `app`, `frontend` 세 서비스를 함께 실행합니다. 기존 로컬 `.env`가 있으면 덮어쓰지 않습니다.
+
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
@@ -166,7 +168,7 @@ Fallback 날씨:
 | `windy` | `false` |
 
 ## 빠른 테스트 흐름
-React 앱 또는 Swagger UI에서 아래 순서로 확인합니다.
+React 앱(`http://localhost:5173`)에서 아래 순서로 확인합니다. API만 분리해 확인해야 할 때는 Swagger UI에서 같은 경로를 호출합니다.
 
 1. 사용자 위치 조회: `GET /api/users/location?userId=1`
 2. 위치 catalog 검색: `GET /api/locations?keyword=부산`
@@ -229,7 +231,7 @@ npm run build
 Docker Compose 공유 검증:
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up --build
 curl -s http://localhost:8080/v3/api-docs
 docker compose down -v
@@ -245,6 +247,9 @@ docker compose down -v
 - [Demo Scenario](docs/DEMO_SCENARIO.md)
 - [Sharing Guide](docs/SHARING_GUIDE.md)
 - [ADR](docs/ADR.md)
+
+과거 MVP archive는 참고용이며 현재 구현 기준은 아닙니다.
+
 - [1차 MVP Archive](archive/mvp-1/README.md)
 - [1.5차 MVP Archive](archive/mvp-1-5/README.md)
 
