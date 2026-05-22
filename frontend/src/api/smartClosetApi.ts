@@ -5,7 +5,6 @@ import type {
   LocationOptionResponse,
   RecommendationResponse,
   RecommendationWornResponse,
-  UpdateUserLocationRequest,
   UserLocationResponse,
 } from '../types/api';
 
@@ -33,11 +32,11 @@ export function getUserLocation(userId: number): Promise<UserLocationResponse> {
 
 export function updateUserLocation(
   userId: number,
-  body: UpdateUserLocationRequest
+  locationCode: string
 ): Promise<UserLocationResponse> {
   return request<UserLocationResponse>(`/api/users/location?${userIdParam(userId)}`, {
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ locationCode }),
   });
 }
 

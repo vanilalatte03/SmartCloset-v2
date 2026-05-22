@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toErrorResponse } from '../../api/errorHelpers';
 import { getLocations, updateUserLocation } from '../../api/smartClosetApi';
+import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
   ErrorResponse,
   LocationOptionResponse,
@@ -60,9 +61,7 @@ export function LocationPanel({
     setStatus(null);
 
     try {
-      const updatedLocation = await updateUserLocation(userId, {
-        locationCode: option.code,
-      });
+      const updatedLocation = await updateUserLocation(userId, option.code);
       onLocationChange(updatedLocation);
       setStatus(`${updatedLocation.name} saved as the current location.`);
     } catch (caught) {
@@ -115,11 +114,7 @@ export function LocationPanel({
         </button>
       </form>
 
-      {error ? (
-        <p className="panel-error" role="status">
-          <strong>{error.code}</strong> {error.message}
-        </p>
-      ) : null}
+      {error ? <ApiErrorMessage error={error} /> : null}
       {status ? (
         <p className="panel-success" role="status">
           {status}

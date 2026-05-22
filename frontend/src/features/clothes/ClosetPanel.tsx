@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toErrorResponse } from '../../api/errorHelpers';
 import { createClothing, getClothes } from '../../api/smartClosetApi';
+import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
   ClothingCategory,
   ClothingColor,
@@ -248,11 +249,7 @@ export function ClosetPanel({ userId }: ClosetPanelProps) {
         </button>
       </form>
 
-      {error ? (
-        <p className="panel-error" role="status">
-          <strong>{error.code}</strong> {error.message}
-        </p>
-      ) : null}
+      {error ? <ApiErrorMessage error={error} /> : null}
       {status ? (
         <p className="panel-success" role="status">
           {status}
