@@ -21,6 +21,8 @@
 ## 작업
 옷장 API를 인증 사용자 기준으로 전환한다. 공개 HTTP 계약에서 `userId` query parameter를 제거하고, Controller는 인증 principal에서 현재 사용자 id를 얻어 application service에 전달한다.
 
+이 단계에서 보호 API로 잠그는 범위는 옷장 API와 이전 단계의 `GET /api/users/me`까지다. 위치, 선호도, 추천 API는 각각의 후속 step이 끝날 때까지 임시 허용을 유지한다.
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/clothing/presentation/**`
 - `src/main/java/com/smartcloset/clothing/application/**`
@@ -43,11 +45,13 @@
 - 다른 사용자의 옷 상세/수정/archive 요청은 `CLOTHING_NOT_FOUND`로 실패시킨다.
 - archive는 idempotent해야 한다.
 - 목록 조회는 현재 인증 사용자의 `archived=false` 옷만 `id` 오름차순으로 반환한다.
+- `SecurityConfig`의 임시 matcher를 좁혀 옷장 API는 Bearer token 필수로 만들고, 아직 전환하지 않은 API는 Step 7 제거 대상 임시 허용으로 남긴다.
 
 ## 검증 절차
 ```bash
 git diff --check
 ! rg -n '/api/clothes\\?userId|userId.*ClothingResponse|ClothingResponse.*userId' src/main/java src/test/java
+! rg -n '/api/locations.*401|/api/recommendations.*401' src/test/java
 ./gradlew test
 ```
 
@@ -58,9 +62,11 @@ git diff --check
 - 옷 응답 DTO와 프론트 계약용 DTO에 `userId`가 없다.
 - 사용자 A token으로 사용자 B의 옷을 조회/수정/archive할 수 없다.
 - archive 중복 호출은 성공하며 결과가 `archived=true`로 유지된다.
+- 아직 전환하지 않은 위치/추천 API를 Step 2에서 새로 401 회귀 테스트 대상으로 만들지 않는다.
 
 ## 금지사항
 - `userId` query parameter를 compatibility 명목으로 유지하지 마라. 이유: 3차 공개 HTTP 계약에서 제거됐다.
 - Controller에서 repository를 직접 호출하지 마라. 이유: Controller는 HTTP, validation, principal extraction, DTO mapping만 담당한다.
 - 다른 사용자의 옷에 대해 `FORBIDDEN`으로 리소스 존재를 드러내지 마라. 이유: 현재 계약은 소유자가 아니면 `CLOTHING_NOT_FOUND`다.
 - Entity에 Lombok `@Data` 또는 무분별한 setter를 추가하지 마라. 이유: Entity mutation은 의도가 드러나는 method로 제한한다.
+- `/api/**` 전체 인증 정책을 이 단계에 적용하지 마라. 이유: 위치/선호도/추천 API 전환이 아직 남아 있다.

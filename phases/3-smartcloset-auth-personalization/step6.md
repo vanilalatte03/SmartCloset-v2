@@ -26,6 +26,8 @@
 ## 작업
 추천 생성, 추천 이력 조회, 착용 완료 API를 현재 인증 사용자 기준으로 전환한다. 기존 `userId` query parameter와 today 추천 GET 경로를 사용하지 않는다. 이전 step에서 교체한 `preferenceScore` score model을 유지한 채 HTTP/API와 weather 위치 연동만 전환한다.
 
+이 단계가 끝나면 백엔드 주요 API는 모두 인증 사용자 기준으로 전환되어 있어야 한다. 다만 최종 공개/보호 API 회귀 테스트와 임시 permit rule 제거는 Step 7에서 수행한다.
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/recommendation/presentation/**`
 - `src/main/java/com/smartcloset/recommendation/application/**`
@@ -58,12 +60,15 @@
 - 착용 완료는 idempotent해야 한다.
 - 다른 사용자의 추천 결과를 착용 완료 처리하면 `RECOMMENDATION_NOT_FOUND`로 실패한다.
 - 추천 business failure 5종은 HTTP 422로 유지한다.
+- `SecurityConfig`는 추천 생성, 추천 이력, 착용 완료 API를 Bearer token 필수로 만든다.
+- 이 단계에서 발견한 남은 임시 permit rule은 제거하지 말고 Step 7 검증 대상으로 남긴다. 단, 추천 API가 임시 허용에 남아 있으면 이 단계에서 수정한다.
 
 ## 검증 절차
 ```bash
 git diff --check
 ! rg -n 'GET /api/recommendations/(today)|POST /api/recommendations\\?userId' src/main/java src/test/java
 rg -n 'preferenceScore' src/main/java src/test/java
+rg -n '/api/recommendations' src/main/java/com/smartcloset/security src/test/java/com/smartcloset/security src/test/java/com/smartcloset/recommendation
 ./gradlew test
 ```
 
@@ -78,6 +83,7 @@ rg -n 'preferenceScore' src/main/java src/test/java
 - 사용자 A token으로 사용자 B의 추천 이력과 착용 완료를 처리할 수 없다.
 - today 추천 GET 경로가 코드와 테스트에 새로 생기지 않는다.
 - 추천 응답 score에는 `preferenceScore`가 있고 기존 다양성 점수 필드는 없다.
+- 추천 API가 Step 6 종료 시점에 임시 permit 대상에 남아 있지 않다.
 
 ## 금지사항
 - today 추천 GET endpoint를 추가하지 마라. 이유: 3차 추천 생성 API는 `POST /api/recommendations`만 사용한다.
@@ -86,3 +92,4 @@ rg -n 'preferenceScore' src/main/java src/test/java
 - KMA 원본 DTO를 추천 domain service에 넘기지 마라. 이유: 추천 도메인은 내부 `WeatherCondition`에만 의존해야 한다.
 - 추천 실패 코드를 500으로 뭉개지 마라. 이유: 추천 business failure는 422다.
 - 기존 다양성 점수 필드를 되살리지 마라. 이유: 이전 step에서 `preferenceScore`로 교체했다.
+- 최종 security cleanup을 이 단계에 섞지 마라. 이유: Step 7에서 전체 공개/보호 API 회귀 테스트와 함께 제거해야 한다.

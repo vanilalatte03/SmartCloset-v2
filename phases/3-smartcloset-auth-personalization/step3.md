@@ -23,6 +23,8 @@
 ## 작업
 위치 catalog와 현재 사용자 위치 API를 인증 사용자 기준으로 전환한다. `GET /api/locations`는 보호 API로 만들고, 기존 `userId` query 기반 위치 API를 `GET/PUT /api/users/me/location` 계약으로 바꾼다.
 
+이 단계에서 보호 API로 추가 잠그는 범위는 위치 catalog와 현재 사용자 위치 API다. 추천 API는 Step 6 전환 전까지 임시 허용을 유지한다.
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/location/presentation/**`
 - `src/main/java/com/smartcloset/location/application/**`
@@ -42,11 +44,13 @@
 - 현재 사용자 위치 조회 시 위치 snapshot이 없으면 서울 기본값으로 backfill한다. 이 경우 write transaction이 필요하다.
 - 존재하지 않는 `locationCode`는 `LOCATION_NOT_FOUND`로 실패한다.
 - 추천 생성에서 현재 사용자 위치 `nx`, `ny`를 KMA 요청에 연결하는 작업은 `recommendation-current-user-api` step에서 다룬다.
+- `SecurityConfig`는 `GET /api/locations`, `GET /api/users/me/location`, `PUT /api/users/me/location`을 Bearer token 필수로 만들고, 아직 전환하지 않은 API의 임시 허용은 Step 7 제거 대상으로 유지한다.
 
 ## 검증 절차
 ```bash
 git diff --check
 ! rg -n '/api/users/location\\?userId|GET /api/users/location|PUT /api/users/location' src/main/java src/test/java
+! rg -n '/api/recommendations.*401' src/test/java
 ./gradlew test
 ```
 
@@ -58,6 +62,7 @@ git diff --check
 - `PUT /api/users/me/location`은 현재 인증 사용자 위치만 변경한다.
 - 잘못된 location code는 `LOCATION_NOT_FOUND`로 실패한다.
 - 위치 API 전환 이후에도 내장 catalog의 9개 대표 지역 조회와 검색이 유지된다.
+- 아직 전환하지 않은 추천 API를 Step 3에서 새로 401 회귀 테스트 대상으로 만들지 않는다.
 
 ## 금지사항
 - `GET /api/locations`를 공개 API로 열지 마라. 이유: 3차에서는 로그인 후 위치 선택 흐름에서만 사용한다.
@@ -66,3 +71,4 @@ git diff --check
 - 위치 catalog를 DB 테이블로 만들지 마라. 이유: 서버 내장 catalog로 결정됐다.
 - 위치 응답에 `userId`를 넣지 마라. 이유: 현재 사용자 전용 response DTO에서는 `userId`를 제거한다.
 - KMA provider 요청 파라미터 변경을 이 단계에 섞지 마라. 이유: 위치 API 전환과 추천/weather 연동을 분리해 리뷰 가능하게 유지한다.
+- `/api/**` 전체 인증 정책을 이 단계에 적용하지 마라. 이유: 추천 API 전환이 아직 남아 있다.

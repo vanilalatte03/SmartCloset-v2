@@ -22,6 +22,8 @@
 ## 작업
 현재 인증 사용자의 선호도 저장/조회 API와 `users` JSON 문자열 저장 로직을 구현한다. 이 단계는 추천 점수 반영 전까지 저장/조회/검증만 다룬다.
 
+이 단계에서 보호 API로 추가 잠그는 범위는 `GET/PUT /api/users/me/preferences`다. 추천 API의 HTTP 전환과 최종 security boundary는 각각 Step 6, Step 7에서 다룬다.
+
 ## 변경 예상 파일
 - `src/main/java/com/smartcloset/user/application/**`
 - `src/main/java/com/smartcloset/user/dto/**`
@@ -50,11 +52,13 @@
 - `styleTags`는 문자열 배열이며 blank 불가, 각 항목 최대 30자 기준을 따른다.
 - 중복 제거는 허용하지만 순서 정책이 있다면 테스트로 고정한다.
 - 이 단계에서는 `styleTags`를 추천 점수, tie-breaker, 추천 이유에 연결하지 않는다.
+- `SecurityConfig`는 선호도 API를 Bearer token 필수로 만들고, 아직 전환하지 않은 추천 API의 임시 허용은 Step 7 제거 대상으로 유지한다.
 
 ## 검증 절차
 ```bash
 git diff --check
 rg -n 'preferred_colors_json|preferred_materials_json|style_tags_json' src/main/java src/test/java docs/ERD.md docs/API.md
+! rg -n '/api/recommendations.*401' src/test/java
 ./gradlew test
 ```
 
@@ -66,9 +70,11 @@ rg -n 'preferred_colors_json|preferred_materials_json|style_tags_json' src/main/
 - 선호도 응답에는 `userId`가 없다.
 - 잘못된 enum 값 또는 invalid styleTags는 `INVALID_REQUEST`로 실패한다.
 - 저장 로직은 JSON array string을 사용하며 별도 preference table을 만들지 않는다.
+- 아직 전환하지 않은 추천 API를 Step 4에서 새로 401 회귀 테스트 대상으로 만들지 않는다.
 
 ## 금지사항
 - 선호도 별도 테이블을 만들지 마라. 이유: 3차 저장 방식은 `users` JSON 문자열 컬럼이다.
 - `styleTags`를 추천 점수나 추천 이유에 반영하지 마라. 이유: 3차에서는 저장/조회/표시만 한다.
 - JSON 배열을 취약한 문자열 이어붙이기로 만들지 마라. 이유: escaping과 invalid JSON 위험이 있다.
 - 선호도 응답에 `userId`를 넣지 마라. 이유: 현재 사용자 전용 response DTO에서는 `userId`를 제거한다.
+- `/api/**` 전체 인증 정책을 이 단계에 적용하지 마라. 이유: 추천 API 전환과 최종 보안 경계 검증이 아직 남아 있다.
