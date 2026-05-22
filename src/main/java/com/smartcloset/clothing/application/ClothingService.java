@@ -25,8 +25,8 @@ public class ClothingService {
     }
 
     @Transactional
-    public ClothingResponse createClothing(Long userId, ClothingRequest request) {
-        User user = findUser(userId);
+    public ClothingResponse createClothing(Long currentUserId, ClothingRequest request) {
+        User user = findUser(currentUserId);
         ClothingItem clothingItem = ClothingItem.create(
                 user,
                 request.name(),
@@ -42,24 +42,24 @@ public class ClothingService {
     }
 
     @Transactional(readOnly = true)
-    public List<ClothingResponse> getActiveClothes(Long userId) {
-        findUser(userId);
-        return clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(userId)
+    public List<ClothingResponse> getActiveClothes(Long currentUserId) {
+        findUser(currentUserId);
+        return clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(currentUserId)
                 .stream()
                 .map(ClothingResponse::from)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ClothingResponse getClothing(Long userId, Long clothingId) {
-        findUser(userId);
-        return ClothingResponse.from(findClothingOwnedByUser(clothingId, userId));
+    public ClothingResponse getClothing(Long currentUserId, Long clothingId) {
+        findUser(currentUserId);
+        return ClothingResponse.from(findClothingOwnedByUser(clothingId, currentUserId));
     }
 
     @Transactional
-    public ClothingResponse updateClothing(Long userId, Long clothingId, ClothingRequest request) {
-        findUser(userId);
-        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, userId);
+    public ClothingResponse updateClothing(Long currentUserId, Long clothingId, ClothingRequest request) {
+        findUser(currentUserId);
+        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, currentUserId);
         clothingItem.updateDetails(
                 request.name(),
                 request.category(),
@@ -73,20 +73,20 @@ public class ClothingService {
     }
 
     @Transactional
-    public ClothingArchiveResponse archiveClothing(Long userId, Long clothingId) {
-        findUser(userId);
-        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, userId);
+    public ClothingArchiveResponse archiveClothing(Long currentUserId, Long clothingId) {
+        findUser(currentUserId);
+        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, currentUserId);
         clothingItem.archive();
         return ClothingArchiveResponse.from(clothingItem);
     }
 
-    private User findUser(Long userId) {
-        return userRepository.findById(userId)
+    private User findUser(Long currentUserId) {
+        return userRepository.findById(currentUserId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private ClothingItem findClothingOwnedByUser(Long clothingId, Long userId) {
-        return clothingItemRepository.findByIdAndUserId(clothingId, userId)
+    private ClothingItem findClothingOwnedByUser(Long clothingId, Long currentUserId) {
+        return clothingItemRepository.findByIdAndUserId(clothingId, currentUserId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.CLOTHING_NOT_FOUND));
     }
 }

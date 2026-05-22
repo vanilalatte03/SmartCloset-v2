@@ -23,7 +23,7 @@ public class SecurityConfig {
             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
             JwtAccessDeniedHandler jwtAccessDeniedHandler
     ) throws Exception {
-        // MVP3_STEP1_TEMP_PERMIT_UNMIGRATED_APIS: Step 7 removes this after each module switches to current-user APIs.
+        // MVP3_TEMP_PERMIT_UNMIGRATED_APIS: Step 7 removes this after each module switches to current-user APIs.
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
+                        .requestMatchers("/api/clothes", "/api/clothes/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, securityErrorResponseWriter),

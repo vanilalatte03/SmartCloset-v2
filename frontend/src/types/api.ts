@@ -47,7 +47,6 @@ export type ClothingRequest = {
 
 export type ClothingResponse = ClothingRequest & {
   id: number;
-  userId: number;
   archived: boolean;
   createdAt: string;
   updatedAt: string;

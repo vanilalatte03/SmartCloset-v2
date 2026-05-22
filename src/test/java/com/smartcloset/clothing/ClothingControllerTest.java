@@ -1,6 +1,7 @@
 package com.smartcloset.clothing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,14 +16,18 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
+import com.smartcloset.security.CurrentUserPrincipal;
+import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -48,22 +53,28 @@ class ClothingControllerTest {
     @Autowired
     private ClothingItemRepository clothingItemRepository;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
     }
 
     @Test
     void createsClothingWithArchivedFalse() throws Exception {
+        User user = userRepository.save(User.createSeedUser("create-clothing-user"));
         Map<String, Object> request = validRequest();
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").exists())
-                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.name").value("그레이 후드"))
                 .andExpect(jsonPath("$.data.category").value("TOP"))
                 .andExpect(jsonPath("$.data.color").value("GRAY"))
@@ -77,7 +88,32 @@ class ClothingControllerTest {
     }
 
     @Test
-    void returnsOnlyActiveClothesForRequestedUserOrderedById() throws Exception {
+    void clothingApisRequireBearerToken() throws Exception {
+        Map<String, Object> request = validRequest();
+
+        mockMvc.perform(post("/api/clothes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(get("/api/clothes"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/clothes/{clothingId}", 1L))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(put("/api/clothes/{clothingId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/archive", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void returnsOnlyActiveClothesForCurrentUserOrderedById() throws Exception {
         User targetUser = userRepository.save(User.createSeedUser("target-user"));
         User otherUser = userRepository.save(User.createSeedUser("other-user"));
 
@@ -126,7 +162,7 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         MvcResult result = mockMvc.perform(get("/api/clothes")
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -135,20 +171,21 @@ class ClothingControllerTest {
         assertThat(data.get(0).get("id").asLong()).isEqualTo(first.getId());
         assertThat(data.get(1).get("id").asLong()).isEqualTo(second.getId());
         for (JsonNode item : data) {
-            assertThat(item.get("userId").asLong()).isEqualTo(targetUser.getId());
+            assertThat(item.has("userId")).isFalse();
             assertThat(item.get("archived").asBoolean()).isFalse();
         }
     }
 
     @Test
     void returnsInvalidRequestWhenRequestValidationFails() throws Exception {
+        User user = userRepository.save(User.createSeedUser("invalid-request-user"));
         Map<String, Object> request = validRequest();
         request.put("name", " ");
         request.put("minTemperature", 20);
         request.put("maxTemperature", 10);
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -159,11 +196,12 @@ class ClothingControllerTest {
 
     @Test
     void returnsInvalidRequestWhenRequiredBooleanIsMissing() throws Exception {
+        User user = userRepository.save(User.createSeedUser("missing-boolean-user"));
         Map<String, Object> request = validRequest();
         request.remove("rainSuitable");
 
         mockMvc.perform(post("/api/clothes")
-                        .param("userId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -172,16 +210,19 @@ class ClothingControllerTest {
     }
 
     @Test
-    void returnsUserNotFoundForUnknownUser() throws Exception {
+    void returnsUserNotFoundWhenTokenSubjectDoesNotExist() throws Exception {
+        String missingUserToken = jwtTokenProvider.createAccessToken(
+                new CurrentUserPrincipal(99999L, "missing-user@example.com", UserRole.USER));
+
         mockMvc.perform(get("/api/clothes")
-                        .param("userId", "99999"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + missingUserToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
     @Test
-    void getsClothingOnlyWhenOwnedByRequestedUser() throws Exception {
+    void getsClothingOnlyWhenOwnedByCurrentUser() throws Exception {
         User targetUser = userRepository.save(User.createSeedUser("target-user"));
         User otherUser = userRepository.save(User.createSeedUser("other-user"));
         ClothingItem targetClothing = clothingItemRepository.save(createTop(targetUser, "화이트 셔츠"));
@@ -189,14 +230,14 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(get("/api/clothes/{clothingId}", targetClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(targetClothing.getId()))
-                .andExpect(jsonPath("$.data.userId").value(targetUser.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.name").value("화이트 셔츠"));
 
         mockMvc.perform(get("/api/clothes/{clothingId}", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
     }
@@ -214,7 +255,7 @@ class ClothingControllerTest {
         request.put("maxTemperature", 16);
 
         mockMvc.perform(put("/api/clothes/{clothingId}", clothing.getId())
-                        .param("userId", user.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -233,21 +274,21 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(clothing.getId()))
-                .andExpect(jsonPath("$.data.userId").value(user.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.archived").value(true))
                 .andExpect(jsonPath("$.data.updatedAt").exists());
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", clothing.getId())
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(clothing.getId()))
                 .andExpect(jsonPath("$.data.archived").value(true));
 
         mockMvc.perform(get("/api/clothes")
-                        .param("userId", user.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isEmpty());
     }
@@ -260,16 +301,24 @@ class ClothingControllerTest {
         clothingItemRepository.flush();
 
         mockMvc.perform(put("/api/clothes/{clothingId}", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", otherClothing.getId())
-                        .param("userId", targetUser.getId().toString()))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+    }
+
+    private String bearerToken(User user) {
+        return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
+                user.getId(),
+                user.getEmail(),
+                user.getRole()
+        ));
     }
 
     private Map<String, Object> validRequest() {
