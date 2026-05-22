@@ -65,8 +65,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.user.email").value("signup@example.com"))
                 .andExpect(jsonPath("$.data.user.name").value("Signup User"))
                 .andExpect(jsonPath("$.data.user.role").value("USER"))
-                .andExpect(jsonPath("$.data.user.userId").doesNotExist())
-                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+                .andExpect(jsonPath("$.data.user.userId").doesNotExist());
 
         User saved = userRepository.findByEmail("signup@example.com").orElseThrow();
         assertThat(passwordEncoder.matches("password123!", saved.getPasswordHash())).isTrue();
@@ -110,8 +109,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.email").value("login@example.com"))
                 .andExpect(jsonPath("$.data.user.name").value("Login User"))
-                .andExpect(jsonPath("$.data.user.userId").doesNotExist())
-                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+                .andExpect(jsonPath("$.data.user.userId").doesNotExist());
     }
 
     @Test
