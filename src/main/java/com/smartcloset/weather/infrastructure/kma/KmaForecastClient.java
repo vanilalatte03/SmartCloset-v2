@@ -4,5 +4,5 @@ import java.util.List;
 
 public interface KmaForecastClient {
 
-    List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime);
+    List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid);
 }

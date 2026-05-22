@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.user.application.UserLocationReader;
+import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class KmaVilageForecastWeatherProviderTest {
         WeatherCondition weather = provider.getCurrentWeather(1L);
 
         assertThat(client.requestedBaseTime()).isEqualTo(new KmaForecastBaseTime("20260521", "1400"));
+        assertThat(client.requestedGrid()).isEqualTo(new KmaGrid(98, 76));
         assertThat(weather.temperature()).isEqualTo(13);
         assertThat(weather.weatherType()).isEqualTo(WeatherType.SUNNY);
         assertThat(weather.rainy()).isFalse();
@@ -101,6 +105,7 @@ class KmaVilageForecastWeatherProviderTest {
                 new KmaForecastBaseTimeCalculator(),
                 new KmaWeatherConditionMapper(),
                 new StaticWeatherProvider(),
+                new FakeUserLocationReader(),
                 clock
         );
     }
@@ -146,6 +151,7 @@ class KmaVilageForecastWeatherProviderTest {
         private final KmaForecastClientException failure;
         private boolean called;
         private KmaForecastBaseTime requestedBaseTime;
+        private KmaGrid requestedGrid;
 
         private FakeKmaForecastClient(List<KmaForecastItem> items, KmaForecastClientException failure) {
             this.items = items;
@@ -161,9 +167,10 @@ class KmaVilageForecastWeatherProviderTest {
         }
 
         @Override
-        public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime) {
+        public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid) {
             called = true;
             requestedBaseTime = baseTime;
+            requestedGrid = grid;
             if (failure != null) {
                 throw failure;
             }
@@ -176,6 +183,18 @@ class KmaVilageForecastWeatherProviderTest {
 
         KmaForecastBaseTime requestedBaseTime() {
             return requestedBaseTime;
+        }
+
+        KmaGrid requestedGrid() {
+            return requestedGrid;
+        }
+    }
+
+    private static final class FakeUserLocationReader implements UserLocationReader {
+
+        @Override
+        public UserLocationSnapshot getRequiredLocationSnapshot(Long userId) {
+            return new UserLocationSnapshot(userId, "BUSAN", "부산광역시", 98, 76, LocalDateTime.now());
         }
     }
 }
