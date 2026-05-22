@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "kma-user-grid-integration",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T09:44:04+0900",
+      "summary": "추천 생성 시 사용자 위치 snapshot을 KMA grid로 사용하고 KMA 호출과 추천 저장 트랜잭션을 분리했습니다.",
+      "completed_at": "2026-05-22T09:50:40+0900"
     },
     {
       "step": 3,

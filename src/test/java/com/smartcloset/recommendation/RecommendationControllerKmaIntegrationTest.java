@@ -12,6 +12,7 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
+import com.smartcloset.location.domain.LocationOption;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.user.domain.User;
@@ -22,6 +23,7 @@ import com.smartcloset.weather.infrastructure.kma.KmaForecastBaseTimeCalculator;
 import com.smartcloset.weather.infrastructure.kma.KmaForecastClient;
 import com.smartcloset.weather.infrastructure.kma.KmaForecastClientException;
 import com.smartcloset.weather.infrastructure.kma.KmaForecastItem;
+import com.smartcloset.weather.infrastructure.kma.KmaGrid;
 import com.smartcloset.weather.infrastructure.kma.KmaWeatherProperties;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -102,10 +104,42 @@ class RecommendationControllerKmaIntegrationTest {
         RecommendationResult saved = recommendationResultRepository.findById(recommendationId).orElseThrow();
 
         assertThat(kmaForecastClient.called()).isTrue();
+        assertThat(kmaForecastClient.requestedGrid()).isEqualTo(new KmaGrid(60, 127));
         assertThat(saved.getWeatherTemperature()).isEqualTo(18);
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.RAINY);
         assertThat(saved.isRainy()).isTrue();
         assertThat(saved.isWindy()).isTrue();
+    }
+
+    @Test
+    void usesSelectedUserLocationGridWhenCallingKma() throws Exception {
+        User user = createUserWithKmaSuitableCloset("kma-busan-user");
+        user.updateLocation(new LocationOption("BUSAN", "부산광역시", 98, 76));
+        userRepository.flush();
+        kmaForecastClient.returning(completeFutureForecastGroup("18", "3", "0", "-", "2.0"));
+
+        mockMvc.perform(post("/api/recommendations")
+                        .param("userId", user.getId().toString()))
+                .andExpect(status().isCreated());
+
+        assertThat(kmaForecastClient.requestedGrid()).isEqualTo(new KmaGrid(98, 76));
+    }
+
+    @Test
+    void backfillsDefaultLocationAndUsesSeoulGridWhenUserLocationIsMissing() throws Exception {
+        User user = createUserWithKmaSuitableCloset("kma-backfill-user", false);
+        kmaForecastClient.returning(completeFutureForecastGroup("18", "3", "0", "-", "2.0"));
+
+        mockMvc.perform(post("/api/recommendations")
+                        .param("userId", user.getId().toString()))
+                .andExpect(status().isCreated());
+
+        User saved = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(kmaForecastClient.requestedGrid()).isEqualTo(new KmaGrid(60, 127));
+        assertThat(saved.getLocationCode()).isEqualTo("SEOUL");
+        assertThat(saved.getLocationName()).isEqualTo("서울특별시");
+        assertThat(saved.getLocationNx()).isEqualTo(60);
+        assertThat(saved.getLocationNy()).isEqualTo(127);
     }
 
     @Test
@@ -155,7 +189,11 @@ class RecommendationControllerKmaIntegrationTest {
     }
 
     private User createUserWithKmaSuitableCloset(String name) {
-        User user = userRepository.save(User.createSeedUser(name));
+        return createUserWithKmaSuitableCloset(name, true);
+    }
+
+    private User createUserWithKmaSuitableCloset(String name, boolean seedLocation) {
+        User user = userRepository.save(seedLocation ? User.createSeedUser(name) : User.create(name));
         clothingItemRepository.save(ClothingItem.create(
                 user,
                 "White cotton tee",
@@ -268,10 +306,12 @@ class RecommendationControllerKmaIntegrationTest {
         private List<KmaForecastItem> items = List.of();
         private KmaForecastClientException failure;
         private boolean called;
+        private KmaGrid requestedGrid;
 
         @Override
-        public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime) {
+        public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid) {
             called = true;
+            requestedGrid = grid;
             if (failure != null) {
                 throw failure;
             }
@@ -292,10 +332,15 @@ class RecommendationControllerKmaIntegrationTest {
             this.items = List.of();
             this.failure = null;
             this.called = false;
+            this.requestedGrid = null;
         }
 
         boolean called() {
             return called;
+        }
+
+        KmaGrid requestedGrid() {
+            return requestedGrid;
         }
     }
 }

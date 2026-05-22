@@ -14,13 +14,14 @@ import org.springframework.web.util.UriComponentsBuilder;
 class KmaVilageForecastClientTest {
 
     private final KmaForecastBaseTime baseTime = new KmaForecastBaseTime("20260521", "1400");
+    private final KmaGrid grid = new KmaGrid(98, 76);
 
     @Test
     void requestsDocumentedGetVilageFcstParametersAndReturnsItems() {
         FakeTransport transport = FakeTransport.responding(200, successResponse());
         KmaVilageForecastClient client = newClient(transport);
 
-        List<KmaForecastItem> items = client.getVilageForecast(baseTime);
+        List<KmaForecastItem> items = client.getVilageForecast(baseTime, grid);
 
         assertThat(transport.requestedUri().getPath()).isEqualTo("/kma/getVilageFcst");
         MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUri(transport.requestedUri())
@@ -32,8 +33,8 @@ class KmaVilageForecastClientTest {
         assertThat(queryParams.getFirst("dataType")).isEqualTo("JSON");
         assertThat(queryParams.getFirst("base_date")).isEqualTo("20260521");
         assertThat(queryParams.getFirst("base_time")).isEqualTo("1400");
-        assertThat(queryParams.getFirst("nx")).isEqualTo("61");
-        assertThat(queryParams.getFirst("ny")).isEqualTo("128");
+        assertThat(queryParams.getFirst("nx")).isEqualTo("98");
+        assertThat(queryParams.getFirst("ny")).isEqualTo("76");
 
         assertThat(items).containsExactly(
                 new KmaForecastItem("20260521", "1500", "TMP", "13"),
@@ -46,7 +47,7 @@ class KmaVilageForecastClientTest {
         FakeTransport transport = FakeTransport.responding(200, successResponse());
         KmaVilageForecastClient client = newClient(transport, "abc+def/ghi==");
 
-        client.getVilageForecast(baseTime);
+        client.getVilageForecast(baseTime, grid);
 
         assertThat(transport.requestedUri().getRawQuery())
                 .contains("serviceKey=abc%2Bdef%2Fghi%3D%3D")
@@ -58,7 +59,7 @@ class KmaVilageForecastClientTest {
         FakeTransport transport = FakeTransport.responding(200, successResponse());
         KmaVilageForecastClient client = newClient(transport, "abc%2Bdef%2Fghi%3D%3D");
 
-        client.getVilageForecast(baseTime);
+        client.getVilageForecast(baseTime, grid);
 
         assertThat(transport.requestedUri().getRawQuery())
                 .contains("serviceKey=abc%2Bdef%2Fghi%3D%3D")
@@ -85,7 +86,7 @@ class KmaVilageForecastClientTest {
                 }
                 """));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("99")
                 .hasMessageContaining("SERVICE_ERROR");
@@ -104,7 +105,7 @@ class KmaVilageForecastClientTest {
                 }
                 """));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("03")
                 .hasMessageContaining("NODATA_ERROR");
@@ -128,7 +129,7 @@ class KmaVilageForecastClientTest {
                 }
                 """));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("empty");
     }
@@ -137,7 +138,7 @@ class KmaVilageForecastClientTest {
     void failsWhenResponseCannotBeParsed() {
         KmaVilageForecastClient client = newClient(FakeTransport.responding(200, "{ invalid json"));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("parse KMA forecast response");
     }
@@ -146,7 +147,7 @@ class KmaVilageForecastClientTest {
     void failsWhenHttpStatusIsNotSuccessful() {
         KmaVilageForecastClient client = newClient(FakeTransport.responding(500, successResponse()));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("HTTP status 500");
     }
@@ -155,7 +156,7 @@ class KmaVilageForecastClientTest {
     void failsWhenTransportThrows() {
         KmaVilageForecastClient client = newClient(FakeTransport.failing(new IOException("socket closed")));
 
-        assertThatThrownBy(() -> client.getVilageForecast(baseTime))
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
                 .isInstanceOf(KmaForecastClientException.class)
                 .hasMessageContaining("Failed to call KMA forecast API");
     }

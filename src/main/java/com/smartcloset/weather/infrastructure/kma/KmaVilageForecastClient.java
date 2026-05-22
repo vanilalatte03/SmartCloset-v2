@@ -41,15 +41,16 @@ public class KmaVilageForecastClient implements KmaForecastClient {
     }
 
     @Override
-    public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime) {
+    public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid) {
         Objects.requireNonNull(baseTime, "baseTime must not be null");
-        URI uri = buildUri(baseTime);
+        Objects.requireNonNull(grid, "grid must not be null");
+        URI uri = buildUri(baseTime, grid);
         KmaHttpResponse response = execute(uri);
         validateHttpStatus(response);
         return parseItems(response.body());
     }
 
-    URI buildUri(KmaForecastBaseTime baseTime) {
+    URI buildUri(KmaForecastBaseTime baseTime, KmaGrid grid) {
         return UriComponentsBuilder.fromUriString(properties.baseUrl())
                 .pathSegment(GET_VILAGE_FCST_PATH)
                 .queryParam("serviceKey", encodedServiceKey())
@@ -58,8 +59,8 @@ public class KmaVilageForecastClient implements KmaForecastClient {
                 .queryParam("dataType", "JSON")
                 .queryParam("base_date", baseTime.baseDate())
                 .queryParam("base_time", baseTime.baseTime())
-                .queryParam("nx", properties.nx())
-                .queryParam("ny", properties.ny())
+                .queryParam("nx", grid.nx())
+                .queryParam("ny", grid.ny())
                 .build(true)
                 .toUri();
     }

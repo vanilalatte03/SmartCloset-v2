@@ -2,6 +2,8 @@ package com.smartcloset.weather.infrastructure.kma;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.user.application.UserLocationReader;
+import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.application.WeatherProvider;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
@@ -22,13 +24,15 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     private final KmaForecastBaseTimeCalculator baseTimeCalculator;
     private final KmaWeatherConditionMapper mapper;
     private final StaticWeatherProvider fallbackProvider;
+    private final UserLocationReader userLocationReader;
     private final Clock clock;
 
     @Autowired
     public KmaVilageForecastWeatherProvider(
             KmaWeatherProperties properties,
             KmaForecastClient client,
-            StaticWeatherProvider fallbackProvider
+            StaticWeatherProvider fallbackProvider,
+            UserLocationReader userLocationReader
     ) {
         this(
                 properties,
@@ -36,6 +40,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                 new KmaForecastBaseTimeCalculator(),
                 new KmaWeatherConditionMapper(),
                 fallbackProvider,
+                userLocationReader,
                 Clock.system(KmaForecastBaseTimeCalculator.KST_ZONE)
         );
     }
@@ -46,6 +51,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             KmaForecastBaseTimeCalculator baseTimeCalculator,
             KmaWeatherConditionMapper mapper,
             StaticWeatherProvider fallbackProvider,
+            UserLocationReader userLocationReader,
             Clock clock
     ) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
@@ -53,18 +59,22 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         this.baseTimeCalculator = Objects.requireNonNull(baseTimeCalculator, "baseTimeCalculator must not be null");
         this.mapper = Objects.requireNonNull(mapper, "mapper must not be null");
         this.fallbackProvider = Objects.requireNonNull(fallbackProvider, "fallbackProvider must not be null");
+        this.userLocationReader = Objects.requireNonNull(userLocationReader, "userLocationReader must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
     public WeatherCondition getCurrentWeather(Long userId) {
+        UserLocationSnapshot location = userLocationReader.getRequiredLocationSnapshot(userId);
+        KmaGrid grid = new KmaGrid(location.nx(), location.ny());
+
         if (properties.serviceKey().isBlank()) {
             return fallbackOrThrow(userId);
         }
 
         try {
             KmaForecastBaseTime baseTime = baseTimeCalculator.calculate(clock);
-            List<KmaForecastItem> items = client.getVilageForecast(baseTime);
+            List<KmaForecastItem> items = client.getVilageForecast(baseTime, grid);
             return mapper.map(items, ZonedDateTime.now(clock));
         } catch (KmaForecastClientException | KmaWeatherMappingException exception) {
             return fallbackOrThrow(userId);

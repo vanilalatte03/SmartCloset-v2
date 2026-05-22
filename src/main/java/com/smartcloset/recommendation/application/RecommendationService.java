@@ -29,10 +29,13 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class RecommendationService {
@@ -42,6 +45,7 @@ public class RecommendationService {
     private final RecommendationResultRepository recommendationResultRepository;
     private final WearHistoryRepository wearHistoryRepository;
     private final WeatherProvider weatherProvider;
+    private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WeatherSuitabilityFilter weatherSuitabilityFilter = new WeatherSuitabilityFilter();
     private final OutfitCandidateGenerator outfitCandidateGenerator = new OutfitCandidateGenerator();
@@ -53,20 +57,31 @@ public class RecommendationService {
             ClothingItemRepository clothingItemRepository,
             RecommendationResultRepository recommendationResultRepository,
             WearHistoryRepository wearHistoryRepository,
-            WeatherProvider weatherProvider
+            WeatherProvider weatherProvider,
+            PlatformTransactionManager transactionManager
     ) {
         this.userRepository = userRepository;
         this.clothingItemRepository = clothingItemRepository;
         this.recommendationResultRepository = recommendationResultRepository;
         this.wearHistoryRepository = wearHistoryRepository;
         this.weatherProvider = weatherProvider;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
     public RecommendationResponse createTodayRecommendation(Long userId) {
-        User user = findUser(userId);
         WeatherCondition weather = weatherProvider.getCurrentWeather(userId);
         LocalDateTime requestedAt = LocalDateTime.now();
+        return Objects.requireNonNull(transactionTemplate.execute(status ->
+                createTodayRecommendationInTransaction(userId, weather, requestedAt)
+        ));
+    }
+
+    private RecommendationResponse createTodayRecommendationInTransaction(
+            Long userId,
+            WeatherCondition weather,
+            LocalDateTime requestedAt
+    ) {
+        User user = findUser(userId);
         List<ClothingItem> activeClothes = clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(userId);
         List<WearHistory> wearHistories = wearHistoryRepository.findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
                 userId,
