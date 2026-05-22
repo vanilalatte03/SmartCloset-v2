@@ -102,11 +102,31 @@
   padding: 0 14px;
 }
 
+.primary-button {
+  background: #1f4f7a;
+  border: 1px solid #1f4f7a;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.primary-button:disabled,
 .secondary-button:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
 }
 
+.primary-button:disabled {
+  background: #d9dee8;
+  border-color: #c9d1dc;
+}
+
+.primary-button:focus-visible,
 .secondary-button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -137,10 +157,37 @@
   margin-bottom: 14px;
 }
 
+.panel h3 {
+  color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.panel-section {
+  margin-top: 16px;
+}
+
+.panel-section:first-of-type {
+  margin-top: 0;
+}
+
+.section-title-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 .metric-list {
   display: grid;
   gap: 10px;
   margin: 0;
+}
+
+.metric-list.compact {
+  gap: 8px;
 }
 
 .metric-list div {
@@ -163,6 +210,182 @@
   color: var(--text-muted);
 }
 
+.inline-form,
+.panel-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.inline-form {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.panel-form {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.field-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field.wide {
+  grid-column: 1 / -1;
+}
+
+.field span,
+.checkbox-field span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select {
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.checkbox-field {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.checkbox-field input {
+  height: 16px;
+  width: 16px;
+}
+
+.option-list,
+.item-list,
+.reason-list {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.option-row,
+.item-row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 10px 0;
+}
+
+.option-row:first-child,
+.item-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.option-row > div,
+.item-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.option-row strong,
+.item-row strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.option-row span,
+.item-row span,
+.item-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.item-meta {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.panel-error,
+.panel-success {
+  border-left: 3px solid;
+  margin-top: 12px;
+  padding-left: 10px;
+}
+
+.panel-error {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+.panel-success {
+  border-color: var(--success);
+  color: #166534;
+}
+
+.score-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 10px 0 0;
+}
+
+.score-grid div {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+}
+
+.score-grid dt {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.score-grid dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.reason-list {
+  gap: 6px;
+  padding-left: 18px;
+}
+
+.reason-list li {
+  padding-left: 2px;
+}
+
 @media (max-width: 920px) {
   .app-shell {
     width: min(100% - 24px, 640px);
@@ -181,5 +404,23 @@
 
   .panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inline-form,
+  .field-grid,
+  .score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .option-row,
+  .item-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .option-row .secondary-button,
+  .item-meta {
+    align-self: flex-start;
+    text-align: left;
   }
 }

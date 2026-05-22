@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiClientError } from './api/client';
+import { toErrorResponse } from './api/errorHelpers';
 import { getApiBaseUrl, getUserLocation } from './api/smartClosetApi';
 import { StatusBadge } from './components/StatusBadge';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
@@ -11,14 +11,6 @@ import './App.css';
 const userId = 1;
 
 type ConnectionState = 'checking' | 'connected' | 'error';
-
-function unknownErrorResponse(message: string): ErrorResponse {
-  return {
-    code: 'NETWORK_ERROR',
-    message,
-    details: [],
-  };
-}
 
 function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
@@ -36,17 +28,19 @@ function App() {
     } catch (caught) {
       setLocation(null);
       setConnectionState('error');
-      if (caught instanceof ApiClientError) {
-        setError(caught.response);
-        return;
-      }
-      setError(unknownErrorResponse('Unable to reach the SmartCloset API.'));
+      setError(toErrorResponse(caught, 'Unable to reach the SmartCloset API.'));
     }
   }, []);
 
   useEffect(() => {
     void checkConnection();
   }, [checkConnection]);
+
+  const handleLocationChange = useCallback((updatedLocation: UserLocationResponse) => {
+    setLocation(updatedLocation);
+    setConnectionState('connected');
+    setError(null);
+  }, []);
 
   return (
     <main className="app-shell">
@@ -90,9 +84,14 @@ function App() {
       ) : null}
 
       <section className="panel-grid" aria-label="SmartCloset workspace">
-        <LocationPanel location={location} loading={connectionState === 'checking'} />
-        <ClosetPanel />
-        <RecommendationPanel />
+        <LocationPanel
+          userId={userId}
+          location={location}
+          loading={connectionState === 'checking'}
+          onLocationChange={handleLocationChange}
+        />
+        <ClosetPanel userId={userId} />
+        <RecommendationPanel userId={userId} location={location} />
       </section>
     </main>
   );
