@@ -45,8 +45,8 @@ class TemporarySecurityPermitAllTest {
     }
 
     @Test
-    void keepsUnmigratedRecommendationApiReachableWithoutBearerTokenUntilStep6() throws Exception {
+    void recommendationApiIsRemovedFromTemporaryPermitAllAfterStep6() throws Exception {
         mockMvc.perform(post("/api/recommendations"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
     }
 }

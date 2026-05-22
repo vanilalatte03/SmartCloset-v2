@@ -1,6 +1,7 @@
 package com.smartcloset.recommendation.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class RecommendationService {
+
+    private static final int DEFAULT_HISTORY_LIMIT = 20;
+    private static final int MIN_HISTORY_LIMIT = 1;
+    private static final int MAX_HISTORY_LIMIT = 50;
+    private static final TypeReference<List<String>> REASONS_TYPE = new TypeReference<>() {
+    };
 
     private final UserRepository userRepository;
     private final ClothingItemRepository clothingItemRepository;
@@ -74,15 +82,15 @@ public class RecommendationService {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    public RecommendationResponse createTodayRecommendation(Long userId) {
+    public RecommendationResponse createRecommendation(Long userId) {
         WeatherCondition weather = weatherProvider.getCurrentWeather(userId);
         LocalDateTime requestedAt = LocalDateTime.now();
         return Objects.requireNonNull(transactionTemplate.execute(status ->
-                createTodayRecommendationInTransaction(userId, weather, requestedAt)
+                createRecommendationInTransaction(userId, weather, requestedAt)
         ));
     }
 
-    private RecommendationResponse createTodayRecommendationInTransaction(
+    private RecommendationResponse createRecommendationInTransaction(
             Long userId,
             WeatherCondition weather,
             LocalDateTime requestedAt
@@ -123,6 +131,21 @@ public class RecommendationService {
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendationResponse> getRecommendationHistory(Long userId, Integer limit) {
+        int resolvedLimit = validateHistoryLimit(limit);
+        return recommendationResultRepository.findByUserIdOrderByCreatedAtDesc(
+                        userId,
+                        PageRequest.of(0, resolvedLimit)
+                )
+                .stream()
+                .map(recommendationResult -> RecommendationResponse.from(
+                        recommendationResult,
+                        readReasonsJson(recommendationResult.getReasonsJson())
+                ))
+                .toList();
     }
 
     @Transactional
@@ -189,6 +212,22 @@ public class RecommendationService {
         } catch (JsonProcessingException exception) {
             throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private List<String> readReasonsJson(String reasonsJson) {
+        try {
+            return objectMapper.readValue(reasonsJson, REASONS_TYPE);
+        } catch (JsonProcessingException exception) {
+            throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private int validateHistoryLimit(Integer limit) {
+        int resolvedLimit = limit == null ? DEFAULT_HISTORY_LIMIT : limit;
+        if (resolvedLimit < MIN_HISTORY_LIMIT || resolvedLimit > MAX_HISTORY_LIMIT) {
+            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+        }
+        return resolvedLimit;
     }
 
     private User findUser(Long userId) {

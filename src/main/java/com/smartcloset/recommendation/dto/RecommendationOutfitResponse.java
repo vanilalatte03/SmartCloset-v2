@@ -1,6 +1,11 @@
 package com.smartcloset.recommendation.dto;
 
 import com.smartcloset.recommendation.domain.OutfitCandidate;
+import com.smartcloset.recommendation.domain.OutfitSlot;
+import com.smartcloset.recommendation.domain.RecommendationResult;
+import com.smartcloset.recommendation.domain.RecommendationResultItem;
+import java.util.EnumMap;
+import java.util.Map;
 
 public record RecommendationOutfitResponse(
         OutfitItemResponse top,
@@ -13,6 +18,18 @@ public record RecommendationOutfitResponse(
                 OutfitItemResponse.from(candidate.top()),
                 OutfitItemResponse.from(candidate.bottom()),
                 candidate.hasOuter() ? OutfitItemResponse.from(candidate.outer()) : null
+        );
+    }
+
+    public static RecommendationOutfitResponse from(RecommendationResult recommendationResult) {
+        Map<OutfitSlot, OutfitItemResponse> items = new EnumMap<>(OutfitSlot.class);
+        for (RecommendationResultItem item : recommendationResult.getItems()) {
+            items.put(item.getSlot(), OutfitItemResponse.from(item.getClothingItem()));
+        }
+        return new RecommendationOutfitResponse(
+                items.get(OutfitSlot.TOP),
+                items.get(OutfitSlot.BOTTOM),
+                items.get(OutfitSlot.OUTER)
         );
     }
 }
