@@ -1,5 +1,6 @@
 package com.smartcloset.security;
 
+import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.user.domain.UserRole;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,9 +19,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final SecurityErrorResponseWriter responseWriter;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, SecurityErrorResponseWriter responseWriter) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.responseWriter = responseWriter;
     }
 
     @Override
@@ -47,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (JwtTokenException exception) {
             SecurityContextHolder.clearContext();
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            responseWriter.write(response, ErrorCode.INVALID_TOKEN);
         }
     }
 

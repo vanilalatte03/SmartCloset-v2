@@ -41,6 +41,7 @@ class JwtTokenProviderTest {
         assertThat(payload).containsEntry("sub", "42")
                 .containsEntry("email", "demo@example.com")
                 .containsEntry("role", "USER");
+        assertThat(payload).doesNotContainKeys("userId", "name");
         assertThat(expiresAt - issuedAt).isEqualTo(JwtTokenProvider.ACCESS_TOKEN_TTL.toSeconds());
     }
 

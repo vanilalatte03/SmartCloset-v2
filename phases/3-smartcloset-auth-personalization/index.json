@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "auth-api-and-session-contract",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-22T17:30:47+0900",
+      "summary": "회원가입/로그인과 GET /api/users/me 보호 API, JWT 보안 오류 응답, Step1 임시 보안 경계 테스트를 추가했다."
     },
     {
       "step": 2,
