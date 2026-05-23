@@ -751,6 +751,163 @@
   text-transform: none;
 }
 
+.closet-counts {
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 4px;
+}
+
+.closet-counts div {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.closet-counts dd {
+  color: var(--text-heading);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.category-filter,
+.preset-list,
+.closet-form-actions,
+.closet-item-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-filter {
+  margin: 0 0 12px;
+}
+
+.filter-chip,
+.preset-button {
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.filter-chip {
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.filter-chip.active,
+.preset-button.active {
+  background: #e9f2ec;
+  border-color: #bed6c7;
+  color: #14532d;
+}
+
+.filter-chip:focus-visible,
+.preset-button:focus-visible,
+.danger-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.closet-list {
+  margin-top: 10px;
+}
+
+.closet-item-row {
+  align-items: flex-start;
+}
+
+.closet-item-main {
+  gap: 6px;
+}
+
+.closet-item-name {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.category-pill {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 24px;
+  padding: 0 8px;
+}
+
+.closet-item-detail {
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.closet-item-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.danger-button {
+  border-color: rgba(185, 28, 28, 0.34);
+  color: var(--danger-text);
+}
+
+.closet-form-heading {
+  align-items: flex-start;
+}
+
+.closet-form-heading > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.closet-form-note {
+  font-size: 13px;
+  margin: 0;
+}
+
+.preset-list {
+  align-items: stretch;
+}
+
+.preset-button {
+  display: grid;
+  flex: 1 1 128px;
+  gap: 2px;
+  min-height: 54px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.preset-button strong {
+  color: var(--text-heading);
+  font-size: 13px;
+}
+
+.preset-button span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.closet-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.closet-form-actions {
+  justify-content: flex-start;
+}
+
+.closet-form-actions .muted {
+  font-size: 13px;
+}
+
 .panel-error,
 .panel-success {
   border-left: 3px solid;
@@ -930,6 +1087,7 @@
   .inline-form,
   .checkbox-grid,
   .field-grid,
+  .closet-form-grid,
   .today-layout,
   .today-weather-metrics,
   .recommendation-layout,
@@ -978,5 +1136,20 @@
     align-self: flex-start;
     text-align: left;
     justify-items: start;
+  }
+
+  .closet-counts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .closet-item-actions,
+  .closet-form-actions {
+    justify-content: flex-start;
+  }
+
+  .closet-item-actions .secondary-button,
+  .closet-form-actions .primary-button,
+  .closet-form-actions .secondary-button {
+    flex: 1 1 132px;
   }
 }

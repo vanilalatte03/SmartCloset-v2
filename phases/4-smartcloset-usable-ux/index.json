@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "closet-quick-manage",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T04:01:20+0900",
+      "summary": "Closet view에 카테고리 필터, 기온 프리셋 빠른 등록, 전체 수정, 보관 처리 UX를 추가했다.",
+      "completed_at": "2026-05-24T04:07:35+0900"
     },
     {
       "step": 5,
