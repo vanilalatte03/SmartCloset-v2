@@ -10,6 +10,7 @@ import { PreferencesPanel } from './features/preferences/PreferencesPanel';
 import { TodayPanel } from './features/today/TodayPanel';
 import type {
   AuthResponse,
+  ClothingCategory,
   CurrentUserResponse,
   ErrorResponse,
   UserLocationResponse,
@@ -21,6 +22,9 @@ const accessTokenStorageKey = 'smartcloset.accessToken';
 type SessionState = 'restoring' | 'anonymous' | 'authenticated';
 type ConnectionState = 'checking' | 'connected' | 'error';
 type AppView = 'today' | 'closet' | 'preferences' | 'location' | 'history';
+type AppNavigationOptions = {
+  closetCategory?: ClothingCategory;
+};
 
 const appViews: Array<{
   id: AppView;
@@ -53,6 +57,8 @@ function App() {
     accessToken ? 'checking' : 'connected'
   );
   const [activeView, setActiveView] = useState<AppView>('today');
+  const [closetInitialCategory, setClosetInitialCategory] =
+    useState<ClothingCategory | null>(null);
   const [location, setLocation] = useState<UserLocationResponse | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
@@ -62,6 +68,7 @@ function App() {
     setCurrentUser(null);
     setLocation(null);
     setActiveView('today');
+    setClosetInitialCategory(null);
     setSessionState('anonymous');
     setConnectionState('connected');
   }, []);
@@ -112,6 +119,7 @@ function App() {
     setAccessToken(response.accessToken);
     setCurrentUser(response.user);
     setActiveView('today');
+    setClosetInitialCategory(null);
     setSessionState('authenticated');
     setConnectionState('checking');
     setError(null);
@@ -128,7 +136,12 @@ function App() {
     setError(null);
   }, []);
 
-  const handleNavigate = useCallback((view: AppView) => {
+  const handleNavigate = useCallback((view: AppView, options?: AppNavigationOptions) => {
+    if (view === 'closet') {
+      setClosetInitialCategory(options?.closetCategory ?? null);
+    } else {
+      setClosetInitialCategory(null);
+    }
     setActiveView(view);
   }, []);
 
@@ -168,7 +181,7 @@ function App() {
             type="button"
             key={view.id}
             aria-current={selected ? 'page' : undefined}
-            onClick={() => setActiveView(view.id)}
+            onClick={() => handleNavigate(view.id)}
           >
             {view.label}
           </button>
@@ -201,7 +214,11 @@ function App() {
               <p className="eyebrow">Closet</p>
               <h2 id="closet-view-title">옷장</h2>
             </header>
-            <ClosetPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
+            <ClosetPanel
+              accessToken={accessToken}
+              initialCategory={closetInitialCategory}
+              onAuthExpired={handleAuthExpired}
+            />
           </section>
         );
       case 'preferences':

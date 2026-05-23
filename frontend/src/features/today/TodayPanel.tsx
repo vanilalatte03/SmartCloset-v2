@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
+  isUnauthorizedError,
+  toErrorResponse,
+  toRecommendationFailureCta,
+} from '../../api/errorHelpers';
+import {
+  createRecommendation,
   getClothes,
   getCurrentWeather,
   getRecommendationHistory,
   getUserPreferences,
+  markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
+import { RecommendationPanel } from '../recommendation/RecommendationPanel';
 import type {
   ClothingCategory,
   ClothingResponse,
@@ -17,15 +24,21 @@ import type {
   UserPreferencesResponse,
   WeatherResponse,
 } from '../../types/api';
-import { clothingCategoryLabels } from '../../utils/displayMappings';
+import {
+  clothingCategoryLabels,
+  type RecommendationFailureCta,
+} from '../../utils/displayMappings';
 
 type TodayTargetView = 'closet' | 'preferences' | 'location' | 'history';
+type TodayNavigationOptions = {
+  closetCategory?: ClothingCategory;
+};
 
 type TodayPanelProps = {
   accessToken: string;
   location: UserLocationResponse | null;
   onAuthExpired: () => void;
-  onNavigate: (view: TodayTargetView) => void;
+  onNavigate: (view: TodayTargetView, options?: TodayNavigationOptions) => void;
 };
 
 type ChecklistItem = {
@@ -35,6 +48,7 @@ type ChecklistItem = {
   detail: string;
   ctaLabel: string;
   targetView: TodayTargetView;
+  category?: ClothingCategory;
 };
 
 const recentHistoryLimit = 20;
@@ -123,6 +137,14 @@ export function TodayPanel({
   const [history, setHistory] = useState<RecommendationResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<ErrorResponse | null>(null);
+  const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
+  const [recommendationFailure, setRecommendationFailure] =
+    useState<RecommendationFailureCta | null>(null);
+  const [recommendationError, setRecommendationError] = useState<ErrorResponse | null>(null);
+  const [recommendationStatus, setRecommendationStatus] = useState<string | null>(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [markingRecommendationWorn, setMarkingRecommendationWorn] = useState(false);
+  const [recommendationWornAt, setRecommendationWornAt] = useState<string | null>(null);
 
   const loadWeather = useCallback(async () => {
     setWeatherLoading(true);
@@ -208,6 +230,75 @@ export function TodayPanel({
     void loadHistoryPreview();
   }, [loadReadiness, loadHistoryPreview]);
 
+  const handleCreateRecommendation = async () => {
+    setRecommendationLoading(true);
+    setRecommendationFailure(null);
+    setRecommendationError(null);
+    setRecommendationStatus(null);
+
+    try {
+      const nextRecommendation = await createRecommendation(accessToken);
+      setRecommendation(nextRecommendation);
+      setRecommendationWornAt(null);
+      setRecommendationStatus('추천을 만들었습니다.');
+      await loadHistoryPreview();
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+
+      const nextError = toErrorResponse(caught, '추천을 만들지 못했습니다.');
+      const nextFailureCta = toRecommendationFailureCta(nextError);
+      if (nextFailureCta) {
+        setRecommendationFailure(nextFailureCta);
+        setRecommendationError(null);
+      } else {
+        setRecommendationError(nextError);
+      }
+    } finally {
+      setRecommendationLoading(false);
+    }
+  };
+
+  const handleMarkRecommendationWorn = async () => {
+    if (!recommendation) {
+      return;
+    }
+
+    setMarkingRecommendationWorn(true);
+    setRecommendationFailure(null);
+    setRecommendationError(null);
+    setRecommendationStatus(null);
+
+    try {
+      const response = await markRecommendationWorn(
+        accessToken,
+        recommendation.recommendationId
+      );
+      setRecommendation((current) =>
+        current?.recommendationId === response.recommendationId
+          ? { ...current, worn: response.worn }
+          : current
+      );
+      setRecommendationWornAt(response.wornAt);
+      setRecommendationStatus('착용 완료로 기록했습니다.');
+      await loadHistoryPreview();
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setRecommendationError(toErrorResponse(caught, '착용 완료를 기록하지 못했습니다.'));
+    } finally {
+      setMarkingRecommendationWorn(false);
+    }
+  };
+
+  const handleRecommendationFailureCta = (category?: ClothingCategory) => {
+    onNavigate('closet', category ? { closetCategory: category } : undefined);
+  };
+
   const activeCategoryCounts = useMemo(() => getActiveCategoryCounts(clothes), [clothes]);
   const preferenceChecked = preferences !== null;
   const previewHistory = history.slice(0, recentHistoryPreviewCount);
@@ -249,6 +340,7 @@ export function TodayPanel({
         detail: count > 0 ? `활성 옷 ${count}개` : `${categoryLabel}가 아직 없어요.`,
         ctaLabel: count > 0 ? '옷장 보기' : `${categoryLabel} 등록하기`,
         targetView: 'closet' as const,
+        category,
       };
     }),
   ];
@@ -263,17 +355,37 @@ export function TodayPanel({
             위치, 선호도, 상의, 하의, 아우터가 준비되면 첫 추천을 바로 시작할 수 있어요.
           </p>
         </div>
-        <div className="today-primary-action">
-          <button className="primary-button today-generate-button" type="button" disabled>
-            추천 만들기
-          </button>
+        <div className="today-readiness-summary">
+          <span
+            className={
+              readyForFirstRecommendation
+                ? 'readiness-pill complete'
+                : 'readiness-pill pending'
+            }
+          >
+            {readyForFirstRecommendation ? '준비 완료' : '준비 중'}
+          </span>
           <span className="today-cta-note">
             {readyForFirstRecommendation
-              ? '추천 생성 흐름을 연결할 준비가 끝났어요.'
+              ? '아래 추천 만들기에서 바로 옷 조합을 생성할 수 있어요.'
               : '체크리스트를 완료하면 추천을 만들 수 있어요.'}
           </span>
         </div>
       </article>
+
+      <RecommendationPanel
+        location={location}
+        recommendation={recommendation}
+        failureCta={recommendationFailure}
+        error={recommendationError}
+        status={recommendationStatus}
+        wornAt={recommendationWornAt}
+        loading={recommendationLoading}
+        markingWorn={markingRecommendationWorn}
+        onCreate={handleCreateRecommendation}
+        onMarkWorn={handleMarkRecommendationWorn}
+        onFailureCta={handleRecommendationFailureCta}
+      />
 
       <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
         <div className="section-title-row">
@@ -337,7 +449,12 @@ export function TodayPanel({
                 <button
                   className="secondary-button"
                   type="button"
-                  onClick={() => onNavigate(item.targetView)}
+                  onClick={() =>
+                    onNavigate(
+                      item.targetView,
+                      item.category ? { closetCategory: item.category } : undefined
+                    )
+                  }
                 >
                   {item.ctaLabel}
                 </button>

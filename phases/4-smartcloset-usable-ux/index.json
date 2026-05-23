@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "recommendation-guidance-ux",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T04:10:01+0900",
+      "summary": "Today 흐름에 추천 생성, 이유 우선 결과, 착용 완료, 한국어 실패 CTA와 옷장 category 이동을 연결했다.",
+      "completed_at": "2026-05-24T04:15:23+0900"
     },
     {
       "step": 6,

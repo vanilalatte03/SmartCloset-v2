@@ -140,10 +140,15 @@ function matchesPreset(form: ClothingRequest, preset: TemperaturePreset): boolea
 
 type ClosetPanelProps = {
   accessToken: string;
+  initialCategory?: ClothingCategory | null;
   onAuthExpired: () => void;
 };
 
-export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
+export function ClosetPanel({
+  accessToken,
+  initialCategory,
+  onAuthExpired,
+}: ClosetPanelProps) {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
@@ -176,6 +181,19 @@ export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
   useEffect(() => {
     void loadClothes();
   }, [loadClothes]);
+
+  useEffect(() => {
+    if (!initialCategory) {
+      return;
+    }
+
+    setEditingId(null);
+    setCategoryFilter(initialCategory);
+    setForm({
+      ...defaultForm,
+      category: initialCategory,
+    });
+  }, [initialCategory]);
 
   const activeClothes = useMemo(
     () => clothes.filter((item) => !item.archived),

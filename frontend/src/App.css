@@ -341,15 +341,35 @@
   margin: 0;
 }
 
-.today-primary-action {
+.today-readiness-summary {
   align-items: stretch;
   display: grid;
   gap: 8px;
   min-width: min(240px, 100%);
 }
 
-.today-generate-button {
-  min-height: 44px;
+.readiness-pill {
+  align-items: center;
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 12px;
+  width: fit-content;
+}
+
+.readiness-pill.complete {
+  background: #e9f2ec;
+  border-color: #bed6c7;
+  color: #14532d;
+}
+
+.readiness-pill.pending {
+  background: #fff7e6;
+  border-color: #f0c56f;
+  color: #7c4a03;
 }
 
 .today-cta-note,
@@ -442,6 +462,122 @@
 
 .today-history-row {
   align-items: flex-start;
+}
+
+.recommendation-heading {
+  align-items: flex-start;
+}
+
+.recommendation-heading > div {
+  min-width: 0;
+}
+
+.recommendation-heading-copy {
+  font-size: 13px;
+  margin: 0;
+}
+
+.recommendation-action-bar {
+  align-items: center;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.recommendation-create-button {
+  min-height: 44px;
+  min-width: 136px;
+}
+
+.recommendation-failure-card {
+  align-items: center;
+  background: #fff7e6;
+  border: 1px solid #f0c56f;
+  border-radius: 8px;
+  color: #5f3d05;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.recommendation-failure-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.recommendation-failure-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.recommendation-result-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.recommendation-weather-snapshot {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.recommendation-weather-snapshot dd {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.recommendation-outfit-list {
+  margin-top: 10px;
+}
+
+.recommendation-outfit-row {
+  align-items: flex-start;
+}
+
+.recommendation-reason-list {
+  margin-top: 10px;
+}
+
+.recommendation-worn-section {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.recommendation-worn-section > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.recommendation-worn-section p {
+  margin: 0;
+}
+
+.recommendation-score-details {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.recommendation-score-details summary {
+  color: var(--text-heading);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.recommendation-empty {
+  margin: 14px 0 0;
 }
 
 .auth-layout {
@@ -1104,7 +1240,11 @@
     font-size: 22px;
   }
 
-  .today-primary-action {
+  .today-readiness-summary {
+    min-width: 0;
+  }
+
+  .recommendation-action-bar {
     background: var(--surface);
     border-top: 1px solid var(--border);
     bottom: calc(72px + env(safe-area-inset-bottom));
@@ -1112,6 +1252,16 @@
     padding: 12px 18px 14px;
     position: sticky;
     z-index: 9;
+  }
+
+  .recommendation-action-bar .primary-button {
+    width: 100%;
+  }
+
+  .recommendation-failure-card,
+  .recommendation-worn-section {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .today-checklist-item {
