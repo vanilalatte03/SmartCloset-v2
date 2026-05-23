@@ -5,6 +5,7 @@ import { ApiErrorMessage } from './components/ApiErrorMessage';
 import { StatusBadge } from './components/StatusBadge';
 import { AuthPanel } from './features/auth/AuthPanel';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
+import { HistoryPanel } from './features/history/HistoryPanel';
 import { LocationPanel } from './features/location/LocationPanel';
 import { PreferencesPanel } from './features/preferences/PreferencesPanel';
 import { TodayPanel } from './features/today/TodayPanel';
@@ -272,10 +273,7 @@ function App() {
               <p className="eyebrow">이력 화면</p>
               <h2 id="history-view-title">이력</h2>
             </header>
-            <article className="panel view-placeholder" data-view="history">
-              <h3>최근 추천 이력</h3>
-              <p className="muted">이력 목록은 이 화면에서 이어집니다.</p>
-            </article>
+            <HistoryPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           </section>
         );
       default:

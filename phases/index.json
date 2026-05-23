@@ -22,7 +22,8 @@
     },
     {
       "dir": "4-smartcloset-usable-ux",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-05-24T05:18:20+0900"
     }
   ]
 }
