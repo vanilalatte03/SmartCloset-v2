@@ -39,7 +39,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
       onAuthenticated(response);
       setLoginForm(defaultLoginForm);
     } catch (caught) {
-      setError(toErrorResponse(caught, 'Unable to log in.'));
+      setError(toErrorResponse(caught, '로그인할 수 없습니다.'));
     } finally {
       setSubmitting(null);
     }
@@ -59,19 +59,19 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
       onAuthenticated(response);
       setSignupForm(defaultSignupForm);
     } catch (caught) {
-      setError(toErrorResponse(caught, 'Unable to sign up.'));
+      setError(toErrorResponse(caught, '회원가입할 수 없습니다.'));
     } finally {
       setSubmitting(null);
     }
   };
 
   return (
-    <section className="auth-layout" aria-label="Authentication">
+    <section className="auth-layout" aria-label="인증">
       <article className="panel auth-panel">
-        <h2>Login</h2>
+        <h2>로그인</h2>
         <form className="panel-form compact-form" onSubmit={handleLogin}>
           <label className="field">
-            <span>Email</span>
+            <span>이메일</span>
             <input
               type="email"
               value={loginForm.email}
@@ -81,7 +81,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             />
           </label>
           <label className="field">
-            <span>Password</span>
+            <span>비밀번호</span>
             <input
               type="password"
               value={loginForm.password}
@@ -91,16 +91,16 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             />
           </label>
           <button className="primary-button" type="submit" disabled={submitting !== null}>
-            {submitting === 'login' ? 'Logging in' : 'Login'}
+            {submitting === 'login' ? '로그인 중' : '로그인'}
           </button>
         </form>
       </article>
 
       <article className="panel auth-panel">
-        <h2>Sign up</h2>
+        <h2>회원가입</h2>
         <form className="panel-form compact-form" onSubmit={handleSignup}>
           <label className="field">
-            <span>Name</span>
+            <span>이름</span>
             <input
               value={signupForm.name}
               autoComplete="name"
@@ -110,7 +110,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             />
           </label>
           <label className="field">
-            <span>Email</span>
+            <span>이메일</span>
             <input
               type="email"
               value={signupForm.email}
@@ -120,7 +120,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             />
           </label>
           <label className="field">
-            <span>Password</span>
+            <span>비밀번호</span>
             <input
               type="password"
               value={signupForm.password}
@@ -133,7 +133,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             />
           </label>
           <button className="primary-button" type="submit" disabled={submitting !== null}>
-            {submitting === 'signup' ? 'Creating account' : 'Create account'}
+            {submitting === 'signup' ? '가입 중' : '회원가입'}
           </button>
         </form>
       </article>
