@@ -1,12 +1,18 @@
-# API: SmartCloset Current Baseline
+# API: SmartCloset MVP4 Contract
 
-이 문서는 현재 구현된 API 계약을 설명한다. MVP4 기능 범위는 아직 확정되지 않았으며, 새 API나 wire shape 변경은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영한다.
+이 문서는 MVP4에서 유지하는 SmartCloset API 계약을 설명한다. MVP4는 실사용 UX 개선 범위이며 새 공개 API, DB schema, 추천 규칙을 추가하지 않는다. 단, Today 화면의 현재 날씨 요약을 위해 보호 API `GET /api/weather/current`를 추가한다.
 
-## MVP4 작성 메모
-- 현재 공개 API 2종 외 새 공개 API를 추가할지 TBD.
-- 보호 API의 Bearer token 정책 변경 여부 TBD.
-- 현재 사용자 전용 DTO의 `userId` 비노출 정책은 유지한다.
+MVP4 프론트엔드는 이 API 계약 위에서 한국어 라벨, 색상 swatch, 소재 chip, 첫 추천 준비 체크리스트, 추천 실패 CTA를 구성한다.
+
+## MVP4 API 결정
+- 새 공개 API를 추가하지 않는다.
+- 보호 API의 Bearer token 정책을 변경하지 않는다.
+- 현재 날씨 요약 보호 API `GET /api/weather/current`를 추가한다.
+- 현재 사용자 전용 DTO의 `userId` 비노출 정책을 유지한다.
 - `userId` query parameter를 공개 HTTP 계약에 되살리지 않는다.
+- today 추천 GET 경로를 추가하지 않는다.
+- `GET /api/weather/current`는 today 추천 조회가 아니며 추천 결과를 생성하거나 저장하지 않는다.
+- 옷 수정과 보관 처리는 기존 `PUT /api/clothes/{clothingId}`, `PATCH /api/clothes/{clothingId}/archive`를 사용한다.
 
 ## 1. 공통 규칙
 - 공개 API는 토큰 없이 호출 가능하다.
@@ -16,6 +22,7 @@
 - enum 값은 대문자 문자열로 주고받는다.
 - 성공 응답은 항상 `data` 필드를 가진다.
 - 실패 응답은 항상 `code`, `message`, `details` 필드를 가진다.
+- 현재 날씨 요약 API는 `GET /api/weather/current`를 사용한다.
 - 추천 생성 API는 `POST /api/recommendations`만 사용한다.
 - today 추천 GET 경로는 API 계약으로 사용하지 않는다.
 
@@ -68,6 +75,7 @@
 | `PUT` | `/api/users/me/location` | 현재 사용자 위치 선택 | `200 OK` |
 | `GET` | `/api/users/me/preferences` | 현재 사용자 선호도 조회 | `200 OK` |
 | `PUT` | `/api/users/me/preferences` | 현재 사용자 선호도 저장 | `200 OK` |
+| `GET` | `/api/weather/current` | 현재 사용자 위치 기준 날씨 요약 조회 | `200 OK` |
 | `POST` | `/api/clothes` | 옷 등록 | `201 Created` |
 | `GET` | `/api/clothes` | 옷 목록 조회 | `200 OK` |
 | `GET` | `/api/clothes/{clothingId}` | 옷 상세 조회 | `200 OK` |
@@ -76,6 +84,26 @@
 | `POST` | `/api/recommendations` | 추천 생성 및 저장 | `201 Created` |
 | `GET` | `/api/recommendations?limit={limit}` | 추천 이력 조회 | `200 OK` |
 | `PATCH` | `/api/recommendations/{recommendationId}/worn` | 추천 결과 착용 완료 처리 | `200 OK` |
+
+## 2.1 MVP4 UX 매핑
+API enum 값은 변경하지 않는다. 프론트 화면에서만 사용자 친화적인 한국어 라벨로 변환한다.
+
+| API enum | UI treatment |
+| --- | --- |
+| `ClothingCategory` | 상의, 하의, 아우터 |
+| `ClothingColor` | 한국어 라벨과 색상 swatch |
+| `ClothingMaterial` | 한국어 라벨과 소재 chip |
+| `WeatherType` | 한국어 날씨 라벨 |
+
+추천 실패 코드는 API 계약으로 유지하고, 프론트에서 아래 메시지와 CTA로 변환한다.
+
+| Code | 사용자 메시지 | CTA |
+| --- | --- | --- |
+| `NO_TOP_AVAILABLE` | 현재 날씨에 맞는 상의가 부족해요. | 상의 등록하기 |
+| `NO_BOTTOM_AVAILABLE` | 현재 날씨에 맞는 하의가 부족해요. | 하의 등록하기 |
+| `OUTER_REQUIRED_BUT_NOT_AVAILABLE` | 오늘은 아우터가 필요한 날씨예요. | 아우터 등록하기 |
+| `NO_WEATHER_SUITABLE_ITEM` | 현재 기온에 맞는 옷이 부족해요. | 옷장 확인하기 |
+| `INSUFFICIENT_CLOSET_ITEMS` | 추천을 만들려면 옷을 더 등록해야 해요. | 빠른 등록하기 |
 
 ## 3. 인증 API
 
@@ -132,7 +160,7 @@
 
 `AuthResponse.user`는 `GET /api/users/me`의 현재 사용자 응답과 같은 필드를 사용한다.
 
-JWT는 access token 단일 구조로 시작한다. refresh token은 현재 baseline 범위가 아니다.
+JWT는 access token 단일 구조로 시작한다. refresh token은 MVP4 범위가 아니다.
 
 JWT access token 정책:
 
@@ -383,7 +411,31 @@ Response: `200 OK`
 
 존재하지 않는 `locationCode`는 `LOCATION_NOT_FOUND`로 응답한다.
 
-## 8. 추천 API
+## 8. 현재 날씨 요약 API
+
+### 현재 날씨 요약 조회
+`GET /api/weather/current`
+
+보호 API다. 현재 인증 사용자의 저장 위치 `nx`, `ny`로 KMA `getVilageFcst` JSON을 조회하거나, fallback이 활성화된 경우 fallback 날씨를 반환한다.
+
+이 API는 추천 결과를 생성하거나 저장하지 않는다. 추천 이력, 착용 이력, 점수 계산에는 영향을 주지 않는다.
+
+Response: `200 OK`
+
+```json
+{
+  "data": {
+    "temperature": 12,
+    "weatherType": "CLOUDY",
+    "rainy": false,
+    "windy": false
+  }
+}
+```
+
+인증이 없거나 만료되면 `401`로 실패한다. `WEATHER_FALLBACK_ENABLED=false` strict KMA mode에서 KMA 설정/호출/매핑에 실패하면 기존 weather provider 규칙대로 `INTERNAL_SERVER_ERROR`로 실패한다.
+
+## 9. 추천 API
 
 ### WeatherResponse
 추천 응답의 `weather`는 추천 생성 시점에 사용한 내부 `WeatherCondition` snapshot이다.
@@ -558,7 +610,7 @@ Response: `200 OK`
 }
 ```
 
-## 9. Error Codes
+## 10. Error Codes
 
 | Code | HTTP | Message |
 | --- | --- | --- |
@@ -580,7 +632,7 @@ Response: `200 OK`
 
 추천 실패 코드 5종은 비즈니스 실패이므로 `422 Unprocessable Entity`로 응답한다. 외부 KMA API 실패는 `WEATHER_FALLBACK_ENABLED=false` strict KMA mode에서만 `INTERNAL_SERVER_ERROR`로 승격한다.
 
-## 10. KMA 내부 연동 계약
+## 11. KMA 내부 연동 계약
 외부 Weather 요청은 아래 하나로 제한한다.
 
 ```text

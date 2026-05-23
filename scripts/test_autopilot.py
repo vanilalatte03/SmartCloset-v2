@@ -343,10 +343,22 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+++ b/issues/1-smartcloset-mvp/issue-1.md",
                 "@@ -1,0 +1,1 @@",
                 "+- Redis 범위가 추가되었습니다.",
+                "diff --git a/phases/4-smartcloset-usable-ux/step6-output.json b/phases/4-smartcloset-usable-ux/step6-output.json",
+                "+++ b/phases/4-smartcloset-usable-ux/step6-output.json",
+                "@@ -1,0 +1,1 @@",
+                '+{"stdout": "AI/GPT 추천을 구현한다. Redis 캐싱을 구현한다."}',
                 "diff --git a/docs/AUTH.md b/docs/AUTH.md",
                 "+++ b/docs/AUTH.md",
                 "@@ -1,0 +1,1 @@",
                 "+refresh token을 반환하지 않는다.",
+                "diff --git a/README.md b/README.md",
+                "+++ b/README.md",
+                "@@ -1,0 +1,5 @@",
+                "+MVP4에서도 제외되는 범위:",
+                "+- 이미지 업로드",
+                "+- AI/GPT 추천",
+                "+## 실행 전 요구사항",
+                "+Docker",
                 "diff --git a/docs/PRD.md b/docs/PRD.md",
                 "+++ b/docs/PRD.md",
                 "@@ -1,0 +1,12 @@",
@@ -358,11 +370,14 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+- AWS 수동 배포",
                 "+## 구현 범위",
                 "+외부 Weather API는 구현하지 않는다.",
+                "+외부 Weather API는 기상청 단기예보 getVilageFcst JSON 연동만 허용한다.",
                 "+AWS 배포는 제공하지 않는다.",
                 "+회원가입/로그인은 구현하지 않는다.",
                 "+SmartCloset 1차 MVP의 추천은 AI/GPT 추천이 아니라 규칙 기반 추천이다.",
                 '+rg -n "recommendations/today" .',
+                "+! rg -n 'AI|이미지 업로드|이메일 인증' frontend/src",
                 "+Spring Security와 회원가입을 구현한다.",
+                "+OpenWeather 외부 Weather API 연동을 구현한다.",
                 "+AWS 배포를 구현한다.",
                 "+AI/GPT 추천을 구현한다.",
                 "+refresh token을 구현한다.",
@@ -387,13 +402,16 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert any("소셜 로그인" in finding for finding in findings)
     assert any("이메일 인증" in finding for finding in findings)
     assert any("비밀번호 재설정" in finding for finding in findings)
+    assert any("외부 Weather API" in finding for finding in findings)
     assert any("AWS 배포" in finding for finding in findings)
     assert any("CD 자동화" in finding for finding in findings)
     assert any("AI/GPT" in finding for finding in findings)
     assert any("이미지 업로드" in finding for finding in findings)
     assert any("외부 주소/지도 API" in finding for finding in findings)
     assert not any("docs/AUTH.md" in finding for finding in findings)
-    assert not any("외부 Weather API" in finding for finding in findings)
+    assert not any("README.md" in finding for finding in findings)
+    assert not any("step6-output.json" in finding for finding in findings)
+    assert not any("getVilageFcst" in finding for finding in findings)
     assert not any("로그인/회원가입" in finding for finding in findings)
     assert not any("Spring Security" in finding for finding in findings)
     assert len(findings) == len(set(findings))

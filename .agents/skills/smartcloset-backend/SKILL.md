@@ -55,6 +55,8 @@ SmartCloset의 현재 기준은 MVP-3 완료 baseline Spring Boot 4.0.6 서비�
 - 사용자 소유 옷장 데이터, 위치, 선호도, 추천 이력, 착용 이력은 인증 사용자별로 분리한다.
 - 추천 생성은 `POST /api/recommendations`를 사용한다.
 - 추천 이력은 `GET /api/recommendations?limit={limit}`를 사용하며 기본값 `20`, 최소 `1`, 최대 `50`, 최신순으로 정렬한다.
+- 현재 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
+- 현재 날씨 요약은 인증 사용자 위치 기준 `WeatherResponse`만 반환하며 추천 결과를 생성하거나 저장하지 않는다.
 - React frontend는 access token을 `sessionStorage`에 저장한다.
 - Docker Compose는 필수 공유 흐름으로 유지한다.
 - MVP-3 완료 baseline 로컬 Docker Compose 전환 시 `docker compose up --build` 전에 `docker compose down -v` 실행을 권장한다.
@@ -114,6 +116,9 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - today recommendation GET endpoint를 추가하거나 문서화하지 않는다.
 - 추천 이력은 `GET /api/recommendations?limit={limit}`다.
 - 추천 이력 `limit`는 기본값 `20`, 허용 범위 `1..50`, 최신순 정렬이며 잘못된 값은 `400 INVALID_REQUEST`로 실패한다.
+- 현재 날씨 요약은 `GET /api/weather/current`다.
+- 현재 날씨 요약 API는 보호 API이며 현재 인증 사용자 위치의 KMA/fallback 날씨를 반환한다.
+- 현재 날씨 요약 API는 추천 결과, 추천 이력, 착용 이력을 생성하지 않는다.
 - 위치 catalog 조회는 `GET /api/locations?keyword={keyword}`이며 보호 API다.
 - 현재 사용자 위치 API는 `GET /api/users/me/location`, `PUT /api/users/me/location`이다.
 - 현재 사용자 선호도 API는 `GET /api/users/me/preferences`, `PUT /api/users/me/preferences`이다.
@@ -162,6 +167,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - KMA request `nx`, `ny`는 인증 사용자의 저장 위치에서 온다.
 - `KMA_NX`, `KMA_NY`는 compatibility/default helper일 뿐 recommendation source of truth가 아니다.
 - 사용자에게 location snapshot이 없으면 현재 문서 기준에 따라 Seoul `SEOUL`, `60`, `127`로 backfill하거나 사용한다.
+- `GET /api/weather/current`는 `WeatherProvider#getCurrentWeather(userId)`를 재사용하고 DB에 weather source snapshot을 저장하지 않는다.
 - `WEATHER_FALLBACK_ENABLED=false`는 strict KMA mode이며 조용히 fallback하면 안 된다.
 
 ## Location Rules
@@ -202,6 +208,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - 회원가입 또는 로그아웃 화면에서 `GET /api/locations`를 호출하지 않는다.
 - Access token은 `sessionStorage`에 저장한다.
 - 새로고침 후 저장된 token으로 `GET /api/users/me`를 호출해 로그인 상태를 복구한다.
+- 로그인 후 Today view에서 `GET /api/users/me/location`과 `GET /api/weather/current`를 호출해 위치와 현재 날씨 요약을 표시한다.
 - `GET /api/locations`의 `401`은 location search failure가 아니라 authentication expiration으로 처리한다.
 - React state와 작은 hook을 사용한다. 현재 baseline에서는 큰 state-management library를 추가하지 않는다.
 - Frontend 동작은 `docs/FRONTEND.md`를 따른다.

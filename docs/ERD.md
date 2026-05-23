@@ -1,10 +1,15 @@
-# ERD: SmartCloset Current Baseline
+# ERD: SmartCloset MVP4
 
 ## 0. 현재 DB baseline
-현재 baseline은 인증 사용자 기반 전환과 선호도 저장을 위해 `users` 테이블을 확장한 상태다.
+MVP4는 MVP-3 인증 사용자 기반 DB baseline을 그대로 사용한다. MVP4 실사용 UX 개선을 위해 새 테이블, 새 컬럼, migration, backfill을 추가하지 않는다.
 
-## MVP4 작성 메모
-MVP4 DB 변경은 아직 확정되지 않았다. 새 테이블, 컬럼, index, migration, backfill 정책은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영한다.
+## MVP4 DB 결정
+- DB schema 변경 없음.
+- 운영 DB migration 없음.
+- 이미지 업로드 metadata 컬럼 없음.
+- 위치 provider 또는 weather source snapshot 컬럼 없음.
+- 현재 날씨 요약 API를 위한 별도 테이블/컬럼 없음.
+- 선호도 별도 테이블 정규화 없음.
 
 - `users`에 인증 필드 `email`, `password_hash`, `role`을 추가한다.
 - `email`은 unique다.
@@ -14,10 +19,10 @@ MVP4 DB 변경은 아직 확정되지 않았다. 새 테이블, 컬럼, index, m
   - `preferred_materials_json`
   - `style_tags_json`
 - 신규 사용자는 기본 위치 `SEOUL`과 빈 선호도 배열로 생성한다.
-- 선호도 별도 테이블 정규화는 MVP4 후보로 남기되, 승인 전 구현하지 않는다.
+- 선호도 별도 테이블 정규화는 MVP4 범위가 아니다.
 - 추천 결과에는 기존 weather snapshot과 score snapshot을 저장한다.
-- 추천 결과 위치 source snapshot 저장은 현재 baseline 범위에서 제외한다.
-- MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
+- 추천 결과 위치 source snapshot 저장은 MVP4 범위에서 제외한다.
+- MVP4 데모 전 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
 
 ## 1. 공통 DB 정책
 - DB는 MySQL 기준으로 설계한다.
@@ -151,7 +156,7 @@ Signup policy:
 
 Migration policy:
 - 현재 로컬 공유/데모는 Docker Compose volume 초기화를 권장한다.
-- 운영 DB migration은 현재 문서 범위에서 다루지 않는다.
+- 운영 DB migration은 MVP4 문서 범위에서 다루지 않는다.
 - 기존 row에 인증 필드나 선호도 필드가 없어 충돌할 수 있으므로 로컬 전환 명령은 아래를 기준으로 한다.
 
 ```bash
@@ -205,7 +210,7 @@ Indexes:
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 
-현재 baseline에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
+MVP4에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
 
 ### recommendation_result_items
 | Column | Type | Nullable | Default | Description |

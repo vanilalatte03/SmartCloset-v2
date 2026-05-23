@@ -9,7 +9,7 @@
 
 ADR-008은 MVP-3 완료 baseline의 인증 사용자 기반 API 계약을 정의하며, 이전 ADR의 `userId` request parameter 기반 API 표현보다 우선한다.
 
-MVP4에서 현재 결정을 바꾸려면 ADR-008을 직접 덮어쓰기보다 새 ADR을 추가하거나 명시적으로 갱신한다.
+ADR-009는 MVP4를 백엔드 API/DB/추천 규칙 변경이 아닌 반응형 웹 실사용 UX 범위로 확정한다.
 
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
@@ -19,3 +19,4 @@ MVP4에서 현재 결정을 바꾸려면 ADR-008을 직접 덮어쓰기보다 �
 - [ADR-006: Use KMA Vilage Forecast Weather Provider](adr/006-kma-vilage-forecast-weather-provider.md)
 - [ADR-007: Use User Location Catalog and React TypeScript Frontend](adr/007-mvp2-user-location-and-react-frontend.md)
 - [ADR-008: Use Authenticated User APIs and Preference Score](adr/008-mvp3-authenticated-user-personalization.md)
+- [ADR-009: Define MVP4 as Responsive Usable UX](adr/009-mvp4-usable-ux.md)

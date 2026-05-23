@@ -1,24 +1,21 @@
-# Sharing Guide: SmartCloset Current Baseline
+# Sharing Guide: SmartCloset MVP4
 
 ## 공유 방식
-SmartCloset 현재 baseline 공유 방식은 Docker Compose로 유지한다.
+SmartCloset MVP4 공유 방식은 Docker Compose로 유지한다.
 
-## MVP4 작성 메모
-MVP4 공유 방식은 아직 확정되지 않았다. 새 서비스, 배포 방식, migration, 데모 계정 정책은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영한다.
-
-공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드를 함께 실행한다. AWS 배포는 제공하지 않는다.
+공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드를 함께 실행한다. AWS 배포, native mobile app, PWA 배포는 MVP4 공유 범위가 아니다.
 
 기상청 API key가 없어도 앱은 실행되어야 한다. 이 경우 추천은 `StaticWeatherProvider` fallback 날씨로 생성된다. 실제 기상청 단기예보 JSON 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 
-## MVP-3 완료 baseline 전환 시 DB 초기화
-MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
+## MVP4 데모 전 DB 초기화
+로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 MVP4 데모 전 초기화를 권장한다.
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-운영 DB migration은 현재 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
+운영 DB migration은 MVP4 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
 
 ## 전달해야 할 파일/경로
 공유 시 아래 항목을 포함해야 한다.
@@ -120,20 +117,30 @@ VITE_API_BASE_URL=http://localhost:8080
 - 회원가입 또는 로그인할 수 있다.
 - 로그인 성공 후 access token이 `sessionStorage`에 저장된다.
 - `GET /api/users/me`로 로그인 상태가 복구된다.
+- 로그인 후 기본 view가 `오늘`이다.
+- 첫 추천 준비 체크리스트가 위치, 선호도, 상의, 하의, 아우터 상태를 보여준다.
 - 신규 사용자 기본 위치가 서울특별시로 표시된다.
+- `GET /api/weather/current`로 현재 사용자 위치 기준 날씨 요약이 표시된다.
+- 현재 날씨 요약은 추천 결과를 생성하거나 추천 이력을 만들지 않는다.
 - 위치 catalog 검색과 위치 선택이 동작한다.
 - 선호도 저장/조회가 동작한다.
 - `styleTags`가 화면에 표시되지만 추천 점수와 추천 이유에는 반영되지 않는다.
 - 현재 인증 사용자 기준 옷 목록 조회가 된다.
+- 색상은 swatch, 소재는 chip, enum은 한국어 라벨로 표시된다.
+- 옷 등록, 수정, 보관 처리가 가능하다.
 - `POST /api/recommendations`로 추천이 생성된다.
 - 추천 결과의 `weather`는 fallback 값일 수 있다.
 - 추천 결과에 `top`, `bottom`, `score`, `reasons`, `preferenceScore`가 포함된다.
+- 추천 결과는 `reasons`를 "오늘 입기 좋은 이유"로 먼저 보여준다.
+- 추천 실패 코드는 한국어 메시지와 CTA로 표시된다.
 - 추천 이력 `GET /api/recommendations?limit=20`이 최신순으로 조회된다.
 - `PATCH /api/recommendations/{recommendationId}/worn`으로 착용 완료 처리된다.
+- 모바일 375px에서 하단 탭 `오늘`, `옷장`, `선호도`, `위치`, `이력`이 겹치지 않는다.
 
 ### KMA 연동 공유 성공 기준
 - `.env`에 유효한 `KMA_SERVICE_KEY`를 설정한 뒤 앱이 실행된다.
 - React 앱에서 로그인하고 사용자 위치를 선택할 수 있다.
+- 현재 날씨 요약 조회 시 선택한 사용자 위치의 `nx`, `ny`로 KMA `getVilageFcst` JSON 호출이 수행된다.
 - 추천 생성 시 선택한 사용자 위치의 `nx`, `ny`로 KMA `getVilageFcst` JSON 호출이 수행된다.
 - KMA 호출이 성공하면 `weather`가 KMA 기반 값으로 반환된다.
 - KMA `NODATA` 또는 장애가 발생해도 fallback이 활성화되어 있으면 추천 생성은 성공한다.
@@ -146,7 +153,7 @@ VITE_API_BASE_URL=http://localhost:8080
 
 그 외 API는 보호 API이며 `Authorization: Bearer {accessToken}` header가 필요하다.
 
-프론트 access token 저장 위치는 `sessionStorage`다. JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정한다. refresh token은 현재 공유 범위가 아니다.
+프론트 access token 저장 위치는 `sessionStorage`다. JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정한다. refresh token은 MVP4 공유 범위가 아니다.
 
 ## 위치 기준
 현재 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다. `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 화면에서만 호출한다.
@@ -227,9 +234,11 @@ fallback 값:
 | 추천 생성 시 OUTER가 없음 | fallback 또는 현재 KMA 날씨가 OUTER 필수 조건이면 seed data에 해당 온도 범위 OUTER가 있는지 확인한다. |
 
 ## 비범위
-아래 항목은 현재 공유 범위가 아니다.
+아래 항목은 MVP4 공유 범위가 아니다.
 
 - AWS 배포
+- Native mobile app 배포
+- PWA install/push notification
 - Refresh token
 - 소셜 로그인
 - 이메일 인증
@@ -245,13 +254,16 @@ fallback 값:
 ## 문서 동기화 체크리스트
 공유 전 아래 항목을 확인한다.
 
+- MVP4 목표가 "회원가입 또는 로그인 후 2분 안에 첫 추천 성공"으로 유지되는지 확인한다.
 - 공개 API와 보호 API 표가 분리되어 있는지 확인한다.
 - `GET /api/locations`가 보호 API와 로그인 후 위치 선택 흐름에만 등장하는지 확인한다.
+- `GET /api/weather/current`가 보호 API이고 추천 생성/이력 조회처럼 쓰이지 않았는지 확인한다.
 - 공개 API 계약에서 `?userId=`가 제거됐는지 확인한다.
 - 현재 사용자 전용 응답 예시에서 `userId` 필드가 제거됐는지 확인한다.
 - 기존 다양성 점수 표현이 활성 문서에서 `preferenceScore`로 교체됐는지 확인한다.
 - `styleTags`가 추천 점수/추천 이유에 반영된다는 표현이 없는지 확인한다.
 - 추천 생성 API가 `POST /api/recommendations`인지 확인한다.
 - today 추천 GET 경로가 API 계약처럼 보이지 않는지 확인한다.
+- 이미지 업로드, AI/GPT 추천, 소셜 로그인, 외부 지도 API가 MVP4 포함 범위처럼 쓰이지 않았는지 확인한다.
 - Docker Compose DB 초기화 권장 명령이 반영됐는지 확인한다.
 - 실제 API key, token, password, private key가 문서나 코드에 들어가지 않았는지 확인한다.

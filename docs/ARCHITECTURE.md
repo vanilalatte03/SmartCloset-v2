@@ -1,10 +1,9 @@
-# 아키텍처: SmartCloset Current Baseline
+# 아키텍처: SmartCloset MVP4
 
 ## 전체 아키텍처 개요
-SmartCloset 현재 baseline은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 기존 추천 도메인과 KMA weather provider를 유지하면서 Spring Security, JWT Bearer 인증, 사용자 선호도, 추천 이력 조회를 포함한다.
+SmartCloset MVP4는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 MVP-3 인증 사용자 baseline, 추천 도메인, KMA weather provider, JWT Bearer 인증, 사용자 선호도, 추천 이력 조회를 유지한다.
 
-## MVP4 작성 메모
-MVP4 아키텍처 변경은 아직 확정되지 않았다. 새 하위 시스템, 외부 provider, persistence 변경, 인증 구조 변경은 `docs/PRD.md`와 ADR에서 먼저 결정한 뒤 이 문서에 반영한다.
+MVP4의 아키텍처 변경 지점은 프론트엔드 앱 셸과 화면 구성이다. Today 화면의 현재 날씨 요약을 위해 보호 API `GET /api/weather/current`를 추가하지만, 새 외부 provider, persistence 변경, 인증 구조 변경은 MVP4 범위가 아니다.
 
 전체 백엔드 요청 흐름은 아래 계층 구조를 유지한다.
 
@@ -14,7 +13,7 @@ Controller -> Application Service -> Domain Service -> Repository / Provider
 
 보호 API는 Spring Security filter chain에서 JWT를 검증하고 인증 principal을 만든다. Controller는 principal에서 현재 사용자 id를 얻어 application service에 전달한다. HTTP 계약과 프론트 타입에는 `userId` query parameter를 노출하지 않는다.
 
-프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 로그인 후 access token을 `sessionStorage`에 저장한다. 보호 API 호출 시 `Authorization: Bearer {accessToken}` header를 붙인다.
+프론트엔드는 `frontend/` 아래 Vite React TypeScript SPA로 두고, 로그인 후 access token을 `sessionStorage`에 저장한다. 보호 API 호출 시 `Authorization: Bearer {accessToken}` header를 붙인다. MVP4에서는 로그인 후 기본 화면을 Today view로 두고, 현재 위치와 `GET /api/weather/current` 결과를 함께 보여준다.
 
 ## 권장 패키지 구조
 
@@ -56,6 +55,8 @@ com.smartcloset
 ├── weather
 │   ├── domain
 │   ├── application
+│   ├── presentation
+│   ├── dto
 │   └── infrastructure
 │       ├── kma
 │       └── fallback
@@ -85,6 +86,21 @@ frontend
     │   └── recommendation
     ├── types
     └── main.tsx
+```
+
+MVP4 view 구조:
+
+```text
+AppShell
+├── DesktopSidebar
+├── MobileTopBar
+├── MobileBottomNav
+└── active view
+    ├── Today
+    ├── Closet
+    ├── Preferences
+    ├── Location
+    └── History
 ```
 
 Spring Boot static Demo UI는 현재 주 제품 화면이 아니다. 유지하더라도 API smoke 확인용 보조 화면으로만 취급한다.
@@ -136,7 +152,7 @@ Spring Boot static Demo UI는 현재 주 제품 화면이 아니다. 유지하�
 - KMA category 매핑 금지
 
 ## 인증 구조
-현재 인증은 Spring Security + JWT Bearer access token 단일 구조다. refresh token은 현재 baseline 범위가 아니다.
+현재 인증은 Spring Security + JWT Bearer access token 단일 구조다. refresh token은 MVP4 범위가 아니다.
 
 ```text
 AuthController
@@ -196,6 +212,7 @@ JWT access token payload 기준:
 - `PUT /api/users/me/location`
 - `GET /api/users/me/preferences`
 - `PUT /api/users/me/preferences`
+- `GET /api/weather/current`
 - `GET /api/clothes`
 - `POST /api/clothes`
 - `GET /api/clothes/{clothingId}`
@@ -205,7 +222,7 @@ JWT access token payload 기준:
 - `GET /api/recommendations?limit={limit}`
 - `PATCH /api/recommendations/{recommendationId}/worn`
 
-`GET /api/locations`는 민감정보를 반환하지 않지만 현재 baseline에서는 보호 API로 고정한다. 회원가입 화면은 위치 catalog를 호출하지 않고, 로그인 후 위치 선택 화면에서 호출한다.
+`GET /api/locations`는 민감정보를 반환하지 않지만 MVP4에서도 보호 API로 고정한다. 회원가입 화면은 위치 catalog를 호출하지 않고, 로그인 후 위치 선택 화면에서 호출한다.
 
 ## userId 제거 구조
 HTTP query parameter의 `userId`는 제거한다. Controller는 인증 principal에서 현재 사용자 id를 얻는다.
@@ -288,6 +305,17 @@ RecommendationService
 - `KmaVilageForecastWeatherProvider`는 기본 `WeatherProvider` bean이며 `@Primary`로 둔다.
 - `StaticWeatherProvider`는 fallback/test 구현체로 유지한다.
 
+## 현재 날씨 요약 흐름
+`GET /api/weather/current` 요청 흐름:
+
+1. 인증 principal에서 현재 사용자 id를 얻는다.
+2. `WeatherProvider#getCurrentWeather(userId)`로 현재 사용자 위치 기준 `WeatherCondition`을 조회한다.
+3. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
+4. KMA 호출 또는 매핑이 실패하면 `WEATHER_FALLBACK_ENABLED=true`에서는 fallback `WeatherCondition`을 사용하고, `false`에서는 `INTERNAL_SERVER_ERROR`로 실패한다.
+5. `temperature`, `weatherType`, `rainy`, `windy`만 포함한 현재 사용자 전용 response DTO를 반환한다.
+
+이 흐름은 추천 결과를 생성하거나 저장하지 않으며 추천 이력, 착용 이력, 점수 계산에 영향을 주지 않는다.
+
 ## 추천 유스케이스 흐름
 `POST /api/recommendations` 요청 흐름:
 
@@ -307,7 +335,7 @@ RecommendationService
 14. `RecommendationResult`를 생성하고 저장한다.
 15. 현재 사용자 전용 response DTO를 반환한다.
 
-기존 다양성 점수는 현재 baseline에서 제거하고 `preferenceScore`로 교체했다.
+기존 다양성 점수는 인증 사용자 baseline에서 제거하고 `preferenceScore`로 교체했다.
 
 ## 추천 이력 조회 흐름
 `GET /api/recommendations?limit={limit}`는 현재 인증 사용자 추천 결과를 최신순으로 조회한다.
@@ -330,6 +358,7 @@ Limit 정책:
 - 사용자 위치 선택: write transaction
 - 사용자 선호도 조회: readOnly transaction
 - 사용자 선호도 저장: write transaction
+- 현재 날씨 요약: 위치 조회/backfill과 KMA/fallback 조회를 수행하되 추천 결과를 저장하지 않는다.
 - 추천 생성: 위치 조회/backfill, KMA 호출, 추천 저장을 분리한다. 최종 `RecommendationResult` 저장은 write transaction이다.
 - 추천 이력 조회: readOnly transaction
 - 착용 완료 처리: `RecommendationResult` 상태 변경과 `WearHistory` 저장이 필요하므로 write transaction
@@ -345,11 +374,18 @@ app
 frontend
 ```
 
-MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
+MVP4 데모 전 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-운영 DB migration은 현재 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
+운영 DB migration은 MVP4 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
+
+## MVP4 아키텍처 비변경 사항
+- 새 공개 API를 추가하지 않는다. 현재 날씨 요약은 보호 API로만 제공한다.
+- `userId` query parameter를 되살리지 않는다.
+- DB schema를 변경하지 않는다.
+- 추천 scoring, tie-break, failure code를 변경하지 않는다.
+- 외부 지도/주소 API, browser geolocation, AI/GPT provider, image storage provider를 추가하지 않는다.
