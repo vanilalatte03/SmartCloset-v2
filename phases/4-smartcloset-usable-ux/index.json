@@ -7,7 +7,8 @@
       "name": "current-weather-api",
       "status": "completed",
       "started_at": "2026-05-24T03:25:04+0900",
-      "summary": "보호 API GET /api/weather/current를 추가하고 fallback/KMA/strict/security 회귀 테스트를 완료했다."
+      "summary": "보호 API GET /api/weather/current를 추가하고 fallback/KMA/strict/security 회귀 테스트를 완료했다.",
+      "completed_at": "2026-05-24T03:31:00+0900"
     },
     {
       "step": 1,
