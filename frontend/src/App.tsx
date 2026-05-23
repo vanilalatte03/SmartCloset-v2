@@ -60,6 +60,7 @@ function App() {
   const [closetInitialCategory, setClosetInitialCategory] =
     useState<ClothingCategory | null>(null);
   const [location, setLocation] = useState<UserLocationResponse | null>(null);
+  const [preferencesRevision, setPreferencesRevision] = useState(0);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
   const clearSession = useCallback(() => {
@@ -69,6 +70,7 @@ function App() {
     setLocation(null);
     setActiveView('today');
     setClosetInitialCategory(null);
+    setPreferencesRevision(0);
     setSessionState('anonymous');
     setConnectionState('connected');
   }, []);
@@ -134,6 +136,10 @@ function App() {
     setLocation(updatedLocation);
     setConnectionState('connected');
     setError(null);
+  }, []);
+
+  const handlePreferencesConfirmed = useCallback(() => {
+    setPreferencesRevision((revision) => revision + 1);
   }, []);
 
   const handleNavigate = useCallback((view: AppView, options?: AppNavigationOptions) => {
@@ -202,6 +208,7 @@ function App() {
             <TodayPanel
               accessToken={accessToken}
               location={location}
+              preferencesRevision={preferencesRevision}
               onAuthExpired={handleAuthExpired}
               onNavigate={handleNavigate}
             />
@@ -231,7 +238,11 @@ function App() {
               <p className="eyebrow">선호도 화면</p>
               <h2 id="preferences-view-title">선호도</h2>
             </header>
-            <PreferencesPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
+            <PreferencesPanel
+              accessToken={accessToken}
+              onAuthExpired={handleAuthExpired}
+              onPreferencesConfirmed={handlePreferencesConfirmed}
+            />
           </section>
         );
       case 'location':

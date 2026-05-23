@@ -69,7 +69,10 @@
     {
       "step": 8,
       "name": "preferences-swatch-chip",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T04:57:18+0900",
+      "summary": "Preferences view를 색상 swatch multi-select, 소재 chip multi-select, style tag 입력/삭제와 Today 체크리스트 갱신 연결로 정리했다.",
+      "completed_at": "2026-05-24T05:03:33+0900"
     },
     {
       "step": 9,
