@@ -37,6 +37,7 @@ type TodayNavigationOptions = {
 type TodayPanelProps = {
   accessToken: string;
   location: UserLocationResponse | null;
+  locationRevision: number;
   preferencesRevision: number;
   onAuthExpired: () => void;
   onNavigate: (view: TodayTargetView, options?: TodayNavigationOptions) => void;
@@ -124,6 +125,7 @@ function renderHistoryOutfit(item: RecommendationResponse): string {
 export function TodayPanel({
   accessToken,
   location,
+  locationRevision,
   preferencesRevision,
   onAuthExpired,
   onNavigate,
@@ -225,7 +227,7 @@ export function TodayPanel({
 
   useEffect(() => {
     void loadWeather();
-  }, [loadWeather, location?.code, location?.updatedAt]);
+  }, [loadWeather, location?.code, location?.updatedAt, locationRevision]);
 
   useEffect(() => {
     void loadReadiness();

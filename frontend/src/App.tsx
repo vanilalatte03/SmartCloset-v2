@@ -60,6 +60,7 @@ function App() {
   const [closetInitialCategory, setClosetInitialCategory] =
     useState<ClothingCategory | null>(null);
   const [location, setLocation] = useState<UserLocationResponse | null>(null);
+  const [locationRevision, setLocationRevision] = useState(0);
   const [preferencesRevision, setPreferencesRevision] = useState(0);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
@@ -70,6 +71,7 @@ function App() {
     setLocation(null);
     setActiveView('today');
     setClosetInitialCategory(null);
+    setLocationRevision(0);
     setPreferencesRevision(0);
     setSessionState('anonymous');
     setConnectionState('connected');
@@ -134,6 +136,7 @@ function App() {
 
   const handleLocationChange = useCallback((updatedLocation: UserLocationResponse) => {
     setLocation(updatedLocation);
+    setLocationRevision((revision) => revision + 1);
     setConnectionState('connected');
     setError(null);
   }, []);
@@ -208,6 +211,7 @@ function App() {
             <TodayPanel
               accessToken={accessToken}
               location={location}
+              locationRevision={locationRevision}
               preferencesRevision={preferencesRevision}
               onAuthExpired={handleAuthExpired}
               onNavigate={handleNavigate}

@@ -9,6 +9,8 @@ import type {
   UserLocationResponse,
 } from '../../types/api';
 
+const locationCatalogApiPath = '/api/locations?keyword={keyword}';
+
 type LocationPanelProps = {
   accessToken: string;
   location: UserLocationResponse | null;
@@ -31,6 +33,10 @@ export function LocationPanel({
   const [savingCode, setSavingCode] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
+
+  const searchSummary = submittedKeyword
+    ? `"${submittedKeyword}" 검색 결과`
+    : '전체 대표 위치';
 
   const loadLocations = useCallback(async () => {
     setOptionsLoading(true);
@@ -61,6 +67,12 @@ export function LocationPanel({
     setStatus(null);
   };
 
+  const handleShowAll = () => {
+    setKeyword('');
+    setSubmittedKeyword('');
+    setStatus(null);
+  };
+
   const handleSelect = async (option: LocationOptionResponse) => {
     setSavingCode(option.code);
     setError(null);
@@ -82,19 +94,30 @@ export function LocationPanel({
   };
 
   return (
-    <article className="panel">
-      <h2>위치</h2>
-      <section className="panel-section" aria-label="현재 위치">
+    <article className="panel location-panel">
+      <div className="section-title-row">
+        <div>
+          <h2>위치</h2>
+          <p className="muted location-panel-copy">
+            내장 대표 격자 catalog에서 현재 위치를 선택하면 오늘 날씨 요약도 새로
+            확인됩니다.
+          </p>
+        </div>
+      </div>
+
+      <section className="panel-section location-current-card" aria-label="현재 위치">
+        <div className="section-title-row">
+          <div>
+            <p className="eyebrow">현재 위치</p>
+            <h3>{location ? location.name : '위치 확인 중'}</h3>
+          </div>
+        </div>
         {loading ? (
           <p className="muted">현재 위치를 불러오고 있어요.</p>
         ) : location ? (
-          <dl className="metric-list compact">
+          <dl className="metric-list compact location-current-metrics">
             <div>
-              <dt>위치</dt>
-              <dd>{location.name}</dd>
-            </div>
-            <div>
-              <dt>코드</dt>
+              <dt>catalog code</dt>
               <dd>{location.code}</dd>
             </div>
             <div>
@@ -103,25 +126,39 @@ export function LocationPanel({
                 nx={location.nx}, ny={location.ny}
               </dd>
             </div>
+            <div>
+              <dt>갱신</dt>
+              <dd>{formatUpdatedAt(location.updatedAt)}</dd>
+            </div>
           </dl>
         ) : (
-          <p className="muted">불러온 위치 정보가 없어요.</p>
+          <p className="muted">불러온 위치 정보가 없어요. catalog에서 위치를 선택해주세요.</p>
         )}
       </section>
 
-      <form className="inline-form" onSubmit={handleSearch}>
+      <form className="inline-form location-search-form" onSubmit={handleSearch}>
         <label className="field">
           <span>검색어</span>
           <input
             type="search"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="서울, 부산, SEOUL"
+            placeholder="서울특별시, 부산광역시, SEOUL"
           />
         </label>
-        <button className="secondary-button" type="submit" disabled={optionsLoading}>
-          검색
-        </button>
+        <div className="location-search-actions">
+          <button className="secondary-button" type="submit" disabled={optionsLoading}>
+            검색
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={handleShowAll}
+            disabled={optionsLoading || (!submittedKeyword && !keyword.trim())}
+          >
+            전체 보기
+          </button>
+        </div>
       </form>
 
       {error ? <ApiErrorMessage error={error} /> : null}
@@ -131,7 +168,22 @@ export function LocationPanel({
         </p>
       ) : null}
 
-      <div className="option-list" aria-label="위치 목록">
+      <section
+        className="panel-section location-catalog-section"
+        aria-label="위치 catalog"
+        data-api-path={locationCatalogApiPath}
+      >
+        <div className="section-title-row">
+          <div>
+            <p className="eyebrow">Catalog</p>
+            <h3>{searchSummary}</h3>
+          </div>
+          <span className="location-result-count">
+            {optionsLoading ? '검색 중' : `${options.length}개`}
+          </span>
+        </div>
+
+        <div className="option-list location-option-list" aria-label="위치 목록">
         {optionsLoading ? (
           <p className="muted">위치 목록을 불러오고 있어요.</p>
         ) : options.length > 0 ? (
@@ -140,28 +192,53 @@ export function LocationPanel({
             const saving = savingCode === option.code;
 
             return (
-              <div className="option-row" key={option.code}>
+              <div
+                className={
+                  selected
+                    ? 'option-row location-option-row selected'
+                    : 'option-row location-option-row'
+                }
+                key={option.code}
+              >
                 <div>
                   <strong>{option.name}</strong>
+                  <span>{option.code}</span>
                   <span>
-                    {option.code} - nx={option.nx}, ny={option.ny}
+                    KMA 격자 nx={option.nx}, ny={option.ny}
                   </span>
                 </div>
                 <button
-                  className="secondary-button"
+                  className={selected ? 'primary-button' : 'secondary-button'}
                   type="button"
                   onClick={() => void handleSelect(option)}
                   disabled={selected || savingCode !== null}
                 >
-                  {selected ? '선택됨' : saving ? '저장 중' : '선택'}
+                  {selected ? '현재 위치' : saving ? '저장 중' : '이 위치 선택'}
                 </button>
               </div>
             );
           })
         ) : (
-          <p className="muted">검색어와 일치하는 위치가 없어요.</p>
+          <p className="muted">
+            검색어와 일치하는 위치가 없어요. 도시명이나 code로 다시 검색해주세요.
+          </p>
         )}
-      </div>
+        </div>
+      </section>
     </article>
   );
+}
+
+function formatUpdatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
