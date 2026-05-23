@@ -116,6 +116,7 @@ class SecurityBoundaryRegressionTest {
         assertRequiresBearerToken(put("/api/users/me/preferences")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(preferencesRequest)));
+        assertRequiresBearerToken(get("/api/weather/current"));
         assertRequiresBearerToken(get("/api/clothes"));
         assertRequiresBearerToken(post("/api/clothes")
                 .contentType(MediaType.APPLICATION_JSON)
