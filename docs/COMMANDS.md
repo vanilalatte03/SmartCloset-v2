@@ -39,6 +39,16 @@ git config core.hooksPath .githooks
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
 | autopilot | `python3 scripts/autopilot.py 3-smartcloset-auth-personalization --base main --max-review-fixes 2 --unsafe` | no | MVP-3 phase 기록용 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
+## Harness 실행 로그
+
+`phases/**/step*-output.json`과 `phases/**/phase*-output.json`은 Harness 실행 중 원인 분석을 위해 남기는 로그다. 출력이 크므로 `.rgignore`에서 기본 검색 대상에서 제외한다.
+
+실패 원인을 확인할 때는 파일 전체를 열지 말고 필요한 앞부분만 잘라서 확인한다.
+
+```bash
+jq '{step, name, exitCode, stderr: (.stderr // "")[:1000], stdout: (.stdout // "")[:1000]}' phases/{phase-name}/step0-output.json
+```
+
 ## P0 공유 검증 명령
 
 ```bash

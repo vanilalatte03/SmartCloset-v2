@@ -1,0 +1,3 @@
+# Harness execution logs can be large; inspect them explicitly with jq when needed.
+phases/**/phase*-output.json
+phases/**/step*-output.json
