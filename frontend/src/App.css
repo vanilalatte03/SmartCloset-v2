@@ -1341,6 +1341,182 @@
   justify-items: end;
 }
 
+.history-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.history-summary-panel {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 0;
+}
+
+.history-summary-panel > div {
+  min-width: 0;
+}
+
+.history-summary-copy {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.history-summary-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.history-count-pill,
+.history-worn-pill {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 100%;
+  min-height: 28px;
+  overflow-wrap: anywhere;
+  padding: 0 10px;
+}
+
+.history-count-pill {
+  background: #eef4f8;
+  color: var(--text);
+}
+
+.history-status {
+  margin-top: 0;
+}
+
+.history-card-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.history-card {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+}
+
+.history-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.history-card-header > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.history-card-date {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.history-worn-pill {
+  background: #fff7e6;
+  border-color: #f0c56f;
+  color: #7c4a03;
+  width: fit-content;
+}
+
+.history-worn-pill.complete {
+  background: #e9f2ec;
+  border-color: #bed6c7;
+  color: #14532d;
+}
+
+.history-card-actions {
+  align-items: flex-end;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 8px;
+  justify-items: end;
+}
+
+.history-card-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+}
+
+.history-card-section,
+.history-score-details {
+  min-width: 0;
+}
+
+.history-outfit-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.history-outfit-item {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.history-outfit-item strong,
+.history-outfit-name {
+  overflow-wrap: anywhere;
+}
+
+.history-outfit-detail {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.history-weather-snapshot {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.history-reason-list {
+  margin-top: 10px;
+}
+
+.history-reason-list li {
+  overflow-wrap: anywhere;
+}
+
+.history-score-details {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.history-score-details summary {
+  color: var(--text-heading);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 920px) {
   .auth-shell {
     width: min(100% - 24px, 640px);
@@ -1454,6 +1630,8 @@
   .closet-form-grid,
   .today-layout,
   .today-weather-metrics,
+  .history-card-grid,
+  .history-weather-snapshot,
   .recommendation-layout,
   .score-grid {
     grid-template-columns: 1fr;
@@ -1505,7 +1683,9 @@
   }
 
   .recommendation-failure-card,
-  .recommendation-worn-section {
+  .recommendation-worn-section,
+  .history-summary-panel,
+  .history-card-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1528,10 +1708,33 @@
 
   .option-row .secondary-button,
   .item-meta,
-  .history-actions {
+  .history-actions,
+  .history-card-actions {
     align-self: flex-start;
     text-align: left;
     justify-items: start;
+  }
+
+  .history-summary-actions {
+    align-items: stretch;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .history-summary-actions .secondary-button,
+  .history-card-actions .secondary-button {
+    width: 100%;
+  }
+
+  .history-card {
+    padding: 16px;
+  }
+
+  .history-card-date,
+  .history-outfit-name,
+  .history-outfit-item strong {
+    word-break: break-word;
   }
 
   .closet-counts {
