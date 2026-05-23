@@ -7,6 +7,11 @@ SmartCloset MVP4 공유 방식은 Docker Compose로 유지한다.
 
 기상청 API key가 없어도 앱은 실행되어야 한다. 이 경우 추천은 `StaticWeatherProvider` fallback 날씨로 생성된다. 실제 기상청 단기예보 JSON 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정한다.
 
+## P0 Release Cut 공유 기준
+Step 7 기준 공유 후보는 P0 release cut이다. Docker Compose로 `mysql`, `app`, `frontend`가 함께 실행되고, 신규 사용자가 로그인 후 Today 화면에서 위치/날씨 요약, 첫 추천 체크리스트, 옷장 빠른 등록, 추천 생성, 실패 CTA, 이유 우선 추천 결과, 착용 완료, 최근 추천 preview를 확인할 수 있어야 한다.
+
+Step 8, 9, 10은 P1 polish tail이다. 선호도 화면 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish는 후속 P1 기준이며 P0 공유 성공 여부를 막지 않는다.
+
 ## MVP4 데모 전 DB 초기화
 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 MVP4 데모 전 초기화를 권장한다.
 
@@ -135,6 +140,7 @@ VITE_API_BASE_URL=http://localhost:8080
 - 추천 실패 코드는 한국어 메시지와 CTA로 표시된다.
 - 추천 이력 `GET /api/recommendations?limit=20`이 최신순으로 조회된다.
 - `PATCH /api/recommendations/{recommendationId}/worn`으로 착용 완료 처리된다.
+- Today 최근 추천 preview에서 추천 옷 조합과 착용 여부를 확인할 수 있다.
 - 모바일 375px에서 하단 탭 `오늘`, `옷장`, `선호도`, `위치`, `이력`이 겹치지 않는다.
 
 ### KMA 연동 공유 성공 기준

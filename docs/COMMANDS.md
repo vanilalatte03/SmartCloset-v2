@@ -37,7 +37,7 @@ git config core.hooksPath .githooks
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
-| autopilot | `python3 scripts/autopilot.py 3-smartcloset-auth-personalization --base main --max-review-fixes 2 --unsafe` | no | MVP-3 phase 기록용 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
+| autopilot | `python3 scripts/autopilot.py 4-smartcloset-usable-ux --base main --max-review-fixes 2 --unsafe` | no | MVP4 phase 기록용 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
 ## Harness 실행 로그
 
@@ -66,7 +66,11 @@ docker compose down -v
 
 # Docker Compose 실행
 test -f .env || cp .env.example .env
-docker compose up --build
+docker compose up --build -d
+
+# Smoke 확인
+curl -fsS http://localhost:8080/v3/api-docs >/dev/null
+curl -fsS http://localhost:5173 >/dev/null
 
 # Docker Compose 중지
 docker compose down
@@ -87,12 +91,12 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 git diff --check
 ! rg -n 'T[B]D|MVP4 기능 범위는 아직 확[정]|MVP4 작성 메[모]' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md
 ! rg -n 'GET /api/recommendations/(today)' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
-! rg -n -F -e 'POST /api/recommendations''?userId' -e '/api/clothes''?userId' -e '/api/users/location''?userId' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
+! rg -n -F -e 'POST /api/recommendations''?userId' -e '/api/clothes''?userId' -e '/api/users/location''?userId' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md frontend/src
 rg -n 'POST /api/recommendations' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'preferenceScore|preferred_colors_json|preferred_materials_json|style_tags_json' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'GET /api/locations' README.md docs/API.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md
 rg -n 'GET /api/weather/current' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
-rg -n 'sessionStorage' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
+rg -n 'sessionStorage|preferenceScore|styleTags' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n '2분 안에 첫 추천 성공|오늘 입기 좋은 이유|하단 탭|색상 swatch|소재 chip' README.md docs/PRD.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md
 rg -n 'docker compose down -v' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md
 ```
@@ -102,7 +106,11 @@ rg -n 'docker compose down -v' README.md docs/PRD.md docs/API.md docs/ARCHITECTU
 ```bash
 cd frontend && npm run build
 docker compose down -v
-docker compose up --build
+test -f .env || cp .env.example .env
+docker compose up --build -d
+curl -fsS http://localhost:8080/v3/api-docs >/dev/null
+curl -fsS http://localhost:5173 >/dev/null
+docker compose down
 ```
 
 ## 자동 PR 루프
@@ -110,7 +118,7 @@ docker compose up --build
 아래 명령은 clean worktree, 유효한 `gh auth status`, `origin` 원격, 최신 `main` 브랜치를 전제로 한다.
 
 ```bash
-python3 scripts/autopilot.py 3-smartcloset-auth-personalization --base main --max-review-fixes 2 --unsafe
+python3 scripts/autopilot.py 4-smartcloset-usable-ux --base main --max-review-fixes 2 --unsafe
 ```
 
 자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다. 재시도 후에도 실패하면 PR과 Issue를 열어둔 채 중단한다.

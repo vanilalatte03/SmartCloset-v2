@@ -56,6 +56,20 @@ MVP4는 실사용 UX 개선 단계입니다. 새 공개 API, DB schema, 추천 �
 - 추천 결과를 점수표보다 "오늘 입기 좋은 이유" 중심으로 표시
 - 모바일 하단 탭과 sticky 주요 CTA를 가진 반응형 웹 앱 제공
 
+## MVP4 P0 Release Cut
+Step 7 기준 P0 release cut은 Docker Compose 공유와 첫 추천 성공 흐름 검증 대상입니다.
+
+P0 완료 기준:
+- 로그인 후 기본 화면은 `오늘`이며, 현재 위치와 `GET /api/weather/current` 날씨 요약을 보여줍니다.
+- 첫 추천 체크리스트는 위치, 선호도 확인/저장, 상의/하의/아우터 활성 옷 등록 상태를 보여줍니다.
+- `POST /api/recommendations` 실패는 한국어 메시지와 옷장 이동 CTA로 표시합니다.
+- 추천 성공 결과는 옷 조합과 "오늘 입기 좋은 이유"를 점수 상세보다 먼저 보여줍니다.
+- 옷장은 빠른 등록, 계절/기온 프리셋, 수정, 보관 처리를 지원합니다.
+- 데스크톱은 sidebar navigation, 모바일은 하단 탭 `오늘`, `옷장`, `선호도`, `위치`, `이력`을 사용합니다.
+- Today 화면은 최근 추천 preview와 착용 완료 흐름을 제공합니다.
+
+남은 Step 8, 9, 10은 P1 polish tail입니다. 선호도 저장 문구와 swatch/chip polish, 위치 catalog 검색/선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish를 다루며 P0 공유를 막는 blocker로 보지 않습니다.
+
 MVP4에서도 제외되는 범위:
 
 - 이미지 업로드
@@ -320,8 +334,9 @@ Docker Compose 공유 검증:
 ```bash
 docker compose down -v
 test -f .env || cp .env.example .env
-docker compose up --build
-curl -s http://localhost:8080/v3/api-docs
+docker compose up --build -d
+curl -fsS http://localhost:8080/v3/api-docs >/dev/null
+curl -fsS http://localhost:5173 >/dev/null
 docker compose down
 ```
 

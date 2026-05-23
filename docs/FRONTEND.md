@@ -58,6 +58,19 @@ type AppView = 'today' | 'closet' | 'preferences' | 'location' | 'history';
 
 모바일 하단 탭은 hover에 의존하지 않고 터치 target을 충분히 크게 둔다.
 
+## P0/P1 구현 구분
+Step 7 기준 P0 release cut은 Today 중심 첫 추천 성공 흐름과 Closet 빠른 관리, responsive app shell 검증을 완료 기준으로 삼는다.
+
+P0 화면 동작:
+- `today`: 현재 위치, 현재 날씨 요약, 첫 추천 체크리스트, 추천 생성, 실패 CTA, 이유 우선 결과, 착용 완료, 최근 이력 preview
+- `closet`: 카테고리 필터, 빠른 등록, 계절/기온 프리셋, 수정, 보관
+- app shell: desktop sidebar, top status bar, mobile top app bar, mobile bottom tab
+
+P1 polish tail:
+- `preferences`: swatch/chip 선택 상태, style tag 입력/삭제, 저장 상태 문구를 더 사용자 문장으로 정리
+- `location`: 현재 위치, catalog 검색, 선택 CTA, 인증 만료 문구 polish
+- `history`: 최신순 이력 카드, weather snapshot, 착용 여부, 착용 완료 처리를 전용 화면에서 모바일 overflow 없이 정리
+
 ## 화면 구성
 
 ### Auth View
