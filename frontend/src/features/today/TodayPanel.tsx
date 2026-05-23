@@ -95,7 +95,7 @@ function renderWeatherState(weather: WeatherResponse) {
     <dl className="metric-list today-weather-metrics">
       <div>
         <dt>기온</dt>
-        <dd>{weather.temperature}C</dd>
+        <dd>{weather.temperature}°C</dd>
       </div>
       <div>
         <dt>날씨</dt>
@@ -493,7 +493,7 @@ export function TodayPanel({
                   <strong>{formatDateTime(item.createdAt)}</strong>
                   <span>{renderHistoryOutfit(item)}</span>
                   <span className="token-row">
-                    <span>{item.weather.temperature}C</span>
+                    <span>{item.weather.temperature}°C</span>
                     <WeatherLabel weatherType={item.weather.weatherType} />
                     <ColorSwatch color={item.outfit.top.color} showLabel={false} />
                     <MaterialChip material={item.outfit.top.material} />

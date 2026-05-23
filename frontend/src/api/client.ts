@@ -80,7 +80,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   if (!response.ok) {
     throw new ApiClientError(
       response.status,
-      toErrorResponse(payload, 'The SmartCloset API returned an error.')
+      toErrorResponse(payload, 'SmartCloset API 요청이 실패했습니다.')
     );
   }
 
@@ -88,7 +88,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   if (!apiResponse || !('data' in apiResponse)) {
     throw new ApiClientError(
       response.status,
-      toErrorResponse(payload, 'The SmartCloset API returned an invalid response.')
+      toErrorResponse(payload, 'SmartCloset API 응답 형식이 올바르지 않습니다.')
     );
   }
 

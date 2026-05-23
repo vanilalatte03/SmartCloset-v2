@@ -61,7 +61,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
         return;
       }
       setPreferences(emptyPreferences);
-      setError(toErrorResponse(caught, 'Unable to load preferences.'));
+      setError(toErrorResponse(caught, '선호도를 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -77,11 +77,11 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
     setStatus(null);
 
     if (!nextTag) {
-      setError(validationError('Style tag must not be blank.'));
+      setError(validationError('스타일 태그를 입력해주세요.'));
       return;
     }
     if (nextTag.length > 30) {
-      setError(validationError('Style tag must be 30 characters or fewer.'));
+      setError(validationError('스타일 태그는 30자 이하로 입력해주세요.'));
       return;
     }
     if (preferences.styleTags.includes(nextTag)) {
@@ -105,13 +105,13 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
     try {
       const saved = await updateUserPreferences(accessToken, preferences);
       setPreferences(saved);
-      setStatus('Preferences saved.');
+      setStatus('선호도를 저장했습니다.');
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
         return;
       }
-      setError(toErrorResponse(caught, 'Unable to save preferences.'));
+      setError(toErrorResponse(caught, '선호도를 저장하지 못했습니다.'));
     } finally {
       setSaving(false);
     }
@@ -120,23 +120,23 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
   return (
     <article className="panel">
       <div className="section-title-row">
-        <h2>Preferences</h2>
+        <h2>선호도</h2>
         <button
           className="secondary-button"
           type="button"
           onClick={() => void loadPreferences()}
           disabled={loading || saving}
         >
-          Refresh
+          새로고침
         </button>
       </div>
 
       {loading ? (
-        <p className="muted">Loading preferences.</p>
+        <p className="muted">선호도를 불러오고 있어요.</p>
       ) : (
         <form className="panel-form compact-form" onSubmit={handleSave}>
-          <section className="panel-section" aria-label="Preferred colors">
-            <h3>Preferred colors</h3>
+          <section className="panel-section" aria-label="선호 색상">
+            <h3>선호 색상</h3>
             <div className="checkbox-grid">
               {clothingColorOptions.map((color) => (
                 <label className="checkbox-field" key={color}>
@@ -156,8 +156,8 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
             </div>
           </section>
 
-          <section className="panel-section" aria-label="Preferred materials">
-            <h3>Preferred materials</h3>
+          <section className="panel-section" aria-label="선호 소재">
+            <h3>선호 소재</h3>
             <div className="checkbox-grid">
               {clothingMaterialOptions.map((material) => (
                 <label className="checkbox-field" key={material}>
@@ -180,7 +180,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
             </div>
           </section>
 
-          <section className="panel-section" aria-label="Style tags">
+          <section className="panel-section" aria-label="스타일 태그">
             <h3>{styleTagLabels.title}</h3>
             <div className="inline-form tag-form">
               <label className="field">
@@ -196,14 +196,14 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
                 {styleTagLabels.addCta}
               </button>
             </div>
-            <div className="tag-list" aria-label="Saved style tags">
+            <div className="tag-list" aria-label="저장된 스타일 태그">
               {preferences.styleTags.length > 0 ? (
                 preferences.styleTags.map((tag) => (
                   <span className="tag-chip" key={tag}>
                     {formatStyleTagLabel(tag)}
                     <button
                       type="button"
-                      aria-label={`Remove ${tag}`}
+                      aria-label={`${tag} 삭제`}
                       onClick={() =>
                         setPreferences({
                           ...preferences,
@@ -222,7 +222,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
           </section>
 
           <button className="primary-button" type="submit" disabled={saving}>
-            {saving ? 'Saving' : 'Save preferences'}
+            {saving ? '저장 중' : '선호도 저장'}
           </button>
         </form>
       )}

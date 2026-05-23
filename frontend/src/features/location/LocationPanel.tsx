@@ -45,7 +45,7 @@ export function LocationPanel({
         return;
       }
       setOptions([]);
-      setError(toErrorResponse(caught, 'Unable to load the location catalog.'));
+      setError(toErrorResponse(caught, '위치 목록을 불러오지 못했습니다.'));
     } finally {
       setOptionsLoading(false);
     }
@@ -69,13 +69,13 @@ export function LocationPanel({
     try {
       const updatedLocation = await updateUserLocation(accessToken, option.code);
       onLocationChange(updatedLocation);
-      setStatus(`${updatedLocation.name} saved as the current location.`);
+      setStatus(`${updatedLocation.name}을 현재 위치로 저장했습니다.`);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
         return;
       }
-      setError(toErrorResponse(caught, 'Unable to save the selected location.'));
+      setError(toErrorResponse(caught, '선택한 위치를 저장하지 못했습니다.'));
     } finally {
       setSavingCode(null);
     }
@@ -83,44 +83,44 @@ export function LocationPanel({
 
   return (
     <article className="panel">
-      <h2>Location</h2>
-      <section className="panel-section" aria-label="Current location">
+      <h2>위치</h2>
+      <section className="panel-section" aria-label="현재 위치">
         {loading ? (
-          <p className="muted">Loading current user location.</p>
+          <p className="muted">현재 위치를 불러오고 있어요.</p>
         ) : location ? (
           <dl className="metric-list compact">
             <div>
-              <dt>Name</dt>
+              <dt>위치</dt>
               <dd>{location.name}</dd>
             </div>
             <div>
-              <dt>Code</dt>
+              <dt>코드</dt>
               <dd>{location.code}</dd>
             </div>
             <div>
-              <dt>KMA grid</dt>
+              <dt>KMA 격자</dt>
               <dd>
                 nx={location.nx}, ny={location.ny}
               </dd>
             </div>
           </dl>
         ) : (
-          <p className="muted">No location data loaded.</p>
+          <p className="muted">불러온 위치 정보가 없어요.</p>
         )}
       </section>
 
       <form className="inline-form" onSubmit={handleSearch}>
         <label className="field">
-          <span>Keyword</span>
+          <span>검색어</span>
           <input
             type="search"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="SEOUL, BUSAN"
+            placeholder="서울, 부산, SEOUL"
           />
         </label>
         <button className="secondary-button" type="submit" disabled={optionsLoading}>
-          Search
+          검색
         </button>
       </form>
 
@@ -131,9 +131,9 @@ export function LocationPanel({
         </p>
       ) : null}
 
-      <div className="option-list" aria-label="Location catalog">
+      <div className="option-list" aria-label="위치 목록">
         {optionsLoading ? (
-          <p className="muted">Loading locations.</p>
+          <p className="muted">위치 목록을 불러오고 있어요.</p>
         ) : options.length > 0 ? (
           options.map((option) => {
             const selected = location?.code === option.code;
@@ -153,13 +153,13 @@ export function LocationPanel({
                   onClick={() => void handleSelect(option)}
                   disabled={selected || savingCode !== null}
                 >
-                  {selected ? 'Selected' : saving ? 'Saving' : 'Select'}
+                  {selected ? '선택됨' : saving ? '저장 중' : '선택'}
                 </button>
               </div>
             );
           })
         ) : (
-          <p className="muted">No locations match this keyword.</p>
+          <p className="muted">검색어와 일치하는 위치가 없어요.</p>
         )}
       </div>
     </article>
