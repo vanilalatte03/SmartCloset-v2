@@ -9,7 +9,7 @@
 
 ADR-008은 MVP-3 완료 baseline의 인증 사용자 기반 API 계약을 정의하며, 이전 ADR의 `userId` request parameter 기반 API 표현보다 우선한다.
 
-ADR-009는 MVP4를 백엔드 API/DB/추천 규칙 변경이 아닌 반응형 웹 실사용 UX 범위로 확정한다.
+ADR-009는 MVP4를 백엔드 API/DB/추천 규칙 변경이 아닌 반응형 웹 실사용 UX 범위로 확정하고, Step 7 P0 release cut 이후 Step 8-10을 P1 polish tail로 분리한다.
 
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)

@@ -89,6 +89,19 @@
 - Redis 캐싱
 - AWS 배포와 CD 자동화
 
+## P0 Release Cut과 P1 Tail
+Step 7 기준 P0 release cut은 첫 추천 성공 흐름과 Docker Compose 공유 검증을 마무리하는 기준이다. P0 완료는 아래 범위로 판단한다.
+
+- 로그인 후 기본 view는 `오늘`이다.
+- Today 화면은 현재 위치, `GET /api/weather/current` 날씨 요약, 첫 추천 준비 체크리스트, 추천 생성 CTA를 제공한다.
+- Closet 화면은 카테고리 필터, 빠른 등록, 계절/기온 프리셋, 수정, 보관 처리를 제공한다.
+- 추천 실패는 한국어 메시지와 직접 CTA로 표시한다.
+- 추천 성공은 옷 조합과 "오늘 입기 좋은 이유"를 점수 상세보다 먼저 보여준다.
+- 데스크톱 sidebar와 모바일 하단 탭이 375px/1280px 검증 범위에서 겹치지 않는다.
+- Today 화면에서 최근 추천 preview와 착용 완료 흐름을 확인할 수 있다.
+
+Step 8, 9, 10은 P1 polish tail이다. 선호도 swatch/chip 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 최신순 이력 카드와 착용 완료 polish를 다루며 P0 release cut의 blocker가 아니다.
+
 ## 포함 범위
 - React 반응형 웹 UI 재구성
 - `오늘 추천`, `옷장`, `선호도`, `위치`, `이력`, `인증` 화면 정의

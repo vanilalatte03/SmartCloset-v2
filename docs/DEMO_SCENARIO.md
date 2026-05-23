@@ -21,6 +21,11 @@ MVP4 데모의 핵심은 API 기능 존재 여부가 아니라 사용자가 다�
 
 외부 주소/지도 API, AI/GPT 추천, 이미지 업로드, refresh token, 소셜 로그인, 비밀번호 재설정, native app/PWA 출시는 데모 범위가 아니다.
 
+## P0 Release Cut 기준
+Step 7 P0 데모는 Today 화면에서 첫 추천을 성공시키는 흐름을 기준으로 한다. 전용 History view의 이력 카드 polish는 Step 10 P1 범위이며, P0에서는 Today의 최근 추천 preview와 추천 결과 착용 완료 흐름을 확인한다.
+
+Step 8, 9, 10은 선호도, 위치, 이력 화면 polish tail이다. 이 단계들이 남아 있어도 공개/보호 API 계약, Today 첫 추천 흐름, Closet 빠른 관리, responsive app shell이 통과하면 P0 공유 후보로 본다.
+
 ## DB 초기화
 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 데모 전 초기화를 권장한다.
 
@@ -306,4 +311,5 @@ GET /api/recommendations?limit=20
 - Today view의 체크리스트와 추천 CTA가 화면 밖으로 깨지지 않는다.
 - Closet view에서 수정/보관 액션이 hover 없이 접근 가능하다.
 - Preferences view의 swatch와 chip이 가로 스크롤 또는 줄바꿈으로 자연스럽게 표시된다.
-- History view의 긴 날짜/옷 이름이 카드 밖으로 넘치지 않는다.
+- Today 최근 이력 preview의 긴 날짜/옷 이름이 카드 밖으로 넘치지 않는다.
+- 전용 History view의 모바일 이력 카드 polish는 Step 10 P1에서 완료한다.
