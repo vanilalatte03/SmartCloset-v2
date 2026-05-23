@@ -2,7 +2,7 @@
 
 SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 기반으로, 입을 수 있는 옷 후보를 필터링하고 색상 조합, 최근 이력, 선호 색상/소재를 점수화해 설명 가능한 코디를 추천하는 서비스입니다.
 
-3차 MVP는 테스트용 `userId=1` 흐름을 벗어나 Spring Security와 JWT Bearer token 기반 인증 사용자 서비스로 전환합니다. 사용자는 회원가입/로그인 후 자신의 옷장, 위치, 선호도, 추천 이력, 착용 완료 이력을 관리합니다.
+현재 baseline은 테스트용 `userId=1` 흐름을 벗어난 Spring Security와 JWT Bearer token 기반 인증 사용자 서비스입니다. 사용자는 회원가입/로그인 후 자신의 옷장, 위치, 선호도, 추천 이력, 착용 완료 이력을 관리합니다.
 
 ## 기술 스택
 - Java 21
@@ -19,7 +19,7 @@ SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 �
 - Vite
 - TypeScript
 
-## 3차 MVP 핵심 기능
+## 현재 baseline 핵심 기능
 
 ### 유지 기능
 - 기상청 단기예보 `getVilageFcst` JSON 기반 weather provider
@@ -31,7 +31,7 @@ SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 �
 - React+Vite+TypeScript 프론트엔드 앱
 - Docker Compose 실행
 
-### 3차 추가 기준
+### 인증/개인화 기준
 - 회원가입/로그인
 - Spring Security + JWT Bearer access token
 - 공개 API와 보호 API 분리
@@ -42,6 +42,9 @@ SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 �
 - 기존 다양성 점수를 `preferenceScore`로 교체
 - 추천 이력 조회 API
 - 프론트 access token `sessionStorage` 저장
+
+## MVP4 문서 작성 상태
+MVP4 기능 범위는 아직 확정하지 않았습니다. 현재 [docs/PRD.md](docs/PRD.md)는 MVP4 요구사항을 채워 넣기 위한 틀이며, 새 기능은 PRD와 ADR에서 승인된 뒤 현재 baseline 문서에 반영합니다.
 
 ## 실행 전 요구사항
 - Docker
@@ -58,15 +61,15 @@ python3 -m pip install -r requirements-dev.txt
 git config core.hooksPath .githooks
 ```
 
-## MVP 3 전환 시 DB 초기화
-MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장합니다.
+## MVP-3 완료 전환 시 DB 초기화
+MVP-3 완료 baseline으로 전환할 때 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장합니다.
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-운영 DB migration은 3차 문서 범위에서 다루지 않습니다. 로컬 공유/데모 기준은 volume 초기화로 정리합니다.
+운영 DB migration은 현재 문서 범위에서 다루지 않습니다. 로컬 공유/데모 기준은 volume 초기화로 정리합니다.
 
 ## 환경 변수 기준
 로컬 공유용 기본값은 [.env.example](.env.example)를 기준으로 합니다.
@@ -99,7 +102,7 @@ VITE_API_BASE_URL=http://localhost:8080
 
 `JWT_SECRET` 예시는 로컬 개발용 placeholder입니다. 운영 secret, 실제 API key, token, password는 코드와 문서에 커밋하지 않습니다.
 
-`KMA_SERVICE_KEY`에는 공공데이터포털에서 발급받은 실제 인증키를 로컬 `.env`에만 설정하고, 코드와 문서에 커밋하지 않습니다. `KMA_NX`, `KMA_NY`는 기존 구현과 마이그레이션 호환을 위한 기본값이며, 3차 추천 기준은 인증 사용자별 위치입니다.
+`KMA_SERVICE_KEY`에는 공공데이터포털에서 발급받은 실제 인증키를 로컬 `.env`에만 설정하고, 코드와 문서에 커밋하지 않습니다. `KMA_NX`, `KMA_NY`는 기존 구현과 마이그레이션 호환을 위한 기본값이며, 현재 추천 기준은 인증 사용자별 위치입니다.
 
 서비스키가 비어 있어도 fallback이 활성화되어 있으면 추천 생성은 성공해야 합니다.
 
@@ -134,7 +137,7 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
 - 보조 Demo UI: http://localhost:8080/demo/index.html
 
-3차의 주 사용 화면은 React 프론트엔드입니다. Swagger 또는 보조 Demo UI는 API 흐름을 분리해 확인할 때 사용합니다.
+현재 주 사용 화면은 React 프론트엔드입니다. Swagger 또는 보조 Demo UI는 API 흐름을 분리해 확인할 때 사용합니다.
 
 ## 인증 흐름
 공개 API:
@@ -145,7 +148,7 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 보호 API는 `Authorization: Bearer {accessToken}` header가 필요합니다. 프론트는 access token을 `sessionStorage`에 저장합니다. 새로고침 시 `GET /api/users/me`로 로그인 상태를 복구하고, 로그아웃 시 token과 사용자 상태를 제거합니다. JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정합니다.
 
 ## 사용자 위치 기준
-3차 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용합니다. `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 화면에서만 호출합니다.
+현재 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용합니다. `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 화면에서만 호출합니다.
 
 신규 사용자 기본 위치:
 
@@ -248,7 +251,7 @@ npm run dev
 npm run build
 ```
 
-3차 프론트엔드는 TypeScript `strict` 기준을 사용하고, API 요청/응답 DTO를 명시적 타입으로 관리합니다. 보호 API 호출에는 Bearer token을 붙이며, token 저장 위치는 `sessionStorage`입니다.
+현재 프론트엔드는 TypeScript `strict` 기준을 사용하고, API 요청/응답 DTO를 명시적 타입으로 관리합니다. 보호 API 호출에는 Bearer token을 붙이며, token 저장 위치는 `sessionStorage`입니다.
 
 ## KMA 연동 확인
 실제 기상청 API 연동을 확인하려면 `.env`에 `KMA_SERVICE_KEY`를 설정합니다.
@@ -311,6 +314,7 @@ docker compose down
 - [1차 MVP Archive](archive/mvp-1/README.md)
 - [1.5차 MVP Archive](archive/mvp-1-5/README.md)
 - [2차 MVP Archive](archive/mvp-2/README.md)
+- [MVP-3 Archive](archive/mvp-3/README.md)
 
 ## 문서 동기화 체크리스트
 - 공개 API와 보호 API 표가 분리되어 있는지 확인한다.

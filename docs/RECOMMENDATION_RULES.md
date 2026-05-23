@@ -1,9 +1,12 @@
-# 추천 규칙: SmartCloset 3차 MVP
+# 추천 규칙: SmartCloset Current Baseline
 
 ## 1. 추천 규칙의 목적
-SmartCloset 3차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset 현재 baseline의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-3차는 인증 사용자 기준으로 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리한다. 추천 생성 API는 `POST /api/recommendations`이며, today 추천 GET 경로는 API 계약으로 사용하지 않는다.
+현재 baseline은 인증 사용자 기준으로 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리한다. 추천 생성 API는 `POST /api/recommendations`이며, today 추천 GET 경로는 API 계약으로 사용하지 않는다.
+
+## MVP4 작성 메모
+MVP4 추천 규칙 변경은 아직 확정되지 않았다. 점수 배분, tie-break, 추천 이유, 실패 코드, styleTags 반영 여부는 `docs/PRD.md`와 ADR에서 승인된 뒤 이 문서에 반영한다.
 
 추천 이유는 AI가 생성하는 자유 문장이 아니다. 각 규칙의 판단 결과를 `RecommendationReasonGenerator`가 템플릿 문장으로 변환한다.
 
@@ -18,12 +21,12 @@ SmartCloset 3차 MVP의 추천은 AI/GPT 추천이 아니라 설명 가능하고
 - 현재 인증 사용자의 선호 색상/소재
 - 내부 `WeatherCondition`
 
-`styleTags`는 3차에서 저장/조회/표시만 한다. 추천 점수와 추천 이유에는 반영하지 않는다.
+`styleTags`는 현재 baseline에서 저장/조회/표시만 한다. 추천 점수와 추천 이유에는 반영하지 않는다.
 
 ## 3. Weather source 정책
 추천 도메인은 외부 API 응답 모델에 직접 의존하지 않는다. 추천 규칙은 항상 내부 `WeatherCondition`만 입력으로 받는다.
 
-3차 기본 weather source는 현재 인증 사용자 위치 `nx`, `ny`로 조회한 기상청 단기예보 조회서비스 `getVilageFcst` JSON 응답이다. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락, 파싱 실패 시에는 `StaticWeatherProvider` fallback 날씨를 사용한다.
+현재 기본 weather source는 인증 사용자 위치 `nx`, `ny`로 조회한 기상청 단기예보 조회서비스 `getVilageFcst` JSON 응답이다. 서비스키 미설정, 외부 API 실패, `NODATA`, 필수 category 누락, 파싱 실패 시에는 `StaticWeatherProvider` fallback 날씨를 사용한다.
 
 KMA forecast group 선택은 provider 책임이다. provider는 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` group을 선택해 `WeatherCondition`을 만든다. 선택 group에 필수 category가 누락되면 다른 forecast group으로 이동하지 않고 fallback 또는 strict mode 실패로 처리한다.
 
@@ -55,7 +58,7 @@ fallback 값은 유지한다.
 ## 5. KMA category 매핑
 KMA `getVilageFcst` JSON 응답의 `response.body.items.item[]`에서 같은 forecast time의 category를 묶어 사용한다.
 
-3차 추천에 필요한 category는 아래 5개다.
+현재 추천에 필요한 category는 아래 5개다.
 
 | Category | Name | WeatherCondition field |
 | --- | --- | --- |

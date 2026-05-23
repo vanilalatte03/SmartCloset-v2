@@ -1,7 +1,10 @@
-# Frontend: SmartCloset 3차 MVP
+# Frontend: SmartCloset Current Baseline
 
 ## 목표
-3차 프론트엔드는 고정 `userId=1` 대시보드에서 벗어나 회원가입/로그인 후 인증 사용자 기준으로 옷장, 위치, 선호도, 추천, 추천 이력을 확인하는 React+Vite+TypeScript SPA다.
+현재 프론트엔드는 고정 `userId=1` 대시보드에서 벗어나 회원가입/로그인 후 인증 사용자 기준으로 옷장, 위치, 선호도, 추천, 추천 이력을 확인하는 React+Vite+TypeScript SPA다.
+
+## MVP4 작성 메모
+MVP4 프론트 범위는 아직 확정되지 않았다. 새 화면, 라우팅, 상태 관리 라이브러리, API client 변경은 `docs/PRD.md`에서 범위를 정한 뒤 이 문서에 반영한다.
 
 `frontend/` 디렉터리는 React+Vite+TypeScript SPA이며 Docker Compose `frontend` 서비스와 함께 유지한다.
 
@@ -27,7 +30,7 @@
 - TypeScript `strict` 사용
 - CSS는 기본 CSS module 또는 단일 앱 CSS로 시작한다.
 - 대형 상태 관리 라이브러리는 사용하지 않는다.
-- React Router는 3차에서 필수로 두지 않는다. 로그인 전/후 상태 전환은 React state로 시작할 수 있다.
+- React Router는 현재 baseline에서 필수로 두지 않는다. 로그인 전/후 상태 전환은 React state로 시작할 수 있다.
 
 ## 인증 상태 기준
 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
@@ -47,7 +50,7 @@ smartcloset.accessToken
 5. 모든 보호 API 요청에는 `Authorization: Bearer {accessToken}`을 붙인다.
 6. 로그아웃 시 `sessionStorage` token과 사용자 상태를 제거한다.
 
-Refresh token은 3차 범위가 아니다.
+Refresh token은 현재 baseline 범위가 아니다.
 
 ## 디렉터리 기준
 ```text
@@ -140,7 +143,7 @@ export type UserPreferencesResponse = {
 현재 사용자 전용 응답 타입에는 `userId` 필드를 두지 않는다.
 
 ## 화면 구성
-3차 첫 화면은 인증 상태에 따라 나뉜다.
+현재 첫 화면은 인증 상태에 따라 나뉜다.
 
 ### Logged-out View
 - 로그인 form
@@ -171,7 +174,7 @@ export type UserPreferencesResponse = {
 - 저장 버튼
 - 저장 성공/실패 상태
 
-`styleTags`는 3차에서 저장/조회/표시만 하며 추천 점수와 추천 이유에 반영하지 않는다.
+`styleTags`는 현재 baseline에서 저장/조회/표시만 하며 추천 점수와 추천 이유에 반영하지 않는다.
 
 ### Closet Panel
 - 활성 옷 목록
@@ -208,7 +211,7 @@ Limit 정책:
 - 범위 밖 또는 숫자가 아닌 값은 `400 INVALID_REQUEST`
 
 ## 상태 관리
-3차는 React state와 작은 custom hook만 사용한다.
+현재 baseline은 React state와 작은 custom hook만 사용한다.
 
 권장 hook:
 
@@ -221,7 +224,7 @@ Limit 정책:
 - `useRecommendation(accessToken)`
 - `useRecommendationHistory(accessToken, limit)`
 
-서버 상태 캐시 라이브러리는 3차 필수 범위가 아니다.
+서버 상태 캐시 라이브러리는 현재 baseline 필수 범위가 아니다.
 
 ## 에러 처리
 프론트는 백엔드 실패 응답의 `code`와 `message`를 그대로 표시할 수 있어야 한다.

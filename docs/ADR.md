@@ -7,7 +7,9 @@
 
 ## ADR 목록
 
-ADR-008은 3차 MVP의 인증 사용자 기반 API 계약을 정의하며, 이전 ADR의 `userId` request parameter 기반 API 표현보다 우선한다.
+ADR-008은 MVP-3 완료 baseline의 인증 사용자 기반 API 계약을 정의하며, 이전 ADR의 `userId` request parameter 기반 API 표현보다 우선한다.
+
+MVP4에서 현재 결정을 바꾸려면 ADR-008을 직접 덮어쓰기보다 새 ADR을 추가하거나 명시적으로 갱신한다.
 
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)

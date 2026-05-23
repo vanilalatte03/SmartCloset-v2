@@ -1,7 +1,10 @@
-# 아키텍처: SmartCloset 3차 MVP
+# 아키텍처: SmartCloset Current Baseline
 
 ## 전체 아키텍처 개요
-SmartCloset 3차 MVP는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 기존 추천 도메인과 KMA weather provider를 유지하면서 Spring Security, JWT Bearer 인증, 사용자 선호도, 추천 이력 조회를 추가한다.
+SmartCloset 현재 baseline은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. 백엔드는 기존 추천 도메인과 KMA weather provider를 유지하면서 Spring Security, JWT Bearer 인증, 사용자 선호도, 추천 이력 조회를 포함한다.
+
+## MVP4 작성 메모
+MVP4 아키텍처 변경은 아직 확정되지 않았다. 새 하위 시스템, 외부 provider, persistence 변경, 인증 구조 변경은 `docs/PRD.md`와 ADR에서 먼저 결정한 뒤 이 문서에 반영한다.
 
 전체 백엔드 요청 흐름은 아래 계층 구조를 유지한다.
 
@@ -84,7 +87,7 @@ frontend
     └── main.tsx
 ```
 
-Spring Boot static Demo UI는 3차의 주 제품 화면이 아니다. 유지하더라도 API smoke 확인용 보조 화면으로만 취급한다.
+Spring Boot static Demo UI는 현재 주 제품 화면이 아니다. 유지하더라도 API smoke 확인용 보조 화면으로만 취급한다.
 
 ## 계층별 책임
 
@@ -133,7 +136,7 @@ Spring Boot static Demo UI는 3차의 주 제품 화면이 아니다. 유지하�
 - KMA category 매핑 금지
 
 ## 인증 구조
-3차 인증은 Spring Security + JWT Bearer access token 단일 구조다. refresh token은 3차 범위가 아니다.
+현재 인증은 Spring Security + JWT Bearer access token 단일 구조다. refresh token은 현재 baseline 범위가 아니다.
 
 ```text
 AuthController
@@ -202,7 +205,7 @@ JWT access token payload 기준:
 - `GET /api/recommendations?limit={limit}`
 - `PATCH /api/recommendations/{recommendationId}/worn`
 
-`GET /api/locations`는 민감정보를 반환하지 않지만 3차에서는 보호 API로 고정한다. 회원가입 화면은 위치 catalog를 호출하지 않고, 로그인 후 위치 선택 화면에서 호출한다.
+`GET /api/locations`는 민감정보를 반환하지 않지만 현재 baseline에서는 보호 API로 고정한다. 회원가입 화면은 위치 catalog를 호출하지 않고, 로그인 후 위치 선택 화면에서 호출한다.
 
 ## userId 제거 구조
 HTTP query parameter의 `userId`는 제거한다. Controller는 인증 principal에서 현재 사용자 id를 얻는다.
@@ -217,7 +220,7 @@ JwtAuthenticationFilter
 현재 사용자 전용 response DTO에서도 `userId`를 제거한다. 내부 Entity, Repository, Service에서는 소유자 검증과 조회 조건을 위해 `Long userId`를 유지할 수 있다.
 
 ## Location 구조
-3차 위치 선택은 외부 위치 API 없이 내장 대표 격자 catalog를 사용한다.
+현재 위치 선택은 외부 위치 API 없이 내장 대표 격자 catalog를 사용한다.
 
 ```text
 LocationController
@@ -277,7 +280,7 @@ RecommendationService
           -> StaticWeatherProvider fallback
 ```
 
-3차 기준:
+현재 기준:
 
 - KMA 요청의 `nx`, `ny`는 현재 인증 사용자 위치에서 온다.
 - 기존 `KMA_NX`, `KMA_NY`는 기존 구현/로컬 기본값 호환용이다.
@@ -304,7 +307,7 @@ RecommendationService
 14. `RecommendationResult`를 생성하고 저장한다.
 15. 현재 사용자 전용 response DTO를 반환한다.
 
-기존 다양성 점수는 3차에서 제거하고 `preferenceScore`로 교체한다.
+기존 다양성 점수는 현재 baseline에서 제거하고 `preferenceScore`로 교체했다.
 
 ## 추천 이력 조회 흐름
 `GET /api/recommendations?limit={limit}`는 현재 인증 사용자 추천 결과를 최신순으로 조회한다.
@@ -334,7 +337,7 @@ Limit 정책:
 외부 KMA 호출은 DB transaction을 길게 잡지 않는다.
 
 ## Docker Compose 공유 기준
-3차 공유 기준은 아래 3개 서비스다.
+현재 공유 기준은 아래 3개 서비스다.
 
 ```text
 mysql
@@ -342,11 +345,11 @@ app
 frontend
 ```
 
-MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
+MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-운영 DB migration은 3차 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
+운영 DB migration은 현재 문서 범위에서 다루지 않는다. 로컬 공유/데모 기준은 volume 초기화로 정리한다.
