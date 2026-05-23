@@ -77,7 +77,10 @@
     {
       "step": 9,
       "name": "location-catalog-ux",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T05:06:55+0900",
+      "summary": "Location view를 현재 위치 카드, catalog 검색/전체 보기, 명확한 선택 CTA와 Today 날씨 갱신 연결로 정리했다.",
+      "completed_at": "2026-05-24T05:10:35+0900"
     },
     {
       "step": 10,
