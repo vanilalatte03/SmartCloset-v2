@@ -311,6 +311,139 @@
   grid-column: 1 / -1;
 }
 
+.today-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.today-hero-panel,
+.today-history-preview {
+  grid-column: 1 / -1;
+}
+
+.today-hero-panel {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  min-height: 176px;
+}
+
+.today-hero-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.today-hero-copy h2 {
+  font-size: 26px;
+  margin: 0;
+}
+
+.today-primary-action {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  min-width: min(240px, 100%);
+}
+
+.today-generate-button {
+  min-height: 44px;
+}
+
+.today-cta-note,
+.today-checklist-note {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.today-location-summary {
+  margin-bottom: 14px;
+}
+
+.today-weather-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.today-soft-error {
+  display: grid;
+  gap: 8px;
+}
+
+.today-checklist {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.today-checklist-item {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.today-checklist-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.today-checklist-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.today-checklist-item strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.today-checklist-item span {
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.checklist-status {
+  border: 2px solid;
+  border-radius: 50%;
+  height: 16px;
+  width: 16px;
+}
+
+.checklist-status.complete {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.checklist-status.pending {
+  background: #ffffff;
+  border-color: var(--warning);
+}
+
+.today-checklist-note {
+  border-top: 1px solid var(--border);
+  margin: 2px 0 0;
+  padding-top: 12px;
+}
+
+.today-history-list {
+  margin-top: 14px;
+}
+
+.today-history-row {
+  align-items: flex-start;
+}
+
 .auth-layout {
   display: grid;
   gap: 16px;
@@ -797,9 +930,40 @@
   .inline-form,
   .checkbox-grid,
   .field-grid,
+  .today-layout,
+  .today-weather-metrics,
   .recommendation-layout,
   .score-grid {
     grid-template-columns: 1fr;
+  }
+
+  .today-hero-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .today-hero-copy h2 {
+    font-size: 22px;
+  }
+
+  .today-primary-action {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    margin: 0 -18px -18px;
+    padding: 12px 18px 14px;
+    position: sticky;
+    z-index: 9;
+  }
+
+  .today-checklist-item {
+    align-items: stretch;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .today-checklist-item .secondary-button {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .option-row,

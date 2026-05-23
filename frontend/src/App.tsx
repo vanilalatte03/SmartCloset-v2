@@ -7,7 +7,7 @@ import { AuthPanel } from './features/auth/AuthPanel';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
 import { LocationPanel } from './features/location/LocationPanel';
 import { PreferencesPanel } from './features/preferences/PreferencesPanel';
-import { RecommendationPanel } from './features/recommendation/RecommendationPanel';
+import { TodayPanel } from './features/today/TodayPanel';
 import type {
   AuthResponse,
   CurrentUserResponse,
@@ -128,6 +128,10 @@ function App() {
     setError(null);
   }, []);
 
+  const handleNavigate = useCallback((view: AppView) => {
+    setActiveView(view);
+  }, []);
+
   if (sessionState !== 'authenticated' || !accessToken || !currentUser) {
     return (
       <main className="auth-shell">
@@ -182,10 +186,11 @@ function App() {
               <p className="eyebrow">Today</p>
               <h2 id="today-view-title">오늘</h2>
             </header>
-            <RecommendationPanel
+            <TodayPanel
               accessToken={accessToken}
               location={location}
               onAuthExpired={handleAuthExpired}
+              onNavigate={handleNavigate}
             />
           </section>
         );
