@@ -1,0 +1,61 @@
+{
+  "project": "SmartCloset",
+  "phase": "4-smartcloset-usable-ux",
+  "steps": [
+    {
+      "step": 0,
+      "name": "current-weather-api",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "frontend-api-label-foundation",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "responsive-app-shell",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "today-readiness-weather",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "closet-quick-manage",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "recommendation-guidance-ux",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "responsive-polish-and-qa",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "demo-sharing-doc-sync",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "preferences-swatch-chip",
+      "status": "pending"
+    },
+    {
+      "step": 9,
+      "name": "location-catalog-ux",
+      "status": "pending"
+    },
+    {
+      "step": 10,
+      "name": "history-worn-ux",
+      "status": "pending"
+    }
+  ]
+}

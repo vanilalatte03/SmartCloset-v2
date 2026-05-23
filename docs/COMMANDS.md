@@ -2,12 +2,9 @@
 
 이 파일은 프로젝트 실행 명령의 단일 출처입니다.
 
-현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose + React/Vite/TypeScript frontend 기준입니다. 현재 baseline은 Spring Security + JWT Bearer 인증과 사용자 선호도 문서를 포함하므로, API 검증은 `userId` query parameter 없이 인증 사용자 기준으로 수행합니다.
+현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose + React/Vite/TypeScript frontend 기준입니다. MVP4는 Spring Security + JWT Bearer 인증 사용자 API 위에서 반응형 웹 UX를 검증하므로, API 검증은 `userId` query parameter 없이 인증 사용자 기준으로 수행합니다.
 
-MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장합니다.
-
-## MVP4 작성 메모
-MVP4 명령 변경은 아직 확정되지 않았습니다. 새 검증 명령, migration 명령, 배포 명령은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영합니다.
+MVP4 데모 전 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 초기화를 권장합니다.
 
 ```bash
 docker compose down -v
@@ -40,7 +37,7 @@ git config core.hooksPath .githooks
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
-| autopilot | `python3 scripts/autopilot.py 3-smartcloset-auth-personalization --base main --max-review-fixes 2 --unsafe` | no | MVP-3 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
+| autopilot | `python3 scripts/autopilot.py 3-smartcloset-auth-personalization --base main --max-review-fixes 2 --unsafe` | no | MVP-3 phase 기록용 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
 ## P0 공유 검증 명령
 
@@ -54,7 +51,7 @@ git config core.hooksPath .githooks
 # 프론트 빌드
 (cd frontend && npm run build)
 
-# MVP-3 완료 baseline 전환 DB 초기화
+# MVP4 데모 전 DB 초기화
 docker compose down -v
 
 # Docker Compose 실행
@@ -78,12 +75,15 @@ MySQL 컨테이너 내부 포트는 `3306`이고, 호스트 공개 포트 기본
 
 ```bash
 git diff --check
+! rg -n 'T[B]D|MVP4 기능 범위는 아직 확[정]|MVP4 작성 메[모]' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md
 ! rg -n 'GET /api/recommendations/(today)' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 ! rg -n -F -e 'POST /api/recommendations''?userId' -e '/api/clothes''?userId' -e '/api/users/location''?userId' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'POST /api/recommendations' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'preferenceScore|preferred_colors_json|preferred_materials_json|style_tags_json' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'GET /api/locations' README.md docs/API.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md
+rg -n 'GET /api/weather/current' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
 rg -n 'sessionStorage' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
+rg -n '2분 안에 첫 추천 성공|오늘 입기 좋은 이유|하단 탭|색상 swatch|소재 chip' README.md docs/PRD.md docs/FRONTEND.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md
 rg -n 'docker compose down -v' README.md docs/PRD.md docs/API.md docs/ARCHITECTURE.md docs/FRONTEND.md docs/RECOMMENDATION_RULES.md docs/ERD.md docs/DEMO_SCENARIO.md docs/SHARING_GUIDE.md docs/COMMANDS.md
 ```
 

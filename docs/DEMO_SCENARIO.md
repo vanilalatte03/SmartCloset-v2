@@ -1,21 +1,28 @@
-# Demo Scenario: SmartCloset Current Baseline
+# Demo Scenario: SmartCloset MVP4
 
 ## 데모 목표
-Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 회원가입/로그인, 사용자 위치 선택, 선호도 저장, 옷장 기반 추천, 추천 이력 조회 흐름을 확인한다.
+Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 신규 사용자가 2분 안에 첫 추천을 성공시키는 흐름을 확인한다.
 
-현재 데모는 아래 흐름을 지원한다.
+MVP4 데모의 핵심은 API 기능 존재 여부가 아니라 사용자가 다음 행동을 이해하고 완료할 수 있는지다.
 
-## MVP4 작성 메모
-MVP4 데모 흐름은 아직 확정되지 않았다. 새 사용자 시나리오나 공유 성공 기준은 `docs/PRD.md`에서 범위를 정한 뒤 이 문서에 반영한다.
+## MVP4 데모 범위
+- 회원가입/로그인
+- `sessionStorage` access token 저장과 세션 복구
+- 오늘 추천 화면 진입
+- 현재 날씨 요약 조회
+- 첫 추천 준비 체크리스트 확인
+- 위치 확인 또는 변경
+- 선호도 저장
+- TOP/BOTTOM/OUTER 최소 등록
+- 추천 생성
+- 추천 실패 CTA 확인
+- 추천 성공 결과 확인
+- 착용 완료와 이력 확인
 
-- 서비스키 없음: `StaticWeatherProvider` fallback으로 안정적인 추천 흐름 확인
-- 서비스키 있음: 인증 사용자 위치 `nx`, `ny`로 기상청 단기예보 `getVilageFcst` JSON 기반 날씨 확인
-- React 앱: 회원가입/로그인, 위치 선택, 선호도 저장, 옷 목록, 옷 등록, 추천 생성, 추천 이력, 착용 완료 처리
+외부 주소/지도 API, AI/GPT 추천, 이미지 업로드, refresh token, 소셜 로그인, 비밀번호 재설정, native app/PWA 출시는 데모 범위가 아니다.
 
-외부 주소/지도 API, AI/GPT 추천, 이미지 업로드, refresh token, 소셜 로그인은 데모 범위가 아니다.
-
-## MVP-3 완료 baseline 전환 전 DB 초기화
-MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
+## DB 초기화
+로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 데모 전 초기화를 권장한다.
 
 ```bash
 docker compose down -v
@@ -26,11 +33,14 @@ docker compose up --build
 
 ## 데모 전제
 - Docker Compose 실행 완료
-- Frontend 접속 가능
-- Swagger UI 접속 가능
+- Frontend 접속 가능: http://localhost:5173
+- Swagger UI 접속 가능: http://localhost:8080/swagger-ui/index.html
 - 신규 사용자는 기본 위치 서울특별시 `SEOUL`, `nx=60`, `ny=127`
 - 신규 사용자의 기본 선호도는 `preferredColors=[]`, `preferredMaterials=[]`, `styleTags=[]`
 - 프론트 access token 저장 위치는 `sessionStorage`
+- 서비스키 없이 실행하면 fallback 날씨 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`를 사용한다.
+
+fallback 날씨는 OUTER 필수 조건이므로 첫 추천 성공 데모에는 TOP, BOTTOM, OUTER가 각각 1개 이상 필요하다.
 
 ## 환경변수
 서비스키 없이 실행하면 fallback 날씨를 사용한다.
@@ -40,102 +50,52 @@ JWT_SECRET=change-me-local-development-only
 KMA_SERVICE_KEY=
 KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
 WEATHER_FALLBACK_ENABLED=true
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
 실제 API 연동을 확인하려면 `.env`에 공공데이터포털에서 발급받은 서비스키를 설정한다. 실제 서비스키와 운영 JWT secret은 문서, 코드, 커밋에 남기지 않는다.
 
-프론트 앱은 `VITE_API_BASE_URL=http://localhost:8080`을 사용한다.
+## React 앱 MVP4 데모 시나리오
 
-## 접속 경로
-- Frontend: http://localhost:5173
-- Swagger UI: http://localhost:8080/swagger-ui/index.html
-- OpenAPI JSON: http://localhost:8080/v3/api-docs
-- 보조 Demo UI: http://localhost:8080/demo/index.html
-
-현재 주 데모 경로는 React 프론트엔드다. Swagger 또는 Spring static Demo UI는 보조 smoke 확인용으로 사용한다.
-
-## React 앱 데모 시나리오
-
-### 1. 회원가입
-목적: 새 사용자가 기본 위치와 빈 선호도 배열로 생성되는지 확인한다.
+### 1. 회원가입 또는 로그인
+목적: 사용자가 인증 후 제품 화면으로 진입한다.
 
 API:
 
 ```http
 POST /api/auth/signup
-Content-Type: application/json
-```
-
-요청:
-
-```json
-{
-  "email": "demo@example.com",
-  "password": "password123!",
-  "name": "Demo User"
-}
-```
-
-확인 포인트:
-- HTTP status는 `201 Created`다.
-- 같은 email로 다시 가입하면 `EMAIL_ALREADY_EXISTS`로 실패한다.
-- 신규 사용자의 위치는 서울특별시다.
-- 신규 사용자의 선호도는 모두 빈 배열이다.
-
-### 2. 로그인과 세션 복구
-목적: 로그인 후 access token을 저장하고 보호 API를 호출할 수 있는지 확인한다.
-
-API:
-
-```http
 POST /api/auth/login
 GET /api/users/me
 ```
 
 확인 포인트:
-- 로그인 성공 응답에 `accessToken`, `tokenType=Bearer`, 사용자 정보가 포함된다.
-- 프론트는 access token을 `sessionStorage`에 저장한다.
+- 인증 화면은 한국어로 표시된다.
+- 소셜 로그인, 비밀번호 찾기, 이메일 인증 UI가 없다.
+- 로그인 성공 후 access token이 `sessionStorage`에 저장된다.
 - 새로고침 후 `GET /api/users/me`로 로그인 상태가 복구된다.
-- 로그아웃하면 `sessionStorage` token과 사용자 상태가 제거된다.
+- 로그인 후 기본 view는 `오늘`이다.
 
-### 3. 기본 위치 확인
-목적: 인증 사용자의 기본 위치가 서울로 표시되는지 확인한다.
+### 2. 오늘 추천 화면 확인
+목적: 첫 추천을 위해 무엇이 부족한지 사용자가 즉시 알 수 있다.
+
+확인 포인트:
+- 현재 위치와 날씨 요약이 보인다.
+- 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
+- 날씨 요약 조회는 추천 결과를 생성하거나 추천 이력을 만들지 않는다.
+- 첫 추천 준비 체크리스트가 보인다.
+- 위치 확인, 선호도 저장, 상의 등록, 하의 등록, 아우터 등록 상태가 구분된다.
+- 추천 생성 CTA가 화면의 주요 행동으로 보인다.
+- 모바일에서는 하단 탭 `오늘`, `옷장`, `선호도`, `위치`, `이력`이 보인다.
+
+### 3. 위치 확인 또는 변경
+목적: 외부 지도 없이 내장 대표 격자 catalog로 위치를 선택한다.
 
 API:
 
 ```http
 GET /api/users/me/location
-Authorization: Bearer {accessToken}
-```
-
-기대 응답:
-
-```json
-{
-  "data": {
-    "code": "SEOUL",
-    "name": "서울특별시",
-    "nx": 60,
-    "ny": 127,
-    "updatedAt": "2026-05-22T10:00:00"
-  }
-}
-```
-
-확인 포인트:
-- 응답에 `userId`가 없다.
-- token 없이 호출하면 `401`로 실패한다.
-
-### 4. 위치 검색과 선택
-목적: 로그인 후 내장 대표 격자 catalog에서 위치를 찾고 사용자 위치로 저장할 수 있는지 확인한다.
-
-API:
-
-```http
 GET /api/locations?keyword=부산
 PUT /api/users/me/location
-Authorization: Bearer {accessToken}
-Content-Type: application/json
 ```
 
 요청:
@@ -147,23 +107,20 @@ Content-Type: application/json
 ```
 
 확인 포인트:
-- `GET /api/locations`는 보호 API다.
-- 회원가입 화면에서는 위치 catalog를 호출하지 않는다.
-- 검색 결과에 `BUSAN`, `부산광역시`, `nx=98`, `ny=76`이 표시된다.
-- 위치 선택 후 현재 위치가 부산으로 바뀐다.
-- 잘못된 code 선택 시 `LOCATION_NOT_FOUND`가 표시된다.
-- `GET /api/locations`의 `401`은 위치 검색 실패가 아니라 인증 만료로 처리한다.
+- 기본 위치는 서울특별시다.
+- 응답에 `userId`가 없다.
+- `GET /api/locations`는 로그인 후에만 호출한다.
+- 외부 지도 UI나 browser location 권한 요청이 없다.
+- 위치 선택 후 오늘 추천 화면의 위치 요약이 갱신된다.
 
-### 5. 선호도 저장과 조회
-목적: 선호 색상/소재/styleTags를 저장하고 다시 조회할 수 있는지 확인한다.
+### 4. 선호도 저장
+목적: 추천에 영향을 주는 선호 색상/소재와 표시용 style tag를 구분한다.
 
 API:
 
 ```http
 GET /api/users/me/preferences
 PUT /api/users/me/preferences
-Authorization: Bearer {accessToken}
-Content-Type: application/json
 ```
 
 요청:
@@ -177,23 +134,20 @@ Content-Type: application/json
 ```
 
 확인 포인트:
-- 기본값은 `preferredColors=[]`, `preferredMaterials=[]`, `styleTags=[]`다.
-- 저장 후 같은 배열을 다시 조회할 수 있다.
-- `styleTags`는 화면에 표시되지만 추천 점수와 추천 이유에는 반영되지 않는다.
+- 색상은 한국어 라벨과 swatch로 표시된다.
+- 소재는 한국어 라벨과 chip으로 표시된다.
+- `styleTags`는 저장/조회/표시만 한다는 뉘앙스로 표현된다.
+- 저장 후 체크리스트의 선호도 항목이 완료된다.
 
-### 6. 옷 목록 조회와 등록
-목적: 인증 사용자 기준 활성 옷 목록을 조회하고 새 옷을 등록할 수 있는지 확인한다.
+### 5. 옷장 빠른 등록
+목적: 추천 성공에 필요한 TOP/BOTTOM/OUTER를 빠르게 등록한다.
 
 API:
 
 ```http
 GET /api/clothes
 POST /api/clothes
-Authorization: Bearer {accessToken}
-Content-Type: application/json
 ```
-
-서비스키 없이 데모하면 fallback 날씨가 `temperature=12`로 고정된다. 이 온도에서는 OUTER가 필수이므로 추천 성공 데모 전에 TOP, BOTTOM, OUTER를 각각 1개 이상 등록한다.
 
 TOP 요청 예시:
 
@@ -238,66 +192,80 @@ OUTER 요청 예시:
 ```
 
 확인 포인트:
-- 응답에 `userId`가 없다.
-- 목록은 현재 인증 사용자의 `archived=false`인 옷만 포함한다.
-- 등록 후 프론트 목록이 갱신된다.
-- fallback 날씨 기준 추천 성공을 위해 TOP, BOTTOM, OUTER가 모두 존재한다.
+- category/color/material이 한국어 라벨로 보인다.
+- 색상 swatch와 소재 chip이 보인다.
+- 계절/기온 프리셋이 입력을 돕는다.
+- 등록 후 오늘 추천 체크리스트가 갱신된다.
 
-### 7. 추천 생성
-목적: 현재 인증 사용자 위치, 옷장, 선호도 기준으로 추천을 생성하고 저장하는지 확인한다.
+### 6. 옷 수정과 보관
+목적: 등록한 옷을 실제로 관리할 수 있다.
+
+API:
+
+```http
+PUT /api/clothes/{clothingId}
+PATCH /api/clothes/{clothingId}/archive
+```
+
+확인 포인트:
+- 목록 카드에서 수정과 보관이 가능하다.
+- 모바일에서 hover 없이 액션에 접근할 수 있다.
+- 보관된 옷은 활성 목록과 추천 후보에서 제외된다.
+- archive 처리는 idempotent하다.
+
+### 7. 추천 실패 CTA 확인
+목적: 추천 실패 시 내부 코드 대신 다음 행동을 보여준다.
+
+테스트 방법:
+- TOP을 모두 보관한 뒤 추천 생성
+- BOTTOM을 모두 보관한 뒤 추천 생성
+- OUTER 필수 날씨에서 OUTER를 모두 보관한 뒤 추천 생성
+
+확인 포인트:
+
+| Scenario | Expected Failure | UI |
+| --- | --- | --- |
+| TOP 없음 | `NO_TOP_AVAILABLE` | 상의가 부족해요. 상의 등록하기 |
+| BOTTOM 없음 | `NO_BOTTOM_AVAILABLE` | 하의가 부족해요. 하의 등록하기 |
+| OUTER 없음 | `OUTER_REQUIRED_BUT_NOT_AVAILABLE` | 아우터가 필요해요. 아우터 등록하기 |
+
+추천 실패는 비즈니스 실패이므로 HTTP `422 Unprocessable Entity`로 응답한다.
+
+### 8. 추천 성공
+목적: 사용자가 오늘 입기 좋은 이유 중심으로 추천 결과를 이해한다.
 
 API:
 
 ```http
 POST /api/recommendations
-Authorization: Bearer {accessToken}
 ```
-
-요청 body는 없다.
 
 확인 포인트:
 - HTTP status는 `201 Created`다.
-- 응답에 `userId`가 없다.
+- 응답과 화면에 `userId`가 없다.
 - `weather`가 존재한다.
-- 서비스키 없음 상태에서는 fallback 값 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`가 반환된다.
 - `outfit.top`, `outfit.bottom`이 존재한다.
-- `score`에는 `preferenceScore`가 있고 기존 다양성 점수 필드는 없다.
-- 선호 색상 또는 소재와 맞는 옷이 포함되면 `preferenceScore`가 5점 또는 10점이 될 수 있다.
+- fallback 날씨에서는 `outfit.outer`가 존재한다.
+- `reasons`가 "오늘 입기 좋은 이유"로 먼저 표시된다.
+- `score`는 보조 영역에 표시된다.
+- `preferenceScore`가 표시되고 기존 다양성 점수 표현은 없다.
 - `styleTags`만 바꿔도 추천 점수와 추천 이유가 바뀌지 않는다.
-- `reasons`는 3개 이상 5개 이하이다.
 
-### 8. 추천 이력 조회
-목적: 현재 인증 사용자의 추천 이력을 최신순으로 조회할 수 있는지 확인한다.
-
-API:
-
-```http
-GET /api/recommendations?limit=20
-Authorization: Bearer {accessToken}
-```
-
-확인 포인트:
-- 기본 limit은 20이다.
-- 최대 limit은 50이다.
-- `limit=51` 또는 숫자가 아닌 값은 `400 INVALID_REQUEST`로 실패한다.
-- 다른 사용자의 추천 이력은 포함되지 않는다.
-
-### 9. 추천 결과 착용 완료
-목적: 추천 결과를 실제 착용 완료로 처리하고 이후 추천 이력에 반영할 수 있는지 확인한다.
+### 9. 착용 완료와 이력 확인
+목적: 추천 결과를 실제 착용 완료로 처리하고 이력에서 확인한다.
 
 API:
 
 ```http
 PATCH /api/recommendations/{recommendationId}/worn
-Authorization: Bearer {accessToken}
+GET /api/recommendations?limit=20
 ```
 
 확인 포인트:
-- 응답에 `userId`가 없다.
-- `worn=true`로 변경된다.
-- `WearHistory`가 생성된다.
-- 같은 `recommendationId`로 다시 호출해도 중복 `WearHistory`를 만들지 않고 성공한다.
-- 다른 사용자의 추천 결과는 처리할 수 없다.
+- 착용 완료 후 `worn=true`가 표시된다.
+- 같은 추천에 다시 호출해도 중복 `WearHistory`를 만들지 않고 성공한다.
+- 이력은 최신순이다.
+- 이력 카드에서 착용 여부와 추천 옷 조합을 확인할 수 있다.
 
 ## Swagger 보조 시나리오
 프론트 문제를 분리해 API만 확인해야 할 때 Swagger UI를 사용한다.
@@ -307,14 +275,18 @@ Authorization: Bearer {accessToken}
 3. 발급받은 access token을 Swagger authorize 또는 header에 설정
 4. `GET /api/users/me`
 5. `GET /api/users/me/location`
-6. `GET /api/locations?keyword=서울`
-7. `PUT /api/users/me/location`
-8. `GET /api/users/me/preferences`
-9. `PUT /api/users/me/preferences`
-10. `GET /api/clothes`
-11. `POST /api/recommendations`
-12. `GET /api/recommendations?limit=20`
-13. `PATCH /api/recommendations/{recommendationId}/worn`
+6. `GET /api/weather/current`
+7. `GET /api/locations?keyword=서울`
+8. `PUT /api/users/me/location`
+9. `GET /api/users/me/preferences`
+10. `PUT /api/users/me/preferences`
+11. `GET /api/clothes`
+12. `POST /api/clothes`
+13. `PUT /api/clothes/{clothingId}`
+14. `PATCH /api/clothes/{clothingId}/archive`
+15. `POST /api/recommendations`
+16. `GET /api/recommendations?limit=20`
+17. `PATCH /api/recommendations/{recommendationId}/worn`
 
 ## KMA 연동 수동 확인
 서비스키가 있을 때만 수행한다.
@@ -329,16 +301,9 @@ Authorization: Bearer {accessToken}
 - 실제 서비스키는 출력, 문서, 커밋에 남기지 않는다.
 - 기상청 `NODATA` 또는 호출 실패가 발생해도 fallback이 활성화되어 있으면 추천은 성공할 수 있다.
 
-## 실패 케이스 데모 후보
-
-| Scenario | Expected Failure |
-| --- | --- |
-| token 없이 보호 API 호출 | `UNAUTHORIZED` |
-| 중복 email 회원가입 | `EMAIL_ALREADY_EXISTS` |
-| 존재하지 않는 위치 code 선택 | `LOCATION_NOT_FOUND` |
-| 추천 이력 `limit=51` | `INVALID_REQUEST` |
-| TOP을 모두 archive 처리 | `NO_TOP_AVAILABLE` |
-| BOTTOM을 모두 archive 처리 | `NO_BOTTOM_AVAILABLE` |
-| OUTER 필수 날씨에서 OUTER를 모두 archive 처리 | `OUTER_REQUIRED_BUT_NOT_AVAILABLE` |
-
-추천 실패는 비즈니스 실패이므로 HTTP `422 Unprocessable Entity`로 응답한다.
+## 모바일 확인
+- 375px 너비에서 하단 탭이 겹치지 않는다.
+- Today view의 체크리스트와 추천 CTA가 화면 밖으로 깨지지 않는다.
+- Closet view에서 수정/보관 액션이 hover 없이 접근 가능하다.
+- Preferences view의 swatch와 chip이 가로 스크롤 또는 줄바꿈으로 자연스럽게 표시된다.
+- History view의 긴 날짜/옷 이름이 카드 밖으로 넘치지 않는다.

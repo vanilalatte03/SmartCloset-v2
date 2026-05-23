@@ -1,12 +1,19 @@
-# 추천 규칙: SmartCloset Current Baseline
+# 추천 규칙: SmartCloset MVP4
 
 ## 1. 추천 규칙의 목적
-SmartCloset 현재 baseline의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset MVP4의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-현재 baseline은 인증 사용자 기준으로 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리한다. 추천 생성 API는 `POST /api/recommendations`이며, today 추천 GET 경로는 API 계약으로 사용하지 않는다.
+MVP4가 유지하는 인증 사용자 baseline은 사용자 기준으로 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리한다. 추천 생성 API는 `POST /api/recommendations`이며, today 추천 GET 경로는 API 계약으로 사용하지 않는다.
 
-## MVP4 작성 메모
-MVP4 추천 규칙 변경은 아직 확정되지 않았다. 점수 배분, tie-break, 추천 이유, 실패 코드, styleTags 반영 여부는 `docs/PRD.md`와 ADR에서 승인된 뒤 이 문서에 반영한다.
+현재 날씨 요약 API `GET /api/weather/current`는 추천 생성 API가 아니다. 이 API는 현재 인증 사용자 위치 기준 날씨만 반환하며 추천 결과, 추천 이력, 착용 이력, 점수 계산을 만들거나 변경하지 않는다.
+
+## MVP4 결정
+MVP4는 추천 scoring, tie-break, 추천 이유 생성 규칙, 실패 코드를 변경하지 않는다. 변경되는 것은 프론트 표시 방식이다.
+
+- `reasons`는 "오늘 입기 좋은 이유"로 먼저 보여준다.
+- `score`는 보조 상세 정보로 보여준다.
+- 추천 실패 코드는 API 계약으로 유지하고, UI에서 한국어 메시지와 CTA로 변환한다.
+- `styleTags`는 계속 저장/조회/표시만 하며 점수와 이유에는 반영하지 않는다.
 
 추천 이유는 AI가 생성하는 자유 문장이 아니다. 각 규칙의 판단 결과를 `RecommendationReasonGenerator`가 템플릿 문장으로 변환한다.
 
@@ -21,7 +28,7 @@ MVP4 추천 규칙 변경은 아직 확정되지 않았다. 점수 배분, tie-b
 - 현재 인증 사용자의 선호 색상/소재
 - 내부 `WeatherCondition`
 
-`styleTags`는 현재 baseline에서 저장/조회/표시만 한다. 추천 점수와 추천 이유에는 반영하지 않는다.
+`styleTags`는 MVP4에서도 저장/조회/표시만 한다. 추천 점수와 추천 이유에는 반영하지 않는다.
 
 ## 3. Weather source 정책
 추천 도메인은 외부 API 응답 모델에 직접 의존하지 않는다. 추천 규칙은 항상 내부 `WeatherCondition`만 입력으로 받는다.
@@ -336,3 +343,5 @@ Limit 정책:
 - Weather source DB 저장
 - 추천 결과 위치 source snapshot 저장
 - today 추천 GET 경로
+- 추천 scoring 변경
+- 추천 실패 코드 변경

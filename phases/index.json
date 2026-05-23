@@ -19,6 +19,10 @@
       "dir": "3-smartcloset-auth-personalization",
       "status": "completed",
       "completed_at": "2026-05-22T20:38:12+0900"
+    },
+    {
+      "dir": "4-smartcloset-usable-ux",
+      "status": "pending"
     }
   ]
 }

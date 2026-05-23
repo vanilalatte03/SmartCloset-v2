@@ -93,6 +93,8 @@ class AutopilotRunner:
         "제외",
         "사용하지",
         "구현하지",
+        "문서화하지",
+        "표시하지",
         "추가하지",
         "제공하지",
         "호출하지",
@@ -102,10 +104,18 @@ class AutopilotRunner:
         "허용하지",
         "남기지",
         "되살리지",
+        "쓰이지 않았",
+        "않았는지",
         "없어야",
+        "없다",
+        "없음",
         "필수처럼 보이지",
+        "처럼 보이는",
         "범위가 아니다",
+        "범위 밖",
         "후속 mvp",
+        "mvp5",
+        "can revisit",
         "1차 이후",
         "후보로 이동",
         "아니라",
@@ -119,7 +129,9 @@ class AutopilotRunner:
         "제거",
     )
     SAFE_SECTION_MARKERS = (
+        "제외",
         "제외 범위",
+        "제외되는 범위",
         "금지사항",
         "비범위",
         "out of scope",
@@ -129,8 +141,11 @@ class AutopilotRunner:
     )
     SAFE_COMMAND_PREFIXES = (
         "rg ",
+        "! rg ",
         "grep ",
+        "! grep ",
         "git grep ",
+        "! git grep ",
     )
     FORBIDDEN_SCAN_EXCLUDED_PATHS = (
         "scripts/autopilot.py",
@@ -140,6 +155,7 @@ class AutopilotRunner:
         "issues/",
     )
     HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+    STEP_OUTPUT_RE = re.compile(r"^phases/[^/]+/step\d+-output\.json$")
 
     def __init__(
         self,
@@ -466,6 +482,9 @@ class AutopilotRunner:
             if line.startswith("#"):
                 safe_section = any(marker in lowered for marker in self.SAFE_SECTION_MARKERS)
                 continue
+            if line.endswith(":") and any(marker in lowered for marker in self.SAFE_SECTION_MARKERS):
+                safe_section = True
+                continue
             if (
                 safe_section
                 or any(marker in lowered for marker in self.SAFE_NEGATION_MARKERS)
@@ -496,7 +515,12 @@ class AutopilotRunner:
             messages.append("이메일 인증 범위가 추가되었습니다.")
         if "password reset" in lowered or "비밀번호 재설정" in line:
             messages.append("비밀번호 재설정 범위가 추가되었습니다.")
-        if "외부 Weather API" in line and any(word in line for word in ("필수", "구현", "호출", "연동")):
+        if (
+            "외부 Weather API" in line
+            and any(word in line for word in ("필수", "구현", "호출", "연동"))
+            and "getVilageFcst" not in line
+            and "기상청" not in line
+        ):
             messages.append("외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.")
         if "AWS" in line and any(word in line for word in ("필수", "구현", "배포")):
             messages.append("AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.")
@@ -532,6 +556,7 @@ class AutopilotRunner:
         return (
             path in self.FORBIDDEN_SCAN_EXCLUDED_PATHS
             or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
+            or self.STEP_OUTPUT_RE.match(path) is not None
         )
 
     def _run_codex_review(self, step: dict) -> ReviewResult:

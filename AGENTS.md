@@ -10,6 +10,7 @@
 - `docs/ERD.md`
 - `docs/DEMO_SCENARIO.md`
 - `docs/SHARING_GUIDE.md`
+- `docs/design/mvp4/README.md`
 - `docs/adr/`
 
 ## 규칙
@@ -29,6 +30,8 @@
 - 추천 생성 API는 `POST /api/recommendations`만 사용한다.
 - today 추천 GET 경로는 사용하지 않는다.
 - 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`를 사용하며 기본 20, 최소 1, 최대 50, 최신순으로 고정한다.
+- 현재 날씨 요약 API는 `GET /api/weather/current`를 사용하며 보호 API다.
+- 현재 날씨 요약 API는 현재 인증 사용자 위치 기준의 `WeatherResponse`만 반환하고 추천 결과를 생성/저장하지 않는다.
 - Spring Boot 버전은 `4.0.6`으로 고정한다.
 - 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
 - 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
@@ -40,7 +43,7 @@
 - `preferenceScore`는 최대 10점이며 선호 색상 일치 5점, 선호 소재 일치 5점으로 계산한다.
 - 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`이다.
 - `styleTags`는 저장/조회/표시만 하고 추천 점수와 추천 이유에는 반영하지 않는다.
-- 선호도 별도 테이블 정규화는 MVP4 후보로 남기되, 승인 전 구현하지 않는다.
+- 선호도 별도 테이블 정규화는 후속 MVP 후보이며 MVP4에서는 구현하지 않는다.
 - MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
 - AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
