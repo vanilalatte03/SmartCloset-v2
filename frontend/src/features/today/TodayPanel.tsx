@@ -1,0 +1,396 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
+import {
+  getClothes,
+  getCurrentWeather,
+  getRecommendationHistory,
+  getUserPreferences,
+} from '../../api/smartClosetApi';
+import { ApiErrorMessage } from '../../components/ApiErrorMessage';
+import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
+import type {
+  ClothingCategory,
+  ClothingResponse,
+  ErrorResponse,
+  RecommendationResponse,
+  UserLocationResponse,
+  UserPreferencesResponse,
+  WeatherResponse,
+} from '../../types/api';
+import { clothingCategoryLabels } from '../../utils/displayMappings';
+
+type TodayTargetView = 'closet' | 'preferences' | 'location' | 'history';
+
+type TodayPanelProps = {
+  accessToken: string;
+  location: UserLocationResponse | null;
+  onAuthExpired: () => void;
+  onNavigate: (view: TodayTargetView) => void;
+};
+
+type ChecklistItem = {
+  id: string;
+  label: string;
+  complete: boolean;
+  detail: string;
+  ctaLabel: string;
+  targetView: TodayTargetView;
+};
+
+const recentHistoryLimit = 20;
+const recentHistoryPreviewCount = 3;
+const recentHistoryApiPath = '/api/recommendations?limit=20';
+
+const requiredCategories: ClothingCategory[] = ['TOP', 'BOTTOM', 'OUTER'];
+
+function getActiveCategoryCounts(clothes: ClothingResponse[]): Record<ClothingCategory, number> {
+  return clothes.reduce<Record<ClothingCategory, number>>(
+    (counts, item) => {
+      if (!item.archived) {
+        counts[item.category] += 1;
+      }
+      return counts;
+    },
+    {
+      TOP: 0,
+      BOTTOM: 0,
+      OUTER: 0,
+    }
+  );
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function renderWeatherState(weather: WeatherResponse) {
+  const rainLabel = weather.rainy ? '비 가능' : '비 없음';
+  const windLabel = weather.windy ? '바람 강함' : '바람 잔잔';
+
+  return (
+    <dl className="metric-list today-weather-metrics">
+      <div>
+        <dt>기온</dt>
+        <dd>{weather.temperature}C</dd>
+      </div>
+      <div>
+        <dt>날씨</dt>
+        <dd>
+          <WeatherLabel weatherType={weather.weatherType} />
+        </dd>
+      </div>
+      <div>
+        <dt>비</dt>
+        <dd>{rainLabel}</dd>
+      </div>
+      <div>
+        <dt>바람</dt>
+        <dd>{windLabel}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function renderHistoryOutfit(item: RecommendationResponse): string {
+  const outerName = item.outfit.outer ? ` / ${item.outfit.outer.name}` : '';
+  return `${item.outfit.top.name} / ${item.outfit.bottom.name}${outerName}`;
+}
+
+export function TodayPanel({
+  accessToken,
+  location,
+  onAuthExpired,
+  onNavigate,
+}: TodayPanelProps) {
+  const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError, setWeatherError] = useState<ErrorResponse | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferencesResponse | null>(null);
+  const [clothes, setClothes] = useState<ClothingResponse[]>([]);
+  const [readinessLoading, setReadinessLoading] = useState(true);
+  const [preferencesError, setPreferencesError] = useState<ErrorResponse | null>(null);
+  const [clothesError, setClothesError] = useState<ErrorResponse | null>(null);
+  const [history, setHistory] = useState<RecommendationResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<ErrorResponse | null>(null);
+
+  const loadWeather = useCallback(async () => {
+    setWeatherLoading(true);
+    setWeatherError(null);
+
+    try {
+      const currentWeather = await getCurrentWeather(accessToken);
+      setWeather(currentWeather);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setWeather(null);
+      setWeatherError(toErrorResponse(caught, '현재 날씨를 불러오지 못했습니다.'));
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, [accessToken, onAuthExpired]);
+
+  const loadReadiness = useCallback(async () => {
+    setReadinessLoading(true);
+    setPreferencesError(null);
+    setClothesError(null);
+
+    const [preferencesResult, clothesResult] = await Promise.allSettled([
+      getUserPreferences(accessToken),
+      getClothes(accessToken),
+    ]);
+
+    if (
+      (preferencesResult.status === 'rejected' && isUnauthorizedError(preferencesResult.reason)) ||
+      (clothesResult.status === 'rejected' && isUnauthorizedError(clothesResult.reason))
+    ) {
+      onAuthExpired();
+      return;
+    }
+
+    if (preferencesResult.status === 'fulfilled') {
+      setPreferences(preferencesResult.value);
+    } else {
+      setPreferences(null);
+      setPreferencesError(
+        toErrorResponse(preferencesResult.reason, '선호도를 확인하지 못했습니다.')
+      );
+    }
+
+    if (clothesResult.status === 'fulfilled') {
+      setClothes(clothesResult.value);
+    } else {
+      setClothes([]);
+      setClothesError(toErrorResponse(clothesResult.reason, '옷장을 확인하지 못했습니다.'));
+    }
+
+    setReadinessLoading(false);
+  }, [accessToken, onAuthExpired]);
+
+  const loadHistoryPreview = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const recentHistory = await getRecommendationHistory(accessToken, recentHistoryLimit);
+      setHistory(recentHistory);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setHistory([]);
+      setHistoryError(toErrorResponse(caught, '최근 추천 이력을 불러오지 못했습니다.'));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [accessToken, onAuthExpired]);
+
+  useEffect(() => {
+    void loadWeather();
+  }, [loadWeather, location?.code, location?.updatedAt]);
+
+  useEffect(() => {
+    void loadReadiness();
+    void loadHistoryPreview();
+  }, [loadReadiness, loadHistoryPreview]);
+
+  const activeCategoryCounts = useMemo(() => getActiveCategoryCounts(clothes), [clothes]);
+  const preferenceChecked = preferences !== null;
+  const previewHistory = history.slice(0, recentHistoryPreviewCount);
+  const allRequiredClothesReady = requiredCategories.every(
+    (category) => activeCategoryCounts[category] > 0
+  );
+  const readyForFirstRecommendation =
+    Boolean(location) && preferenceChecked && allRequiredClothesReady;
+
+  const preferenceDetail = preferenceChecked
+    ? `색상 ${preferences.preferredColors.length}개, 소재 ${preferences.preferredMaterials.length}개 확인`
+    : '기본값이라도 한 번 확인하면 완료됩니다.';
+
+  const checklistItems: ChecklistItem[] = [
+    {
+      id: 'location',
+      label: '위치 확인',
+      complete: Boolean(location),
+      detail: location ? `${location.name} 기준` : '현재 위치를 확인해주세요.',
+      ctaLabel: location ? '위치 변경' : '위치 확인',
+      targetView: 'location',
+    },
+    {
+      id: 'preferences',
+      label: '선호도 저장/확인',
+      complete: preferenceChecked,
+      detail: preferenceDetail,
+      ctaLabel: preferenceChecked ? '선호도 보기' : '선호도 확인',
+      targetView: 'preferences',
+    },
+    ...requiredCategories.map((category) => {
+      const count = activeCategoryCounts[category];
+      const categoryLabel = clothingCategoryLabels[category];
+
+      return {
+        id: `clothing-${category}`,
+        label: `${categoryLabel} 등록`,
+        complete: count > 0,
+        detail: count > 0 ? `활성 옷 ${count}개` : `${categoryLabel}가 아직 없어요.`,
+        ctaLabel: count > 0 ? '옷장 보기' : `${categoryLabel} 등록하기`,
+        targetView: 'closet' as const,
+      };
+    }),
+  ];
+
+  return (
+    <div className="today-layout">
+      <article className="panel today-hero-panel">
+        <div className="today-hero-copy">
+          <p className="eyebrow">첫 추천 준비</p>
+          <h2>오늘 입을 옷을 만들 준비를 확인하세요</h2>
+          <p className="muted">
+            위치, 선호도, 상의, 하의, 아우터가 준비되면 첫 추천을 바로 시작할 수 있어요.
+          </p>
+        </div>
+        <div className="today-primary-action">
+          <button className="primary-button today-generate-button" type="button" disabled>
+            추천 만들기
+          </button>
+          <span className="today-cta-note">
+            {readyForFirstRecommendation
+              ? '추천 생성 흐름을 연결할 준비가 끝났어요.'
+              : '체크리스트를 완료하면 추천을 만들 수 있어요.'}
+          </span>
+        </div>
+      </article>
+
+      <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
+        <div className="section-title-row">
+          <h3>현재 날씨 요약</h3>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void loadWeather()}
+            disabled={weatherLoading}
+          >
+            새로고침
+          </button>
+        </div>
+
+        <dl className="metric-list compact today-location-summary">
+          <div>
+            <dt>현재 위치</dt>
+            <dd>{location ? location.name : '위치 확인 중'}</dd>
+          </div>
+        </dl>
+
+        {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
+        {!weatherLoading && weather ? renderWeatherState(weather) : null}
+        {!weatherLoading && weatherError ? (
+          <div className="today-soft-error">
+            <ApiErrorMessage error={weatherError} />
+            <p className="muted">날씨가 없어도 체크리스트와 화면 이동은 계속 사용할 수 있어요.</p>
+          </div>
+        ) : null}
+      </article>
+
+      <article className="panel today-checklist-panel" aria-label="첫 추천 체크리스트">
+        <div className="section-title-row">
+          <h3>첫 추천 체크리스트</h3>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void loadReadiness()}
+            disabled={readinessLoading}
+          >
+            다시 확인
+          </button>
+        </div>
+
+        {readinessLoading ? (
+          <p className="muted">준비 상태를 확인하고 있어요.</p>
+        ) : (
+          <ul className="today-checklist">
+            {checklistItems.map((item) => (
+              <li className="today-checklist-item" key={item.id}>
+                <span
+                  className={
+                    item.complete ? 'checklist-status complete' : 'checklist-status pending'
+                  }
+                  aria-label={item.complete ? '완료' : '필요'}
+                />
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{item.detail}</span>
+                </div>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => onNavigate(item.targetView)}
+                >
+                  {item.ctaLabel}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="today-checklist-note">
+          기온이 12도 안팎이면 아우터까지 준비되어야 추천 성공률이 높아요.
+        </p>
+
+        {preferencesError ? <ApiErrorMessage error={preferencesError} /> : null}
+        {clothesError ? <ApiErrorMessage error={clothesError} /> : null}
+      </article>
+
+      <article
+        className="panel today-history-preview"
+        aria-label="최근 추천 미리보기"
+        data-api-path={recentHistoryApiPath}
+      >
+        <div className="section-title-row">
+          <h3>최근 추천 미리보기</h3>
+          <button className="secondary-button" type="button" onClick={() => onNavigate('history')}>
+            이력 보기
+          </button>
+        </div>
+
+        {historyLoading ? <p className="muted">최근 추천을 확인하고 있어요.</p> : null}
+        {!historyLoading && historyError ? <ApiErrorMessage error={historyError} /> : null}
+        {!historyLoading && !historyError && previewHistory.length > 0 ? (
+          <div className="item-list today-history-list">
+            {previewHistory.map((item) => (
+              <div className="item-row today-history-row" key={item.recommendationId}>
+                <div>
+                  <strong>{formatDateTime(item.createdAt)}</strong>
+                  <span>{renderHistoryOutfit(item)}</span>
+                  <span className="token-row">
+                    <span>{item.weather.temperature}C</span>
+                    <WeatherLabel weatherType={item.weather.weatherType} />
+                    <ColorSwatch color={item.outfit.top.color} showLabel={false} />
+                    <MaterialChip material={item.outfit.top.material} />
+                  </span>
+                </div>
+                <span className="item-meta">{item.worn ? '착용 완료' : '착용 전'}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!historyLoading && !historyError && previewHistory.length === 0 ? (
+          <p className="muted">아직 추천 이력이 없어요.</p>
+        ) : null}
+      </article>
+    </div>
+  );
+}

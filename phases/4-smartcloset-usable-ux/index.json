@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "today-readiness-weather",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T03:53:47+0900",
+      "summary": "Today view에 현재 위치/날씨 요약, 첫 추천 체크리스트, 추천 CTA skeleton, 최근 이력 preview를 추가했다.",
+      "completed_at": "2026-05-24T03:58:06+0900"
     },
     {
       "step": 4,
