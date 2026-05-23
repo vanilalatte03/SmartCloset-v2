@@ -373,6 +373,45 @@
   outline-offset: 1px;
 }
 
+.token-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.color-token,
+.material-chip,
+.weather-token {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.color-token {
+  white-space: nowrap;
+}
+
+.color-swatch {
+  border: 1px solid;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+.material-chip,
+.weather-token {
+  background: #eef4f8;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 24px;
+  padding: 0 8px;
+}
+
 .option-list,
 .item-list,
 .reason-list {
@@ -423,6 +462,18 @@
 .item-meta {
   flex: 0 0 auto;
   text-align: right;
+}
+
+.checkbox-field .color-token,
+.checkbox-field .color-token span,
+.checkbox-field .material-chip,
+.item-row .color-token,
+.item-row .color-token span,
+.item-row .material-chip,
+.metric-list .weather-token {
+  color: var(--text);
+  font-size: 13px;
+  text-transform: none;
 }
 
 .panel-error,

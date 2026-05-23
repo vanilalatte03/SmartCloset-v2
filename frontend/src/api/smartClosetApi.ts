@@ -1,6 +1,7 @@
 import { apiBaseUrl, request } from './client';
 import type {
   AuthResponse,
+  ClothingArchiveResponse,
   ClothingRequest,
   ClothingResponse,
   CurrentUserResponse,
@@ -12,6 +13,7 @@ import type {
   UpdateUserPreferencesRequest,
   UserPreferencesResponse,
   UserLocationResponse,
+  WeatherResponse,
 } from '../types/api';
 
 export function getApiBaseUrl(): string {
@@ -81,6 +83,10 @@ export function updateUserPreferences(
   });
 }
 
+export function getCurrentWeather(accessToken: string): Promise<WeatherResponse> {
+  return request<WeatherResponse>('/api/weather/current', { accessToken });
+}
+
 export function getClothes(accessToken: string): Promise<ClothingResponse[]> {
   return request<ClothingResponse[]>('/api/clothes', { accessToken });
 }
@@ -93,6 +99,28 @@ export function createClothing(
     method: 'POST',
     accessToken,
     body: JSON.stringify(body),
+  });
+}
+
+export function updateClothing(
+  accessToken: string,
+  clothingId: number,
+  body: ClothingRequest
+): Promise<ClothingResponse> {
+  return request<ClothingResponse>(`/api/clothes/${clothingId}`, {
+    method: 'PUT',
+    accessToken,
+    body: JSON.stringify(body),
+  });
+}
+
+export function archiveClothing(
+  accessToken: string,
+  clothingId: number
+): Promise<ClothingArchiveResponse> {
+  return request<ClothingArchiveResponse>(`/api/clothes/${clothingId}/archive`, {
+    method: 'PATCH',
+    accessToken,
   });
 }
 

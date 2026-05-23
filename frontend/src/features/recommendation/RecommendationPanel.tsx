@@ -6,12 +6,14 @@ import {
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
+import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
   OutfitItemResponse,
   RecommendationResponse,
   UserLocationResponse,
 } from '../../types/api';
+import { clothingCategoryLabels } from '../../utils/displayMappings';
 
 type RecommendationPanelProps = {
   accessToken: string;
@@ -24,7 +26,15 @@ function renderOutfitItem(label: string, item: OutfitItemResponse | null) {
     <div className="item-row">
       <div>
         <strong>{label}</strong>
-        <span>{item ? `${item.name} - ${item.color} - ${item.material}` : 'None'}</span>
+        {item ? (
+          <span className="token-row">
+            <span>{item.name}</span>
+            <ColorSwatch color={item.color} />
+            <MaterialChip material={item.material} />
+          </span>
+        ) : (
+          <span>None</span>
+        )}
       </div>
       {item ? <span className="item-meta">#{item.id}</span> : null}
     </div>
@@ -211,7 +221,7 @@ export function RecommendationPanel({
                 <dt>Weather</dt>
                 <dd>
                   {recommendation.weather.temperature}C -{' '}
-                  {recommendation.weather.weatherType}
+                  <WeatherLabel weatherType={recommendation.weather.weatherType} />
                   {recommendation.weather.rainy ? ' - rainy' : ''}
                   {recommendation.weather.windy ? ' - windy' : ''}
                 </dd>
@@ -226,9 +236,18 @@ export function RecommendationPanel({
           <section className="panel-section" aria-label="Recommended outfit">
             <h3>Outfit</h3>
             <div className="item-list">
-              {renderOutfitItem('Top', recommendation.outfit.top)}
-              {renderOutfitItem('Bottom', recommendation.outfit.bottom)}
-              {renderOutfitItem('Outer', recommendation.outfit.outer)}
+              {renderOutfitItem(
+                clothingCategoryLabels.TOP,
+                recommendation.outfit.top
+              )}
+              {renderOutfitItem(
+                clothingCategoryLabels.BOTTOM,
+                recommendation.outfit.bottom
+              )}
+              {renderOutfitItem(
+                clothingCategoryLabels.OUTER,
+                recommendation.outfit.outer
+              )}
             </div>
           </section>
 

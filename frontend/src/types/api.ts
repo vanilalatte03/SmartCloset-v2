@@ -80,6 +80,15 @@ export type ClothingArchiveResponse = {
   archived: boolean;
 };
 
+export type WeatherType = 'SUNNY' | 'CLOUDY' | 'RAINY' | 'SNOWY' | 'WINDY';
+
+export type RecommendationFailureCode =
+  | 'NO_TOP_AVAILABLE'
+  | 'NO_BOTTOM_AVAILABLE'
+  | 'OUTER_REQUIRED_BUT_NOT_AVAILABLE'
+  | 'NO_WEATHER_SUITABLE_ITEM'
+  | 'INSUFFICIENT_CLOSET_ITEMS';
+
 export type LocationOptionResponse = {
   code: string;
   name: string;
@@ -109,7 +118,7 @@ export type UpdateUserPreferencesRequest = UserPreferencesResponse;
 
 export type WeatherResponse = {
   temperature: number;
-  weatherType: 'SUNNY' | 'CLOUDY' | 'RAINY' | 'SNOWY' | 'WINDY';
+  weatherType: WeatherType;
   rainy: boolean;
   windy: boolean;
 };

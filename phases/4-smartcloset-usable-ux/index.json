@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "frontend-api-label-foundation",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T03:34:05+0900",
+      "summary": "MVP4 프론트 API 함수와 공통 enum 라벨/swatch/chip/weather/failure CTA 매핑 기반을 추가했다.",
+      "completed_at": "2026-05-24T03:39:46+0900"
     },
     {
       "step": 2,

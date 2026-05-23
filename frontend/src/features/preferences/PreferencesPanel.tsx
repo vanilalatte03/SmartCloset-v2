@@ -3,36 +3,17 @@ import type { FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import { getUserPreferences, updateUserPreferences } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
+import { ColorSwatch, MaterialChip } from '../../components/DisplayTokens';
 import type {
-  ClothingColor,
-  ClothingMaterial,
   ErrorResponse,
   UserPreferencesResponse,
 } from '../../types/api';
-
-const colorOptions: ClothingColor[] = [
-  'BLACK',
-  'WHITE',
-  'GRAY',
-  'NAVY',
-  'BLUE',
-  'BROWN',
-  'BEIGE',
-  'RED',
-  'GREEN',
-  'YELLOW',
-  'UNKNOWN',
-];
-
-const materialOptions: ClothingMaterial[] = [
-  'COTTON',
-  'DENIM',
-  'KNIT',
-  'WOOL',
-  'POLYESTER',
-  'NYLON',
-  'UNKNOWN',
-];
+import {
+  clothingColorOptions,
+  clothingMaterialOptions,
+  formatStyleTagLabel,
+  styleTagLabels,
+} from '../../utils/displayMappings';
 
 const emptyPreferences: UserPreferencesResponse = {
   preferredColors: [],
@@ -157,7 +138,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
           <section className="panel-section" aria-label="Preferred colors">
             <h3>Preferred colors</h3>
             <div className="checkbox-grid">
-              {colorOptions.map((color) => (
+              {clothingColorOptions.map((color) => (
                 <label className="checkbox-field" key={color}>
                   <input
                     type="checkbox"
@@ -169,7 +150,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
                       })
                     }
                   />
-                  <span>{color}</span>
+                  <ColorSwatch color={color} />
                 </label>
               ))}
             </div>
@@ -178,7 +159,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
           <section className="panel-section" aria-label="Preferred materials">
             <h3>Preferred materials</h3>
             <div className="checkbox-grid">
-              {materialOptions.map((material) => (
+              {clothingMaterialOptions.map((material) => (
                 <label className="checkbox-field" key={material}>
                   <input
                     type="checkbox"
@@ -193,33 +174,33 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
                       })
                     }
                   />
-                  <span>{material}</span>
+                  <MaterialChip material={material} />
                 </label>
               ))}
             </div>
           </section>
 
           <section className="panel-section" aria-label="Style tags">
-            <h3>Style tags</h3>
+            <h3>{styleTagLabels.title}</h3>
             <div className="inline-form tag-form">
               <label className="field">
-                <span>Tag</span>
+                <span>{styleTagLabels.inputLabel}</span>
                 <input
                   value={tagInput}
                   maxLength={30}
                   onChange={(event) => setTagInput(event.target.value)}
-                  placeholder="MINIMAL"
+                  placeholder={styleTagLabels.placeholder}
                 />
               </label>
               <button className="secondary-button" type="button" onClick={handleAddTag}>
-                Add
+                {styleTagLabels.addCta}
               </button>
             </div>
             <div className="tag-list" aria-label="Saved style tags">
               {preferences.styleTags.length > 0 ? (
                 preferences.styleTags.map((tag) => (
                   <span className="tag-chip" key={tag}>
-                    {tag}
+                    {formatStyleTagLabel(tag)}
                     <button
                       type="button"
                       aria-label={`Remove ${tag}`}
@@ -235,7 +216,7 @@ export function PreferencesPanel({ accessToken, onAuthExpired }: PreferencesPane
                   </span>
                 ))
               ) : (
-                <span className="muted">No style tags saved.</span>
+                <span className="muted">{styleTagLabels.empty}</span>
               )}
             </div>
           </section>

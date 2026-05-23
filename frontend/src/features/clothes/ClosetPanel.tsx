@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import { createClothing, getClothes } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
+import { ColorSwatch, MaterialChip } from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
   ClothingColor,
@@ -11,30 +12,14 @@ import type {
   ClothingResponse,
   ErrorResponse,
 } from '../../types/api';
-
-const categoryOptions: ClothingCategory[] = ['TOP', 'BOTTOM', 'OUTER'];
-const colorOptions: ClothingColor[] = [
-  'BLACK',
-  'WHITE',
-  'GRAY',
-  'NAVY',
-  'BLUE',
-  'BROWN',
-  'BEIGE',
-  'RED',
-  'GREEN',
-  'YELLOW',
-  'UNKNOWN',
-];
-const materialOptions: ClothingMaterial[] = [
-  'COTTON',
-  'DENIM',
-  'KNIT',
-  'WOOL',
-  'POLYESTER',
-  'NYLON',
-  'UNKNOWN',
-];
+import {
+  clothingCategoryLabels,
+  clothingCategoryOptions,
+  clothingColorMetadata,
+  clothingColorOptions,
+  clothingMaterialLabels,
+  clothingMaterialOptions,
+} from '../../utils/displayMappings';
 
 const defaultForm: ClothingRequest = {
   name: '',
@@ -149,8 +134,10 @@ export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
               <div className="item-row" key={item.id}>
                 <div>
                   <strong>{item.name}</strong>
-                  <span>
-                    {item.category} - {item.color} - {item.material}
+                  <span className="token-row">
+                    <span>{clothingCategoryLabels[item.category]}</span>
+                    <ColorSwatch color={item.color} />
+                    <MaterialChip material={item.material} />
                   </span>
                 </div>
                 <span className="item-meta">
@@ -185,9 +172,9 @@ export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
                 setForm({ ...form, category: event.target.value as ClothingCategory })
               }
             >
-              {categoryOptions.map((option) => (
+              {clothingCategoryOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {clothingCategoryLabels[option]}
                 </option>
               ))}
             </select>
@@ -200,9 +187,9 @@ export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
                 setForm({ ...form, color: event.target.value as ClothingColor })
               }
             >
-              {colorOptions.map((option) => (
+              {clothingColorOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {clothingColorMetadata[option].label}
                 </option>
               ))}
             </select>
@@ -215,9 +202,9 @@ export function ClosetPanel({ accessToken, onAuthExpired }: ClosetPanelProps) {
                 setForm({ ...form, material: event.target.value as ClothingMaterial })
               }
             >
-              {materialOptions.map((option) => (
+              {clothingMaterialOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {clothingMaterialLabels[option]}
                 </option>
               ))}
             </select>
