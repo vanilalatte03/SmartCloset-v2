@@ -97,7 +97,7 @@ export function RecommendationPanel({
     >
       <div className="section-title-row recommendation-heading">
         <div>
-          <p className="eyebrow">Recommendation</p>
+          <p className="eyebrow">오늘 추천</p>
           <h3>오늘 추천 만들기</h3>
           <p className="muted recommendation-heading-copy">
             현재 위치와 옷장 상태로 오늘 입을 조합을 생성합니다.
@@ -150,7 +150,7 @@ export function RecommendationPanel({
                 <dt>추천 생성 시점 날씨</dt>
                 <dd>
                   {location ? `${location.name} · ` : ''}
-                  {recommendation.weather.temperature}C ·{' '}
+                  {recommendation.weather.temperature}°C ·{' '}
                   <WeatherLabel weatherType={recommendation.weather.weatherType} />
                   {recommendation.weather.rainy ? ' · 비 가능' : ' · 비 없음'}
                   {recommendation.weather.windy ? ' · 바람 강함' : ' · 바람 잔잔'}

@@ -196,7 +196,7 @@ function App() {
         return (
           <section className="view-stack today-view" aria-labelledby="today-view-title">
             <header className="view-heading">
-              <p className="eyebrow">Today</p>
+              <p className="eyebrow">오늘 화면</p>
               <h2 id="today-view-title">오늘</h2>
             </header>
             <TodayPanel
@@ -211,7 +211,7 @@ function App() {
         return (
           <section className="view-stack closet-view" aria-labelledby="closet-view-title">
             <header className="view-heading">
-              <p className="eyebrow">Closet</p>
+              <p className="eyebrow">옷장 화면</p>
               <h2 id="closet-view-title">옷장</h2>
             </header>
             <ClosetPanel
@@ -228,7 +228,7 @@ function App() {
             aria-labelledby="preferences-view-title"
           >
             <header className="view-heading">
-              <p className="eyebrow">Preferences</p>
+              <p className="eyebrow">선호도 화면</p>
               <h2 id="preferences-view-title">선호도</h2>
             </header>
             <PreferencesPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
@@ -238,7 +238,7 @@ function App() {
         return (
           <section className="view-stack location-view" aria-labelledby="location-view-title">
             <header className="view-heading">
-              <p className="eyebrow">Location</p>
+              <p className="eyebrow">위치 화면</p>
               <h2 id="location-view-title">위치</h2>
             </header>
             <LocationPanel
@@ -254,7 +254,7 @@ function App() {
         return (
           <section className="view-stack history-view" aria-labelledby="history-view-title">
             <header className="view-heading">
-              <p className="eyebrow">History</p>
+              <p className="eyebrow">이력 화면</p>
               <h2 id="history-view-title">이력</h2>
             </header>
             <article className="panel view-placeholder" data-view="history">

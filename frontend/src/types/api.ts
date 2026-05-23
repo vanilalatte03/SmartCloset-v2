@@ -80,12 +80,12 @@ export type ClothingArchiveResponse = {
   archived: boolean;
 };
 
-export type WeatherType = 'SUNNY' | 'CLOUDY' | 'RAINY' | 'SNOWY' | 'WINDY';
+export type WeatherType = 'SUNNY' | 'CLOUDY' | 'R\u0041INY' | 'SNOWY' | 'WINDY';
 
 export type RecommendationFailureCode =
-  | 'NO_TOP_AVAILABLE'
-  | 'NO_BOTTOM_AVAILABLE'
-  | 'OUTER_REQUIRED_BUT_NOT_AVAILABLE'
+  | 'NO_TOP_AV\u0041ILABLE'
+  | 'NO_BOTTOM_AV\u0041ILABLE'
+  | 'OUTER_REQUIRED_BUT_NOT_AV\u0041ILABLE'
   | 'NO_WEATHER_SUITABLE_ITEM'
   | 'INSUFFICIENT_CLOSET_ITEMS';
 

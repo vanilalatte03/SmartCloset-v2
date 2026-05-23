@@ -357,7 +357,7 @@ export function ClosetPanel({
                       <MaterialChip material={item.material} />
                     </span>
                     <span className="closet-item-detail">
-                      {item.minTemperature}C부터 {item.maxTemperature}C까지
+                      {item.minTemperature}°C부터 {item.maxTemperature}°C까지
                       {item.rainSuitable ? ' · 비 오는 날 적합' : ' · 비 적합성 없음'}
                     </span>
                   </div>
@@ -397,7 +397,7 @@ export function ClosetPanel({
             <p className="muted closet-form-note">
               {editingItem
                 ? `${editingItem.name} 정보를 전체 수정합니다.`
-                : '추천 준비에 필요한 옷을 ClothingRequest 계약 그대로 등록합니다.'}
+                : '추천 준비에 필요한 옷 정보를 한 번에 등록합니다.'}
             </p>
           </div>
           {editingItem ? (
@@ -433,7 +433,7 @@ export function ClosetPanel({
             >
               <strong>{preset.label}</strong>
               <span>
-                {preset.minTemperature}C..{preset.maxTemperature}C
+                {preset.minTemperature}°C-{preset.maxTemperature}°C
                 {preset.rainSuitable ? ' · 비 가능' : ''}
               </span>
             </button>

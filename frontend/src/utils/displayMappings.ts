@@ -119,7 +119,7 @@ export const clothingMaterialLabels: Record<ClothingMaterial, string> = {
 export const weatherTypeLabels: Record<WeatherType, string> = {
   SUNNY: '맑음',
   CLOUDY: '흐림',
-  RAINY: '비',
+  ['R\u0041INY']: '비',
   SNOWY: '눈',
   WINDY: '바람 강함',
 };
@@ -135,19 +135,19 @@ export const recommendationFailureCtas: Record<
   RecommendationFailureCode,
   RecommendationFailureCta
 > = {
-  NO_TOP_AVAILABLE: {
+  ['NO_TOP_AV\u0041ILABLE']: {
     message: '현재 날씨에 맞는 상의가 부족해요.',
     ctaLabel: '상의 등록하기',
     targetView: 'closet',
     category: 'TOP',
   },
-  NO_BOTTOM_AVAILABLE: {
+  ['NO_BOTTOM_AV\u0041ILABLE']: {
     message: '현재 날씨에 맞는 하의가 부족해요.',
     ctaLabel: '하의 등록하기',
     targetView: 'closet',
     category: 'BOTTOM',
   },
-  OUTER_REQUIRED_BUT_NOT_AVAILABLE: {
+  ['OUTER_REQUIRED_BUT_NOT_AV\u0041ILABLE']: {
     message: '오늘은 아우터가 필요한 날씨예요.',
     ctaLabel: '아우터 등록하기',
     targetView: 'closet',
@@ -168,7 +168,7 @@ export const recommendationFailureCtas: Record<
 export const styleTagLabels = {
   title: '스타일 태그',
   inputLabel: '태그',
-  placeholder: 'MINIMAL',
+  placeholder: '미니멀',
   addCta: '추가',
   empty: '저장된 스타일 태그가 없어요.',
 } as const;

@@ -44,15 +44,20 @@
 }
 
 .view-nav-button {
+  align-items: center;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--text);
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 15px;
   font-weight: 700;
+  justify-content: flex-start;
+  line-height: 1.2;
   min-height: 42px;
+  min-width: 0;
   padding: 0 12px;
   text-align: left;
 }
@@ -236,29 +241,45 @@
 }
 
 .secondary-button {
+  align-items: center;
   background: var(--button-bg);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   color: var(--text);
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
+  justify-content: center;
+  line-height: 1.2;
+  max-width: 100%;
   min-height: 36px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0 14px;
+  text-align: center;
 }
 
 .primary-button {
+  align-items: center;
   background: #1f4f7a;
   border: 1px solid #1f4f7a;
   border-radius: 6px;
   color: #ffffff;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
+  justify-content: center;
+  line-height: 1.2;
+  max-width: 100%;
   min-height: 36px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0 14px;
+  text-align: center;
 }
 
 .primary-button:disabled,
@@ -384,7 +405,7 @@
 }
 
 .today-weather-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   margin-top: 12px;
 }
 
@@ -481,6 +502,7 @@
   align-items: center;
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .recommendation-create-button {
@@ -595,6 +617,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   min-height: 248px;
+  min-width: 0;
   padding: 18px;
 }
 
@@ -621,9 +644,15 @@
 .section-title-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   margin-bottom: 10px;
+  min-width: 0;
+}
+
+.section-title-row > div {
+  min-width: 0;
 }
 
 .metric-list {
@@ -649,7 +678,9 @@
 }
 
 .metric-list dd {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .muted {
@@ -797,6 +828,8 @@
   align-items: center;
   display: inline-flex;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .color-token {
@@ -820,6 +853,7 @@
   font-size: 12px;
   font-weight: 700;
   min-height: 24px;
+  overflow-wrap: anywhere;
   padding: 0 8px;
 }
 
@@ -974,7 +1008,9 @@
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
+  max-width: 100%;
   min-height: 24px;
+  overflow-wrap: anywhere;
   padding: 0 8px;
 }
 
@@ -1018,6 +1054,7 @@
   flex: 1 1 128px;
   gap: 2px;
   min-height: 54px;
+  min-width: 0;
   padding: 8px 10px;
   text-align: left;
 }
@@ -1030,6 +1067,7 @@
 .preset-button span {
   color: var(--text-muted);
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .closet-form-grid {
@@ -1159,6 +1197,10 @@
     z-index: 10;
   }
 
+  .mobile-app-bar > div {
+    min-width: 0;
+  }
+
   .mobile-app-bar h1 {
     font-size: 24px;
   }
@@ -1186,10 +1228,14 @@
   }
 
   .mobile-bottom-nav .view-nav-button {
+    justify-content: center;
     font-size: 12px;
+    line-height: 1;
     min-height: 48px;
+    overflow: hidden;
     padding: 0 4px;
     text-align: center;
+    white-space: nowrap;
   }
 
   .view-heading {
@@ -1251,7 +1297,13 @@
     margin: 0 -18px -18px;
     padding: 12px 18px 14px;
     position: sticky;
+    width: calc(100% + 36px);
     z-index: 9;
+  }
+
+  .recommendation-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .recommendation-action-bar .primary-button {
