@@ -78,4 +78,21 @@ class JwtAuthenticationSecurityTest {
                 .andExpect(jsonPath("$.code").value("INVALID_TOKEN"))
                 .andExpect(jsonPath("$.details").isArray());
     }
+
+    @Test
+    void currentWeatherRejectsExpiredBearerTokenWithJsonError() throws Exception {
+        JwtTokenProvider expiredTokenProvider = new JwtTokenProvider(
+                DEFAULT_TEST_SECRET,
+                objectMapper,
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC)
+        );
+        String expiredToken = expiredTokenProvider.createAccessToken(
+                new CurrentUserPrincipal(1L, "expired-weather@example.com", UserRole.USER));
+
+        mockMvc.perform(get("/api/weather/current")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
 }
