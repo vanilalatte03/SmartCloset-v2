@@ -1,7 +1,10 @@
-# ERD: SmartCloset 3차 MVP
+# ERD: SmartCloset Current Baseline
 
-## 0. 3차 DB 변경
-3차 MVP는 인증 사용자 기반 전환과 선호도 저장을 위해 `users` 테이블을 확장한다.
+## 0. 현재 DB baseline
+현재 baseline은 인증 사용자 기반 전환과 선호도 저장을 위해 `users` 테이블을 확장한 상태다.
+
+## MVP4 작성 메모
+MVP4 DB 변경은 아직 확정되지 않았다. 새 테이블, 컬럼, index, migration, backfill 정책은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영한다.
 
 - `users`에 인증 필드 `email`, `password_hash`, `role`을 추가한다.
 - `email`은 unique다.
@@ -11,10 +14,10 @@
   - `preferred_materials_json`
   - `style_tags_json`
 - 신규 사용자는 기본 위치 `SEOUL`과 빈 선호도 배열로 생성한다.
-- 선호도 별도 테이블 정규화는 4차 이후 후보로 남긴다.
+- 선호도 별도 테이블 정규화는 MVP4 후보로 남기되, 승인 전 구현하지 않는다.
 - 추천 결과에는 기존 weather snapshot과 score snapshot을 저장한다.
-- 추천 결과 위치 source snapshot 저장은 3차 범위에서 제외한다.
-- MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
+- 추천 결과 위치 source snapshot 저장은 현재 baseline 범위에서 제외한다.
+- MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
 
 ## 1. 공통 DB 정책
 - DB는 MySQL 기준으로 설계한다.
@@ -114,7 +117,7 @@ erDiagram
 | `email` | `VARCHAR(255)` | no | none | 로그인 이메일, unique |
 | `password_hash` | `VARCHAR(255)` | no | none | BCrypt hash |
 | `name` | `VARCHAR(50)` | no | none | 사용자 표시 이름 |
-| `role` | `VARCHAR(30)` | no | `USER` | 3차 기본 role |
+| `role` | `VARCHAR(30)` | no | `USER` | 기본 role |
 | `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code. 애플리케이션 기본값은 `SEOUL` |
 | `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름. 애플리케이션 기본값은 `서울특별시` |
 | `location_nx` | `INT` | yes | none | KMA grid X. 애플리케이션 기본값은 `60` |
@@ -147,8 +150,8 @@ Signup policy:
 - 기본 role은 `USER`다.
 
 Migration policy:
-- 3차 로컬 공유/데모는 Docker Compose volume 초기화를 권장한다.
-- 운영 DB migration은 3차 문서 범위에서 다루지 않는다.
+- 현재 로컬 공유/데모는 Docker Compose volume 초기화를 권장한다.
+- 운영 DB migration은 현재 문서 범위에서 다루지 않는다.
 - 기존 row에 인증 필드나 선호도 필드가 없어 충돌할 수 있으므로 로컬 전환 명령은 아래를 기준으로 한다.
 
 ```bash
@@ -202,7 +205,7 @@ Indexes:
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 
-3차에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
+현재 baseline에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
 
 ### recommendation_result_items
 | Column | Type | Nullable | Default | Description |

@@ -6,17 +6,17 @@ Accepted
 ## Context
 SmartCloset 2차 MVP는 사용자별 위치와 React 프론트엔드를 제공했지만 공개 API 계약은 테스트용 `userId` request parameter에 의존했다. 이 구조는 사용자별 데이터 분리는 가능하지만 실제 사용자 서비스처럼 보이지 않고, 프론트도 고정 `userId=1` 흐름에서 벗어나기 어렵다.
 
-3차 MVP는 회원가입/로그인과 인증 사용자 기준 API로 전환해 사용자별 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리해야 한다.
+MVP-3은 회원가입/로그인과 인증 사용자 기준 API로 전환해 사용자별 옷장, 위치, 추천 이력, 착용 이력, 선호도를 분리해야 한다.
 
 또한 추천 점수의 10점 보정 항목을 반복 추천 감소용 기존 다양성 점수에서 개인화 기반 `preferenceScore`로 전환한다.
 
 ## Decision
-3차 MVP는 Spring Security와 JWT Bearer access token을 사용한다.
+MVP-3은 Spring Security와 JWT Bearer access token을 사용한다.
 
 - 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`만 둔다.
 - 그 외 API는 보호 API로 두고 `Authorization: Bearer {accessToken}` header를 요구한다.
 - JWT는 access token 단일 구조로 시작한다.
-- refresh token은 3차 범위에서 제외한다.
+- refresh token은 MVP-3 범위에서 제외한다.
 - 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
 - JWT access token은 `HS256`으로 서명하고 `JWT_SECRET`을 사용한다.
 - JWT subject는 현재 사용자 id 문자열이며 claims는 `email`, `role`만 둔다.
@@ -54,7 +54,7 @@ API 계약에서는 `preferredColors`, `preferredMaterials`, `styleTags` 배열�
 - 최신순 정렬
 - invalid limit은 `400 INVALID_REQUEST`
 
-MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재실행을 권장한다.
+MVP-3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재실행을 권장한다.
 
 ## Consequences
 - 프론트는 로그인 전/후 화면과 token lifecycle을 관리해야 한다.
@@ -63,7 +63,7 @@ MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충
 - 현재 사용자 전용 DTO에서 `userId`가 사라지므로 프론트 타입과 API 문서를 함께 갱신해야 한다.
 - 추천 점수 DTO와 DB snapshot 컬럼은 `preferenceScore`를 사용해야 한다.
 - 기존 다양성 점수 기반 테스트와 문서는 갱신해야 한다.
-- `styleTags`를 저장하더라도 3차 추천 결과에는 영향을 주지 않는다.
+- `styleTags`를 저장하더라도 MVP-3 추천 결과에는 영향을 주지 않는다.
 - 선호도 정규화가 필요해지면 4차 이후 별도 테이블 도입을 검토한다.
 
 ## Out of Scope

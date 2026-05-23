@@ -1,4 +1,12 @@
-# API: SmartCloset 3차 MVP
+# API: SmartCloset Current Baseline
+
+이 문서는 현재 구현된 API 계약을 설명한다. MVP4 기능 범위는 아직 확정되지 않았으며, 새 API나 wire shape 변경은 `docs/PRD.md`와 ADR에서 승인한 뒤 이 문서에 반영한다.
+
+## MVP4 작성 메모
+- 현재 공개 API 2종 외 새 공개 API를 추가할지 TBD.
+- 보호 API의 Bearer token 정책 변경 여부 TBD.
+- 현재 사용자 전용 DTO의 `userId` 비노출 정책은 유지한다.
+- `userId` query parameter를 공개 HTTP 계약에 되살리지 않는다.
 
 ## 1. 공통 규칙
 - 공개 API는 토큰 없이 호출 가능하다.
@@ -12,7 +20,7 @@
 - today 추천 GET 경로는 API 계약으로 사용하지 않는다.
 
 ### userId 제거 정책
-3차 HTTP 계약에서는 `userId`를 query parameter로 받지 않는다. Controller는 인증 principal에서 현재 사용자 id를 얻는다.
+현재 HTTP 계약에서는 `userId`를 query parameter로 받지 않는다. Controller는 인증 principal에서 현재 사용자 id를 얻는다.
 
 현재 사용자 전용 response DTO에서도 `userId` 필드를 제거한다. 옷, 위치, 선호도, 추천 생성, 추천 이력, 착용 완료 응답은 모두 현재 인증 사용자의 리소스임을 전제로 한다.
 
@@ -124,7 +132,7 @@
 
 `AuthResponse.user`는 `GET /api/users/me`의 현재 사용자 응답과 같은 필드를 사용한다.
 
-JWT는 access token 단일 구조로 시작한다. refresh token은 3차 범위가 아니다.
+JWT는 access token 단일 구조로 시작한다. refresh token은 현재 baseline 범위가 아니다.
 
 JWT access token 정책:
 

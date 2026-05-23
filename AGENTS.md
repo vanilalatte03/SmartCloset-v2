@@ -18,7 +18,8 @@
 - 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
 - `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
 - `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
-- 승인된 3차 범위는 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API 전환, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전까지로 제한한다.
+- 현재 구현 baseline은 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전까지다.
+- MVP4 범위는 `docs/PRD.md`와 ADR에서 승인된 뒤 구현한다.
 - 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`만 둔다.
 - 보호 API는 `Authorization: Bearer {accessToken}`을 요구한다.
 - 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
@@ -35,12 +36,12 @@
 - 선호도는 `users` 테이블 JSON 문자열 컬럼 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json`에 저장한다.
 - 선호도 API는 `preferredColors`, `preferredMaterials`, `styleTags` 배열로 주고받는다.
 - 신규 사용자의 기본 선호도는 모두 빈 배열이다.
-- 기존 다양성 점수는 3차에서 `preferenceScore`로 교체한다.
+- 기존 다양성 점수는 현재 baseline에서 `preferenceScore`로 교체했다.
 - `preferenceScore`는 최대 10점이며 선호 색상 일치 5점, 선호 소재 일치 5점으로 계산한다.
 - 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`이다.
 - `styleTags`는 저장/조회/표시만 하고 추천 점수와 추천 이유에는 반영하지 않는다.
-- 선호도 별도 테이블 정규화는 4차 이후 후보로 남긴다.
-- MVP 3 전환 시 로컬 Docker Compose DB는 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
+- 선호도 별도 테이블 정규화는 MVP4 후보로 남기되, 승인 전 구현하지 않는다.
+- MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
 - AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
 - 커밋은 항상 Codex 앱 커밋 지침을 따른다.
@@ -50,7 +51,7 @@
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 
 ## Harness step PR 리뷰 규칙
-- 최종 3차 MVP 기준은 phase 전체 완료 기준이다.
+- 완료된 MVP-3 phase 기준은 phase 전체 완료 기준이다.
 - 중간 step PR 구현과 리뷰는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
 - 아직 미래 step에 배정된 기능이 없다는 이유만으로 현재 step PR을 blocker 처리하지 않는다.
 - 현재 step이 미래 step 범위를 선행 구현하면 blocker로 본다.

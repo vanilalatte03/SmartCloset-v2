@@ -1,9 +1,12 @@
-# Demo Scenario: SmartCloset 3차 MVP
+# Demo Scenario: SmartCloset Current Baseline
 
 ## 데모 목표
 Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 회원가입/로그인, 사용자 위치 선택, 선호도 저장, 옷장 기반 추천, 추천 이력 조회 흐름을 확인한다.
 
-3차 데모는 아래 흐름을 지원한다.
+현재 데모는 아래 흐름을 지원한다.
+
+## MVP4 작성 메모
+MVP4 데모 흐름은 아직 확정되지 않았다. 새 사용자 시나리오나 공유 성공 기준은 `docs/PRD.md`에서 범위를 정한 뒤 이 문서에 반영한다.
 
 - 서비스키 없음: `StaticWeatherProvider` fallback으로 안정적인 추천 흐름 확인
 - 서비스키 있음: 인증 사용자 위치 `nx`, `ny`로 기상청 단기예보 `getVilageFcst` JSON 기반 날씨 확인
@@ -11,15 +14,15 @@ Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행�
 
 외부 주소/지도 API, AI/GPT 추천, 이미지 업로드, refresh token, 소셜 로그인은 데모 범위가 아니다.
 
-## MVP 3 전환 전 DB 초기화
-MVP 3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
+## MVP-3 완료 baseline 전환 전 DB 초기화
+MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충돌할 수 있으므로 초기화를 권장한다.
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-운영 DB migration은 3차 문서 범위에서 다루지 않는다. 로컬 데모 기준은 volume 초기화로 정리한다.
+운영 DB migration은 현재 문서 범위에서 다루지 않는다. 로컬 데모 기준은 volume 초기화로 정리한다.
 
 ## 데모 전제
 - Docker Compose 실행 완료
@@ -49,7 +52,7 @@ WEATHER_FALLBACK_ENABLED=true
 - OpenAPI JSON: http://localhost:8080/v3/api-docs
 - 보조 Demo UI: http://localhost:8080/demo/index.html
 
-3차의 주 데모 경로는 React 프론트엔드다. Swagger 또는 Spring static Demo UI는 보조 smoke 확인용으로 사용한다.
+현재 주 데모 경로는 React 프론트엔드다. Swagger 또는 Spring static Demo UI는 보조 smoke 확인용으로 사용한다.
 
 ## React 앱 데모 시나리오
 

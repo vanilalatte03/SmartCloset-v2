@@ -6,12 +6,41 @@ description: SmartCloset Spring Boot 4.0.6 백엔드 구현 또는 리뷰 시 �
 # SmartCloset Backend Skill
 
 ## Purpose
-SmartCloset 3차 MVP 백엔드/프론트엔드 연동 작업을 구현하거나 리뷰하기 전에 반드시 따르는 실행 규칙으로 이 스킬을 사용한다.
+SmartCloset 현재 baseline 백엔드/프론트엔드 연동 작업을 구현하거나 리뷰하기 전에 반드시 따르는 실행 규칙으로 이 스킬을 사용한다.
 
 이 스킬은 기획 기록이 아니다. Codex가 따라야 하는 현재 구현 기준을 정의한다. 이 스킬이 과거 MVP 메모, archive 문서, 오래된 ADR 표현, seed/test-user 흐름과 충돌하면 `Current Execution Baseline`과 현재 루트 `README.md` 및 `docs/`를 우선한다.
 
+## Reading Policy
+이 스킬은 모든 작업에서 전체를 동일한 깊이로 읽는 문서가 아니다. 기존 규칙은 그대로 유지하되, 작업 성격에 따라 어떤 섹션을 깊게 확인할지 라우팅하기 위해 이 정책을 사용한다.
+
+모든 작업에서는 먼저 다음 섹션을 확인한다.
+
+- Purpose
+- Reading Policy
+- Current Execution Baseline
+- Harness Step PR Rules
+- Strict Out of Scope
+- Implementation Attitude
+
+작업 성격에 따라 필요한 섹션만 추가로 확인한다.
+
+- API 변경: API Rules
+- 인증/보안 변경: Auth Rules, API Rules, Test Rules
+- 추천 변경: Recommendation Rules, Weather Rules, Preference Rules, Test Rules
+- 위치 변경: Location Rules, Weather Rules, API Rules
+- 프론트 변경: Frontend Rules, API Rules
+- DB/entity 변경: Entity and JPA Rules, 관련 API/Domain Rules
+- 테스트 변경: Test Rules와 변경 대상 도메인 섹션
+- 문서 변경: Documentation Sync Rules와 변경 대상 문서 관련 섹션
+
+Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical Context는 어떤 경우에도 Current Execution Baseline을 override하지 않는다.
+
+`archive/`, 완료된 phase, 현재 step과 무관한 docs를 기본 컨텍스트로 끌어오지 않는다.
+
+phase/step 작업에서는 현재 phase README와 현재 step 문서가 step-local 판단 기준이다.
+
 ## Current Execution Baseline
-SmartCloset의 현재 기준은 3차 MVP Spring Boot 4.0.6 서비스다. 구현 기준은 seed/test-user 기반 동작이 아니라 인증 사용자 기반 동작이다.
+SmartCloset의 현재 기준은 MVP-3 완료 baseline Spring Boot 4.0.6 서비스다. 구현 기준은 seed/test-user 기반 동작이 아니라 인증 사용자 기반 동작이다. MVP4 변경은 `docs/PRD.md`와 ADR에서 승인된 뒤 적용한다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
@@ -28,7 +57,7 @@ SmartCloset의 현재 기준은 3차 MVP Spring Boot 4.0.6 서비스다. 구현 
 - 추천 이력은 `GET /api/recommendations?limit={limit}`를 사용하며 기본값 `20`, 최소 `1`, 최대 `50`, 최신순으로 정렬한다.
 - React frontend는 access token을 `sessionStorage`에 저장한다.
 - Docker Compose는 필수 공유 흐름으로 유지한다.
-- MVP 3 로컬 Docker Compose 전환 시 `docker compose up --build` 전에 `docker compose down -v` 실행을 권장한다.
+- MVP-3 완료 baseline 로컬 Docker Compose 전환 시 `docker compose up --build` 전에 `docker compose down -v` 실행을 권장한다.
 
 ## Historical Context
 Historical context는 코드베이스가 현재 형태가 된 배경을 설명할 뿐이다. 어떤 경우에도 `Current Execution Baseline`을 override하지 않는다.
@@ -37,10 +66,10 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - 1.5차 MVP는 KMA `getVilageFcst` JSON weather provider와 fallback 동작을 도입했다.
 - 2차 MVP는 사용자 위치 저장, 내장 KMA 위치 catalog, React frontend를 추가했다.
 
-3차 MVP 작업을 구현할 때 과거 seed/test-user API 계약, 과거 공개 `userId` query parameter, 과거 점수 필드를 되살리지 않는다.
+현재 baseline 또는 MVP4 작업을 구현할 때 과거 seed/test-user API 계약, 과거 공개 `userId` query parameter, 과거 점수 필드를 되살리지 않는다.
 
 ## Harness Step PR Rules
-3차 MVP의 최종 기준과 Harness 중간 step PR 기준을 구분한다.
+완료된 MVP-3 phase의 최종 기준과 Harness 중간 step PR 기준을 구분한다.
 
 - 최종 `Current Execution Baseline`은 phase 전체 완료 기준이다.
 - 중간 step PR을 구현하거나 리뷰할 때는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
@@ -50,7 +79,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - Step 1 같은 중간 auth step에서는 해당 step이 허용한 auth endpoint와 current-user endpoint만 평가하고, preferences API, recommendation history, `preferenceScore`, frontend session flow 같은 후속 step 산출물을 요구하지 않는다.
 
 ## Strict Out of Scope
-아래 항목은 3차 MVP에서 구현하지 않고, 현재 작업의 일부로 제안하지 않고, 현재 문서/API/프론트엔드 범위에 추가하지 않는다.
+아래 항목은 현재 baseline에서 구현하지 않았고, MVP4 문서/ADR 승인 전에는 현재 작업의 일부로 제안하지 않고 현재 문서/API/프론트엔드 범위에 추가하지 않는다.
 
 - refresh token
 - social login
@@ -160,7 +189,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
   - `preferredColors: []`
   - `preferredMaterials: []`
   - `styleTags: []`
-- 3차 MVP에서는 선호도를 별도 table로 정규화하지 않는다.
+- 현재 baseline에서는 선호도를 별도 table로 정규화하지 않는다.
 - `preferredColors`와 `preferredMaterials`만 `preferenceScore`에 영향을 준다.
 - `styleTags`는 저장, 반환, 표시만 한다.
 - `styleTags`는 score, tie-breaker, candidate generation, filter, recommendation reason에 영향을 주면 안 된다.
@@ -174,7 +203,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - Access token은 `sessionStorage`에 저장한다.
 - 새로고침 후 저장된 token으로 `GET /api/users/me`를 호출해 로그인 상태를 복구한다.
 - `GET /api/locations`의 `401`은 location search failure가 아니라 authentication expiration으로 처리한다.
-- React state와 작은 hook을 사용한다. 3차 MVP에서는 큰 state-management library를 추가하지 않는다.
+- React state와 작은 hook을 사용한다. 현재 baseline에서는 큰 state-management library를 추가하지 않는다.
 - Frontend 동작은 `docs/FRONTEND.md`를 따른다.
 
 ## Recommendation Rules
@@ -239,7 +268,7 @@ Historical context는 코드베이스가 현재 형태가 된 배경을 설명�
 - Preference storage는 `users` JSON string column으로 문서화한다.
 - `styleTags`는 storage/display only로 문서화한다.
 - `GET /api/locations`는 보호 API이며 로그인 후 API로 문서화한다.
-- MVP 3 전환용 Docker Compose DB reset 안내를 sharing/demo/command 문서에 유지한다.
+- MVP-3 완료 baseline 전환용 Docker Compose DB reset 안내를 sharing/demo/command 문서에 유지한다.
 - Out-of-scope feature를 현재 문서에 추가하지 않는다.
 - 실제 API key, token, password, private key, production secret을 커밋하지 않는다.
 
