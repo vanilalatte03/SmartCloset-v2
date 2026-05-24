@@ -37,6 +37,8 @@ MVP4는 추천 scoring, tie-break, 추천 이유 생성 규칙, 실패 코드를
 
 KMA forecast group 선택은 provider 책임이다. provider는 현재 KST 이후 가장 가까운 `fcstDate`, `fcstTime` group을 선택해 `WeatherCondition`을 만든다. 선택 group에 필수 category가 누락되면 다른 forecast group으로 이동하지 않고 fallback 또는 strict mode 실패로 처리한다.
 
+Provider는 현재 사용자 id, 위치 code/nx/ny, 요청 시점에 계산한 KMA base date/time, 서비스키 설정 여부, fallback enabled 여부가 같은 경우 2분 TTL 인메모리 weather snapshot을 재사용할 수 있다. 이 cache는 KMA/fallback 조회 안정화를 위한 provider 세부 구현이며 추천 점수, tie-break, DB schema를 변경하지 않는다.
+
 fallback 값은 유지한다.
 
 | Field | Value |

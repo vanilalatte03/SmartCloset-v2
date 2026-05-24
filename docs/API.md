@@ -418,6 +418,8 @@ Response: `200 OK`
 
 보호 API다. 현재 인증 사용자의 저장 위치 `nx`, `ny`로 KMA `getVilageFcst` JSON을 조회하거나, fallback이 활성화된 경우 fallback 날씨를 반환한다.
 
+weather provider는 현재 사용자 id, 위치 code/nx/ny, 요청 시점의 KMA base date/time, 서비스키 설정 여부, fallback enabled 여부가 같은 경우 2분 TTL 인메모리 snapshot을 재사용할 수 있다. 이 cache는 DB에 저장되지 않으며 response shape를 바꾸지 않는다.
+
 이 API는 추천 결과를 생성하거나 저장하지 않는다. 추천 이력, 착용 이력, 점수 계산에는 영향을 주지 않는다.
 
 Response: `200 OK`
@@ -467,6 +469,8 @@ Response: `200 OK`
 `POST /api/recommendations`
 
 요청 body는 없다. 추천 생성은 현재 인증 사용자 위치의 `nx`, `ny`로 KMA 날씨를 조회한다. fallback이 활성화된 경우 KMA 설정/호출/매핑 실패는 fallback 날씨로 이어진다.
+
+추천 생성도 같은 `WeatherProvider`를 사용하므로, 같은 위치와 같은 KMA base date/time의 짧은 사용 흐름에서는 `GET /api/weather/current`와 같은 weather snapshot을 재사용할 수 있다.
 
 Response: `201 Created`
 

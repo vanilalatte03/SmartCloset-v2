@@ -291,6 +291,7 @@ RecommendationService
   -> WeatherProvider#getCurrentWeather(userId)
       -> KmaVilageForecastWeatherProvider
           -> UserLocationReader
+          -> short in-memory weather snapshot cache
           -> KmaVilageForecastClient
           -> KmaForecastBaseTimeCalculator
           -> KmaWeatherConditionMapper
@@ -304,15 +305,19 @@ RecommendationService
 - 사용자 위치가 비어 있으면 서울특별시 `SEOUL`, `60`, `127`로 보정한다.
 - `KmaVilageForecastWeatherProvider`는 기본 `WeatherProvider` bean이며 `@Primary`로 둔다.
 - `StaticWeatherProvider`는 fallback/test 구현체로 유지한다.
+- `KmaVilageForecastWeatherProvider`는 프로세스 메모리에서 2분 TTL weather snapshot cache를 사용한다.
+- cache key는 현재 사용자 id, 위치 code/nx/ny, 요청 시점에 계산한 KMA base date/time, 서비스키 설정 여부, fallback enabled 여부로 구성한다.
+- cache는 성공적으로 얻은 KMA 또는 fallback `WeatherCondition`만 저장하며 strict mode 실패는 저장하지 않는다.
 
 ## 현재 날씨 요약 흐름
 `GET /api/weather/current` 요청 흐름:
 
 1. 인증 principal에서 현재 사용자 id를 얻는다.
 2. `WeatherProvider#getCurrentWeather(userId)`로 현재 사용자 위치 기준 `WeatherCondition`을 조회한다.
-3. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
-4. KMA 호출 또는 매핑이 실패하면 `WEATHER_FALLBACK_ENABLED=true`에서는 fallback `WeatherCondition`을 사용하고, `false`에서는 `INTERNAL_SERVER_ERROR`로 실패한다.
-5. `temperature`, `weatherType`, `rainy`, `windy`만 포함한 현재 사용자 전용 response DTO를 반환한다.
+3. 요청 시점의 KMA base date/time과 사용자 위치 기준으로 cache hit가 있으면 cached `WeatherCondition`을 반환한다.
+4. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
+5. KMA 호출 또는 매핑이 실패하면 `WEATHER_FALLBACK_ENABLED=true`에서는 fallback `WeatherCondition`을 사용하고, `false`에서는 `INTERNAL_SERVER_ERROR`로 실패한다.
+6. 성공적으로 얻은 `WeatherCondition`을 2분 TTL로 cache하고 `temperature`, `weatherType`, `rainy`, `windy`만 포함한 현재 사용자 전용 response DTO를 반환한다.
 
 이 흐름은 추천 결과를 생성하거나 저장하지 않으며 추천 이력, 착용 이력, 점수 계산에 영향을 주지 않는다.
 
@@ -323,8 +328,8 @@ RecommendationService
 2. 사용자 위치 snapshot을 조회한다. 없으면 서울 기본값으로 backfill하고 저장한 뒤 사용한다.
 3. 사용자 선호 색상/소재를 조회한다.
 4. `WeatherProvider#getCurrentWeather(userId)`로 `WeatherCondition`을 조회한다.
-5. KMA 설정이 유효하면 사용자 위치의 `nx`, `ny`로 `getVilageFcst` JSON을 호출한다.
-6. KMA 호출 또는 매핑이 실패하면 `WEATHER_FALLBACK_ENABLED=true`에서는 fallback `WeatherCondition`을 사용하고, `false`에서는 `INTERNAL_SERVER_ERROR`로 실패한다.
+5. 같은 cache key의 2분 TTL snapshot이 있으면 현재 날씨 요약 API와 같은 `WeatherCondition`을 재사용한다.
+6. cache miss이면 KMA 설정과 fallback 규칙에 따라 새 `WeatherCondition`을 얻는다.
 7. 현재 사용자 `archived=false`인 옷 목록을 조회한다.
 8. 날씨 조건에 맞지 않는 옷을 필터링한다.
 9. TOP/BOTTOM 또는 TOP/BOTTOM/OUTER 조합을 생성한다.
