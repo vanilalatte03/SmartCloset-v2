@@ -18,6 +18,8 @@ import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationResult;
+import com.smartcloset.recommendation.domain.RecommendationResultItem;
+import com.smartcloset.recommendation.repository.RecommendationResultItemRepository;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
 import com.smartcloset.security.CurrentUserPrincipal;
@@ -44,7 +46,8 @@ import org.springframework.web.context.WebApplicationContext;
 @ActiveProfiles("test")
 @SpringBootTest(properties = {
         "KMA_SERVICE_KEY=",
-        "WEATHER_FALLBACK_ENABLED=true"
+        "WEATHER_FALLBACK_ENABLED=true",
+        "spring.jpa.properties.hibernate.query.fail_on_pagination_over_collection_fetch=true"
 })
 @Transactional
 class RecommendationControllerTest {
@@ -64,6 +67,9 @@ class RecommendationControllerTest {
 
     @Autowired
     private RecommendationResultRepository recommendationResultRepository;
+
+    @Autowired
+    private RecommendationResultItemRepository recommendationResultItemRepository;
 
     @Autowired
     private WearHistoryRepository wearHistoryRepository;
@@ -112,7 +118,9 @@ class RecommendationControllerTest {
                 new TypeReference<>() {
                 }
         );
-        Set<OutfitSlot> slots = saved.getItems().stream()
+        List<RecommendationResultItem> savedItems = recommendationResultItemRepository
+                .findByRecommendationResultIdInWithClothingItem(List.of(recommendationId));
+        Set<OutfitSlot> slots = savedItems.stream()
                 .map(item -> item.getSlot())
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(OutfitSlot.class)));
 
@@ -121,7 +129,7 @@ class RecommendationControllerTest {
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.CLOUDY);
         assertThat(saved.isRainy()).isFalse();
         assertThat(saved.isWindy()).isFalse();
-        assertThat(saved.getItems()).hasSize(3);
+        assertThat(savedItems).hasSize(3);
         assertThat(slots).containsExactlyInAnyOrder(OutfitSlot.TOP, OutfitSlot.BOTTOM, OutfitSlot.OUTER);
         assertThat(data.get("score").has("diversity" + "Score")).isFalse();
         assertThat(savedReasons).hasSizeBetween(3, 5);

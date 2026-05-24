@@ -5,9 +5,10 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.user.domain.User;
-import com.smartcloset.weather.domain.WeatherCondition;
-import com.smartcloset.weather.domain.WeatherType;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.test.util.ReflectionTestUtils;
 
 final class RecommendationDomainTestFixtures {
@@ -53,34 +54,25 @@ final class RecommendationDomainTestFixtures {
         return OutfitCandidate.withOuter(top, bottom, outer, 0);
     }
 
-    static RecommendationResult recommendation(
+    static RecommendationHistorySnapshot recommendationHistory(
             long id,
-            User user,
             LocalDateTime createdAt,
             ClothingItem... items
     ) {
-        RecommendationResult result = RecommendationResult.create(
-                user,
-                WeatherCondition.of(12, WeatherType.CLOUDY, false, false),
-                RecommendationScore.of(90, 35, 25, 20, 10, 0),
-                "[\"test\"]"
-        );
-        ReflectionTestUtils.setField(result, "id", id);
-        ReflectionTestUtils.setField(result, "createdAt", createdAt);
-        for (ClothingItem item : items) {
-            result.addItem(item, OutfitSlot.valueOf(item.getCategory().name()));
-        }
-        return result;
+        return new RecommendationHistorySnapshot(id, createdAt, itemIds(items));
     }
 
-    static WearHistory wearHistory(
+    static WearHistorySnapshot wearHistory(
             long id,
-            User user,
-            RecommendationResult recommendationResult,
-            LocalDateTime wornAt
+            LocalDateTime wornAt,
+            ClothingItem... items
     ) {
-        WearHistory wearHistory = WearHistory.record(user, recommendationResult, wornAt);
-        ReflectionTestUtils.setField(wearHistory, "id", id);
-        return wearHistory;
+        return new WearHistorySnapshot(id, wornAt, itemIds(items));
+    }
+
+    private static Set<Long> itemIds(ClothingItem... items) {
+        return Arrays.stream(items)
+                .map(ClothingItem::getId)
+                .collect(Collectors.toUnmodifiableSet());
     }
 }

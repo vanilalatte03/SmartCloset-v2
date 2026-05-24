@@ -2,7 +2,7 @@ package com.smartcloset.recommendation.domain;
 
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.candidate;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.clothing;
-import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.recommendation;
+import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.recommendationHistory;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.user;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.wearHistory;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,8 +98,8 @@ class RecommendationScorerTest {
         ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
         ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
         OutfitCandidate candidate = candidate(top, bottom);
-        RecommendationResult sameRecentRecommendation = recommendation(1, user, requestedAt.minusDays(2), top, bottom);
-        WearHistory wearHistory = wearHistory(1, user, sameRecentRecommendation, requestedAt.minusDays(2));
+        RecommendationHistorySnapshot sameRecentRecommendation = recommendationHistory(1, requestedAt.minusDays(2), top, bottom);
+        WearHistorySnapshot wearHistory = wearHistory(1, requestedAt.minusDays(2), top, bottom);
 
         RecommendationScore score = scorer.score(
                 candidate,
@@ -139,9 +139,8 @@ class RecommendationScorerTest {
         ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
         ClothingItem otherBottom = clothing(3, user, ClothingCategory.BOTTOM, ClothingColor.BLUE, ClothingMaterial.DENIM, 0, 30, false);
         OutfitCandidate candidate = candidate(top, bottom);
-        RecommendationResult partialRecentRecommendation = recommendation(
+        RecommendationHistorySnapshot partialRecentRecommendation = recommendationHistory(
                 1,
-                user,
                 requestedAt.minusDays(2),
                 top,
                 otherBottom

@@ -8,6 +8,7 @@ import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationResult;
+import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import com.smartcloset.recommendation.domain.RecommendationScore;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.weather.domain.WeatherCondition;
@@ -49,7 +50,7 @@ class EntityBehaviorTest {
     }
 
     @Test
-    void recommendationResultStoresItemsAndMarkWornIsIdempotent() {
+    void recommendationResultItemLinksResultAndClothingItemAndMarkWornIsIdempotent() {
         User user = User.createSeedUser("demo-user");
         ClothingItem top = ClothingItem.create(
                 user,
@@ -68,13 +69,13 @@ class EntityBehaviorTest {
                 "[\"현재 기온이 낮아 아우터를 포함한 조합을 추천했습니다.\"]"
         );
 
-        result.addItem(top, OutfitSlot.TOP);
+        RecommendationResultItem resultItem = RecommendationResultItem.of(result, top, OutfitSlot.TOP);
         result.markWorn();
         result.markWorn();
 
         assertThat(result.isWorn()).isTrue();
-        assertThat(result.getItems()).hasSize(1);
-        assertThat(result.getItems().get(0).getClothingItem()).isSameAs(top);
-        assertThat(result.getItems().get(0).getSlot()).isEqualTo(OutfitSlot.TOP);
+        assertThat(resultItem.getRecommendationResult()).isSameAs(result);
+        assertThat(resultItem.getClothingItem()).isSameAs(top);
+        assertThat(resultItem.getSlot()).isEqualTo(OutfitSlot.TOP);
     }
 }

@@ -1,11 +1,9 @@
 package com.smartcloset.recommendation.domain;
 
-import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.common.domain.BaseTimeEntity;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,13 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -81,13 +73,6 @@ public class RecommendationResult extends BaseTimeEntity {
     @Column(name = "worn", nullable = false)
     private boolean worn;
 
-    @OneToMany(mappedBy = "recommendationResult", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id ASC")
-    private List<RecommendationResultItem> items = new ArrayList<>();
-
-    @OneToOne(mappedBy = "recommendationResult", fetch = FetchType.LAZY)
-    private WearHistory wearHistory;
-
     protected RecommendationResult() {
     }
 
@@ -116,11 +101,6 @@ public class RecommendationResult extends BaseTimeEntity {
             String reasonsJson
     ) {
         return new RecommendationResult(user, weather, score, reasonsJson);
-    }
-
-    public void addItem(ClothingItem clothingItem, OutfitSlot slot) {
-        RecommendationResultItem item = RecommendationResultItem.of(this, clothingItem, slot);
-        this.items.add(item);
     }
 
     public void markWorn() {
@@ -181,14 +161,6 @@ public class RecommendationResult extends BaseTimeEntity {
 
     public String getReasonsJson() {
         return reasonsJson;
-    }
-
-    public List<RecommendationResultItem> getItems() {
-        return Collections.unmodifiableList(items);
-    }
-
-    public WearHistory getWearHistory() {
-        return wearHistory;
     }
 
     private String requireReasonsJson(String reasonsJson) {

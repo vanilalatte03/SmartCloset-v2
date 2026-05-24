@@ -13,15 +13,19 @@ import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.OutfitCandidateGenerator;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationFailureException;
+import com.smartcloset.recommendation.domain.RecommendationHistorySnapshot;
 import com.smartcloset.recommendation.domain.RecommendationReasonGenerator;
 import com.smartcloset.recommendation.domain.RecommendationResult;
+import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import com.smartcloset.recommendation.domain.RecommendationScorer;
 import com.smartcloset.recommendation.domain.ScoredOutfitCandidate;
 import com.smartcloset.recommendation.domain.WeatherFilteredClothes;
 import com.smartcloset.recommendation.domain.WeatherSuitabilityFilter;
 import com.smartcloset.recommendation.domain.WearHistory;
+import com.smartcloset.recommendation.domain.WearHistorySnapshot;
 import com.smartcloset.recommendation.dto.RecommendationResponse;
 import com.smartcloset.recommendation.dto.RecommendationWornResponse;
+import com.smartcloset.recommendation.repository.RecommendationResultItemRepository;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
 import com.smartcloset.user.domain.PreferenceJsonMapper;
@@ -30,12 +34,16 @@ import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.application.WeatherProvider;
 import com.smartcloset.weather.domain.WeatherCondition;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -54,6 +62,7 @@ public class RecommendationService {
     private final UserRepository userRepository;
     private final ClothingItemRepository clothingItemRepository;
     private final RecommendationResultRepository recommendationResultRepository;
+    private final RecommendationResultItemRepository recommendationResultItemRepository;
     private final WearHistoryRepository wearHistoryRepository;
     private final WeatherProvider weatherProvider;
     private final PreferenceJsonMapper preferenceJsonMapper;
@@ -68,6 +77,7 @@ public class RecommendationService {
             UserRepository userRepository,
             ClothingItemRepository clothingItemRepository,
             RecommendationResultRepository recommendationResultRepository,
+            RecommendationResultItemRepository recommendationResultItemRepository,
             WearHistoryRepository wearHistoryRepository,
             WeatherProvider weatherProvider,
             PreferenceJsonMapper preferenceJsonMapper,
@@ -76,6 +86,7 @@ public class RecommendationService {
         this.userRepository = userRepository;
         this.clothingItemRepository = clothingItemRepository;
         this.recommendationResultRepository = recommendationResultRepository;
+        this.recommendationResultItemRepository = recommendationResultItemRepository;
         this.wearHistoryRepository = wearHistoryRepository;
         this.weatherProvider = weatherProvider;
         this.preferenceJsonMapper = preferenceJsonMapper;
@@ -97,11 +108,8 @@ public class RecommendationService {
     ) {
         User user = findUser(userId);
         List<ClothingItem> activeClothes = clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(userId);
-        List<WearHistory> wearHistories = wearHistoryRepository.findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
-                userId,
-                requestedAt.minusDays(7)
-        );
-        List<RecommendationResult> recommendationHistories = findRecommendationHistories(userId, requestedAt);
+        List<WearHistorySnapshot> wearHistories = findWearHistorySnapshots(userId, requestedAt);
+        List<RecommendationHistorySnapshot> recommendationHistories = findRecommendationHistories(userId, requestedAt);
         List<ClothingColor> preferredColors = preferenceJsonMapper.readColors(user.getPreferredColorsJson());
         List<ClothingMaterial> preferredMaterials = preferenceJsonMapper.readMaterials(user.getPreferredMaterialsJson());
 
@@ -136,14 +144,20 @@ public class RecommendationService {
     @Transactional(readOnly = true)
     public List<RecommendationResponse> getRecommendationHistory(Long userId, Integer limit) {
         int resolvedLimit = validateHistoryLimit(limit);
-        return recommendationResultRepository.findByUserIdOrderByCreatedAtDesc(
-                        userId,
-                        PageRequest.of(0, resolvedLimit)
-                )
-                .stream()
-                .map(recommendationResult -> RecommendationResponse.from(
-                        recommendationResult,
-                        readReasonsJson(recommendationResult.getReasonsJson())
+        List<Long> orderedResultIds = recommendationResultRepository.findIdsByUserIdOrderByCreatedAtDesc(
+                userId,
+                PageRequest.of(0, resolvedLimit)
+        );
+        if (orderedResultIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, List<RecommendationResultItem>> itemsByResultId = findItemsByRecommendationResultIds(orderedResultIds);
+        return findResultsInOrderedIds(orderedResultIds).stream()
+                .map(result -> RecommendationResponse.from(
+                        result,
+                        itemsByResultId.getOrDefault(result.getId(), List.of()),
+                        readReasonsJson(result.getReasonsJson())
                 ))
                 .toList();
     }
@@ -184,26 +198,133 @@ public class RecommendationService {
                 best.score(),
                 writeReasonsJson(reasons)
         );
-        OutfitCandidate candidate = best.candidate();
-        recommendationResult.addItem(candidate.top(), OutfitSlot.TOP);
-        recommendationResult.addItem(candidate.bottom(), OutfitSlot.BOTTOM);
-        if (candidate.hasOuter()) {
-            recommendationResult.addItem(candidate.outer(), OutfitSlot.OUTER);
-        }
-        return recommendationResultRepository.save(recommendationResult);
+        RecommendationResult savedRecommendationResult = recommendationResultRepository.save(recommendationResult);
+        recommendationResultItemRepository.saveAll(createRecommendationResultItems(
+                savedRecommendationResult,
+                best.candidate()
+        ));
+        return savedRecommendationResult;
     }
 
-    private List<RecommendationResult> findRecommendationHistories(Long userId, LocalDateTime requestedAt) {
-        List<RecommendationResult> lastSevenDays = recommendationResultRepository
-                .findByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(userId, requestedAt.minusDays(7));
-        List<RecommendationResult> recentFive = recommendationResultRepository.findTop5ByUserIdOrderByCreatedAtDesc(
-                userId
+    private List<RecommendationResultItem> createRecommendationResultItems(
+            RecommendationResult recommendationResult,
+            OutfitCandidate candidate
+    ) {
+        List<RecommendationResultItem> resultItems = new ArrayList<>();
+        resultItems.add(RecommendationResultItem.of(recommendationResult, candidate.top(), OutfitSlot.TOP));
+        resultItems.add(RecommendationResultItem.of(recommendationResult, candidate.bottom(), OutfitSlot.BOTTOM));
+        if (candidate.hasOuter()) {
+            resultItems.add(RecommendationResultItem.of(recommendationResult, candidate.outer(), OutfitSlot.OUTER));
+        }
+        return resultItems;
+    }
+
+    private List<WearHistorySnapshot> findWearHistorySnapshots(Long userId, LocalDateTime requestedAt) {
+        List<WearHistory> wearHistories = wearHistoryRepository.findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
+                userId,
+                requestedAt.minusDays(7)
+        );
+        List<Long> orderedResultIds = wearHistories.stream()
+                .map(history -> history.getRecommendationResult().getId())
+                .toList();
+        Map<Long, Set<Long>> itemIdsByResultId = findItemIdsByRecommendationResultIds(orderedResultIds);
+
+        return wearHistories.stream()
+                .map(history -> {
+                    Long recommendationResultId = history.getRecommendationResult().getId();
+                    return new WearHistorySnapshot(
+                            recommendationResultId,
+                            history.getWornAt(),
+                            itemIdsByResultId.getOrDefault(recommendationResultId, Set.of())
+                    );
+                })
+                .toList();
+    }
+
+    private List<RecommendationHistorySnapshot> findRecommendationHistories(Long userId, LocalDateTime requestedAt) {
+        List<Long> lastSevenDaysIds = recommendationResultRepository
+                .findIdsByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(userId, requestedAt.minusDays(7));
+        List<Long> recentFiveIds = recommendationResultRepository.findIdsByUserIdOrderByCreatedAtDesc(
+                userId,
+                PageRequest.of(0, 5)
         );
 
-        Map<Long, RecommendationResult> histories = new LinkedHashMap<>();
-        Stream.concat(lastSevenDays.stream(), recentFive.stream())
-                .forEach(history -> histories.putIfAbsent(history.getId(), history));
-        return List.copyOf(histories.values());
+        // Preserve the previous priority: 7-day ids first, then recent-five ids as backfill.
+        LinkedHashSet<Long> orderedHistoryIds = new LinkedHashSet<>();
+        orderedHistoryIds.addAll(lastSevenDaysIds);
+        orderedHistoryIds.addAll(recentFiveIds);
+        return findRecommendationHistorySnapshots(List.copyOf(orderedHistoryIds));
+    }
+
+    private List<RecommendationHistorySnapshot> findRecommendationHistorySnapshots(List<Long> orderedResultIds) {
+        if (orderedResultIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Set<Long>> itemIdsByResultId = findItemIdsByRecommendationResultIds(orderedResultIds);
+        return findResultsInOrderedIds(orderedResultIds).stream()
+                .map(result -> new RecommendationHistorySnapshot(
+                        result.getId(),
+                        result.getCreatedAt(),
+                        itemIdsByResultId.getOrDefault(result.getId(), Set.of())
+                ))
+                .toList();
+    }
+
+    private List<RecommendationResult> findResultsInOrderedIds(List<Long> orderedResultIds) {
+        Map<Long, RecommendationResult> resultById = recommendationResultRepository.findByIdIn(orderedResultIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        RecommendationResult::getId,
+                        Function.identity()
+                ));
+        // IN queries do not guarantee row order; the preselected id list is the source of truth.
+        return orderedResultIds.stream()
+                .map(resultId -> requireResult(resultById, resultId))
+                .toList();
+    }
+
+    private Map<Long, List<RecommendationResultItem>> findItemsByRecommendationResultIds(List<Long> orderedResultIds) {
+        if (orderedResultIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, List<RecommendationResultItem>> itemsByResultId = new LinkedHashMap<>();
+        for (Long resultId : orderedResultIds) {
+            itemsByResultId.put(resultId, new ArrayList<>());
+        }
+
+        recommendationResultItemRepository.findByRecommendationResultIdInWithClothingItem(orderedResultIds)
+                .forEach(item -> {
+                    List<RecommendationResultItem> resultItems = itemsByResultId.get(item.getRecommendationResult().getId());
+                    if (resultItems != null) {
+                        resultItems.add(item);
+                    }
+                });
+        return itemsByResultId;
+    }
+
+    private Map<Long, Set<Long>> findItemIdsByRecommendationResultIds(List<Long> orderedResultIds) {
+        return findItemsByRecommendationResultIds(orderedResultIds).entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream()
+                                .map(RecommendationResultItem::getClothingItem)
+                                .map(ClothingItem::getId)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toUnmodifiableSet()),
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private RecommendationResult requireResult(Map<Long, RecommendationResult> resultById, Long resultId) {
+        RecommendationResult result = resultById.get(resultId);
+        if (result == null) {
+            throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+        return result;
     }
 
     private String writeReasonsJson(List<String> reasons) {

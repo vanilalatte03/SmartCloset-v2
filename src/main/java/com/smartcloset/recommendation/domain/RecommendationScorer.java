@@ -23,8 +23,8 @@ public class RecommendationScorer {
     public List<ScoredOutfitCandidate> scoreAll(
             List<OutfitCandidate> candidates,
             WeatherCondition weather,
-            List<WearHistory> wearHistories,
-            List<RecommendationResult> recommendationHistories,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt,
             List<ClothingColor> preferredColors,
             List<ClothingMaterial> preferredMaterials
@@ -49,8 +49,8 @@ public class RecommendationScorer {
     public List<ScoredOutfitCandidate> scoreAll(
             List<OutfitCandidate> candidates,
             WeatherCondition weather,
-            List<WearHistory> wearHistories,
-            List<RecommendationResult> recommendationHistories,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt
     ) {
         return scoreAll(candidates, weather, wearHistories, recommendationHistories, requestedAt, List.of(), List.of());
@@ -59,8 +59,8 @@ public class RecommendationScorer {
     public RecommendationScore score(
             OutfitCandidate candidate,
             WeatherCondition weather,
-            List<WearHistory> wearHistories,
-            List<RecommendationResult> recommendationHistories,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt,
             List<ClothingColor> preferredColors,
             List<ClothingMaterial> preferredMaterials
@@ -97,8 +97,8 @@ public class RecommendationScorer {
     public RecommendationScore score(
             OutfitCandidate candidate,
             WeatherCondition weather,
-            List<WearHistory> wearHistories,
-            List<RecommendationResult> recommendationHistories,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt
     ) {
         return score(candidate, weather, wearHistories, recommendationHistories, requestedAt, List.of(), List.of());
@@ -140,14 +140,12 @@ public class RecommendationScorer {
 
     int calculateWearHistoryScore(
             OutfitCandidate candidate,
-            List<WearHistory> wearHistories,
+            List<WearHistorySnapshot> wearHistories,
             LocalDateTime requestedAt
     ) {
         return wearHistories.stream()
-                .filter(history -> history.getRecommendationResult() != null)
-                .filter(history -> candidate.intersects(itemIds(history.getRecommendationResult())))
-                .map(WearHistory::getWornAt)
-                .filter(Objects::nonNull)
+                .filter(history -> candidate.intersects(history.clothingItemIds()))
+                .map(WearHistorySnapshot::wornAt)
                 .max(LocalDateTime::compareTo)
                 .map(wornAt -> scoreRecentWornAt(wornAt, requestedAt))
                 .orElse(MAX_WEAR_HISTORY_SCORE);
@@ -155,17 +153,17 @@ public class RecommendationScorer {
 
     int calculateRecommendationHistoryScore(
             OutfitCandidate candidate,
-            List<RecommendationResult> recommendationHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt
     ) {
         int score = MAX_RECOMMENDATION_HISTORY_SCORE;
-        for (RecommendationResult history : recommendationHistories) {
-            LocalDateTime createdAt = history.getCreatedAt();
+        for (RecommendationHistorySnapshot history : recommendationHistories) {
+            LocalDateTime createdAt = history.createdAt();
             if (createdAt == null || createdAt.isBefore(requestedAt.minusDays(7))) {
                 continue;
             }
 
-            Set<Long> historyItemIds = itemIds(history);
+            Set<Long> historyItemIds = history.clothingItemIds();
             if (candidate.hasSameItemSet(historyItemIds)) {
                 if (!createdAt.isBefore(requestedAt.minusDays(3))) {
                     score = Math.min(score, 2);
@@ -330,14 +328,6 @@ public class RecommendationScorer {
 
     private boolean pairMatches(ClothingColor left, ClothingColor right, ClothingColor first, ClothingColor second) {
         return (left == first && right == second) || (left == second && right == first);
-    }
-
-    private Set<Long> itemIds(RecommendationResult recommendationResult) {
-        return recommendationResult.getItems().stream()
-                .map(RecommendationResultItem::getClothingItem)
-                .map(ClothingItem::getId)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private int compareBest(ScoredOutfitCandidate left, ScoredOutfitCandidate right, WeatherCondition weather) {
