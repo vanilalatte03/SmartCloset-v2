@@ -7,14 +7,24 @@ import {
 
 type ColorSwatchProps = {
   color: ClothingColor;
+  className?: string;
   showLabel?: boolean;
+  size?: 'small' | 'large';
 };
 
-export function ColorSwatch({ color, showLabel = true }: ColorSwatchProps) {
+export function ColorSwatch({
+  color,
+  className,
+  showLabel = true,
+  size = 'small',
+}: ColorSwatchProps) {
   const colorMetadata = clothingColorMetadata[color];
+  const classNames = ['color-token', `color-token-${size}`, className]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <span className="color-token">
+    <span className={classNames}>
       <span
         className="color-swatch"
         style={{
