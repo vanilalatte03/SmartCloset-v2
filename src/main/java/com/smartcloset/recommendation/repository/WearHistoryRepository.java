@@ -4,8 +4,9 @@ import com.smartcloset.recommendation.domain.WearHistory;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface WearHistoryRepository extends JpaRepository<WearHistory, Long> {
 
@@ -13,10 +14,16 @@ public interface WearHistoryRepository extends JpaRepository<WearHistory, Long> 
 
     Optional<WearHistory> findByRecommendationResultId(Long recommendationResultId);
 
-    @EntityGraph(attributePaths = {
-            "recommendationResult",
-            "recommendationResult.items",
-            "recommendationResult.items.clothingItem"
-    })
-    List<WearHistory> findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(Long userId, LocalDateTime wornAt);
+    @Query("""
+            select history
+            from WearHistory history
+            join fetch history.recommendationResult
+            where history.user.id = :userId
+              and history.wornAt >= :wornAt
+            order by history.wornAt desc, history.id desc
+            """)
+    List<WearHistory> findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
+            @Param("userId") Long userId,
+            @Param("wornAt") LocalDateTime wornAt
+    );
 }

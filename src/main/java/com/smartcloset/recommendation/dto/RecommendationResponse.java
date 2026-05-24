@@ -2,6 +2,7 @@ package com.smartcloset.recommendation.dto;
 
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.RecommendationResult;
+import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,11 +32,15 @@ public record RecommendationResponse(
         );
     }
 
-    public static RecommendationResponse from(RecommendationResult recommendationResult, List<String> reasons) {
+    public static RecommendationResponse from(
+            RecommendationResult recommendationResult,
+            List<RecommendationResultItem> items,
+            List<String> reasons
+    ) {
         return new RecommendationResponse(
                 recommendationResult.getId(),
                 WeatherResponse.from(recommendationResult),
-                RecommendationOutfitResponse.from(recommendationResult),
+                RecommendationOutfitResponse.from(items),
                 RecommendationScoreResponse.from(recommendationResult),
                 List.copyOf(reasons),
                 recommendationResult.isWorn(),

@@ -15,8 +15,8 @@ public class RecommendationReasonGenerator {
             OutfitCandidate candidate,
             RecommendationScore score,
             WeatherCondition weather,
-            List<WearHistory> wearHistories,
-            List<RecommendationResult> recommendationHistories,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt
     ) {
         Objects.requireNonNull(candidate, "candidate must not be null");
