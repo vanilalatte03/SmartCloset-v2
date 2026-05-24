@@ -14,6 +14,7 @@ import type {
   UserLocationResponse,
   WeatherResponse,
 } from '../../types/api';
+import { getRoParticle } from '../../utils/koreanParticles';
 
 const locationCatalogApiPath = '/api/locations?keyword={keyword}';
 const locationWeatherApiPath = '/api/weather/current';
@@ -114,7 +115,9 @@ export function LocationPanel({
     try {
       const updatedLocation = await updateUserLocation(accessToken, option.code);
       onLocationChange(updatedLocation);
-      setStatus(`현재 위치를 ${updatedLocation.name}(으)로 저장했습니다.`);
+      setStatus(
+        `현재 위치를 ${updatedLocation.name}${getRoParticle(updatedLocation.name)} 저장했습니다.`
+      );
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
