@@ -30,7 +30,7 @@ const scoreItems: Array<{
   { key: 'colorScore', label: '색상 조합' },
   { key: 'wearHistoryScore', label: '착용 이력' },
   { key: 'recommendationHistoryScore', label: '추천 이력' },
-  { key: 'preferenceScore', label: 'preferenceScore' },
+  { key: 'preferenceScore', label: '선호 반영' },
 ];
 
 function formatDateTime(value: string): string {

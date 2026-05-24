@@ -70,6 +70,9 @@ P1 polish tail:
 - `preferences`: swatch/chip 선택 상태, style tag 입력/삭제, 저장 상태 문구를 더 사용자 문장으로 정리
 - `location`: 현재 위치, catalog 검색, 선택 CTA, 인증 만료 문구 polish
 - `history`: 최신순 이력 카드, weather snapshot, 착용 여부, 착용 완료 처리를 전용 화면에서 모바일 overflow 없이 정리
+- `today`: 첫 화면에서 날씨 요약과 추천 생성/결과를 체크리스트보다 우선 배치
+- `closet`: 옷 카드 그리드와 빠른 등록 패널로 시각 위계 보강
+- `app shell`: 제품 화면에서 API URL과 MVP4 라벨을 보조/접힘 정보로 낮춤
 
 ## 화면 구성
 

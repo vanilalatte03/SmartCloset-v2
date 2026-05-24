@@ -10,7 +10,7 @@ SmartCloset MVP4 공유 방식은 Docker Compose로 유지한다.
 ## P0 Release Cut 공유 기준
 Step 7 기준 공유 후보는 P0 release cut이다. Docker Compose로 `mysql`, `app`, `frontend`가 함께 실행되고, 신규 사용자가 로그인 후 Today 화면에서 위치/날씨 요약, 첫 추천 체크리스트, 옷장 빠른 등록, 추천 생성, 실패 CTA, 이유 우선 추천 결과, 착용 완료, 최근 추천 preview를 확인할 수 있어야 한다.
 
-Step 8, 9, 10은 P1 polish tail이다. 선호도 화면 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish는 후속 P1 기준이며 P0 공유 성공 여부를 막지 않는다.
+Step 8-13은 P1 polish tail이다. 선호도 화면 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish, Today/Closet/Preferences/Location/History의 시각 우선순위 보강은 후속 P1 기준이며 P0 공유 성공 여부를 막지 않는다.
 
 ## MVP4 데모 전 DB 초기화
 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 MVP4 데모 전 초기화를 권장한다.

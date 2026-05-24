@@ -1533,10 +1533,10 @@
   }
 
   .workspace-shell {
-    gap: 14px;
+    gap: 12px;
     margin: 0 auto;
     max-width: 640px;
-    padding: 14px 12px 88px;
+    padding: 12px 12px 88px;
   }
 
   .mobile-app-bar {
@@ -1545,8 +1545,8 @@
     border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
-    gap: 12px;
-    margin: -14px -12px 0;
+    gap: 10px;
+    margin: -12px -12px 0;
     padding: 12px;
     position: sticky;
     top: 0;
@@ -1558,7 +1558,7 @@
   }
 
   .mobile-app-bar h1 {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .mobile-app-meta {
@@ -1595,13 +1595,20 @@
   }
 
   .view-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 
-  .view-heading h2 {
-    font-size: 24px;
+  .view-stack {
+    gap: 12px;
   }
 
   .app-header,
@@ -1652,14 +1659,44 @@
   .today-hero-panel {
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
+    min-height: 0;
   }
 
   .today-hero-copy h2 {
-    font-size: 22px;
+    font-size: 21px;
+    line-height: 1.25;
+  }
+
+  .today-hero-copy {
+    gap: 6px;
   }
 
   .today-readiness-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     min-width: 0;
+  }
+
+  .panel {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .panel h2 {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+
+  .recommendation-heading {
+    gap: 10px;
+  }
+
+  .recommendation-heading-copy,
+  .recommendation-empty {
+    font-size: 14px;
+    line-height: 1.45;
   }
 
   .recommendation-action-bar {

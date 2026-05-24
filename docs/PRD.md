@@ -100,7 +100,7 @@ Step 7 기준 P0 release cut은 첫 추천 성공 흐름과 Docker Compose 공�
 - 데스크톱 sidebar와 모바일 하단 탭이 375px/1280px 검증 범위에서 겹치지 않는다.
 - Today 화면에서 최근 추천 preview와 착용 완료 흐름을 확인할 수 있다.
 
-Step 8, 9, 10은 P1 polish tail이다. 선호도 swatch/chip 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 최신순 이력 카드와 착용 완료 polish를 다루며 P0 release cut의 blocker가 아니다.
+Step 8-13은 P1 polish tail이다. 선호도 swatch/chip 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 최신순 이력 카드와 착용 완료 polish, Today/Closet/Preferences/Location/History의 시각 우선순위 보강을 다루며 P0 release cut의 blocker가 아니다.
 
 ## 포함 범위
 - React 반응형 웹 UI 재구성
