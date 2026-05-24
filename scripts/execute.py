@@ -22,6 +22,21 @@ from typing import Optional
 import checks
 
 ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+DEFAULT_CODEX_EFFORT = "medium"
+
+
+def validate_codex_effort(effort: str, *, allow_xhigh: bool = False) -> str:
+    if effort not in ALLOWED_CODEX_EFFORTS:
+        allowed = ", ".join(ALLOWED_CODEX_EFFORTS)
+        raise ValueError(f"codex effort must be one of: {allowed}")
+    if effort == "xhigh" and not allow_xhigh:
+        raise ValueError("xhigh effort requires --allow-xhigh")
+    return effort
+
+
+def codex_effort_config(effort: str) -> list[str]:
+    return ["-c", f'model_reasoning_effort="{effort}"']
 
 
 @contextlib.contextmanager
@@ -64,7 +79,9 @@ class StepExecutor:
     def __init__(self, phase_dir_name: str, *, auto_push: bool = False,
                  unsafe: bool = False, branch_name: Optional[str] = None,
                  step_number: Optional[int] = None,
-                 next_step_only: bool = False):
+                 next_step_only: bool = False,
+                 codex_effort: str = DEFAULT_CODEX_EFFORT,
+                 allow_xhigh: bool = False):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
@@ -75,6 +92,7 @@ class StepExecutor:
         self._branch_name = branch_name
         self._step_number = step_number
         self._next_step_only = next_step_only
+        self._codex_effort = validate_codex_effort(codex_effort, allow_xhigh=allow_xhigh)
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -314,7 +332,7 @@ class StepExecutor:
             sys.exit(1)
 
         prompt = preamble + step_file.read_text()
-        cmd = ["codex", "exec", "--json"]
+        cmd = ["codex", "exec", "--json", *codex_effort_config(self._codex_effort)]
         if self._unsafe:
             cmd.append("--dangerously-bypass-approvals-and-sandbox")
         cmd.append(prompt)
@@ -553,10 +571,21 @@ def main():
     parser.add_argument("--unsafe", action="store_true", help="Run codex exec with sandbox and approval bypass")
     parser.add_argument("--step", type=int, help="Run only this pending step number")
     parser.add_argument("--next-step-only", action="store_true", help="Run only the next pending step")
+    parser.add_argument(
+        "--codex-effort",
+        choices=ALLOWED_CODEX_EFFORTS,
+        default=DEFAULT_CODEX_EFFORT,
+        help="Reasoning effort for codex exec step implementation calls",
+    )
+    parser.add_argument("--allow-xhigh", action="store_true", help="Allow xhigh reasoning effort")
     args = parser.parse_args()
 
     if args.step is not None and args.next_step_only:
         parser.error("--step and --next-step-only cannot be used together")
+    try:
+        validate_codex_effort(args.codex_effort, allow_xhigh=args.allow_xhigh)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     StepExecutor(
         args.phase_dir,
@@ -565,6 +594,8 @@ def main():
         branch_name=args.branch,
         step_number=args.step,
         next_step_only=args.next_step_only,
+        codex_effort=args.codex_effort,
+        allow_xhigh=args.allow_xhigh,
     ).run()
 
 

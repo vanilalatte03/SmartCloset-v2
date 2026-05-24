@@ -39,6 +39,8 @@ git config core.hooksPath .githooks
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
 | autopilot | `python3 scripts/autopilot.py 4-smartcloset-usable-ux --base main --max-review-fixes 2 --unsafe` | no | MVP4 phase 기록용 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
+Harness Codex 호출은 전역 Codex 설정을 그대로 상속하지 않고 reasoning effort를 명시한다. `execute.py`의 step 구현 기본값은 `medium`이고, `autopilot.py`의 기본값은 step 구현 `medium`, PR self-review `high`, 자동 fix `medium`이다. `xhigh`는 `--allow-xhigh`와 함께 명시한 경우에만 허용한다.
+
 ## Harness 실행 로그
 
 `phases/**/step*-output.json`과 `phases/**/phase*-output.json`은 Harness 실행 중 원인 분석을 위해 남기는 로그다. 출력이 크므로 `.rgignore`에서 기본 검색 대상에서 제외한다.
@@ -121,4 +123,4 @@ docker compose down
 python3 scripts/autopilot.py 4-smartcloset-usable-ux --base main --max-review-fixes 2 --unsafe
 ```
 
-자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다. 재시도 후에도 실패하면 PR과 Issue를 열어둔 채 중단한다.
+자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다. 재시도 후에도 실패하면 PR과 Issue를 열어둔 채 중단한다. 필요하면 `--step-effort`, `--review-effort`, `--fix-effort`로 조정하되, `xhigh`는 `--allow-xhigh` 없이 사용할 수 없다.

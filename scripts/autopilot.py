@@ -12,6 +12,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+DEFAULT_STEP_EFFORT = "medium"
+DEFAULT_REVIEW_EFFORT = "high"
+DEFAULT_FIX_EFFORT = "medium"
+
+
+def validate_codex_effort(effort: str, *, allow_xhigh: bool = False) -> str:
+    if effort not in ALLOWED_CODEX_EFFORTS:
+        allowed = ", ".join(ALLOWED_CODEX_EFFORTS)
+        raise ValueError(f"codex effort must be one of: {allowed}")
+    if effort == "xhigh" and not allow_xhigh:
+        raise ValueError("xhigh effort requires --allow-xhigh")
+    return effort
+
+
+def codex_effort_config(effort: str) -> list[str]:
+    return ["-c", f'model_reasoning_effort="{effort}"']
 
 
 class AutopilotError(RuntimeError):
@@ -164,12 +181,20 @@ class AutopilotRunner:
         base: str = "main",
         max_review_fixes: int = 2,
         unsafe: bool = False,
+        step_effort: str = DEFAULT_STEP_EFFORT,
+        review_effort: str = DEFAULT_REVIEW_EFFORT,
+        fix_effort: str = DEFAULT_FIX_EFFORT,
+        allow_xhigh: bool = False,
         root: Path = ROOT,
     ):
         self.phase = phase
         self.base = base
         self.max_review_fixes = max_review_fixes
         self.unsafe = unsafe
+        self.step_effort = validate_codex_effort(step_effort, allow_xhigh=allow_xhigh)
+        self.review_effort = validate_codex_effort(review_effort, allow_xhigh=allow_xhigh)
+        self.fix_effort = validate_codex_effort(fix_effort, allow_xhigh=allow_xhigh)
+        self.allow_xhigh = allow_xhigh
         self.root = Path(root)
 
     # --- command helpers ---
@@ -294,7 +319,11 @@ class AutopilotRunner:
             "--push",
             "--step",
             str(step["step"]),
+            "--codex-effort",
+            self.step_effort,
         ]
+        if self.step_effort == "xhigh":
+            cmd.append("--allow-xhigh")
         if self.unsafe:
             cmd.append("--unsafe")
         self._run(cmd, timeout=1800)
@@ -561,11 +590,12 @@ class AutopilotRunner:
 
     def _run_codex_review(self, step: dict) -> ReviewResult:
         prompt = self._codex_review_prompt(step)
-        result = self._run(["codex", "exec", "--json", prompt], check=False, timeout=1800)
+        cmd = self._codex_exec_cmd(prompt, self.review_effort)
+        result = self._run(cmd, check=False, timeout=1800)
         if result.returncode != 0:
             return ReviewResult(
                 False,
-                [self._command_failure(["codex", "exec", "--json", "<review-prompt>"], result)],
+                [self._command_failure(self._codex_exec_cmd("<review-prompt>", self.review_effort), result)],
                 "자체 리뷰 실행 실패",
                 codex_passed=False,
             )
@@ -737,7 +767,10 @@ class AutopilotRunner:
             f"{review.to_markdown()}\n\n"
             "수정 후 가능한 검증을 실행하고, 수정한 파일은 working tree에 남겨두세요."
         )
-        self._run(["codex", "exec", "--json", prompt], timeout=1800)
+        self._run(self._codex_exec_cmd(prompt, self.fix_effort), timeout=1800)
+
+    def _codex_exec_cmd(self, prompt: str, effort: str) -> list[str]:
+        return ["codex", "exec", "--json", *codex_effort_config(effort), prompt]
 
     def _commit_dirty_fix(self, step: dict):
         status = self._git("status", "--short", "--untracked-files=all").stdout.strip()
@@ -801,7 +834,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Maximum automatic fix attempts inside the same step PR",
     )
     parser.add_argument("--unsafe", action="store_true", help="Pass --unsafe to scripts/execute.py")
+    parser.add_argument(
+        "--step-effort",
+        choices=ALLOWED_CODEX_EFFORTS,
+        default=DEFAULT_STEP_EFFORT,
+        help="Reasoning effort for step implementation calls",
+    )
+    parser.add_argument(
+        "--review-effort",
+        choices=ALLOWED_CODEX_EFFORTS,
+        default=DEFAULT_REVIEW_EFFORT,
+        help="Reasoning effort for PR self-review calls",
+    )
+    parser.add_argument(
+        "--fix-effort",
+        choices=ALLOWED_CODEX_EFFORTS,
+        default=DEFAULT_FIX_EFFORT,
+        help="Reasoning effort for automatic review-fix calls",
+    )
+    parser.add_argument("--allow-xhigh", action="store_true", help="Allow xhigh reasoning effort")
     args = parser.parse_args(argv)
+    for name, effort in (
+        ("--step-effort", args.step_effort),
+        ("--review-effort", args.review_effort),
+        ("--fix-effort", args.fix_effort),
+    ):
+        try:
+            validate_codex_effort(effort, allow_xhigh=args.allow_xhigh)
+        except ValueError as exc:
+            parser.error(f"{name}: {exc}")
 
     try:
         pr_urls = AutopilotRunner(
@@ -809,6 +870,10 @@ def main(argv: list[str] | None = None) -> int:
             base=args.base,
             max_review_fixes=args.max_review_fixes,
             unsafe=args.unsafe,
+            step_effort=args.step_effort,
+            review_effort=args.review_effort,
+            fix_effort=args.fix_effort,
+            allow_xhigh=args.allow_xhigh,
         ).run()
     except AutopilotError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

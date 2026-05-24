@@ -53,6 +53,14 @@
 - 자동 리뷰 실패는 GitHub Issue와 `issues/{phase}/issue-N.md`에 함께 기록한다.
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 
+## Codex Reasoning Effort Policy
+- 기본 구현 작업은 `medium`을 사용한다.
+- Plan Mode, PR self-review, scope review는 `high`를 사용한다.
+- `xhigh`는 추천 규칙 변경, 인증/인가 구조 변경, JPA 성능 개선, 대규모 리팩토링, 머지 전 최종 범위 감사에만 사용한다.
+- 문서 수정, 오타, README 동기화, 작은 UI 문구 변경은 `medium`을 사용한다.
+- subagent 병렬 실행 시 `xhigh`를 기본값으로 사용하지 않는다.
+- Harness 자동 실행은 `scripts/execute.py`와 `scripts/autopilot.py`의 effort 옵션을 우선하며, `xhigh`는 명시적 허용 옵션이 있을 때만 사용한다.
+
 ## Harness step PR 리뷰 규칙
 - 완료된 MVP-3 phase 기준은 phase 전체 완료 기준이다.
 - 중간 step PR 구현과 리뷰는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.

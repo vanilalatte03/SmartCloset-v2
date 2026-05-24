@@ -81,6 +81,92 @@ def test_preconditions_stop_on_gh_auth_failure(runner):
     assert "gh auth failed" in str(exc_info.value)
 
 
+def test_runner_rejects_xhigh_without_allow_flag(tmp_repo):
+    with pytest.raises(ValueError, match="--allow-xhigh"):
+        ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo, step_effort="xhigh")
+
+
+def test_run_step_passes_default_effort_to_execute(runner):
+    calls = []
+    step = {"step": 0, "name": "project-scaffold"}
+
+    def fake_run(cmd, check=True, timeout=None):
+        calls.append((cmd, timeout))
+        return cp()
+
+    runner._run = fake_run
+    runner._run_step("codex/branch", step)
+
+    cmd, timeout = calls[0]
+    assert timeout == 1800
+    assert cmd[:3] == [sys.executable, "scripts/execute.py", "1-smartcloset-mvp"]
+    assert "--codex-effort" in cmd
+    assert cmd[cmd.index("--codex-effort") + 1] == "medium"
+    assert "--allow-xhigh" not in cmd
+
+
+def test_run_step_passes_xhigh_allow_flag_to_execute(tmp_repo):
+    runner = ap.AutopilotRunner(
+        "1-smartcloset-mvp",
+        root=tmp_repo,
+        step_effort="xhigh",
+        allow_xhigh=True,
+    )
+    calls = []
+
+    runner._run = lambda cmd, check=True, timeout=None: calls.append(cmd) or cp()
+    runner._run_step("codex/branch", {"step": 0, "name": "project-scaffold"})
+
+    cmd = calls[0]
+    assert cmd[cmd.index("--codex-effort") + 1] == "xhigh"
+    assert "--allow-xhigh" in cmd
+
+
+def test_codex_review_uses_high_effort(runner):
+    calls = []
+
+    def fake_run(cmd, check=True, timeout=None):
+        calls.append((cmd, check, timeout))
+        return cp(stdout='{"pass": true, "summary": "ok", "findings": []}')
+
+    runner._run = fake_run
+
+    result = runner._run_codex_review({"step": 1, "name": "clothing-p0-api"})
+
+    cmd, check, timeout = calls[0]
+    assert result.passed is True
+    assert check is False
+    assert timeout == 1800
+    assert cmd[:3] == ["codex", "exec", "--json"]
+    assert 'model_reasoning_effort="high"' in cmd
+
+
+def test_codex_fix_uses_medium_effort(runner, tmp_repo):
+    calls = []
+    issue = ap.IssueRecord(
+        1,
+        "리뷰 실패",
+        "## Issue\n- 실패",
+        tmp_repo / "issues" / "1-smartcloset-mvp" / "issue-1.md",
+        "",
+    )
+    review = ap.ReviewResult(False, ["실패"], "fail")
+
+    runner._run = lambda cmd, check=True, timeout=None: calls.append((cmd, timeout)) or cp()
+    runner._invoke_codex_fix(
+        issue,
+        "codex/branch",
+        {"step": 0, "name": "project-scaffold"},
+        review,
+        1,
+    )
+
+    cmd, timeout = calls[0]
+    assert timeout == 1800
+    assert cmd[:3] == ["codex", "exec", "--json"]
+    assert 'model_reasoning_effort="medium"' in cmd
+
+
 def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
     gh_calls = []
     executed = []
@@ -431,3 +517,10 @@ def test_review_markdown_is_table_and_dedupes_findings():
     assert "| 금지 범위 | 실패 |" in markdown
     assert markdown.count("a.java:1 - 실패") == 1
     assert "## 리뷰 결론" in markdown
+
+
+def test_main_rejects_xhigh_without_allow_flag():
+    with pytest.raises(SystemExit) as exc_info:
+        ap.main(["1-smartcloset-mvp", "--step-effort", "xhigh"])
+
+    assert exc_info.value.code == 2
