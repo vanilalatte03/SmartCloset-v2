@@ -159,7 +159,7 @@ function App() {
     return (
       <main className="auth-shell">
         <header className="auth-header">
-          <p className="eyebrow">SmartCloset MVP4</p>
+          <p className="eyebrow">오늘의 옷차림</p>
           <h1>SmartCloset</h1>
         </header>
 
@@ -285,7 +285,7 @@ function App() {
     <main className="app-shell authenticated-shell">
       <aside className="desktop-sidebar">
         <div className="sidebar-brand">
-          <p className="eyebrow">MVP4</p>
+          <p className="eyebrow">오늘의 옷차림</p>
           <h1>SmartCloset</h1>
         </div>
         {renderViewNavigation('desktop-view-nav', '주요 화면')}
@@ -314,11 +314,14 @@ function App() {
             <strong>{locationLabel}</strong>
             {location ? <span className="status-detail">{location.code}</span> : null}
           </div>
-          <div className="status-cluster status-cluster-wide">
-            <span className="label">API</span>
-            <code>{getApiBaseUrl()}</code>
+          <div className="status-cluster">
+            <span className="label">연결</span>
+            <StatusBadge status={connectionState}>{connectionLabels[connectionState]}</StatusBadge>
           </div>
-          <StatusBadge status={connectionState}>{connectionLabels[connectionState]}</StatusBadge>
+          <details className="api-details">
+            <summary>개발 정보</summary>
+            <code>{getApiBaseUrl()}</code>
+          </details>
           <button
             type="button"
             className="secondary-button"

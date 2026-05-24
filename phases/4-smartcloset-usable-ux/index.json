@@ -93,7 +93,10 @@
     {
       "step": 11,
       "name": "today-status-recommendation-visual-priority",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-24T10:38:31+0900",
+      "summary": "Today 첫 화면을 현재 날씨와 추천 슬롯 카드 중심으로 재배치하고 API URL/MVP4 노출을 보조 정보로 낮췄다.",
+      "completed_at": "2026-05-24T10:53:51+0900"
     },
     {
       "step": 12,
