@@ -5,7 +5,12 @@ import {
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
+import {
+  ColorSwatch,
+  MaterialChip,
+  WeatherBadge,
+  WeatherLabel,
+} from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
   OutfitItemResponse,
@@ -68,6 +73,31 @@ function renderOutfitItem(
         <span className="muted">{emptyMessage}</span>
       )}
     </div>
+  );
+}
+
+function renderWeatherSnapshot(item: RecommendationResponse) {
+  return (
+    <dl className="metric-list history-weather-snapshot">
+      <div>
+        <dt>기온</dt>
+        <dd>{item.weather.temperature}°C</dd>
+      </div>
+      <div>
+        <dt>날씨</dt>
+        <dd>
+          <WeatherLabel weatherType={item.weather.weatherType} />
+        </dd>
+      </div>
+      <div>
+        <dt>비</dt>
+        <dd>{item.weather.rainy ? '비 가능' : '비 없음'}</dd>
+      </div>
+      <div>
+        <dt>바람</dt>
+        <dd>{item.weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -181,17 +211,20 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
 
             return (
               <article className="panel history-card" key={item.recommendationId}>
-                <header className="history-card-header">
-                  <div>
+                <header className="history-card-summary">
+                  <div className="history-card-summary-main">
                     <p className="eyebrow">추천 #{item.recommendationId}</p>
                     <h3 className="history-card-date">{formatDateTime(item.createdAt)}</h3>
-                    <span
-                      className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}
-                    >
-                      {item.worn
-                        ? `착용 완료${wornAt ? ` · ${formatDateTime(wornAt)}` : ''}`
-                        : '착용 전'}
-                    </span>
+                    <div className="history-summary-badge-row">
+                      <span
+                        className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}
+                      >
+                        {item.worn
+                          ? `착용 완료${wornAt ? ` · ${formatDateTime(wornAt)}` : ''}`
+                          : '착용 전'}
+                      </span>
+                      <WeatherBadge weather={item.weather} />
+                    </div>
                   </div>
                   <div className="history-card-actions">
                     <button
@@ -205,72 +238,56 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                   </div>
                 </header>
 
-                <div className="history-card-grid">
-                  <section className="history-card-section" aria-label="추천 옷 조합">
-                    <h3>추천 옷 조합</h3>
-                    <div className="history-outfit-list">
-                      {renderOutfitItem(
-                        clothingCategoryLabels.TOP,
-                        item.outfit.top,
-                        '상의 없음'
-                      )}
-                      {renderOutfitItem(
-                        clothingCategoryLabels.BOTTOM,
-                        item.outfit.bottom,
-                        '하의 없음'
-                      )}
-                      {renderOutfitItem(
-                        clothingCategoryLabels.OUTER,
-                        item.outfit.outer,
-                        '선택된 아우터 없음'
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="history-card-section" aria-label="추천 날씨 스냅샷">
-                    <h3>날씨 스냅샷</h3>
-                    <dl className="metric-list history-weather-snapshot">
-                      <div>
-                        <dt>기온</dt>
-                        <dd>{item.weather.temperature}°C</dd>
-                      </div>
-                      <div>
-                        <dt>날씨</dt>
-                        <dd>
-                          <WeatherLabel weatherType={item.weather.weatherType} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>비</dt>
-                        <dd>{item.weather.rainy ? '비 가능' : '비 없음'}</dd>
-                      </div>
-                      <div>
-                        <dt>바람</dt>
-                        <dd>{item.weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
-                      </div>
-                    </dl>
-                  </section>
-                </div>
-
-                <section className="history-card-section" aria-label="오늘 입기 좋은 이유">
-                  <h3>오늘 입기 좋은 이유</h3>
-                  <ul className="reason-list history-reason-list">
-                    {item.reasons.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
+                <section className="history-outfit-summary" aria-label="추천 옷 조합">
+                  <h3>추천 옷 조합</h3>
+                  <div className="history-outfit-list">
+                    {renderOutfitItem(
+                      clothingCategoryLabels.TOP,
+                      item.outfit.top,
+                      '상의 없음'
+                    )}
+                    {renderOutfitItem(
+                      clothingCategoryLabels.BOTTOM,
+                      item.outfit.bottom,
+                      '하의 없음'
+                    )}
+                    {renderOutfitItem(
+                      clothingCategoryLabels.OUTER,
+                      item.outfit.outer,
+                      '선택된 아우터 없음'
+                    )}
+                  </div>
                 </section>
 
-                <details className="history-score-details">
-                  <summary>점수 상세 보기</summary>
-                  <dl className="score-grid history-score-grid">
-                    {scoreItems.map((scoreItem) => (
-                      <div key={scoreItem.key}>
-                        <dt>{scoreItem.label}</dt>
-                        <dd>{item.score[scoreItem.key]}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                <details className="history-detail-details">
+                  <summary>이유 · 날씨 · 점수 자세히 보기</summary>
+                  <div className="history-detail-grid">
+                    <section className="history-card-section" aria-label="오늘 입기 좋은 이유">
+                      <h3>오늘 입기 좋은 이유</h3>
+                      <ul className="reason-list history-reason-list">
+                        {item.reasons.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    </section>
+
+                    <section className="history-card-section" aria-label="추천 날씨 스냅샷">
+                      <h3>날씨 스냅샷</h3>
+                      {renderWeatherSnapshot(item)}
+                    </section>
+                  </div>
+
+                  <section className="history-card-section" aria-label="추천 점수 상세">
+                    <h3>점수 상세</h3>
+                    <dl className="score-grid history-score-grid">
+                      {scoreItems.map((scoreItem) => (
+                        <div key={scoreItem.key}>
+                          <dt>{scoreItem.label}</dt>
+                          <dd>{item.score[scoreItem.key]}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
                 </details>
               </article>
             );
