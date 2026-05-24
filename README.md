@@ -68,7 +68,7 @@ P0 완료 기준:
 - 데스크톱은 sidebar navigation, 모바일은 하단 탭 `오늘`, `옷장`, `선호도`, `위치`, `이력`을 사용합니다.
 - Today 화면은 최근 추천 preview와 착용 완료 흐름을 제공합니다.
 
-남은 Step 8, 9, 10은 P1 polish tail입니다. 선호도 저장 문구와 swatch/chip polish, 위치 catalog 검색/선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish를 다루며 P0 공유를 막는 blocker로 보지 않습니다.
+남은 Step 8-13은 P1 polish tail입니다. 선호도 저장 문구와 swatch/chip polish, 위치 catalog 검색/선택 polish, 전용 History view의 모바일 이력 카드와 착용 완료 polish, Today/Closet/Preferences/Location/History의 시각 우선순위 보강을 다루며 P0 공유를 막는 blocker로 보지 않습니다.
 
 MVP4에서도 제외되는 범위:
 

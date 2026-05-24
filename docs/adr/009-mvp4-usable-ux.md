@@ -28,7 +28,7 @@ MVP4는 반응형 웹 UX MVP다.
 
 MVP4는 공개 API, DB schema, 추천 점수 계산, 새로운 weather provider를 추가하지 않는다. 유일한 백엔드 API 추가는 보호 API인 현재 날씨 요약 엔드포인트다.
 
-P0 release cut은 Step 7에서 Docker Compose 공유와 첫 추천 성공 흐름을 기준으로 마감한다. Step 8, 9, 10은 선호도, 위치, 이력 화면 polish tail이며 P0 공유 성공 여부를 막는 blocker가 아니다.
+P0 release cut은 Step 7에서 Docker Compose 공유와 첫 추천 성공 흐름을 기준으로 마감한다. Step 8-13은 선호도, 위치, 이력 화면 polish와 Today/Closet/Preferences/Location/History의 시각 우선순위 보강 tail이며 P0 공유 성공 여부를 막는 blocker가 아니다.
 
 ## 결과
 - 프론트엔드 구현은 백엔드 schema migration 없이 진행할 수 있다.

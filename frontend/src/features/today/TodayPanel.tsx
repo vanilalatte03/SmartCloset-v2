@@ -354,12 +354,24 @@ export function TodayPanel({
 
   return (
     <div className="today-layout">
-      <article className="panel today-hero-panel">
+      <article
+        className={
+          readyForFirstRecommendation
+            ? 'panel today-hero-panel ready'
+            : 'panel today-hero-panel pending'
+        }
+      >
         <div className="today-hero-copy">
           <p className="eyebrow">첫 추천 준비</p>
-          <h2>오늘 입을 옷을 만들 준비를 확인하세요</h2>
+          <h2>
+            {readyForFirstRecommendation
+              ? '첫 추천 준비가 끝났어요'
+              : '오늘 추천에 필요한 것부터 확인하세요'}
+          </h2>
           <p className="muted">
-            위치, 선호도, 상의, 하의, 아우터가 준비되면 첫 추천을 바로 시작할 수 있어요.
+            {readyForFirstRecommendation
+              ? '이제 추천을 만들어 옷 조합과 이유를 확인하면 됩니다.'
+              : '위치, 선호도, 상의, 하의, 아우터를 채우면 추천을 만들 수 있어요.'}
           </p>
         </div>
         <div className="today-readiness-summary">
@@ -374,8 +386,8 @@ export function TodayPanel({
           </span>
           <span className="today-cta-note">
             {readyForFirstRecommendation
-              ? '아래 추천 만들기에서 바로 옷 조합을 생성할 수 있어요.'
-              : '체크리스트를 완료하면 추천을 만들 수 있어요.'}
+              ? '바로 아래에서 시작하세요.'
+              : '부족한 항목은 체크리스트에서 바로 이동할 수 있어요.'}
           </span>
         </div>
       </article>

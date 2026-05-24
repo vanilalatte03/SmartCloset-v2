@@ -35,7 +35,7 @@ const scoreItems: Array<{
   { key: 'colorScore', label: '색상 조합' },
   { key: 'wearHistoryScore', label: '착용 이력' },
   { key: 'recommendationHistoryScore', label: '추천 이력' },
-  { key: 'preferenceScore', label: 'preferenceScore' },
+  { key: 'preferenceScore', label: '선호 반영' },
 ];
 
 function formatDateTime(value: string): string {
@@ -100,7 +100,7 @@ export function RecommendationPanel({
           <p className="eyebrow">오늘 추천</p>
           <h3>오늘 추천 만들기</h3>
           <p className="muted recommendation-heading-copy">
-            현재 위치와 옷장 상태로 오늘 입을 조합을 생성합니다.
+            현재 위치와 옷장 기준으로 조합을 만듭니다.
           </p>
         </div>
         <div className="recommendation-action-bar">
@@ -222,7 +222,7 @@ export function RecommendationPanel({
         </div>
       ) : (
         <p className="muted recommendation-empty">
-          아직 생성된 추천이 없어요. 추천 만들기를 누르면 옷 조합과 이유가 먼저 표시됩니다.
+          아직 만든 추천이 없어요. 만들면 조합과 이유가 먼저 표시됩니다.
         </p>
       )}
     </article>

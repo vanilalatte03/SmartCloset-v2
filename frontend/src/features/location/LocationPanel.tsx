@@ -81,7 +81,7 @@ export function LocationPanel({
     try {
       const updatedLocation = await updateUserLocation(accessToken, option.code);
       onLocationChange(updatedLocation);
-      setStatus(`${updatedLocation.name}을 현재 위치로 저장했습니다.`);
+      setStatus(`현재 위치를 ${updatedLocation.name}(으)로 저장했습니다.`);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
