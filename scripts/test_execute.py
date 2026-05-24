@@ -638,6 +638,8 @@ class TestInvokeCodex:
         assert cmd[0] == "codex"
         assert cmd[1] == "exec"
         assert "--json" in cmd
+        assert "-c" in cmd
+        assert 'model_reasoning_effort="medium"' in cmd
         assert "--dangerously-bypass-approvals-and-sandbox" not in cmd
         assert "PREAMBLE" in cmd[-1]
         assert "UI를 구현하세요" in cmd[-1]
@@ -652,6 +654,36 @@ class TestInvokeCodex:
 
         cmd = mock_run.call_args[0][0]
         assert "--dangerously-bypass-approvals-and-sandbox" in cmd
+        assert 'model_reasoning_effort="medium"' in cmd
+
+    def test_custom_effort_is_passed_to_codex(self, tmp_project, phase_dir):
+        with patch.object(ex, "ROOT", tmp_project):
+            executor = ex.StepExecutor("0-mvp", codex_effort="high")
+        mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
+        step = {"step": 2, "name": "ui"}
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            executor._invoke_codex(step, "preamble")
+
+        cmd = mock_run.call_args[0][0]
+        assert 'model_reasoning_effort="high"' in cmd
+
+    def test_xhigh_requires_allow_flag(self, tmp_project):
+        with patch.object(ex, "ROOT", tmp_project):
+            with pytest.raises(ValueError, match="--allow-xhigh"):
+                ex.StepExecutor("0-mvp", codex_effort="xhigh")
+
+    def test_xhigh_allowed_when_flag_is_set(self, tmp_project, phase_dir):
+        with patch.object(ex, "ROOT", tmp_project):
+            executor = ex.StepExecutor("0-mvp", codex_effort="xhigh", allow_xhigh=True)
+        mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
+        step = {"step": 2, "name": "ui"}
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            executor._invoke_codex(step, "preamble")
+
+        cmd = mock_run.call_args[0][0]
+        assert 'model_reasoning_effort="xhigh"' in cmd
 
     def test_saves_output_json(self, executor):
         mock_result = MagicMock(returncode=0, stdout='{"ok": true}', stderr="")
@@ -740,6 +772,8 @@ class TestMainCli:
                 branch_name=None,
                 step_number=None,
                 next_step_only=False,
+                codex_effort="medium",
+                allow_xhigh=False,
             ):
                 captured["phase_dir_name"] = phase_dir_name
                 captured["auto_push"] = auto_push
@@ -747,6 +781,8 @@ class TestMainCli:
                 captured["branch_name"] = branch_name
                 captured["step_number"] = step_number
                 captured["next_step_only"] = next_step_only
+                captured["codex_effort"] = codex_effort
+                captured["allow_xhigh"] = allow_xhigh
 
             def run(self):
                 captured["ran"] = True
@@ -763,8 +799,53 @@ class TestMainCli:
             "branch_name": "codex/custom",
             "step_number": None,
             "next_step_only": False,
+            "codex_effort": "medium",
+            "allow_xhigh": False,
             "ran": True,
         }
+
+    def test_codex_effort_arg_passed_to_executor(self, tmp_project, phase_dir):
+        captured = {}
+
+        class FakeExecutor:
+            def __init__(
+                self,
+                phase_dir_name,
+                *,
+                auto_push=False,
+                unsafe=False,
+                branch_name=None,
+                step_number=None,
+                next_step_only=False,
+                codex_effort="medium",
+                allow_xhigh=False,
+            ):
+                captured["phase_dir_name"] = phase_dir_name
+                captured["codex_effort"] = codex_effort
+                captured["allow_xhigh"] = allow_xhigh
+
+            def run(self):
+                captured["ran"] = True
+
+        with patch("sys.argv", ["execute.py", "0-mvp", "--codex-effort", "high"]):
+            with patch.object(ex, "ROOT", tmp_project):
+                with patch.object(ex, "StepExecutor", FakeExecutor):
+                    ex.main()
+
+        assert captured == {
+            "phase_dir_name": "0-mvp",
+            "codex_effort": "high",
+            "allow_xhigh": False,
+            "ran": True,
+        }
+
+    def test_cli_rejects_xhigh_without_allow_flag(self, tmp_project, phase_dir):
+        with patch("sys.argv", ["execute.py", "0-mvp", "--codex-effort", "xhigh"]):
+            with patch.object(ex, "ROOT", tmp_project):
+                with pytest.raises(SystemExit) as exc_info:
+                    ex.main()
+
+        assert exc_info.value.code == 2
 
     def test_step_arg_passed_to_executor(self, tmp_project, phase_dir):
         captured = {}
@@ -779,6 +860,8 @@ class TestMainCli:
                 branch_name=None,
                 step_number=None,
                 next_step_only=False,
+                codex_effort="medium",
+                allow_xhigh=False,
             ):
                 captured["phase_dir_name"] = phase_dir_name
                 captured["step_number"] = step_number
