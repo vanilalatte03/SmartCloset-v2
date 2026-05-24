@@ -13,7 +13,12 @@ import {
   markRecommendationWorn,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
+import {
+  ColorSwatch,
+  MaterialChip,
+  WeatherBadge,
+  WeatherLabel,
+} from '../../components/DisplayTokens';
 import { RecommendationPanel } from '../recommendation/RecommendationPanel';
 import type {
   ClothingCategory,
@@ -94,26 +99,19 @@ function renderWeatherState(weather: WeatherResponse) {
   const windLabel = weather.windy ? '바람 강함' : '바람 잔잔';
 
   return (
-    <dl className="metric-list today-weather-metrics">
-      <div>
-        <dt>기온</dt>
-        <dd>{weather.temperature}°C</dd>
-      </div>
-      <div>
-        <dt>날씨</dt>
-        <dd>
-          <WeatherLabel weatherType={weather.weatherType} />
-        </dd>
-      </div>
-      <div>
-        <dt>비</dt>
-        <dd>{rainLabel}</dd>
-      </div>
-      <div>
-        <dt>바람</dt>
-        <dd>{windLabel}</dd>
-      </div>
-    </dl>
+    <div className="today-weather-state">
+      <WeatherBadge weather={weather} />
+      <dl className="metric-list today-weather-metrics">
+        <div>
+          <dt>강수</dt>
+          <dd>{rainLabel}</dd>
+        </div>
+        <div>
+          <dt>바람</dt>
+          <dd>{windLabel}</dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 
@@ -354,46 +352,35 @@ export function TodayPanel({
 
   return (
     <div className="today-layout">
-      <article
-        className={
-          readyForFirstRecommendation
-            ? 'panel today-hero-panel ready'
-            : 'panel today-hero-panel pending'
-        }
-      >
-        <div className="today-hero-copy">
-          <p className="eyebrow">첫 추천 준비</p>
-          <h2>
-            {readyForFirstRecommendation
-              ? '첫 추천 준비가 끝났어요'
-              : '오늘 추천에 필요한 것부터 확인하세요'}
-          </h2>
-          <p className="muted">
-            {readyForFirstRecommendation
-              ? '이제 추천을 만들어 옷 조합과 이유를 확인하면 됩니다.'
-              : '위치, 선호도, 상의, 하의, 아우터를 채우면 추천을 만들 수 있어요.'}
-          </p>
-        </div>
-        <div className="today-readiness-summary">
-          <span
-            className={
-              readyForFirstRecommendation
-                ? 'readiness-pill complete'
-                : 'readiness-pill pending'
-            }
+      <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
+        <div className="section-title-row">
+          <div>
+            <p className="eyebrow">현재 날씨</p>
+            <h3>{location ? location.name : '위치 확인 중'}</h3>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void loadWeather()}
+            disabled={weatherLoading}
           >
-            {readyForFirstRecommendation ? '준비 완료' : '준비 중'}
-          </span>
-          <span className="today-cta-note">
-            {readyForFirstRecommendation
-              ? '바로 아래에서 시작하세요.'
-              : '부족한 항목은 체크리스트에서 바로 이동할 수 있어요.'}
-          </span>
+            새로고침
+          </button>
         </div>
+
+        {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
+        {!weatherLoading && weather ? renderWeatherState(weather) : null}
+        {!weatherLoading && weatherError ? (
+          <div className="today-soft-error">
+            <ApiErrorMessage error={weatherError} />
+            <p className="muted">날씨가 없어도 체크리스트와 화면 이동은 계속 사용할 수 있어요.</p>
+          </div>
+        ) : null}
       </article>
 
       <RecommendationPanel
         location={location}
+        currentWeather={weather}
         recommendation={recommendation}
         failureCta={recommendationFailure}
         error={recommendationError}
@@ -405,36 +392,6 @@ export function TodayPanel({
         onMarkWorn={handleMarkRecommendationWorn}
         onFailureCta={handleRecommendationFailureCta}
       />
-
-      <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
-        <div className="section-title-row">
-          <h3>현재 날씨 요약</h3>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void loadWeather()}
-            disabled={weatherLoading}
-          >
-            새로고침
-          </button>
-        </div>
-
-        <dl className="metric-list compact today-location-summary">
-          <div>
-            <dt>현재 위치</dt>
-            <dd>{location ? location.name : '위치 확인 중'}</dd>
-          </div>
-        </dl>
-
-        {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
-        {!weatherLoading && weather ? renderWeatherState(weather) : null}
-        {!weatherLoading && weatherError ? (
-          <div className="today-soft-error">
-            <ApiErrorMessage error={weatherError} />
-            <p className="muted">날씨가 없어도 체크리스트와 화면 이동은 계속 사용할 수 있어요.</p>
-          </div>
-        ) : null}
-      </article>
 
       <article className="panel today-checklist-panel" aria-label="첫 추천 체크리스트">
         <div className="section-title-row">
@@ -488,6 +445,44 @@ export function TodayPanel({
 
         {preferencesError ? <ApiErrorMessage error={preferencesError} /> : null}
         {clothesError ? <ApiErrorMessage error={clothesError} /> : null}
+      </article>
+
+      <article
+        className={
+          readyForFirstRecommendation
+            ? 'panel today-hero-panel ready'
+            : 'panel today-hero-panel pending'
+        }
+      >
+        <div className="today-hero-copy">
+          <p className="eyebrow">추천 준비 상태</p>
+          <h2>
+            {readyForFirstRecommendation
+              ? '첫 추천 준비가 끝났어요'
+              : '부족한 항목을 채우면 추천이 완성돼요'}
+          </h2>
+          <p className="muted">
+            {readyForFirstRecommendation
+              ? '이제 추천을 만들어 옷 조합과 이유를 확인하면 됩니다.'
+              : '위치, 선호도, 상의, 하의, 아우터를 채우면 추천을 만들 수 있어요.'}
+          </p>
+        </div>
+        <div className="today-readiness-summary">
+          <span
+            className={
+              readyForFirstRecommendation
+                ? 'readiness-pill complete'
+                : 'readiness-pill pending'
+            }
+          >
+            {readyForFirstRecommendation ? '준비 완료' : '준비 중'}
+          </span>
+          <span className="today-cta-note">
+            {readyForFirstRecommendation
+              ? '바로 아래에서 시작하세요.'
+              : '부족한 항목은 체크리스트에서 바로 이동할 수 있어요.'}
+          </span>
+        </div>
       </article>
 
       <article

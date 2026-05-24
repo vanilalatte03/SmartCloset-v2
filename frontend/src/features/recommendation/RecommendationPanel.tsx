@@ -1,11 +1,18 @@
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { ColorSwatch, MaterialChip, WeatherLabel } from '../../components/DisplayTokens';
+import {
+  ColorSwatch,
+  ColorSwatchPlaceholder,
+  MaterialChip,
+  MaterialChipPlaceholder,
+  WeatherBadge,
+} from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
   ErrorResponse,
   OutfitItemResponse,
   RecommendationResponse,
   UserLocationResponse,
+  WeatherResponse,
 } from '../../types/api';
 import {
   clothingCategoryLabels,
@@ -14,6 +21,7 @@ import {
 
 type RecommendationPanelProps = {
   location: UserLocationResponse | null;
+  currentWeather: WeatherResponse | null;
   recommendation: RecommendationResponse | null;
   failureCta: RecommendationFailureCta | null;
   error: ErrorResponse | null;
@@ -25,6 +33,16 @@ type RecommendationPanelProps = {
   onMarkWorn: () => void;
   onFailureCta: (category?: ClothingCategory) => void;
 };
+
+const outfitSlots: Array<{
+  category: ClothingCategory;
+  emptyMessage: string;
+  glyph: string;
+}> = [
+  { category: 'TOP', emptyMessage: '추천을 만들면 상의가 표시됩니다.', glyph: '상' },
+  { category: 'BOTTOM', emptyMessage: '추천을 만들면 하의가 표시됩니다.', glyph: '하' },
+  { category: 'OUTER', emptyMessage: '필요한 날씨에는 아우터가 표시됩니다.', glyph: '겉' },
+];
 
 const scoreItems: Array<{
   key: keyof RecommendationResponse['score'];
@@ -52,32 +70,59 @@ function formatDateTime(value: string): string {
   }).format(date);
 }
 
-function renderOutfitItem(
-  label: string,
+function getOutfitItemByCategory(
+  recommendation: RecommendationResponse,
+  category: ClothingCategory
+): OutfitItemResponse | null {
+  if (category === 'TOP') {
+    return recommendation.outfit.top;
+  }
+
+  if (category === 'BOTTOM') {
+    return recommendation.outfit.bottom;
+  }
+
+  return recommendation.outfit.outer;
+}
+
+function renderOutfitSlotCard(
+  category: ClothingCategory,
   item: OutfitItemResponse | null,
-  emptyMessage: string
+  emptyMessage: string,
+  glyph: string,
+  weather: WeatherResponse | null
 ) {
+  const label = clothingCategoryLabels[category];
+
   return (
-    <div className="item-row recommendation-outfit-row">
-      <div>
-        <strong>{label}</strong>
-        {item ? (
-          <span className="token-row">
-            <span>{item.name}</span>
-            <ColorSwatch color={item.color} />
-            <MaterialChip material={item.material} />
-          </span>
-        ) : (
-          <span>{emptyMessage}</span>
-        )}
+    <article className={item ? 'outfit-slot-card' : 'outfit-slot-card empty'}>
+      <div className="outfit-slot-header">
+        <span className="slot-glyph" aria-hidden="true">
+          {glyph}
+        </span>
+        <div>
+          <strong>{label}</strong>
+          <span>{item ? item.name : emptyMessage}</span>
+        </div>
       </div>
-      {item ? <span className="item-meta">#{item.id}</span> : null}
-    </div>
+
+      <div className="outfit-slot-tokens">
+        {item ? <ColorSwatch color={item.color} /> : <ColorSwatchPlaceholder />}
+        {item ? <MaterialChip material={item.material} /> : <MaterialChipPlaceholder />}
+      </div>
+
+      {weather ? (
+        <WeatherBadge weather={weather} />
+      ) : (
+        <span className="weather-badge muted-token">현재 날씨 반영</span>
+      )}
+    </article>
   );
 }
 
 export function RecommendationPanel({
   location,
+  currentWeather,
   recommendation,
   failureCta,
   error,
@@ -98,7 +143,7 @@ export function RecommendationPanel({
       <div className="section-title-row recommendation-heading">
         <div>
           <p className="eyebrow">오늘 추천</p>
-          <h3>오늘 추천 만들기</h3>
+          <h3>오늘 추천</h3>
           <p className="muted recommendation-heading-copy">
             현재 위치와 옷장 기준으로 조합을 만듭니다.
           </p>
@@ -145,33 +190,19 @@ export function RecommendationPanel({
               <h3>추천 옷 조합</h3>
               <span className="item-meta">{formatDateTime(recommendation.createdAt)}</span>
             </div>
-            <dl className="metric-list compact recommendation-weather-snapshot">
-              <div>
-                <dt>추천 생성 시점 날씨</dt>
-                <dd>
-                  {location ? `${location.name} · ` : ''}
-                  {recommendation.weather.temperature}°C ·{' '}
-                  <WeatherLabel weatherType={recommendation.weather.weatherType} />
-                  {recommendation.weather.rainy ? ' · 비 가능' : ' · 비 없음'}
-                  {recommendation.weather.windy ? ' · 바람 강함' : ' · 바람 잔잔'}
-                </dd>
-              </div>
-            </dl>
-            <div className="item-list recommendation-outfit-list">
-              {renderOutfitItem(
-                clothingCategoryLabels.TOP,
-                recommendation.outfit.top,
-                '상의 없음'
-              )}
-              {renderOutfitItem(
-                clothingCategoryLabels.BOTTOM,
-                recommendation.outfit.bottom,
-                '하의 없음'
-              )}
-              {renderOutfitItem(
-                clothingCategoryLabels.OUTER,
-                recommendation.outfit.outer,
-                '선택된 아우터 없음'
+            <div className="recommendation-weather-snapshot">
+              <span>{location ? location.name : '현재 위치'} 기준</span>
+              <WeatherBadge weather={recommendation.weather} />
+            </div>
+            <div className="recommendation-slot-grid" aria-label="추천 슬롯">
+              {outfitSlots.map((slot) =>
+                renderOutfitSlotCard(
+                  slot.category,
+                  getOutfitItemByCategory(recommendation, slot.category),
+                  slot.category === 'OUTER' ? '선택된 아우터 없음' : `${clothingCategoryLabels[slot.category]} 없음`,
+                  slot.glyph,
+                  recommendation.weather
+                )
               )}
             </div>
           </section>
@@ -221,9 +252,22 @@ export function RecommendationPanel({
           </details>
         </div>
       ) : (
-        <p className="muted recommendation-empty">
-          아직 만든 추천이 없어요. 만들면 조합과 이유가 먼저 표시됩니다.
-        </p>
+        <section className="recommendation-empty-state" aria-label="추천 대기 슬롯">
+          <p className="muted recommendation-empty">
+            추천을 만들면 상의, 하의, 아우터 슬롯에 오늘의 조합이 표시됩니다.
+          </p>
+          <div className="recommendation-slot-grid">
+            {outfitSlots.map((slot) =>
+              renderOutfitSlotCard(
+                slot.category,
+                null,
+                slot.emptyMessage,
+                slot.glyph,
+                currentWeather
+              )
+            )}
+          </div>
+        </section>
       )}
     </article>
   );

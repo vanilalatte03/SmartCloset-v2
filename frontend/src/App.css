@@ -126,6 +126,31 @@
   width: fit-content;
 }
 
+.status-cluster .status-badge {
+  width: fit-content;
+}
+
+.api-details {
+  color: var(--text-muted);
+  flex: 0 1 180px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.api-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  line-height: 1.2;
+  width: fit-content;
+}
+
+.api-details code {
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+  width: fit-content;
+}
+
 .view-content,
 .view-stack {
   min-width: 0;
@@ -328,19 +353,27 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.recommendation-panel {
-  grid-column: 1 / -1;
-}
-
 .today-layout {
+  align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
 }
 
-.today-hero-panel,
 .today-history-preview {
   grid-column: 1 / -1;
+}
+
+.today-layout > .recommendation-panel {
+  align-self: start;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+.today-weather-panel,
+.today-checklist-panel,
+.today-hero-panel {
+  grid-column: 1;
 }
 
 .today-hero-panel {
@@ -348,7 +381,7 @@
   display: flex;
   gap: 18px;
   justify-content: space-between;
-  min-height: 176px;
+  min-height: 0;
 }
 
 .today-hero-copy {
@@ -400,13 +433,23 @@
   line-height: 1.45;
 }
 
-.today-location-summary {
-  margin-bottom: 14px;
+.today-weather-panel {
+  background: linear-gradient(135deg, #f2fbf7 0%, #f7fbff 100%);
+  min-height: 0;
+}
+
+.today-weather-panel .section-title-row h3 {
+  font-size: 20px;
+}
+
+.today-weather-state {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .today-weather-metrics {
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  margin-top: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .today-soft-error {
@@ -541,26 +584,94 @@
 }
 
 .recommendation-weather-snapshot {
+  align-items: center;
   background: #f7f9fb;
   border: 1px solid var(--border);
   border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
   margin-top: 10px;
   padding: 10px;
 }
 
-.recommendation-weather-snapshot dd {
+.recommendation-weather-snapshot > span {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.recommendation-slot-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.outfit-slot-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  min-height: 160px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.outfit-slot-card.empty {
+  background: #fbfcfe;
+  border-style: dashed;
+}
+
+.outfit-slot-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.slot-glyph {
+  align-items: center;
+  background: #e9f2ec;
+  border: 1px solid #bed6c7;
+  border-radius: 8px;
+  color: #14532d;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 900;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.outfit-slot-header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.outfit-slot-header strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.outfit-slot-header span {
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.outfit-slot-tokens {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-}
-
-.recommendation-outfit-list {
-  margin-top: 10px;
-}
-
-.recommendation-outfit-row {
-  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
 }
 
 .recommendation-reason-list {
@@ -600,6 +711,11 @@
 
 .recommendation-empty {
   margin: 14px 0 0;
+}
+
+.recommendation-empty-state {
+  display: grid;
+  gap: 12px;
 }
 
 .auth-layout {
@@ -1003,6 +1119,13 @@
   width: 14px;
 }
 
+.color-swatch.placeholder {
+  background:
+    linear-gradient(135deg, transparent 42%, #c9d1dc 42% 58%, transparent 58%),
+    #eef2f6;
+  border-color: #b8c0cc;
+}
+
 .material-chip,
 .weather-token {
   background: #eef4f8;
@@ -1014,6 +1137,47 @@
   min-height: 24px;
   overflow-wrap: anywhere;
   padding: 0 8px;
+}
+
+.weather-badge {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  line-height: 1.2;
+  max-width: 100%;
+  min-height: 30px;
+  overflow-wrap: anywhere;
+  padding: 4px 10px;
+}
+
+.weather-badge strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.today-weather-state > .weather-badge {
+  border-radius: 8px;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  width: fit-content;
+}
+
+.today-weather-state > .weather-badge strong {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.muted-token {
+  background: #f7f9fb;
+  border-style: dashed;
+  color: var(--text-muted);
 }
 
 .option-list,
@@ -1640,8 +1804,18 @@
   .history-card-grid,
   .history-weather-snapshot,
   .recommendation-layout,
+  .recommendation-slot-grid,
   .score-grid {
     grid-template-columns: 1fr;
+  }
+
+  .today-layout > .recommendation-panel,
+  .today-weather-panel,
+  .today-checklist-panel,
+  .today-hero-panel,
+  .today-history-preview {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .location-current-metrics {
@@ -1720,6 +1894,7 @@
   }
 
   .recommendation-failure-card,
+  .recommendation-weather-snapshot,
   .recommendation-worn-section,
   .history-summary-panel,
   .history-card-header {
