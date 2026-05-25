@@ -2,7 +2,9 @@ package com.smartcloset.clothing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -28,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -109,6 +112,20 @@ class ClothingControllerTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", 1L))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", 1L)
+                        .file(jpegFile("image.jpg"))
+                        .with(servletRequest -> {
+                            servletRequest.setMethod("PUT");
+                            return servletRequest;
+                        }))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", 1L))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(delete("/api/clothes/{clothingId}/image", 1L))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -313,6 +330,159 @@ class ClothingControllerTest {
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
     }
 
+    @Test
+    void uploadsAndReturnsClothingImageMetadata() throws Exception {
+        User user = userRepository.save(User.createSeedUser("image-upload-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", clothing.getId())
+                        .file(jpegFile("shirt.jpg"))
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.image.url").value("/api/clothes/" + clothing.getId() + "/image"))
+                .andExpect(jsonPath("$.data.image.contentType").value("image/jpeg"))
+                .andExpect(jsonPath("$.data.image.sizeBytes").value(jpegBytes().length))
+                .andExpect(jsonPath("$.data.image.uploadedAt").exists());
+
+        mockMvc.perform(get("/api/clothes/{clothingId}", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.image.url").value("/api/clothes/" + clothing.getId() + "/image"))
+                .andExpect(jsonPath("$.data.image.contentType").value("image/jpeg"));
+    }
+
+    @Test
+    void readsClothingImageBytesOnlyForOwner() throws Exception {
+        User owner = userRepository.save(User.createSeedUser("image-owner"));
+        User otherUser = userRepository.save(User.createSeedUser("image-other"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(owner, "화이트 셔츠"));
+        ClothingItem otherClothing = clothingItemRepository.save(createTop(otherUser, "다른 셔츠"));
+        otherClothing.updateImageMetadata("missing.jpg", "image/jpeg", 3L, java.time.LocalDateTime.now());
+        clothingItemRepository.flush();
+        uploadImage(owner, clothing.getId(), jpegFile("shirt.jpg"));
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(owner)))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentType()).isEqualTo("image/jpeg"))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
+                        .containsExactly(jpegBytes()));
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", otherClothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(owner)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+    }
+
+    @Test
+    void returnsClothingImageNotFoundWhenOwnedClothingHasNoImage() throws Exception {
+        User user = userRepository.save(User.createSeedUser("no-image-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_IMAGE_NOT_FOUND"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void deletesClothingImageIdempotently() throws Exception {
+        User user = userRepository.save(User.createSeedUser("image-delete-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+        uploadImage(user, clothing.getId(), jpegFile("shirt.jpg"));
+
+        mockMvc.perform(delete("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.image").doesNotExist());
+
+        mockMvc.perform(delete("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.image").doesNotExist());
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_IMAGE_NOT_FOUND"));
+    }
+
+    @Test
+    void returnsInvalidRequestWhenImageValidationFails() throws Exception {
+        User user = userRepository.save(User.createSeedUser("invalid-image-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+        MockMultipartFile invalidImage = new MockMultipartFile(
+                "image",
+                "shirt.gif",
+                "image/gif",
+                new byte[] {'G', 'I', 'F'}
+        );
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", clothing.getId())
+                        .file(invalidImage)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("image"));
+    }
+
+    @Test
+    void returnsInvalidRequestWhenImagePartIsMissing() throws Exception {
+        User user = userRepository.save(User.createSeedUser("missing-image-part-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", clothing.getId())
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void returnsClothingNotFoundForOtherUsersImageApi() throws Exception {
+        User targetUser = userRepository.save(User.createSeedUser("image-target-user"));
+        User otherUser = userRepository.save(User.createSeedUser("image-other-user"));
+        ClothingItem otherClothing = clothingItemRepository.save(createTop(otherUser, "다른 사용자 셔츠"));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", otherClothing.getId())
+                        .file(jpegFile("shirt.jpg"))
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/clothes/{clothingId}/image", otherClothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+    }
+
     private String bearerToken(User user) {
         return "Bearer " + jwtTokenProvider.createAccessToken(new CurrentUserPrincipal(
                 user.getId(),
@@ -344,5 +514,24 @@ class ClothingControllerTest {
                 25,
                 false
         );
+    }
+
+    private void uploadImage(User user, Long clothingId, MockMultipartFile image) throws Exception {
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", clothingId)
+                        .file(image)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk());
+    }
+
+    private MockMultipartFile jpegFile(String filename) {
+        return new MockMultipartFile("image", filename, "image/jpeg", jpegBytes());
+    }
+
+    private byte[] jpegBytes() {
+        return new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, 0x01, 0x02};
     }
 }
