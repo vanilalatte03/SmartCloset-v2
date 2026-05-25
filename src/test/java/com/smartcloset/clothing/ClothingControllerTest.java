@@ -17,12 +17,15 @@ import com.smartcloset.clothing.domain.ClothingCategory;
 import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
+import com.smartcloset.clothing.infrastructure.file.ClothingImageProperties;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,9 @@ class ClothingControllerTest {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private ClothingImageProperties clothingImageProperties;
 
     @BeforeEach
     void setUp() {
@@ -359,6 +365,48 @@ class ClothingControllerTest {
     }
 
     @Test
+    void replacesClothingImageForSameClothingItem() throws Exception {
+        User user = userRepository.save(User.createSeedUser("image-replace-user"));
+        ClothingItem clothing = clothingItemRepository.save(createTop(user, "화이트 셔츠"));
+        clothingItemRepository.flush();
+        byte[] firstImageBytes = jpegBytes();
+        byte[] replacementImageBytes = replacementJpegBytes();
+
+        uploadImage(user, clothing.getId(), jpegFile("shirt-first.jpg", firstImageBytes));
+        String firstStoredFilename = clothingItemRepository.findById(clothing.getId())
+                .orElseThrow()
+                .getImageStoredFilename();
+        assertThat(firstStoredFilename).isNotBlank();
+        assertThat(Files.exists(testStoragePath(firstStoredFilename))).isTrue();
+
+        mockMvc.perform(multipart("/api/clothes/{clothingId}/image", clothing.getId())
+                        .file(jpegFile("shirt-replacement.jpg", replacementImageBytes))
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.image.url").value("/api/clothes/" + clothing.getId() + "/image"))
+                .andExpect(jsonPath("$.data.image.contentType").value("image/jpeg"))
+                .andExpect(jsonPath("$.data.image.sizeBytes").value(replacementImageBytes.length));
+
+        String replacementStoredFilename = clothingItemRepository.findById(clothing.getId())
+                .orElseThrow()
+                .getImageStoredFilename();
+        assertThat(replacementStoredFilename).isNotEqualTo(firstStoredFilename);
+        assertThat(Files.exists(testStoragePath(firstStoredFilename))).isFalse();
+
+        mockMvc.perform(get("/api/clothes/{clothingId}/image", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentType()).isEqualTo("image/jpeg"))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
+                        .containsExactly(replacementImageBytes));
+    }
+
+    @Test
     void readsClothingImageBytesOnlyForOwner() throws Exception {
         User owner = userRepository.save(User.createSeedUser("image-owner"));
         User otherUser = userRepository.save(User.createSeedUser("image-other"));
@@ -531,7 +579,19 @@ class ClothingControllerTest {
         return new MockMultipartFile("image", filename, "image/jpeg", jpegBytes());
     }
 
+    private MockMultipartFile jpegFile(String filename, byte[] bytes) {
+        return new MockMultipartFile("image", filename, "image/jpeg", bytes);
+    }
+
     private byte[] jpegBytes() {
         return new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, 0x01, 0x02};
+    }
+
+    private byte[] replacementJpegBytes() {
+        return new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, 0x09, 0x08, 0x07};
+    }
+
+    private Path testStoragePath(String storedFilename) {
+        return Path.of(clothingImageProperties.storageDir(), storedFilename);
     }
 }
