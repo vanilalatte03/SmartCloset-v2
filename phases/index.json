@@ -27,7 +27,8 @@
     },
     {
       "dir": "5-smartcloset-clothing-images",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-05-25T21:00:14+0900"
     }
   ]
 }
