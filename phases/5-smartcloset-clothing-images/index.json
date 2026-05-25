@@ -53,8 +53,12 @@
     {
       "step": 6,
       "name": "compose-docs-qa",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-25T20:53:32+0900",
+      "summary": "Docker Compose 이미지 volume과 env/docs를 동기화하고 smoke 및 MVP5 이미지 수동 QA를 완료했다.",
+      "completed_at": "2026-05-25T21:01:48+0900"
     }
   ],
-  "created_at": "2026-05-25T20:06:00+0900"
+  "created_at": "2026-05-25T20:06:00+0900",
+  "completed_at": "2026-05-25T21:01:54+0900"
 }

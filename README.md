@@ -15,7 +15,7 @@ SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 �
 - 사용자별 옷장, 위치, 선호도, 추천 이력, 착용 이력 분리
 - KMA `getVilageFcst` JSON 기반 weather provider와 fallback weather
 - 규칙 기반 추천 점수 100점 체계와 `preferenceScore`
-- Docker Compose 공유 방식
+- Docker Compose 공유 방식과 이미지 저장 volume
 
 ## MVP5 목표
 
@@ -88,6 +88,7 @@ MVP5에서 추가할 보호 API:
 | 저장 파일명 | UUID 기반 서버 생성 이름 |
 | 원본 파일명 | 저장 경로에 사용하지 않음 |
 | 접근 방식 | 보호 API에서 인증/소유권 확인 후 bytes 반환 |
+| Compose 저장 경로 | `CLOTHING_IMAGE_STORAGE_DIR=/data/smartcloset/clothing-images` |
 
 이미지 URL은 DTO에 `/api/clothes/{clothingId}/image` 형태로 노출합니다. 프론트는 Authorization header가 필요하므로 일반 `<img src>` 직접 참조 대신 blob fetch 후 object URL을 사용합니다.
 
@@ -130,6 +131,8 @@ test -f .env || cp .env.example .env
 docker compose down -v
 docker compose up --build
 ```
+
+Docker Compose는 `clothing-image-data` volume을 app container의 `/data/smartcloset/clothing-images`에 연결합니다. `docker compose down` 후 재시작해도 이미지는 유지되고, DB와 이미지 volume을 모두 초기화하려면 `docker compose down -v`를 사용합니다.
 
 접속 경로:
 

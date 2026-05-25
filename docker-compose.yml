@@ -39,9 +39,13 @@ services:
       KMA_NY: ${KMA_NY:-127}
       KMA_BASE_URL: ${KMA_BASE_URL:-http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}
       WEATHER_FALLBACK_ENABLED: ${WEATHER_FALLBACK_ENABLED:-true}
+      CLOTHING_IMAGE_STORAGE_DIR: ${CLOTHING_IMAGE_STORAGE_DIR:-/data/smartcloset/clothing-images}
+      CLOTHING_IMAGE_MAX_SIZE_BYTES: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:-5242880}
       TZ: Asia/Seoul
     ports:
       - "${APP_PORT:-8080}:8080"
+    volumes:
+      - clothing-image-data:/data/smartcloset/clothing-images
 
   frontend:
     image: node:22-alpine
@@ -60,5 +64,6 @@ services:
     command: sh -c "npm ci && npm run dev"
 
 volumes:
+  clothing-image-data:
   frontend-node-modules:
   mysql-data:
