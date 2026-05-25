@@ -16,7 +16,7 @@
       "status": "completed",
       "started_at": "2026-05-25T20:10:21+0900",
       "summary": "ClothingItem 이미지 메타데이터, 이미지 저장 설정, 로컬 파일 저장 adapter와 파일 검증 foundation을 추가했다.",
-      "completed_at": "2026-05-25T20:13:23+0900"
+      "completed_at": "2026-05-25T20:15:01+0900"
     },
     {
       "step": 2,
