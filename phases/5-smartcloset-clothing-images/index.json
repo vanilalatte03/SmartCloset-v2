@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "clothing-image-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-25T20:17:36+0900",
+      "summary": "옷 이미지 업로드, 조회, 삭제 보호 API와 ClothingResponse image metadata 및 backend 회귀 테스트를 추가했다.",
+      "completed_at": "2026-05-25T20:23:48+0900"
     },
     {
       "step": 3,

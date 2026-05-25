@@ -2,7 +2,9 @@ package com.smartcloset.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -126,6 +129,19 @@ class SecurityBoundaryRegressionTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(clothingRequest)));
         assertRequiresBearerToken(patch("/api/clothes/{clothingId}/archive", 1L));
+        assertRequiresBearerToken(multipart("/api/clothes/{clothingId}/image", 1L)
+                .file(new MockMultipartFile(
+                        "image",
+                        "shirt.jpg",
+                        "image/jpeg",
+                        new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff}
+                ))
+                .with(request -> {
+                    request.setMethod("PUT");
+                    return request;
+                }));
+        assertRequiresBearerToken(get("/api/clothes/{clothingId}/image", 1L));
+        assertRequiresBearerToken(delete("/api/clothes/{clothingId}/image", 1L));
         assertRequiresBearerToken(post("/api/recommendations"));
         assertRequiresBearerToken(get("/api/recommendations"));
         assertRequiresBearerToken(patch("/api/recommendations/{recommendationId}/worn", 1L));

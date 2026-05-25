@@ -16,6 +16,7 @@ public record ClothingResponse(
         int maxTemperature,
         boolean rainSuitable,
         boolean archived,
+        ClothingImageResponse image,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -31,6 +32,7 @@ public record ClothingResponse(
                 clothingItem.getMaxTemperature(),
                 clothingItem.isRainSuitable(),
                 clothingItem.isArchived(),
+                ClothingImageResponse.from(clothingItem),
                 clothingItem.getCreatedAt(),
                 clothingItem.getUpdatedAt()
         );

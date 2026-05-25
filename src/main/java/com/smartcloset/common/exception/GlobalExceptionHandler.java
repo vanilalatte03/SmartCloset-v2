@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -60,11 +63,20 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class,
             MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class
     })
     public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception exception) {
         return invalidRequest(List.of(ErrorDetail.of(null, exception.getMessage())));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipartException(MultipartException exception) {
+        if (exception instanceof MaxUploadSizeExceededException) {
+            return invalidRequest(List.of(ErrorDetail.of("image", "이미지 파일은 5MB 이하여야 합니다.")));
+        }
+        return invalidRequest(List.of(ErrorDetail.of("image", "이미지 업로드 요청이 올바르지 않습니다.")));
     }
 
     @ExceptionHandler(Exception.class)
