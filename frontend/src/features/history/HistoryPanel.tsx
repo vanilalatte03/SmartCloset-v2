@@ -6,6 +6,7 @@ import {
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import {
+  AuthenticatedClothingThumbnail,
   ColorSwatch,
   MaterialChip,
   WeatherBadge,
@@ -56,21 +57,38 @@ function formatDateTime(value: string): string {
 function renderOutfitItem(
   label: string,
   item: OutfitItemResponse | null,
-  emptyMessage: string
+  emptyMessage: string,
+  accessToken: string,
+  onAuthExpired: () => void
 ) {
   return (
     <div className="history-outfit-item">
-      <strong>{label}</strong>
       {item ? (
-        <div className="history-outfit-detail">
-          <span className="history-outfit-name">{item.name}</span>
-          <span className="token-row">
-            <ColorSwatch color={item.color} />
-            <MaterialChip material={item.material} />
-          </span>
-        </div>
+        <>
+          <AuthenticatedClothingThumbnail
+            accessToken={accessToken}
+            image={item.image}
+            alt={`${item.name} 이미지`}
+            fallbackLabel={label.slice(0, 1)}
+            category={item.category}
+            color={item.color}
+            className="history-outfit-thumbnail"
+            onAuthExpired={onAuthExpired}
+          />
+          <div className="history-outfit-detail">
+            <strong>{label}</strong>
+            <span className="history-outfit-name">{item.name}</span>
+            <span className="token-row">
+              <ColorSwatch color={item.color} />
+              <MaterialChip material={item.material} />
+            </span>
+          </div>
+        </>
       ) : (
-        <span className="muted">{emptyMessage}</span>
+        <div className="history-outfit-detail">
+          <strong>{label}</strong>
+          <span className="muted">{emptyMessage}</span>
+        </div>
       )}
     </div>
   );
@@ -244,17 +262,23 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                     {renderOutfitItem(
                       clothingCategoryLabels.TOP,
                       item.outfit.top,
-                      '상의 없음'
+                      '상의 없음',
+                      accessToken,
+                      onAuthExpired
                     )}
                     {renderOutfitItem(
                       clothingCategoryLabels.BOTTOM,
                       item.outfit.bottom,
-                      '하의 없음'
+                      '하의 없음',
+                      accessToken,
+                      onAuthExpired
                     )}
                     {renderOutfitItem(
                       clothingCategoryLabels.OUTER,
                       item.outfit.outer,
-                      '선택된 아우터 없음'
+                      '선택된 아우터 없음',
+                      accessToken,
+                      onAuthExpired
                     )}
                   </div>
                 </section>

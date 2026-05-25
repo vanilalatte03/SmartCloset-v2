@@ -388,9 +388,11 @@ export function TodayPanel({
         wornAt={recommendationWornAt}
         loading={recommendationLoading}
         markingWorn={markingRecommendationWorn}
+        accessToken={accessToken}
         onCreate={handleCreateRecommendation}
         onMarkWorn={handleMarkRecommendationWorn}
         onFailureCta={handleRecommendationFailureCta}
+        onAuthExpired={onAuthExpired}
       />
 
       <article className="panel today-checklist-panel" aria-label="첫 추천 체크리스트">

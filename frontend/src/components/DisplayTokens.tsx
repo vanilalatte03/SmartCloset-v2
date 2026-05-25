@@ -1,4 +1,14 @@
-import type { ClothingColor, ClothingMaterial, WeatherResponse, WeatherType } from '../types/api';
+import { useEffect, useState } from 'react';
+import { isUnauthorizedError } from '../api/errorHelpers';
+import { getClothingImageBlob } from '../api/smartClosetApi';
+import type {
+  ClothingCategory,
+  ClothingColor,
+  ClothingImageResponse,
+  ClothingMaterial,
+  WeatherResponse,
+  WeatherType,
+} from '../types/api';
 import {
   clothingColorMetadata,
   clothingMaterialLabels,
@@ -92,5 +102,96 @@ export function WeatherBadge({ weather }: WeatherBadgeProps) {
       <span>{rainLabel}</span>
       <span>{windLabel}</span>
     </span>
+  );
+}
+
+type AuthenticatedClothingThumbnailProps = {
+  accessToken: string;
+  image: ClothingImageResponse | null;
+  alt: string;
+  fallbackLabel: string;
+  category?: ClothingCategory;
+  color?: ClothingColor;
+  className?: string;
+  onAuthExpired: () => void;
+};
+
+export function AuthenticatedClothingThumbnail({
+  accessToken,
+  image,
+  alt,
+  fallbackLabel,
+  category,
+  color,
+  className,
+  onAuthExpired,
+}: AuthenticatedClothingThumbnailProps) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const classNames = [
+    'clothing-thumbnail-frame',
+    image && objectUrl && !failed ? 'loaded' : 'fallback',
+    category ? category.toLowerCase() : null,
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  useEffect(() => {
+    let active = true;
+    let nextObjectUrl: string | null = null;
+
+    setObjectUrl(null);
+    setFailed(false);
+
+    if (!image) {
+      return undefined;
+    }
+
+    getClothingImageBlob(accessToken, image.url)
+      .then((blob) => {
+        if (!active) {
+          return;
+        }
+        nextObjectUrl = URL.createObjectURL(blob);
+        setObjectUrl(nextObjectUrl);
+      })
+      .catch((caught) => {
+        if (!active) {
+          return;
+        }
+        if (isUnauthorizedError(caught)) {
+          onAuthExpired();
+          return;
+        }
+        setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      if (nextObjectUrl) {
+        URL.revokeObjectURL(nextObjectUrl);
+      }
+    };
+  }, [accessToken, image, onAuthExpired]);
+
+  if (image && objectUrl && !failed) {
+    return (
+      <div className={classNames}>
+        <img src={objectUrl} alt={alt} className="clothing-thumbnail-image" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={classNames}>
+      <span
+        className={category ? `closet-category-visual ${category.toLowerCase()}` : 'slot-glyph'}
+        aria-hidden="true"
+      >
+        {fallbackLabel}
+      </span>
+      {color ? <ColorSwatch color={color} showLabel={false} /> : null}
+    </div>
   );
 }

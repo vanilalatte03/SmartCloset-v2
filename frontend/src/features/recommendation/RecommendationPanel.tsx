@@ -1,5 +1,6 @@
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import {
+  AuthenticatedClothingThumbnail,
   ColorSwatch,
   ColorSwatchPlaceholder,
   MaterialChip,
@@ -29,9 +30,11 @@ type RecommendationPanelProps = {
   wornAt: string | null;
   loading: boolean;
   markingWorn: boolean;
+  accessToken: string;
   onCreate: () => void;
   onMarkWorn: () => void;
   onFailureCta: (category?: ClothingCategory) => void;
+  onAuthExpired: () => void;
 };
 
 const outfitSlots: Array<{
@@ -90,12 +93,27 @@ function renderOutfitSlotCard(
   item: OutfitItemResponse | null,
   emptyMessage: string,
   glyph: string,
-  weather: WeatherResponse | null
+  weather: WeatherResponse | null,
+  accessToken: string,
+  onAuthExpired: () => void
 ) {
   const label = clothingCategoryLabels[category];
 
   return (
     <article className={item ? 'outfit-slot-card' : 'outfit-slot-card empty'}>
+      {item ? (
+        <AuthenticatedClothingThumbnail
+          accessToken={accessToken}
+          image={item.image}
+          alt={`${item.name} 이미지`}
+          fallbackLabel={glyph}
+          category={item.category}
+          color={item.color}
+          className="outfit-slot-thumbnail"
+          onAuthExpired={onAuthExpired}
+        />
+      ) : null}
+
       <div className="outfit-slot-header">
         <span className="slot-glyph" aria-hidden="true">
           {glyph}
@@ -130,9 +148,11 @@ export function RecommendationPanel({
   wornAt,
   loading,
   markingWorn,
+  accessToken,
   onCreate,
   onMarkWorn,
   onFailureCta,
+  onAuthExpired,
 }: RecommendationPanelProps) {
   return (
     <article
@@ -201,7 +221,9 @@ export function RecommendationPanel({
                   getOutfitItemByCategory(recommendation, slot.category),
                   slot.category === 'OUTER' ? '선택된 아우터 없음' : `${clothingCategoryLabels[slot.category]} 없음`,
                   slot.glyph,
-                  recommendation.weather
+                  recommendation.weather,
+                  accessToken,
+                  onAuthExpired
                 )
               )}
             </div>
@@ -263,7 +285,9 @@ export function RecommendationPanel({
                 null,
                 slot.emptyMessage,
                 slot.glyph,
-                currentWeather
+                currentWeather,
+                accessToken,
+                onAuthExpired
               )
             )}
           </div>
