@@ -622,6 +622,12 @@
   padding: 12px;
 }
 
+.outfit-slot-thumbnail {
+  aspect-ratio: 4 / 3;
+  min-height: 112px;
+  width: 100%;
+}
+
 .outfit-slot-card.empty {
   background: #fbfcfe;
   border-style: dashed;
@@ -1759,6 +1765,41 @@
   width: 100%;
 }
 
+.clothing-thumbnail-frame {
+  align-items: center;
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.clothing-thumbnail-frame.fallback {
+  gap: 8px;
+}
+
+.clothing-thumbnail-frame.fallback.top {
+  background: #f3faf5;
+}
+
+.clothing-thumbnail-frame.fallback.bottom {
+  background: #f4f7fd;
+}
+
+.clothing-thumbnail-frame.fallback.outer {
+  background: #fbf7ef;
+}
+
+.clothing-thumbnail-image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .closet-thumbnail-frame.fallback {
   gap: 10px;
 }
@@ -2146,13 +2187,20 @@
 }
 
 .history-outfit-item {
+  align-items: center;
   background: #f7f9fb;
   border: 1px solid var(--border);
   border-radius: 8px;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  gap: 10px;
   min-width: 0;
   padding: 10px;
+}
+
+.history-outfit-thumbnail {
+  flex: 0 0 72px;
+  height: 72px;
+  width: 72px;
 }
 
 .history-outfit-item strong,
