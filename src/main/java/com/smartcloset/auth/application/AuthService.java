@@ -3,6 +3,7 @@ package com.smartcloset.auth.application;
 import com.smartcloset.auth.dto.AuthResponse;
 import com.smartcloset.auth.dto.LoginRequest;
 import com.smartcloset.auth.dto.SignupRequest;
+import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.CurrentUserPrincipal;
@@ -20,15 +21,18 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenProvider jwtTokenProvider
+            JwtTokenProvider jwtTokenProvider,
+            DefaultClothingPresetSeeder defaultClothingPresetSeeder
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
     }
 
     @Transactional
@@ -42,16 +46,18 @@ public class AuthService {
                 passwordEncoder.encode(request.password()),
                 request.name()
         ));
+        defaultClothingPresetSeeder.seedIfEmpty(user);
         return authResponse(user);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.UNAUTHORIZED));
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new SmartClosetException(ErrorCode.UNAUTHORIZED);
         }
+        defaultClothingPresetSeeder.seedIfEmpty(user);
         return authResponse(user);
     }
 

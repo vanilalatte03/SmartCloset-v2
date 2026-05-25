@@ -7,6 +7,8 @@ public interface ClothingImageStorage {
 
     StoredClothingImage store(MultipartFile image, String extension);
 
+    StoredClothingImage store(byte[] bytes, String extension);
+
     Optional<byte[]> read(String storedFilename);
 
     void delete(String storedFilename);

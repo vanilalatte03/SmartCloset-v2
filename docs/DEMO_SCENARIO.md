@@ -9,6 +9,7 @@ MVP5 데모의 핵심은 추천 알고리즘 변경이 아니라, 사용자가 �
 ## MVP5 데모 범위
 
 - 회원가입/로그인
+- 신규/빈 계정 기본 옷 프리셋 자동 생성
 - `sessionStorage` access token 저장과 세션 복구
 - 옷 등록
 - 옷 이미지 업로드
@@ -28,6 +29,8 @@ AI 자동 태깅, AI/GPT 추천, 이미지 기반 점수 변경, 다중 이미�
 - Frontend 접속 가능: http://localhost:5173
 - Swagger UI 접속 가능: http://localhost:8080/swagger-ui/index.html
 - 신규 사용자는 기본 위치 서울특별시 `SEOUL`, `nx=60`, `ny=127`
+- 신규 가입자는 기본 옷 5개와 상품컷 이미지가 자동으로 생성된다.
+- 기존 계정도 로그인 시 옷이 0개이면 같은 기본 옷 5개를 한 번만 받는다.
 - 프론트 access token 저장 위치는 `sessionStorage`
 - 서비스키 없이 실행하면 fallback 날씨 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`를 사용한다.
 - fallback 날씨는 OUTER 필수 조건이므로 첫 추천 성공 데모에는 TOP, BOTTOM, OUTER가 각각 1개 이상 필요하다.
@@ -76,8 +79,26 @@ GET /api/users/me
 - 로그인 성공 후 access token이 `sessionStorage`에 저장된다.
 - 새로고침 후 로그인 상태가 복구된다.
 - 로그인 후 기본 view는 `오늘`이다.
+- 신규 가입 직후 Closet view에는 기본 옷 프리셋 5개가 썸네일과 함께 보인다.
+- 기본 프리셋은 화이트 반팔 티셔츠, 블랙 반팔 티셔츠, 흑청 데님 팬츠, 진청 데님 팬츠, 블랙 가디건이다.
 
-### 2. 옷 등록
+### 2. 기본 옷 프리셋 확인
+
+API:
+
+```http
+GET /api/clothes
+GET /api/clothes/{clothingId}/image
+```
+
+확인 포인트:
+
+- 기본 옷 5개는 현재 사용자 소유 옷으로 반환된다.
+- 각 기본 옷의 `image.contentType`은 `image/jpeg`이다.
+- 프리셋 이미지도 보호 API를 통해 Authorization header로 조회된다.
+- 프리셋 이미지를 삭제하거나 교체해도 다른 사용자에게 영향이 없다.
+
+### 3. 옷 등록
 
 API:
 
@@ -106,7 +127,7 @@ TOP 요청 예시:
 - 등록 직후 `image`는 `null`일 수 있다.
 - 이미지가 없는 카드는 기존 fallback visual을 표시한다.
 
-### 3. 옷 이미지 업로드
+### 4. 옷 이미지 업로드
 
 API:
 
@@ -127,7 +148,7 @@ PUT /api/clothes/{clothingId}/image
 - 이미지 조회는 보호 API이므로 프론트가 Authorization header로 blob을 가져온다.
 - 새로고침 후에도 썸네일이 다시 표시된다.
 
-### 4. 이미지 교체
+### 5. 이미지 교체
 
 API:
 
@@ -141,7 +162,7 @@ PUT /api/clothes/{clothingId}/image
 - 기존 파일은 더 이상 노출되지 않는다.
 - 옷 이름, 카테고리, 색상, 소재는 이미지 교체만으로 바뀌지 않는다.
 
-### 5. 이미지 삭제
+### 6. 이미지 삭제
 
 API:
 
@@ -155,7 +176,7 @@ DELETE /api/clothes/{clothingId}/image
 - 카드가 fallback visual로 돌아간다.
 - 이미 이미지가 없는 상태에서 다시 삭제해도 성공한다.
 
-### 6. 추천 결과 썸네일 확인
+### 7. 추천 결과 썸네일 확인
 
 API:
 
@@ -170,7 +191,7 @@ POST /api/recommendations
 - 이미지가 없는 옷은 fallback visual로 표시된다.
 - 추천 점수와 추천 이유는 이미지 여부와 관계없이 기존 규칙을 따른다.
 
-### 7. 추천 이력 썸네일 확인
+### 8. 추천 이력 썸네일 확인
 
 API:
 
@@ -184,7 +205,7 @@ GET /api/recommendations?limit=20
 - 추천 후 이미지를 교체하면 이력에도 최신 이미지 상태가 표시된다.
 - 추천 당시 이미지 snapshot을 별도로 저장하지 않는다.
 
-### 8. Docker Compose 재시작 유지 확인
+### 9. Docker Compose 재시작 유지 확인
 
 명령:
 
@@ -209,6 +230,7 @@ docker compose restart app
 ## 완료 기준
 
 - 옷 이미지 업로드, 교체, 삭제가 가능하다.
+- 신규/빈 계정에 기본 옷 프리셋이 한 번만 생성된다.
 - 옷 목록과 추천 결과와 추천 이력에 썸네일이 보인다.
 - 이미지가 없는 옷도 기존 fallback UI로 자연스럽게 보인다.
 - Docker Compose 환경에서 app 재시작 후 이미지가 유지된다.

@@ -4,13 +4,15 @@
 
 SmartCloset MVP5는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP5의 변경 지점은 옷 이미지 저장, 검증, 보호 API, 썸네일 표시다.
 
-기존 인증, 추천, KMA weather, 위치 catalog, 선호도, 추천 이력 구조는 유지한다.
+기존 인증, 추천, KMA weather, 위치 catalog, 선호도, 추천 이력 구조는 유지한다. 신규/빈 계정 기본 옷 프리셋은 인증 흐름 안에서 현재 사용자 소유 옷과 이미지 metadata를 생성하는 application service로 처리한다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
 ```
 
 이미지 파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker Compose volume에 저장한다. DB에는 `clothing_items`의 nullable 이미지 메타데이터만 저장한다.
+
+기본 옷 프리셋 이미지는 `src/main/resources/default-clothing-presets/`에 번들하고, 사용자에게 부여할 때마다 UUID 기반 파일명으로 storage volume에 복사한다. 여러 사용자가 같은 resource 파일명을 공유하지 않으므로 한 사용자의 이미지 삭제나 교체가 다른 사용자에게 영향을 주지 않는다.
 
 ## 권장 패키지 구조
 
@@ -65,6 +67,24 @@ frontend/src
 - MVP5 이미지 API `PUT/GET/DELETE /api/clothes/{clothingId}/image`
 
 이미지 조회도 보호 API다. public static file serving으로 사용자 이미지를 노출하지 않는다.
+
+## 기본 옷 프리셋 생성 흐름
+
+```text
+AuthService.signup/login
+  -> DefaultClothingPresetSeeder.seedIfEmpty(user)
+      -> ClothingItemRepository.countByUserId(user.id)
+      -> classpath preset image read
+      -> ClothingImageStorage.store(bytes, "jpg")
+      -> ClothingItem.updateImageMetadata(...)
+      -> ClothingItemRepository.flush()
+```
+
+- 회원가입은 사용자 저장 후 기본 위치와 빈 선호도를 유지한 채 기본 옷 5개를 생성한다.
+- 로그인은 비밀번호 검증 후 현재 사용자 옷 row가 0개일 때만 같은 프리셋을 backfill한다.
+- 옷 row가 하나라도 있으면 archived 상태와 관계없이 자동 프리셋을 추가하지 않는다.
+- DB 반영 실패가 발생하면 이번 시도에서 storage에 복사한 프리셋 이미지 파일을 삭제해 orphan file을 줄인다.
+- 프리셋 이미지 metadata도 일반 옷 이미지와 같은 보호 image URL로 노출한다.
 
 ## 이미지 업로드 흐름
 
