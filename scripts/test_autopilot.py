@@ -472,6 +472,11 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
                 "+비밀번호 재설정을 구현한다.",
                 "+CD 자동화를 구현한다.",
                 "+이미지 업로드를 구현한다.",
+                "+다중 이미지 업로드를 구현한다.",
+                "+AI 자동 태깅을 구현한다.",
+                "+S3/CDN을 구현한다.",
+                "+이미지 기반 추천 점수를 반영한다.",
+                "+이미지 기반 추천 이유를 생성한다.",
                 "+외부 지도 API를 구현한다.",
                 "+Redis 캐싱을 구현한다.",
                 f"+{forbidden_today_get}",
@@ -492,8 +497,12 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert any("AWS 배포" in finding for finding in findings)
     assert any("CD 자동화" in finding for finding in findings)
     assert any("AI/GPT" in finding for finding in findings)
-    assert any("이미지 업로드" in finding for finding in findings)
+    assert any("다중 이미지" in finding for finding in findings)
+    assert any("AI 자동 태깅" in finding for finding in findings)
+    assert any("S3/CDN" in finding for finding in findings)
+    assert any("이미지 기반 추천 점수/이유" in finding for finding in findings)
     assert any("외부 주소/지도 API" in finding for finding in findings)
+    assert not any("이미지 업로드 범위" in finding for finding in findings)
     assert not any("docs/AUTH.md" in finding for finding in findings)
     assert not any("README.md" in finding for finding in findings)
     assert not any("step6-output.json" in finding for finding in findings)
@@ -501,6 +510,78 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert not any("로그인/회원가입" in finding for finding in findings)
     assert not any("Spring Security" in finding for finding in findings)
     assert len(findings) == len(set(findings))
+
+
+def test_forbidden_diff_does_not_treat_mvp5_as_safe_context(runner):
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,1 @@",
+                "+MVP5에서 AI/GPT 추천을 구현한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff()
+
+    assert any("AI/GPT 추천 범위" in finding for finding in findings)
+
+
+def test_forbidden_diff_allows_mvp5_image_upload_scope(runner):
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,1 @@",
+                "+MVP5에서 이미지 업로드를 구현한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff()
+
+    assert findings == []
+
+
+def test_forbidden_diff_uses_file_context_for_safe_sections(runner, tmp_repo):
+    docs_dir = tmp_repo / "docs"
+    docs_dir.mkdir(exist_ok=True)
+    (docs_dir / "PRD.md").write_text(
+        "\n".join([
+            "# PRD",
+            "",
+            "## 제외 범위",
+            "",
+            "- AI 자동 태깅",
+            "- S3/CDN",
+        ]),
+        encoding="utf-8",
+    )
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -0,0 +5,2 @@",
+                "+- AI 자동 태깅",
+                "+- S3/CDN",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff()
+
+    assert findings == []
 
 
 def test_review_markdown_is_table_and_dedupes_findings():

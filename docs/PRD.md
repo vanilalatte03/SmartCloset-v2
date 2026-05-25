@@ -1,244 +1,210 @@
-# PRD: SmartCloset MVP4 실사용 UX
+# PRD: SmartCloset MVP5 옷 이미지 업로드
 
 ## 문서 목적
-이 문서는 SmartCloset MVP4의 확정 범위를 정의한다. MVP4는 백엔드 추천 규칙을 새로 만드는 단계가 아니라, MVP-3 인증 사용자 baseline을 사용자가 실제로 이해하고 사용할 수 있는 반응형 웹 제품으로 바꾸는 단계다.
 
-현재 구현 baseline은 MVP-3 완료 상태다. 회원가입/로그인, JWT Bearer access token, 인증 사용자 기준 옷장/위치/선호도/추천 이력/착용 이력 분리, `preferenceScore`, 추천 이력 조회, React `sessionStorage` 세션 흐름은 이미 구현되어 있다.
+이 문서는 SmartCloset MVP5의 확정 범위를 정의한다. MVP5는 MVP4에서 완성한 인증 사용자 기반 반응형 웹 UX 위에, 사용자가 직접 등록한 옷 이미지를 업로드하고 추천 결과에서 썸네일로 확인할 수 있게 만드는 단계다.
 
-## MVP4 한 줄 정의
-회원가입 또는 로그인 후 사용자가 2분 안에 자신의 옷을 최소 등록하고 첫 추천을 성공시킬 수 있는 실사용 UX를 만든다.
+현재 구현 baseline은 MVP4 완료 상태다. 회원가입/로그인, JWT Bearer access token, 인증 사용자 기준 옷장/위치/선호도/추천 이력/착용 이력 분리, `GET /api/weather/current`, React `sessionStorage` 세션, Today/Closet/Preferences/Location/History 반응형 UX는 이미 구현되어 있다.
+
+## MVP5 한 줄 정의
+
+사용자가 옷 1개당 이미지 1장을 등록하고, 옷장과 추천 결과에서 실제 옷 썸네일을 확인할 수 있게 한다.
 
 ## 목표
-- 신규 사용자가 현재 필요한 다음 행동을 즉시 알 수 있어야 한다.
-- API enum, 실패 코드, 점수표 중심 화면을 사용자 언어로 바꾼다.
-- 데스크톱과 모바일 모두에서 같은 React 웹앱을 자연스럽게 사용할 수 있어야 한다.
-- 앱 출시나 PWA 설치 경험은 이번 범위가 아니다.
 
-## 현재 baseline
+- 옷장을 텍스트와 enum 중심 목록에서 실제 옷 이미지 중심 경험으로 개선한다.
+- 추천 결과에서 사용자가 어떤 옷을 입을지 더 빠르게 알아볼 수 있게 한다.
+- Docker Compose 로컬 공유 환경에서 이미지 저장까지 재현 가능하게 한다.
+- AI 자동 태깅 없이 기존 수동 입력 방식을 유지한다.
+
+## 현재 Baseline
+
 - 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`뿐이다.
 - 그 외 API는 `Authorization: Bearer {accessToken}` header를 요구한다.
 - 공개 HTTP API는 `userId` query parameter를 받지 않는다.
 - 현재 사용자 전용 응답 DTO는 `userId`를 노출하지 않는다.
+- 옷 등록/수정 API는 JSON `ClothingRequest`를 사용한다.
 - 추천 생성 API는 `POST /api/recommendations`다.
 - 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
 - 현재 날씨 요약 API는 `GET /api/weather/current`이며 보호 API다.
 - 프론트 access token 저장 위치는 `sessionStorage`다.
-- 선호도는 `users` 테이블의 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json` JSON 문자열 컬럼에 저장한다.
-- `preferredColors`와 `preferredMaterials`만 `preferenceScore`에 반영한다.
+- 추천 점수는 규칙 기반 100점 체계이며 `preferenceScore`는 선호 색상/소재만 반영한다.
 - `styleTags`는 저장/조회/표시만 하며 추천 점수와 추천 이유에는 반영하지 않는다.
 - 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 사용한다.
 - 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
 - Docker Compose 공유 방식을 유지한다.
 
 ## 해결하려는 문제
-- 로그인 후 위치, 선호도, 옷장, 추천 패널이 나뉘어 있어 첫 추천까지의 다음 행동이 분명하지 않다.
-- `TOP`, `BOTTOM`, `OUTER`, `NO_TOP_AVAILABLE` 같은 내부 코드가 사용자에게 그대로 보인다.
-- 추천 결과가 점수표 중심이라 왜 오늘 입기 좋은지 빠르게 이해하기 어렵다.
-- 옷 등록 폼이 빠른 입력을 돕지 못하고, 등록 이후 수정/보관 흐름이 약하다.
-- 모바일에서는 패널을 세로로 쌓는 수준이라 실제 사용 동선이 앱처럼 느껴지지 않는다.
+
+- 옷 목록에서 이름, 색상, 소재만으로 실제 옷을 구분해야 한다.
+- 추천 결과에 표시되는 옷 조합이 텍스트 중심이라 사용자가 실제 착장으로 연결하기 어렵다.
+- 사용자가 이미 등록한 옷을 수정할 때 이미지 교체나 삭제 흐름이 없다.
+- 공유 환경에서 이미지 저장 방식이 정의되어 있지 않아 후속 구현자가 파일 저장 경로, 접근 권한, 검증 기준을 임의로 정할 수 있다.
 
 ## 핵심 사용자 시나리오
-1. 신규 사용자가 회원가입 후 오늘 추천 화면에서 첫 추천 준비 체크리스트를 본다.
-2. 사용자가 위치 확인, 선호도 저장, 상의/하의/아우터 최소 등록을 완료한다.
-3. 사용자가 추천 생성을 누르고, 실패하면 부족한 항목 CTA를 통해 바로 옷장으로 이동한다.
-4. 추천 성공 시 사용자는 점수보다 "오늘 입기 좋은 이유"와 추천 옷 조합을 먼저 본다.
-5. 사용자는 추천 결과를 착용 완료 처리하고, 이력에서 최근 추천과 착용 상태를 확인한다.
 
-## MVP4 우선순위
+1. 사용자가 로그인 후 Closet view에서 옷을 등록한다.
+2. 사용자가 등록한 옷에 이미지 1장을 업로드한다.
+3. 옷 목록 카드에 업로드한 이미지 썸네일이 표시된다.
+4. 사용자가 옷 이미지를 교체하거나 삭제한다.
+5. 사용자가 추천을 생성하면 추천 결과의 상의/하의/아우터 카드에 썸네일이 표시된다.
+6. 추천 이력에서도 추천 당시 포함된 옷의 현재 이미지 상태를 확인한다.
 
-### P0: 첫 추천 성공 UX
-- 로그인 후 첫 화면을 `오늘 추천` 중심으로 재구성한다.
-- 첫 추천 준비 체크리스트를 제공한다: 위치 확인, 선호도 저장, TOP/BOTTOM/OUTER 최소 등록.
-- 추천 생성 CTA를 오늘 추천 화면의 가장 중요한 행동으로 둔다.
-- 추천 실패 코드는 한국어 설명과 직접 CTA로 변환한다.
-- 추천 결과는 점수표보다 "오늘 입기 좋은 이유"와 옷 조합을 먼저 보여준다.
+## MVP5 우선순위
 
-### P0: 옷장 실사용 UX
-- 옷 목록에서 한국어 category/color/material 라벨을 사용한다.
-- 색상은 swatch, 소재는 chip으로 표시한다.
-- 옷 등록 폼에 계절/기온 프리셋과 빠른 등록 흐름을 제공한다.
-- 옷 수정과 보관 처리를 화면에서 수행할 수 있게 한다.
-- 모바일에서 hover에 의존하지 않는 카드 액션을 제공한다.
+### P0: 이미지 저장과 보호 API
 
-### P0: 반응형 앱 셸
-- 데스크톱은 좌측 사이드바와 상단 상태바를 사용한다.
-- 모바일은 상단 앱바, 단일 컬럼 콘텐츠, 하단 탭을 사용한다.
-- 모바일 하단 탭은 `오늘`, `옷장`, `선호도`, `위치`, `이력` 5개로 고정한다.
-- 큰 상태 관리 라이브러리 없이 React state와 작은 hook으로 구현한다.
+- 옷 1개당 이미지 1장만 허용한다.
+- 기존 `POST /api/clothes`, `PUT /api/clothes/{clothingId}` JSON 계약은 유지한다.
+- 별도 보호 API로 이미지 업로드, 조회, 삭제를 제공한다.
+- 모든 이미지 API는 인증 사용자 소유 옷만 접근할 수 있다.
+- 이미지 조회는 public static path가 아니라 보호 API로 제공한다.
+- 로컬 파일 저장과 Docker Compose volume 저장 기준을 문서화한다.
 
-### P1: 화면별 사용성 보강
-- 로그인/회원가입 화면을 한국어로 정리한다.
-- 선호도 화면은 색상 swatch, 소재 chip, style tag 입력/삭제로 구성한다.
-- 위치 화면은 지도 UI 없이 현재 위치, 검색, 내장 catalog 선택 중심으로 구성한다.
-- 이력 화면은 최근 추천 카드, 착용 여부, 다시 착용 처리로 구성한다.
-- 로딩, 빈 상태, 저장 성공, 인증 만료 상태를 사용자 문장으로 표시한다.
+### P0: 파일 검증
 
-### P2: 후속 후보
-아래 항목은 MVP4 확정 범위가 아니다.
+- 최대 파일 크기는 5MB다.
+- 허용 확장자는 `.jpg`, `.jpeg`, `.png`, `.webp`다.
+- 허용 MIME type은 `image/jpeg`, `image/png`, `image/webp`다.
+- 원본 파일명은 저장 경로에 사용하지 않는다.
+- 저장 파일명은 서버가 생성한 UUID 기반 이름을 사용한다.
+- 잘못된 파일은 `400 INVALID_REQUEST`로 실패한다.
 
-- Refresh token
+### P0: 썸네일 UX
+
+- Closet 옷 목록과 수정 패널에서 이미지 미리보기를 제공한다.
+- 추천 결과의 outfit slot 카드에 썸네일을 표시한다.
+- 추천 이력의 outfit summary에 썸네일을 표시한다.
+- 이미지가 없으면 기존 category glyph, 색상 swatch, 소재 chip으로 fallback한다.
+- 모바일 375px에서 썸네일, 버튼, 텍스트가 겹치지 않아야 한다.
+
+### P1: 사용성 보강
+
+- 업로드 진행/성공/실패 상태를 한국어 문장으로 표시한다.
+- 교체와 삭제 액션을 수정 흐름에서 명확히 분리한다.
+- 이미지 삭제는 idempotent하게 처리한다.
+- 인증 만료 시 이미지 blob fetch도 기존 인증 만료 흐름으로 연결한다.
+
+## 포함 범위
+
+- 이미지 메타데이터 컬럼 추가
+- 로컬 파일 저장 service
+- 이미지 검증
+- 이미지 업로드/조회/삭제 보호 API
+- 옷/추천 DTO에 nullable 이미지 메타데이터 추가
+- 프론트 API client에 multipart upload와 authenticated blob fetch 추가
+- Closet, Recommendation, History 썸네일 표시
+- Docker Compose volume 기반 공유 문서화
+- MVP5 phase 문서와 데모 시나리오 작성
+
+## 제외 범위
+
+- AI 자동 태깅
+- AI/GPT 추천
+- 다중 이미지 업로드
+- 이미지 편집, 크롭, 리사이즈, 압축 파이프라인
+- EXIF 기반 위치/시간 분석
+- S3, CDN, 외부 image hosting
+- 관리자 이미지 관리 기능
+- 이미지 moderation
+- 이미지 기반 추천 점수 변경
+- refresh token
 - 소셜 로그인
 - 이메일 인증
 - 비밀번호 재설정
-- 선호도 별도 테이블 정규화
-- styleTags 기반 개인화 고도화
 - 외부 주소/지도 검색 API
-- 사용자 현재 위치 자동 감지
-- 옷 이미지 업로드
-- AI/GPT 추천
-- Redis 캐싱
-- AWS 배포와 CD 자동화
-
-## P0 Release Cut과 P1 Tail
-Step 7 기준 P0 release cut은 첫 추천 성공 흐름과 Docker Compose 공유 검증을 마무리하는 기준이다. P0 완료는 아래 범위로 판단한다.
-
-- 로그인 후 기본 view는 `오늘`이다.
-- Today 화면은 현재 위치, `GET /api/weather/current` 날씨 요약, 첫 추천 준비 체크리스트, 추천 생성 CTA를 제공한다.
-- Closet 화면은 카테고리 필터, 빠른 등록, 계절/기온 프리셋, 수정, 보관 처리를 제공한다.
-- 추천 실패는 한국어 메시지와 직접 CTA로 표시한다.
-- 추천 성공은 옷 조합과 "오늘 입기 좋은 이유"를 점수 상세보다 먼저 보여준다.
-- 데스크톱 sidebar와 모바일 하단 탭이 375px/1280px 검증 범위에서 겹치지 않는다.
-- Today 화면에서 최근 추천 preview와 착용 완료 흐름을 확인할 수 있다.
-
-Step 8-13은 P1 polish tail이다. 선호도 swatch/chip 저장 상태 문구, 위치 catalog 선택 polish, 전용 History view의 최신순 이력 카드와 착용 완료 polish, Today/Closet/Preferences/Location/History의 시각 우선순위 보강을 다루며 P0 release cut의 blocker가 아니다.
-
-## 포함 범위
-- React 반응형 웹 UI 재구성
-- `오늘 추천`, `옷장`, `선호도`, `위치`, `이력`, `인증` 화면 정의
-- 기존 API client 타입과 함수 보강
-- 옷 수정 API와 보관 API의 프론트 사용
-- 사용자 친화적인 enum 라벨, 색상 swatch, 소재 chip
-- 추천 실패 코드별 CTA
-- 모바일 하단 탭과 sticky 주요 CTA
-- 데모/공유 문서의 첫 추천 성공 시나리오 갱신
-
-## 제외 범위
-아래 항목은 별도 승인 전까지 MVP4에서 제외한다.
-
-- refresh token
-- social login
-- email verification
-- password reset
-- external address/map APIs
-- browser/current-location auto detection
-- latitude/longitude to KMA grid conversion APIs
-- KMA `getVilageFcst` 외 weather APIs
-- weather source DB persistence
 - Redis
-- AWS deployment
-- CD automation
-- AI/GPT recommendations
-- image upload
-- shopping recommendations
-- preference normalization tables
-- styleTags scoring
-- styleTags recommendation reasons
-- native mobile app release
-- PWA install/push notification
+- AWS 배포와 CD 자동화
+- native app/PWA 출시
 
 ## API 변경 계획
-MVP4는 새 공개 API, DB schema, 추천 규칙을 추가하지 않는다. 단, Today 화면의 현재 날씨 요약을 위해 보호 API `GET /api/weather/current`를 추가한다.
+
+MVP5는 새 공개 API를 추가하지 않는다. 이미지 API는 모두 보호 API다.
+
+추가할 보호 API:
+
+- `PUT /api/clothes/{clothingId}/image`
+- `GET /api/clothes/{clothingId}/image`
+- `DELETE /api/clothes/{clothingId}/image`
 
 원칙:
-- 새 공개 API를 추가하지 않는다.
-- 보호 API는 계속 Bearer token을 요구한다.
-- `userId` query parameter를 공개 HTTP 계약에 되살리지 않는다.
-- 현재 사용자 전용 response DTO에 `userId`를 되살리지 않는다.
-- today 추천 GET 경로를 추가하지 않는다.
-- 추천 생성은 `POST /api/recommendations`만 사용한다.
-- 현재 날씨 요약은 추천 생성/저장 없이 현재 인증 사용자 위치의 `WeatherResponse`만 반환한다.
 
-프론트에서 MVP4에 반드시 사용하는 보호 API:
-- `GET /api/users/me/location`
-- `PUT /api/users/me/location`
-- `GET /api/weather/current`
-- `GET /api/users/me/preferences`
-- `PUT /api/users/me/preferences`
-- `GET /api/clothes`
-- `POST /api/clothes`
-- `PUT /api/clothes/{clothingId}`
-- `PATCH /api/clothes/{clothingId}/archive`
-- `POST /api/recommendations`
-- `GET /api/recommendations?limit={limit}`
-- `PATCH /api/recommendations/{recommendationId}/worn`
+- 기존 JSON 옷 등록/수정 API는 유지한다.
+- 이미지 업로드는 `multipart/form-data`를 사용한다.
+- multipart part name은 `image`로 고정한다.
+- 성공 응답 중 JSON API는 기존 `{ "data": ... }` envelope를 유지한다.
+- 이미지 bytes 조회 응답은 파일 stream과 `Content-Type` header를 반환한다.
+- 현재 사용자 전용 DTO에 `userId`를 되살리지 않는다.
+- 공개 `userId` query parameter를 추가하지 않는다.
 
 ## 데이터/ERD 변경 계획
-DB schema 변경은 없다.
 
-- 새 테이블을 추가하지 않는다.
-- 새 컬럼을 추가하지 않는다.
-- image URL 또는 file metadata 컬럼을 추가하지 않는다.
-- 선호도는 계속 `users` 테이블 JSON 문자열 컬럼에 저장한다.
-- 운영 DB migration 정책은 이번 MVP4 범위에서 다루지 않는다.
-- 로컬 공유/데모 기준은 Docker Compose volume 초기화 방식을 유지한다.
+`clothing_items`에 nullable 이미지 메타데이터 컬럼을 추가한다.
+
+- `image_stored_filename`
+- `image_content_type`
+- `image_size_bytes`
+- `image_uploaded_at`
+
+별도 이미지 테이블은 만들지 않는다. 옷 1개당 이미지 1장 정책이므로 clothing item row에 메타데이터를 둔다.
+
+파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker volume에 저장한다.
 
 ## 프론트엔드 변경 계획
-화면 구조:
 
-- `Today`: 오늘 추천, 현재 날씨 요약, 첫 추천 준비 체크리스트, 추천 생성, 추천 결과, 실패 CTA
-- `Closet`: 카테고리 필터, 옷 목록, 빠른 등록, 수정, 보관
-- `Preferences`: 색상 swatch, 소재 chip, style tag 저장/삭제
-- `Location`: 현재 위치, 위치 검색, 내장 catalog 선택
-- `History`: 추천 이력, 착용 여부, 착용 완료 처리
-- `Auth`: 로그인, 회원가입, API 연결/인증 오류
+Closet view:
 
-반응형 구조:
+- 옷 카드에 썸네일 영역을 추가한다.
+- 이미지가 있으면 authenticated blob fetch로 object URL을 만들고 표시한다.
+- 이미지가 없으면 기존 category visual을 표시한다.
+- 등록 후 이미지 업로드를 이어서 수행할 수 있다.
+- 수정 중 이미지 교체와 삭제를 수행할 수 있다.
 
-- 데스크톱: sidebar navigation, top status bar, 2 column 이상의 작업 영역
-- 모바일: top app bar, single column content, bottom tab navigation, sticky primary CTA
+Recommendation/History view:
 
-표시 규칙:
+- 추천 outfit item에 nullable image metadata를 반영한다.
+- 썸네일이 있으면 표시하고, 없으면 swatch/chip 중심 fallback을 유지한다.
 
-- API enum 값은 request/response에서 유지한다.
-- 사용자 화면에서는 한국어 라벨을 사용한다.
-- 색상은 라벨과 swatch를 함께 표시한다.
-- 소재와 style tag는 chip으로 표시한다.
-- 추천 점수는 보조 정보로 낮추고, 추천 이유와 옷 조합을 우선한다.
+프론트 API:
+
+- JSON API helper는 유지한다.
+- multipart upload 함수는 `Content-Type`을 직접 지정하지 않고 `FormData`를 전달한다.
+- 이미지 조회 함수는 `Authorization` header를 붙여 blob을 가져온다.
+- object URL은 컴포넌트 unmount 또는 이미지 변경 시 revoke한다.
 
 ## 추천 규칙 변경 계획
-추천 도메인 규칙, 점수, tie-break, 실패 코드는 변경하지 않는다.
 
-UI 표시만 변경한다.
+추천 규칙은 변경하지 않는다.
 
-- `reasons`를 "오늘 입기 좋은 이유"로 표시한다.
-- `score`는 상세/접힘 영역 또는 보조 영역에 표시한다.
-- 추천 실패 코드별로 사용자가 바로 해결할 수 있는 CTA를 제공한다.
-- 현재 날씨 요약은 추천 결과가 아니며 추천 이력에 저장하지 않는다.
-
-추천 실패 CTA 기준:
-
-| Code | 사용자 메시지 | CTA |
-| --- | --- | --- |
-| `NO_TOP_AVAILABLE` | 현재 날씨에 맞는 상의가 부족해요. | 상의 등록하기 |
-| `NO_BOTTOM_AVAILABLE` | 현재 날씨에 맞는 하의가 부족해요. | 하의 등록하기 |
-| `OUTER_REQUIRED_BUT_NOT_AVAILABLE` | 오늘은 아우터가 필요한 날씨예요. | 아우터 등록하기 |
-| `NO_WEATHER_SUITABLE_ITEM` | 현재 기온에 맞는 옷이 부족해요. | 옷장 확인하기 |
-| `INSUFFICIENT_CLOSET_ITEMS` | 추천을 만들려면 옷을 더 등록해야 해요. | 빠른 등록하기 |
+- 이미지 존재 여부는 candidate filtering에 영향을 주지 않는다.
+- 이미지 존재 여부는 score와 tie-break에 영향을 주지 않는다.
+- 추천 이유에는 이미지 업로드 여부를 포함하지 않는다.
+- `styleTags`는 계속 저장/조회/표시만 한다.
 
 ## 완료 기준
-- 신규 사용자가 React 웹앱에서 회원가입 또는 로그인 후 2분 안에 첫 추천을 성공시킬 수 있다.
-- 첫 추천 준비 체크리스트가 부족한 항목과 다음 CTA를 정확히 보여준다.
-- 추천 실패 시 내부 코드만 노출하지 않는다.
-- 로그인 후 Today 화면에서 현재 위치 기준 날씨 요약이 보인다.
-- 옷 등록, 수정, 보관을 프론트에서 수행할 수 있다.
-- enum이 사용자 화면에서 한국어 라벨, swatch, chip으로 표현된다.
-- 모바일 375px 너비에서 주요 화면과 버튼 텍스트가 겹치지 않는다.
-- 데스크톱과 모바일 모두 같은 API 계약을 사용한다.
+
+- 로그인한 사용자가 자신의 옷에 이미지 1장을 업로드할 수 있다.
+- 옷 이미지 교체와 삭제가 가능하다.
+- 다른 사용자의 옷 이미지에 접근하면 기존 소유권 정책대로 실패한다.
+- 잘못된 파일 크기, 확장자, MIME type은 실패한다.
+- 옷 목록에 썸네일이 표시된다.
+- 추천 결과와 추천 이력에 썸네일이 표시된다.
+- 이미지가 없는 옷도 기존 fallback UI로 자연스럽게 표시된다.
+- Docker Compose 환경에서 app 재시작 후 업로드 이미지가 유지된다.
+- AI 자동 태깅이나 이미지 기반 추천 점수 변경이 포함되지 않는다.
 
 ## 테스트/검증 기준
+
+- `./gradlew test`
+- `./gradlew build`
 - `cd frontend && npm run build`
-- 데스크톱 1280px 이상에서 `오늘`, `옷장`, `선호도`, `위치`, `이력`을 탐색한다.
-- 모바일 375px에서 하단 탭과 sticky CTA가 정상 배치되는지 확인한다.
-- 신규 사용자로 위치 확인, 선호도 저장, TOP/BOTTOM/OUTER 등록, 추천 생성을 완료한다.
-- `GET /api/weather/current`가 인증 사용자 위치 기준 날씨를 반환하고 추천 이력을 만들지 않는지 확인한다.
-- TOP, BOTTOM, OUTER를 각각 부족하게 만든 뒤 실패 CTA가 올바르게 표시되는지 확인한다.
-- 옷 수정과 보관 후 목록과 추천 후보 상태가 갱신되는지 확인한다.
-- `styleTags` 변경이 추천 점수와 추천 이유를 바꾸지 않는지 확인한다.
+- Docker Compose 실행 후 이미지 업로드, 교체, 삭제, 추천 썸네일 표시 확인
+- 모바일 375px에서 Closet, Today 추천 결과, History 화면 overflow 확인
 
 ## 결정 완료 사항
-- MVP4 P0 범위: 실사용 UX와 반응형 웹
-- API 계약 변경: 현재 날씨 요약 보호 API 1개 추가
-- DB migration: 없음
-- 추천 규칙 변경: 없음
-- Docker Compose 공유 기준 변경: 없음
-- native app/PWA 출시: 범위 밖
+
+- 이미지 API 형태: 기존 JSON 옷 API 유지 + 별도 보호 이미지 API
+- 이미지 접근: 보호 API에서 인증/소유권 확인 후 bytes 반환
+- 파일 제한: 5MB, jpg/jpeg/png/webp
+- 저장 방식: MVP5는 Docker Compose 로컬 볼륨 기반 파일 저장부터 시작
+- AI 자동 태깅: MVP5 제외

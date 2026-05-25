@@ -1,30 +1,21 @@
-# ERD: SmartCloset MVP4
+# ERD: SmartCloset MVP5
 
-## 0. 현재 DB baseline
-MVP4는 MVP-3 인증 사용자 기반 DB baseline을 그대로 사용한다. MVP4 실사용 UX 개선을 위해 새 테이블, 새 컬럼, migration, backfill을 추가하지 않는다.
+## 0. DB Baseline
 
-## MVP4 DB 결정
-- DB schema 변경 없음.
-- 운영 DB migration 없음.
-- 이미지 업로드 metadata 컬럼 없음.
-- 위치 provider 또는 weather source snapshot 컬럼 없음.
-- 현재 날씨 요약 API를 위한 별도 테이블/컬럼 없음.
-- 선호도 별도 테이블 정규화 없음.
+MVP5는 MVP4 완료 DB baseline에 옷 이미지 메타데이터 컬럼만 추가한다. 별도 이미지 테이블은 만들지 않는다.
 
-- `users`에 인증 필드 `email`, `password_hash`, `role`을 추가한다.
-- `email`은 unique다.
-- 기존 위치 snapshot 컬럼은 계속 사용한다.
-- 선호도는 `users` 테이블의 JSON 문자열 컬럼으로 저장한다.
-  - `preferred_colors_json`
-  - `preferred_materials_json`
-  - `style_tags_json`
-- 신규 사용자는 기본 위치 `SEOUL`과 빈 선호도 배열로 생성한다.
-- 선호도 별도 테이블 정규화는 MVP4 범위가 아니다.
-- 추천 결과에는 기존 weather snapshot과 score snapshot을 저장한다.
-- 추천 결과 위치 source snapshot 저장은 MVP4 범위에서 제외한다.
-- MVP4 데모 전 로컬 Docker Compose DB는 기존 schema/seed data와 충돌할 수 있으므로 `docker compose down -v` 후 재생성을 권장한다.
+## MVP5 DB 결정
+
+- `clothing_items`에 nullable 이미지 메타데이터 컬럼을 추가한다.
+- 파일 bytes는 DB에 저장하지 않는다.
+- 옷 1개당 이미지 1장만 지원한다.
+- 이미지 메타데이터는 현재 옷 row의 일부로 취급한다.
+- 추천 결과 item은 기존처럼 `clothing_items`를 참조한다.
+- 추천 이력은 현재 참조된 옷의 최신 이미지 메타데이터를 통해 썸네일을 표시한다.
+- 이미지 존재 여부는 추천 점수와 추천 이유에 영향을 주지 않는다.
 
 ## 1. 공통 DB 정책
+
 - DB는 MySQL 기준으로 설계한다.
 - 모든 JPA Entity는 `BaseTimeEntity`를 상속한다.
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
@@ -32,8 +23,10 @@ MVP4는 MVP-3 인증 사용자 기반 DB baseline을 그대로 사용한다. MVP
 - `recommendation_results.reasons_json`은 `JSON NOT NULL`로 저장한다.
 - Entity에서는 구현 단순성을 위해 JSON 값을 `String`으로 보관한다.
 - `users.preferred_colors_json`, `users.preferred_materials_json`, `users.style_tags_json`은 JSON array string으로 보관한다.
+- 운영 DB migration 전략은 MVP5 구현 단계에서 별도 migration 도구 없이 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
 
 ## 2. Mermaid ERD
+
 ```mermaid
 erDiagram
   users ||--o{ clothing_items : owns
@@ -71,6 +64,10 @@ erDiagram
     INT max_temperature
     BOOLEAN rain_suitable
     BOOLEAN archived
+    VARCHAR image_stored_filename
+    VARCHAR image_content_type
+    BIGINT image_size_bytes
+    DATETIME image_uploaded_at
     DATETIME created_at
     DATETIME updated_at
   }
@@ -116,6 +113,7 @@ erDiagram
 ## 3. Tables
 
 ### users
+
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
@@ -123,10 +121,10 @@ erDiagram
 | `password_hash` | `VARCHAR(255)` | no | none | BCrypt hash |
 | `name` | `VARCHAR(50)` | no | none | 사용자 표시 이름 |
 | `role` | `VARCHAR(30)` | no | `USER` | 기본 role |
-| `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code. 애플리케이션 기본값은 `SEOUL` |
-| `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름. 애플리케이션 기본값은 `서울특별시` |
-| `location_nx` | `INT` | yes | none | KMA grid X. 애플리케이션 기본값은 `60` |
-| `location_ny` | `INT` | yes | none | KMA grid Y. 애플리케이션 기본값은 `127` |
+| `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code |
+| `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름 |
+| `location_nx` | `INT` | yes | none | KMA grid X |
+| `location_ny` | `INT` | yes | none | KMA grid Y |
 | `preferred_colors_json` | `TEXT` | no | application `[]` | `ClothingColor` 배열 JSON 문자열 |
 | `preferred_materials_json` | `TEXT` | no | application `[]` | `ClothingMaterial` 배열 JSON 문자열 |
 | `style_tags_json` | `TEXT` | no | application `[]` | style tag 문자열 배열 JSON 문자열 |
@@ -134,37 +132,13 @@ erDiagram
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
+
 - Primary key: `id`
 - Unique: `(email)`
 - Index: `(location_code)`
 
-Relations:
-- `users.id` 1:N `clothing_items.user_id`
-- `users.id` 1:N `recommendation_results.user_id`
-- `users.id` 1:N `wear_histories.user_id`
-
-User methods:
-- `create(email, passwordHash, name)`
-- `updateLocation(LocationOption location)`
-- `ensureDefaultLocation()`
-- `updatePreferences(preferredColors, preferredMaterials, styleTags)`
-
-Signup policy:
-- 신규 사용자는 기본 위치 `SEOUL`, `서울특별시`, `60`, `127`을 가진다.
-- 신규 사용자의 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json`은 모두 `[]`로 생성한다.
-- 기본 role은 `USER`다.
-
-Migration policy:
-- 현재 로컬 공유/데모는 Docker Compose volume 초기화를 권장한다.
-- 운영 DB migration은 MVP4 문서 범위에서 다루지 않는다.
-- 기존 row에 인증 필드나 선호도 필드가 없어 충돌할 수 있으므로 로컬 전환 명령은 아래를 기준으로 한다.
-
-```bash
-docker compose down -v
-docker compose up --build
-```
-
 ### clothing_items
+
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
@@ -177,15 +151,28 @@ docker compose up --build
 | `max_temperature` | `INT` | no | none | 착용 가능 최고 기온 |
 | `rain_suitable` | `BOOLEAN` | no | none | 비 오는 날 적합 여부 |
 | `archived` | `BOOLEAN` | no | `FALSE` | 보관 여부 |
+| `image_stored_filename` | `VARCHAR(255)` | yes | `NULL` | 서버가 생성한 저장 파일명 |
+| `image_content_type` | `VARCHAR(100)` | yes | `NULL` | 검증된 MIME type |
+| `image_size_bytes` | `BIGINT` | yes | `NULL` | 파일 크기 bytes |
+| `image_uploaded_at` | `DATETIME(6)` | yes | `NULL` | 이미지 업로드 또는 교체 시각 |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
+
 - Primary key: `id`
 - Index: `(user_id, archived, id)`
 - Index: `(user_id, category, archived)`
 
+Image metadata policy:
+
+- 이미지가 없으면 `image_*` 컬럼은 모두 `NULL`이다.
+- 이미지 업로드 또는 교체 시 `image_stored_filename`, `image_content_type`, `image_size_bytes`, `image_uploaded_at`을 함께 갱신한다.
+- 이미지 삭제 시 `image_*` 컬럼을 모두 `NULL`로 되돌린다.
+- 원본 파일명은 저장하지 않는다.
+
 ### recommendation_results
+
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
@@ -206,13 +193,13 @@ Indexes:
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
+
 - Primary key: `id`
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 
-MVP4에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않는다. 이 값이 필요한 경우 후속 MVP에서 명시적으로 snapshot 컬럼을 추가한다.
-
 ### recommendation_result_items
+
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
@@ -223,12 +210,14 @@ MVP4에서는 추천 결과가 사용한 위치 code/nx/ny를 저장하지 않�
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
+
 - Primary key: `id`
 - Index: `(recommendation_result_id)`
 - Index: `(clothing_item_id)`
 - Unique: `(recommendation_result_id, slot)`
 
 ### wear_histories
+
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
@@ -239,30 +228,9 @@ Indexes:
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
 Indexes:
+
 - Primary key: `id`
 - Index: `(user_id, worn_at)`
 - Unique: `(recommendation_result_id)`
 
 WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실제 포함 옷은 `recommendation_result_items`를 통해 조회한다.
-
-## 4. 내장 위치 catalog
-내장 위치 catalog는 DB 테이블이 아니라 애플리케이션 코드 또는 설정으로 제공한다. `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 화면에서만 호출한다.
-
-| Code | Name | nx | ny |
-| --- | --- | ---: | ---: |
-| `SEOUL` | 서울특별시 | 60 | 127 |
-| `BUSAN` | 부산광역시 | 98 | 76 |
-| `DAEGU` | 대구광역시 | 89 | 90 |
-| `INCHEON` | 인천광역시 | 55 | 124 |
-| `GWANGJU` | 광주광역시 | 58 | 74 |
-| `DAEJEON` | 대전광역시 | 67 | 100 |
-| `ULSAN` | 울산광역시 | 102 | 84 |
-| `SEJONG` | 세종특별자치시 | 66 | 103 |
-| `JEJU` | 제주특별자치도 | 52 | 38 |
-
-## 5. Entity 설계 기준
-- Entity에 Lombok `@Data`, `@Setter`를 사용하지 않는다.
-- Entity 변경은 의도가 드러나는 메서드로 제한한다.
-- `User` 위치 변경은 `updateLocation` 같은 명시적 메서드로만 수행한다.
-- `User` 선호도 변경은 `updatePreferences` 같은 명시적 메서드로만 수행한다.
-- Repository에는 추천 점수 계산, 위치 catalog 검색 규칙, KMA 매핑 로직을 넣지 않는다.
