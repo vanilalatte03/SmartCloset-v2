@@ -2,12 +2,44 @@
   "project": "SmartCloset",
   "phase": "5-smartcloset-clothing-images",
   "steps": [
-    { "step": 0, "name": "mvp5-scope-docs", "status": "pending" },
-    { "step": 1, "name": "image-storage-foundation", "status": "pending" },
-    { "step": 2, "name": "clothing-image-api", "status": "pending" },
-    { "step": 3, "name": "image-response-dtos", "status": "pending" },
-    { "step": 4, "name": "closet-image-ux", "status": "pending" },
-    { "step": 5, "name": "recommendation-thumbnail-ux", "status": "pending" },
-    { "step": 6, "name": "compose-docs-qa", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "mvp5-scope-docs",
+      "status": "completed",
+      "started_at": "2026-05-25T20:06:00+0900",
+      "summary": "MVP5 옷 이미지 업로드 범위 문서 일관성과 금지 API/범위 패턴을 검증했다.",
+      "completed_at": "2026-05-25T20:07:51+0900"
+    },
+    {
+      "step": 1,
+      "name": "image-storage-foundation",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "clothing-image-api",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "image-response-dtos",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "closet-image-ux",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "recommendation-thumbnail-ux",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "compose-docs-qa",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-05-25T20:06:00+0900"
 }
