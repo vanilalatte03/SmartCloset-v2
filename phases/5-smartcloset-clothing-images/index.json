@@ -32,7 +32,7 @@
       "status": "completed",
       "started_at": "2026-05-25T20:33:23+0900",
       "summary": "추천 생성과 추천 이력 응답 outfit item에 nullable image metadata를 추가했다.",
-      "completed_at": "2026-05-25T20:36:10+0900"
+      "completed_at": "2026-05-25T20:36:35+0900"
     },
     {
       "step": 4,
