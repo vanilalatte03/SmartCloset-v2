@@ -1,9 +1,10 @@
-import { apiBaseUrl, request } from './client';
+import { ApiClientError, apiBaseUrl, request } from './client';
 import type {
   AuthResponse,
   ClothingArchiveResponse,
   ClothingRequest,
   ClothingResponse,
+  ErrorResponse,
   CurrentUserResponse,
   LoginRequest,
   LocationOptionResponse,
@@ -122,6 +123,87 @@ export function archiveClothing(
     method: 'PATCH',
     accessToken,
   });
+}
+
+async function parseImageErrorResponse(response: Response): Promise<ErrorResponse> {
+  try {
+    const payload = (await response.json()) as Partial<ErrorResponse>;
+    if (
+      typeof payload.code === 'string' &&
+      typeof payload.message === 'string' &&
+      Array.isArray(payload.details)
+    ) {
+      return payload as ErrorResponse;
+    }
+  } catch {
+    // Use the fallback below for non-JSON image errors.
+  }
+
+  return {
+    code: 'INVALID_RESPONSE',
+    message: 'SmartCloset 이미지 API 요청이 실패했습니다.',
+    details: [],
+  };
+}
+
+export async function uploadClothingImage(
+  accessToken: string,
+  clothingId: number,
+  file: File
+): Promise<ClothingResponse> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${apiBaseUrl}/api/clothes/${clothingId}/image`, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new ApiClientError(response.status, await parseImageErrorResponse(response));
+  }
+
+  const payload = (await response.json()) as { data?: ClothingResponse };
+  if (!payload.data) {
+    throw new ApiClientError(response.status, {
+      code: 'INVALID_RESPONSE',
+      message: 'SmartCloset 이미지 API 응답 형식이 올바르지 않습니다.',
+      details: [],
+    });
+  }
+
+  return payload.data;
+}
+
+export async function deleteClothingImage(
+  accessToken: string,
+  clothingId: number
+): Promise<ClothingResponse> {
+  return request<ClothingResponse>(`/api/clothes/${clothingId}/image`, {
+    method: 'DELETE',
+    accessToken,
+  });
+}
+
+export async function getClothingImageBlob(
+  accessToken: string,
+  imageUrl: string
+): Promise<Blob> {
+  const response = await fetch(`${apiBaseUrl}${imageUrl}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiClientError(response.status, await parseImageErrorResponse(response));
+  }
+
+  return response.blob();
 }
 
 export function createRecommendation(accessToken: string): Promise<RecommendationResponse> {

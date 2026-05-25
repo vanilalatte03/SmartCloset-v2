@@ -1744,6 +1744,45 @@
   padding: 14px;
 }
 
+.closet-thumbnail-frame {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  min-height: 136px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.closet-thumbnail-frame.fallback {
+  gap: 10px;
+}
+
+.closet-thumbnail-frame.fallback.top {
+  background: #f3faf5;
+}
+
+.closet-thumbnail-frame.fallback.bottom {
+  background: #f4f7fd;
+}
+
+.closet-thumbnail-frame.fallback.outer {
+  background: #fbf7ef;
+}
+
+.closet-thumbnail-image,
+.closet-image-preview img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .closet-card-visual-row,
 .closet-weather-row {
   align-items: center;
@@ -1833,6 +1872,56 @@
 
 .closet-card-actions .secondary-button {
   flex: 1 1 96px;
+}
+
+.closet-image-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 0.38fr) minmax(0, 1fr);
+  padding: 12px;
+}
+
+.closet-image-preview {
+  min-width: 0;
+}
+
+.closet-image-preview .closet-thumbnail-frame {
+  min-height: 120px;
+}
+
+.closet-image-controls {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.image-file-field input {
+  cursor: pointer;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.closet-image-help {
+  font-size: 12px;
+}
+
+.closet-image-selection {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.closet-image-selection span {
+  color: var(--text);
+  flex: 1 1 140px;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .panel-error,
@@ -2435,6 +2524,14 @@
 
   .closet-card-actions .secondary-button {
     min-height: 42px;
+  }
+
+  .closet-image-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .closet-image-preview .closet-thumbnail-frame {
+    min-height: 150px;
   }
 
   .color-preference-grid {

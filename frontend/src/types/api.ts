@@ -68,9 +68,17 @@ export type ClothingRequest = {
   rainSuitable: boolean;
 };
 
+export type ClothingImageResponse = {
+  url: string;
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+  sizeBytes: number;
+  uploadedAt: string;
+};
+
 export type ClothingResponse = ClothingRequest & {
   id: number;
   archived: boolean;
+  image: ClothingImageResponse | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -129,6 +137,7 @@ export type OutfitItemResponse = {
   category: ClothingCategory;
   color: ClothingColor;
   material: ClothingMaterial;
+  image: ClothingImageResponse | null;
 };
 
 export type RecommendationOutfitResponse = {
