@@ -4,8 +4,11 @@ import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   archiveClothing,
   createClothing,
+  deleteClothingImage,
+  getClothingImageBlob,
   getClothes,
   updateClothing,
+  uploadClothingImage,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import { ColorSwatch, MaterialChip } from '../../components/DisplayTokens';
@@ -62,6 +65,10 @@ const categoryVisualLabels: Record<ClothingCategory, string> = {
   OUTER: '겉',
 };
 
+const maxImageSizeBytes = 5 * 1024 * 1024;
+const allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
+
 const temperaturePresets: TemperaturePreset[] = [
   {
     id: 'deep-winter',
@@ -108,6 +115,14 @@ function validationError(message: string): ErrorResponse {
   };
 }
 
+function imageValidationError(message: string): ErrorResponse {
+  return {
+    code: 'INVALID_REQUEST',
+    message,
+    details: [{ field: 'image', message }],
+  };
+}
+
 function toClothingRequest(item: ClothingResponse): ClothingRequest {
   return {
     name: item.name,
@@ -144,6 +159,112 @@ function matchesPreset(form: ClothingRequest, preset: TemperaturePreset): boolea
   );
 }
 
+function validateImageFile(file: File): ErrorResponse | null {
+  if (file.size <= 0) {
+    return imageValidationError('비어 있는 이미지는 업로드할 수 없습니다.');
+  }
+
+  if (file.size > maxImageSizeBytes) {
+    return imageValidationError('이미지는 5MB 이하만 업로드할 수 있습니다.');
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (!allowedImageExtensions.has(extension)) {
+    return imageValidationError('jpg, png, webp 형식의 이미지만 업로드할 수 있습니다.');
+  }
+
+  if (!allowedImageTypes.has(file.type)) {
+    return imageValidationError('jpg, png, webp 형식의 이미지만 업로드할 수 있습니다.');
+  }
+
+  if (
+    (extension === 'jpg' || extension === 'jpeg') &&
+    file.type !== 'image/jpeg'
+  ) {
+    return imageValidationError('파일 확장자와 이미지 형식이 일치하지 않습니다.');
+  }
+  if (extension === 'png' && file.type !== 'image/png') {
+    return imageValidationError('파일 확장자와 이미지 형식이 일치하지 않습니다.');
+  }
+  if (extension === 'webp' && file.type !== 'image/webp') {
+    return imageValidationError('파일 확장자와 이미지 형식이 일치하지 않습니다.');
+  }
+
+  return null;
+}
+
+function ClothingThumbnail({
+  accessToken,
+  item,
+  onAuthExpired,
+}: {
+  accessToken: string;
+  item: ClothingResponse;
+  onAuthExpired: () => void;
+}) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const fallbackLabel = categoryVisualLabels[item.category];
+
+  useEffect(() => {
+    let active = true;
+    let nextObjectUrl: string | null = null;
+
+    setObjectUrl(null);
+    setFailed(false);
+
+    if (!item.image) {
+      return undefined;
+    }
+
+    getClothingImageBlob(accessToken, item.image.url)
+      .then((blob) => {
+        if (!active) {
+          return;
+        }
+        nextObjectUrl = URL.createObjectURL(blob);
+        setObjectUrl(nextObjectUrl);
+      })
+      .catch((caught) => {
+        if (!active) {
+          return;
+        }
+        if (isUnauthorizedError(caught)) {
+          onAuthExpired();
+          return;
+        }
+        setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      if (nextObjectUrl) {
+        URL.revokeObjectURL(nextObjectUrl);
+      }
+    };
+  }, [accessToken, item.image, onAuthExpired]);
+
+  if (item.image && objectUrl && !failed) {
+    return (
+      <div className="closet-thumbnail-frame">
+        <img src={objectUrl} alt={`${item.name} 이미지`} className="closet-thumbnail-image" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`closet-thumbnail-frame fallback ${item.category.toLowerCase()}`}>
+      <span
+        className={`closet-category-visual ${item.category.toLowerCase()}`}
+        aria-hidden="true"
+      >
+        {fallbackLabel}
+      </span>
+      <ColorSwatch color={item.color} />
+    </div>
+  );
+}
+
 type ClosetPanelProps = {
   accessToken: string;
   initialCategory?: ClothingCategory | null;
@@ -162,12 +283,18 @@ export function ClosetPanel({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [deleteImageRequested, setDeleteImageRequested] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
-  const loadClothes = useCallback(async () => {
+  const loadClothes = useCallback(async (preserveError = false) => {
     setLoading(true);
-    setError(null);
+    if (!preserveError) {
+      setError(null);
+    }
 
     try {
       const activeClothes = await getClothes(accessToken);
@@ -223,6 +350,59 @@ export function ClosetPanel({
   const resetForm = () => {
     setForm(defaultForm);
     setEditingId(null);
+    setSelectedImageFile(null);
+    setPreviewUrl(null);
+    setDeleteImageRequested(false);
+    setFileInputKey((current) => current + 1);
+  };
+
+  useEffect(() => {
+    if (!selectedImageFile) {
+      setPreviewUrl(null);
+      return undefined;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(selectedImageFile);
+    setPreviewUrl(nextPreviewUrl);
+
+    return () => {
+      URL.revokeObjectURL(nextPreviewUrl);
+    };
+  }, [selectedImageFile]);
+
+  const handleImageFileChange = (file: File | null) => {
+    setError(null);
+    setStatus(null);
+
+    if (!file) {
+      setSelectedImageFile(null);
+      return;
+    }
+
+    const imageError = validateImageFile(file);
+    if (imageError) {
+      setSelectedImageFile(null);
+      setFileInputKey((current) => current + 1);
+      setError(imageError);
+      return;
+    }
+
+    setDeleteImageRequested(false);
+    setSelectedImageFile(file);
+  };
+
+  const handleRequestImageDelete = () => {
+    setError(null);
+    setStatus(null);
+    setSelectedImageFile(null);
+    setDeleteImageRequested(true);
+    setFileInputKey((current) => current + 1);
+  };
+
+  const clearImageSelection = () => {
+    setSelectedImageFile(null);
+    setDeleteImageRequested(false);
+    setFileInputKey((current) => current + 1);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -249,14 +429,48 @@ export function ClosetPanel({
     try {
       if (editingId !== null) {
         const updated = await updateClothing(accessToken, editingId, requestBody);
-        setStatus(`${updated.name} 수정이 저장되었습니다.`);
+        let imageUpdated = updated;
+        try {
+          if (deleteImageRequested) {
+            imageUpdated = await deleteClothingImage(accessToken, editingId);
+          }
+          if (selectedImageFile) {
+            imageUpdated = await uploadClothingImage(accessToken, editingId, selectedImageFile);
+          }
+          setStatus(`${imageUpdated.name} 수정이 저장되었습니다.`);
+        } catch (caught) {
+          if (isUnauthorizedError(caught)) {
+            onAuthExpired();
+            return;
+          }
+          setStatus(`${updated.name} 정보는 저장됐지만 이미지 변경에 실패했습니다.`);
+          setError(toErrorResponse(caught, '이미지를 변경하지 못했습니다.'));
+        }
       } else {
         const created = await createClothing(accessToken, requestBody);
-        setStatus(`${created.name} 등록이 완료되었습니다.`);
+        if (selectedImageFile) {
+          try {
+            const imageUpdated = await uploadClothingImage(
+              accessToken,
+              created.id,
+              selectedImageFile
+            );
+            setStatus(`${imageUpdated.name} 등록과 이미지 저장이 완료되었습니다.`);
+          } catch (caught) {
+            if (isUnauthorizedError(caught)) {
+              onAuthExpired();
+              return;
+            }
+            setStatus(`${created.name}은 등록됐지만 이미지 저장에 실패했습니다.`);
+            setError(toErrorResponse(caught, '이미지를 저장하지 못했습니다.'));
+          }
+        } else {
+          setStatus(`${created.name} 등록이 완료되었습니다.`);
+        }
       }
 
       resetForm();
-      await loadClothes();
+      await loadClothes(true);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -273,6 +487,9 @@ export function ClosetPanel({
     setStatus(null);
     setEditingId(item.id);
     setForm(toClothingRequest(item));
+    setSelectedImageFile(null);
+    setDeleteImageRequested(false);
+    setFileInputKey((current) => current + 1);
   };
 
   const handleArchive = async (item: ClothingResponse) => {
@@ -374,6 +591,11 @@ export function ClosetPanel({
                       </span>
                       <span className="category-pill">{clothingCategoryLabels[item.category]}</span>
                     </div>
+                    <ClothingThumbnail
+                      accessToken={accessToken}
+                      item={item}
+                      onAuthExpired={onAuthExpired}
+                    />
                     <div className="closet-card-body">
                       <strong className="closet-item-name">{item.name}</strong>
                       <span className="token-row closet-token-row">
@@ -445,6 +667,73 @@ export function ClosetPanel({
               </button>
             ) : null}
           </div>
+
+          <section className="closet-image-editor" aria-label="옷 이미지 관리">
+            <div className="closet-image-preview">
+              {previewUrl ? (
+                <img src={previewUrl} alt="선택한 옷 이미지 미리보기" />
+              ) : editingItem?.image && !deleteImageRequested ? (
+                <ClothingThumbnail
+                  accessToken={accessToken}
+                  item={editingItem}
+                  onAuthExpired={onAuthExpired}
+                />
+              ) : (
+                <div className={`closet-thumbnail-frame fallback ${form.category.toLowerCase()}`}>
+                  <span
+                    className={`closet-category-visual ${form.category.toLowerCase()}`}
+                    aria-hidden="true"
+                  >
+                    {categoryVisualLabels[form.category]}
+                  </span>
+                  <ColorSwatch color={form.color} />
+                </div>
+              )}
+            </div>
+            <div className="closet-image-controls">
+              <label className="field image-file-field" htmlFor="clothing-image-file">
+                <span>{editingItem ? '이미지 교체' : '이미지 추가'}</span>
+                <input
+                  key={fileInputKey}
+                  id="clothing-image-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) =>
+                    handleImageFileChange(event.target.files?.item(0) ?? null)
+                  }
+                />
+              </label>
+              <p className="muted closet-image-help">jpg, png, webp / 최대 5MB</p>
+              {selectedImageFile ? (
+                <div className="closet-image-selection" role="status">
+                  <span>{selectedImageFile.name}</span>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={clearImageSelection}
+                    disabled={submitting}
+                  >
+                    선택 해제
+                  </button>
+                </div>
+              ) : null}
+              {editingItem?.image || deleteImageRequested ? (
+                <button
+                  className="secondary-button danger-button"
+                  type="button"
+                  onClick={handleRequestImageDelete}
+                  disabled={submitting || deleteImageRequested}
+                >
+                  {deleteImageRequested ? '삭제 예정' : '이미지 삭제'}
+                </button>
+              ) : null}
+              {deleteImageRequested ? (
+                <p className="muted closet-image-help" role="status">
+                  저장하면 이 옷의 이미지가 삭제됩니다.
+                </p>
+              ) : null}
+            </div>
+          </section>
 
           <label className="field wide">
             <span>옷 이름</span>
