@@ -1,0 +1,13 @@
+{
+  "project": "SmartCloset",
+  "phase": "5-smartcloset-clothing-images",
+  "steps": [
+    { "step": 0, "name": "mvp5-scope-docs", "status": "pending" },
+    { "step": 1, "name": "image-storage-foundation", "status": "pending" },
+    { "step": 2, "name": "clothing-image-api", "status": "pending" },
+    { "step": 3, "name": "image-response-dtos", "status": "pending" },
+    { "step": 4, "name": "closet-image-ux", "status": "pending" },
+    { "step": 5, "name": "recommendation-thumbnail-ux", "status": "pending" },
+    { "step": 6, "name": "compose-docs-qa", "status": "pending" }
+  ]
+}

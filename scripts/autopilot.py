@@ -119,6 +119,8 @@ class AutopilotRunner:
         "넣지",
         "만들지",
         "허용하지",
+        "포함하지",
+        "포함되지",
         "남기지",
         "되살리지",
         "쓰이지 않았",
@@ -129,9 +131,9 @@ class AutopilotRunner:
         "필수처럼 보이지",
         "처럼 보이는",
         "범위가 아니다",
+        "범위가 아니",
         "범위 밖",
         "후속 mvp",
-        "mvp5",
         "can revisit",
         "1차 이후",
         "후보로 이동",
@@ -518,6 +520,7 @@ class AutopilotRunner:
                 safe_section
                 or any(marker in lowered for marker in self.SAFE_NEGATION_MARKERS)
                 or any(lowered.startswith(prefix) for prefix in self.SAFE_COMMAND_PREFIXES)
+                or self._line_in_safe_section(current_file, line_no)
             ):
                 continue
 
@@ -553,14 +556,33 @@ class AutopilotRunner:
             messages.append("외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.")
         if "AWS" in line and any(word in line for word in ("필수", "구현", "배포")):
             messages.append("AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.")
-        if "CD" in line and any(word in line for word in ("필수", "구현", "배포", "자동화")):
+        if (
+            any(term in line for term in ("CD 자동화", "CD 배포"))
+            or "cd automation" in lowered
+            or "cd deployment" in lowered
+        ) and any(word in line for word in ("필수", "구현", "배포", "자동화")):
             messages.append("CD 자동화 범위가 추가되었습니다.")
         if any(term in line for term in ("AI/GPT", "GPT 추천", "AI 추천")):
             messages.append("AI/GPT 추천 범위가 추가되었습니다.")
+        if "AI 자동 태깅" in line or "ai automatic tagging" in lowered:
+            messages.append("AI 자동 태깅 범위가 추가되었습니다.")
         if "Redis" in line:
             messages.append("Redis 범위가 추가되었습니다.")
-        if "이미지 업로드" in line or "image upload" in lowered:
-            messages.append("이미지 업로드 범위가 추가되었습니다.")
+        if "다중 이미지" in line or "multiple image" in lowered or "multiple images" in lowered:
+            messages.append("다중 이미지 범위가 추가되었습니다.")
+        if any(term in line for term in ("이미지 편집", "이미지 크롭", "이미지 리사이즈", "이미지 압축")):
+            messages.append("이미지 편집/크롭/리사이즈/압축 범위가 추가되었습니다.")
+        if any(term in lowered for term in ("image editing", "image cropping", "image resizing", "image compression")):
+            messages.append("이미지 편집/크롭/리사이즈/압축 범위가 추가되었습니다.")
+        if "S3" in line or "CDN" in line or "external image hosting" in lowered or "외부 image hosting" in line:
+            messages.append("S3/CDN/external image hosting 범위가 추가되었습니다.")
+        if (
+            "이미지 기반 추천 점수" in line
+            or "이미지 기반 추천 이유" in line
+            or "image-based recommendation scoring" in lowered
+            or "image-based recommendation reason" in lowered
+        ):
+            messages.append("이미지 기반 추천 점수/이유 범위가 추가되었습니다.")
         if any(term in lowered for term in ("external address", "external map", "map api", "address api")):
             messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
         if "외부 주소" in line or "외부 지도" in line or "지도 API" in line or "주소 API" in line:
@@ -587,6 +609,28 @@ class AutopilotRunner:
             or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
             or self.STEP_OUTPUT_RE.match(path) is not None
         )
+
+    def _line_in_safe_section(self, path: str, line_no: int) -> bool:
+        if not path or line_no <= 0:
+            return False
+        file_path = self.root / path
+        if not file_path.exists() or not file_path.is_file():
+            return False
+        try:
+            lines = file_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return False
+        start = min(line_no - 1, len(lines) - 1)
+        for raw in reversed(lines[: start + 1]):
+            line = raw.strip()
+            if not line:
+                continue
+            lowered = line.lower()
+            if line.startswith("#"):
+                return any(marker in lowered for marker in self.SAFE_SECTION_MARKERS)
+            if line.endswith(":") and any(marker in lowered for marker in self.SAFE_SECTION_MARKERS):
+                return True
+        return False
 
     def _run_codex_review(self, step: dict) -> ReviewResult:
         prompt = self._codex_review_prompt(step)

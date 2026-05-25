@@ -10,7 +10,7 @@
 - `docs/ERD.md`
 - `docs/DEMO_SCENARIO.md`
 - `docs/SHARING_GUIDE.md`
-- `docs/design/mvp4/README.md`
+- `docs/design/mvp5/README.md`
 - `docs/adr/`
 
 ## 규칙
@@ -19,8 +19,8 @@
 - 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
 - `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
 - `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
-- 현재 구현 baseline은 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전까지다.
-- MVP4 범위는 `docs/PRD.md`와 ADR에서 승인된 뒤 구현한다.
+- 현재 구현 baseline은 MVP4 완료 상태다. 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전, 현재 날씨 요약 API, 반응형 실사용 UX까지 완료되어 있다.
+- MVP5 범위는 `docs/PRD.md`와 ADR-010에서 승인된 옷 이미지 업로드 MVP다.
 - 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`만 둔다.
 - 보호 API는 `Authorization: Bearer {accessToken}`을 요구한다.
 - 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
@@ -43,9 +43,19 @@
 - `preferenceScore`는 최대 10점이며 선호 색상 일치 5점, 선호 소재 일치 5점으로 계산한다.
 - 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`이다.
 - `styleTags`는 저장/조회/표시만 하고 추천 점수와 추천 이유에는 반영하지 않는다.
-- 선호도 별도 테이블 정규화는 후속 MVP 후보이며 MVP4에서는 구현하지 않는다.
-- MVP-3 완료 baseline 전환 시 로컬 Docker Compose DB는 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
-- AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, 이미지 업로드, Redis는 구현하지 않는다.
+- 선호도 별도 테이블 정규화는 후속 MVP 후보이며 MVP5에서는 구현하지 않는다.
+- MVP5에서는 옷 1개당 이미지 1장 업로드를 지원한다.
+- 기존 `POST /api/clothes`, `PUT /api/clothes/{clothingId}` JSON API는 유지한다.
+- 이미지 업로드/교체는 `PUT /api/clothes/{clothingId}/image` 보호 API를 사용한다.
+- 이미지 조회는 `GET /api/clothes/{clothingId}/image` 보호 API를 사용한다.
+- 이미지 삭제는 `DELETE /api/clothes/{clothingId}/image` 보호 API를 사용하며 idempotent해야 한다.
+- 이미지 API도 현재 인증 사용자 소유 옷만 접근할 수 있다.
+- 이미지 파일은 Docker Compose 기준 로컬 파일 또는 volume 저장부터 시작한다.
+- 이미지 제한은 5MB, jpg/jpeg/png/webp, 허용 MIME type `image/jpeg`, `image/png`, `image/webp`다.
+- 이미지 존재 여부는 추천 점수, 추천 후보 필터링, 추천 이유에 반영하지 않는다.
+- AI 자동 태깅은 MVP5 범위가 아니며 수동 입력을 유지한다.
+- 로컬 Docker Compose baseline 전환 시 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
+- AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, AI 자동 태깅, 다중 이미지, 이미지 압축 파이프라인, EXIF 분석, image moderation, S3/CDN, 이미지 기반 추천 이유 생성, Redis는 구현하지 않는다.
 - 공유 방식은 Docker Compose 기준이다.
 - 커밋은 항상 Codex 앱 커밋 지침을 따른다.
 - 자동 PR 루프는 clean worktree에서만 실행하고, Codex 앱 커밋/PR 지침을 따른다.
@@ -62,7 +72,7 @@
 - Harness 자동 실행은 `scripts/execute.py`와 `scripts/autopilot.py`의 effort 옵션을 우선하며, `xhigh`는 명시적 허용 옵션이 있을 때만 사용한다.
 
 ## Harness step PR 리뷰 규칙
-- 완료된 MVP-3 phase 기준은 phase 전체 완료 기준이다.
+- 완료된 phase 기준은 phase 전체 완료 기준이다.
 - 중간 step PR 구현과 리뷰는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
 - 아직 미래 step에 배정된 기능이 없다는 이유만으로 현재 step PR을 blocker 처리하지 않는다.
 - 현재 step이 미래 step 범위를 선행 구현하면 blocker로 본다.
