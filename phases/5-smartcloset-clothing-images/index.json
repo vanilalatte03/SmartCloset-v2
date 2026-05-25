@@ -40,7 +40,7 @@
       "status": "completed",
       "started_at": "2026-05-25T20:39:05+0900",
       "summary": "Closet view에 인증 이미지 썸네일, 파일 선택/미리보기, 등록 후 업로드, 수정 중 교체/삭제 UX를 추가했다.",
-      "completed_at": "2026-05-25T20:43:44+0900"
+      "completed_at": "2026-05-25T20:44:53+0900"
     },
     {
       "step": 5,
