@@ -10,6 +10,8 @@
 - 이미지 조회는 보호 API `GET /api/clothes/{clothingId}/image`로 처리한다.
 - 이미지 삭제는 보호 API `DELETE /api/clothes/{clothingId}/image`로 처리한다.
 - 이미지 API도 현재 인증 사용자 소유 옷만 접근할 수 있다.
+- 회원가입 직후 기본 옷 프리셋 5개를 생성한다.
+- 기존 계정은 로그인 시 옷이 0개이면 같은 프리셋을 한 번만 생성한다.
 - 공개 `userId` query parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
 
@@ -96,7 +98,7 @@
 }
 ```
 
-회원가입 시 서버는 기본 위치 `SEOUL`과 빈 선호도를 함께 생성한다.
+회원가입 시 서버는 기본 위치 `SEOUL`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다. 기본 옷 프리셋도 현재 사용자 소유 옷이므로 `GET /api/clothes`와 보호 이미지 API로만 조회한다.
 
 ### LoginRequest
 
@@ -106,6 +108,8 @@
   "password": "password123!"
 }
 ```
+
+로그인 시 현재 사용자 옷이 0개이면 서버는 기본 옷 프리셋 5개를 한 번만 생성한다. 옷 row가 하나라도 있으면 archived 상태와 관계없이 자동 프리셋을 추가하지 않는다.
 
 ### AuthResponse
 
@@ -201,6 +205,21 @@ JWT access token 정책:
 - 현재 인증 사용자의 `archived=false` 옷만 반환한다.
 - 정렬은 기존 구현 기준인 `id` 오름차순을 유지한다.
 - 각 옷의 `image`는 nullable이다.
+- 신규 가입 직후에는 기본 옷 프리셋 5개가 이미지 metadata와 함께 반환된다.
+
+### 기본 옷 프리셋
+
+서버는 신규 가입자와 옷이 0개인 기존 로그인 사용자에게 아래 프리셋을 현재 사용자 소유 옷으로 생성한다.
+
+| Name | Category | Color | Material | Min | Max | Rain |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| 화이트 반팔 티셔츠 | `TOP` | `WHITE` | `COTTON` | 8 | 30 | false |
+| 블랙 반팔 티셔츠 | `TOP` | `BLACK` | `COTTON` | 8 | 30 | false |
+| 흑청 데님 팬츠 | `BOTTOM` | `BLACK` | `DENIM` | 0 | 28 | false |
+| 진청 데님 팬츠 | `BOTTOM` | `BLUE` | `DENIM` | 0 | 28 | false |
+| 블랙 가디건 | `OUTER` | `BLACK` | `KNIT` | 8 | 20 | false |
+
+프리셋 이미지는 번들 resource에서 사용자별 UUID 파일로 복사해 저장하며 content type은 `image/jpeg`이다. 삭제, 교체, 조회 규칙은 사용자가 직접 업로드한 이미지와 동일하다.
 
 ### 옷 등록
 

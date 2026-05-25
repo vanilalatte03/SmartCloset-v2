@@ -39,6 +39,17 @@ class FileSystemClothingImageStorageTest {
     }
 
     @Test
+    void storesBytesWithUuidFilename() throws Exception {
+        FileSystemClothingImageStorage storage = storage();
+
+        StoredClothingImage stored = storage.store(new byte[] {9, 8, 7}, "jpg");
+
+        assertThat(stored.storedFilename()).endsWith(".jpg");
+        assertThat(stored.path()).isEqualTo(tempDir.resolve(stored.storedFilename()).toAbsolutePath().normalize());
+        assertThat(Files.readAllBytes(tempDir.resolve(stored.storedFilename()))).containsExactly(9, 8, 7);
+    }
+
+    @Test
     void readReturnsEmptyWhenFileDoesNotExist() {
         FileSystemClothingImageStorage storage = storage();
 

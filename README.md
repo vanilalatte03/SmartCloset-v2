@@ -16,6 +16,7 @@ SmartCloset은 사용자의 옷장 데이터와 사용자별 위치 날씨를 �
 - KMA `getVilageFcst` JSON 기반 weather provider와 fallback weather
 - 규칙 기반 추천 점수 100점 체계와 `preferenceScore`
 - Docker Compose 공유 방식과 이미지 저장 volume
+- 신규 가입자와 기존 옷 0개 계정의 기본 옷 프리셋 자동 제공
 
 ## MVP5 목표
 
@@ -29,6 +30,7 @@ MVP5의 목표는 사용자가 텍스트와 enum만 보던 옷장을 실제 옷 
 - 옷 목록, 옷 상세, 추천 결과, 추천 이력에 썸네일 표시
 - Docker Compose 기준 로컬 파일 또는 볼륨 저장
 - 파일 크기, 확장자, MIME type 검증
+- 기본 옷 5개와 상품컷 이미지 자동 생성
 - 이미지가 없는 옷은 기존 카테고리 glyph, 색상 swatch, 소재 chip으로 fallback
 
 ### 제외 범위
@@ -91,6 +93,20 @@ MVP5에서 추가할 보호 API:
 | Compose 저장 경로 | `CLOTHING_IMAGE_STORAGE_DIR=/data/smartcloset/clothing-images` |
 
 이미지 URL은 DTO에 `/api/clothes/{clothingId}/image` 형태로 노출합니다. 프론트는 Authorization header가 필요하므로 일반 `<img src>` 직접 참조 대신 blob fetch 후 object URL을 사용합니다.
+
+## 기본 옷 프리셋
+
+신규 가입자는 회원가입 직후 기본 옷 5개를 개인 옷장에 받습니다. 기존 계정도 로그인 시 옷이 0개라면 같은 프리셋을 한 번만 받습니다.
+
+| 이름 | Category | Color | Material | Temperature | Rain |
+| --- | --- | --- | --- | --- | --- |
+| 화이트 반팔 티셔츠 | `TOP` | `WHITE` | `COTTON` | 8~30 | false |
+| 블랙 반팔 티셔츠 | `TOP` | `BLACK` | `COTTON` | 8~30 | false |
+| 흑청 데님 팬츠 | `BOTTOM` | `BLACK` | `DENIM` | 0~28 | false |
+| 진청 데님 팬츠 | `BOTTOM` | `BLUE` | `DENIM` | 0~28 | false |
+| 블랙 가디건 | `OUTER` | `BLACK` | `KNIT` | 8~20 | false |
+
+프리셋 이미지는 앱에 번들된 상품컷 이미지를 사용자별 UUID 파일로 복사해 저장합니다. 사용자가 프리셋 이미지를 삭제하거나 교체해도 다른 사용자에게 영향이 없습니다.
 
 ## 추천 규칙
 

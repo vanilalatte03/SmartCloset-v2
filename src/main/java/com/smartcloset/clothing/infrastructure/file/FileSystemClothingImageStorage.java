@@ -24,14 +24,19 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
 
     @Override
     public StoredClothingImage store(MultipartFile image, String extension) {
-        String storedFilename = UUID.randomUUID() + "." + extension;
-        Path target = resolve(storedFilename);
         try {
-            Files.createDirectories(storageRoot);
             try (InputStream inputStream = image.getInputStream()) {
-                Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
+                return store(inputStream, extension);
             }
-            return new StoredClothingImage(storedFilename, target);
+        } catch (IOException exception) {
+            throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public StoredClothingImage store(byte[] bytes, String extension) {
+        try {
+            return store(new java.io.ByteArrayInputStream(bytes), extension);
         } catch (IOException exception) {
             throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
@@ -76,5 +81,13 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         } catch (InvalidPathException exception) {
             throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private StoredClothingImage store(InputStream inputStream, String extension) throws IOException {
+        String storedFilename = UUID.randomUUID() + "." + extension;
+        Path target = resolve(storedFilename);
+        Files.createDirectories(storageRoot);
+        Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
+        return new StoredClothingImage(storedFilename, target);
     }
 }
