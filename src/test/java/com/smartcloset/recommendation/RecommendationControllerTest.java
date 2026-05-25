@@ -27,6 +27,7 @@ import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.domain.WeatherType;
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -187,6 +188,43 @@ class RecommendationControllerTest {
 
         assertThat(styleTagsData.get("score")).isEqualTo(emptyStyleTagsData.get("score"));
         assertThat(styleTagsData.get("reasons")).isEqualTo(emptyStyleTagsData.get("reasons"));
+    }
+
+    @Test
+    void includesNullableImageMetadataWithoutChangingRecommendationScoreOrReasons() throws Exception {
+        User noImageUser = createUserWithP0Closet("recommendation-no-image-user");
+        User imageUser = createUserWithP0Closet("recommendation-image-user");
+        ClothingItem imageTop = findActiveClothingByCategory(imageUser, ClothingCategory.TOP);
+        imageTop.updateImageMetadata("top-image.jpg", "image/jpeg", 123_456L, LocalDateTime.of(2026, 5, 25, 10, 0));
+        clothingItemRepository.flush();
+
+        MvcResult noImageResult = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(noImageUser)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.outfit.top.image").doesNotExist())
+                .andReturn();
+        MvcResult imageResult = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(imageUser)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.outfit.top.image.url").value("/api/clothes/" + imageTop.getId() + "/image"))
+                .andExpect(jsonPath("$.data.outfit.top.image.contentType").value("image/jpeg"))
+                .andExpect(jsonPath("$.data.outfit.top.image.sizeBytes").value(123_456L))
+                .andExpect(jsonPath("$.data.outfit.top.image.uploadedAt").exists())
+                .andReturn();
+
+        JsonNode noImageData = objectMapper.readTree(noImageResult.getResponse().getContentAsString()).get("data");
+        JsonNode imageData = objectMapper.readTree(imageResult.getResponse().getContentAsString()).get("data");
+        assertThat(noImageData.get("outfit").get("top").get("image").isNull()).isTrue();
+        assertThat(imageData.get("score")).isEqualTo(noImageData.get("score"));
+        assertThat(imageData.get("reasons")).isEqualTo(noImageData.get("reasons"));
+        assertThat(imageData.has("userId")).isFalse();
+
+        mockMvc.perform(get("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(imageUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].outfit.top.image.url").value("/api/clothes/" + imageTop.getId() + "/image"))
+                .andExpect(jsonPath("$.data[0].outfit.bottom.image").doesNotExist())
+                .andExpect(jsonPath("$.data[0].userId").doesNotExist());
     }
 
     @Test
@@ -421,5 +459,13 @@ class RecommendationControllerTest {
         ));
         clothingItemRepository.flush();
         return user;
+    }
+
+    private ClothingItem findActiveClothingByCategory(User user, ClothingCategory category) {
+        return clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(user.getId())
+                .stream()
+                .filter(item -> item.getCategory() == category)
+                .findFirst()
+                .orElseThrow();
     }
 }
