@@ -1,6 +1,10 @@
 spring:
   application:
     name: smartcloset
+  servlet:
+    multipart:
+      max-file-size: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
+      max-request-size: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/smartcloset?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
     username: ${SPRING_DATASOURCE_USERNAME:smartcloset}
@@ -24,6 +28,10 @@ smartcloset:
   security:
     jwt:
       secret: "${JWT_SECRET:change-me-local-development-only}"
+  clothing:
+    image:
+      storage-dir: ${CLOTHING_IMAGE_STORAGE_DIR:./uploads/clothing-images}
+      max-size-bytes: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
   weather:
     fallback-enabled: ${WEATHER_FALLBACK_ENABLED:true}
     kma:
