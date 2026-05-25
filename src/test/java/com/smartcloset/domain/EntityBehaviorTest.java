@@ -13,6 +13,7 @@ import com.smartcloset.recommendation.domain.RecommendationScore;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 class EntityBehaviorTest {
@@ -47,6 +48,38 @@ class EntityBehaviorTest {
         assertThat(item.getName()).isEqualTo("Warm Gray Knit");
         assertThat(item.getMinTemperature()).isEqualTo(3);
         assertThat(item.getMaxTemperature()).isEqualTo(16);
+    }
+
+    @Test
+    void clothingImageMetadataCanBeUpdatedAndClearedWithoutChangingDetails() {
+        User user = User.createSeedUser("demo-user");
+        ClothingItem item = ClothingItem.create(
+                user,
+                "Gray Knit",
+                ClothingCategory.TOP,
+                ClothingColor.GRAY,
+                ClothingMaterial.KNIT,
+                5,
+                18,
+                false
+        );
+        LocalDateTime uploadedAt = LocalDateTime.of(2026, 5, 25, 10, 0);
+
+        item.updateImageMetadata("image-uuid.jpg", "image/jpeg", 123_456L, uploadedAt);
+
+        assertThat(item.getImageStoredFilename()).isEqualTo("image-uuid.jpg");
+        assertThat(item.getImageContentType()).isEqualTo("image/jpeg");
+        assertThat(item.getImageSizeBytes()).isEqualTo(123_456L);
+        assertThat(item.getImageUploadedAt()).isEqualTo(uploadedAt);
+        assertThat(item.getName()).isEqualTo("Gray Knit");
+        assertThat(item.isArchived()).isFalse();
+
+        item.clearImageMetadata();
+
+        assertThat(item.getImageStoredFilename()).isNull();
+        assertThat(item.getImageContentType()).isNull();
+        assertThat(item.getImageSizeBytes()).isNull();
+        assertThat(item.getImageUploadedAt()).isNull();
     }
 
     @Test

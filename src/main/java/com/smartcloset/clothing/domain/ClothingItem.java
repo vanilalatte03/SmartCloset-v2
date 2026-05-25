@@ -14,6 +14,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -60,6 +61,18 @@ public class ClothingItem extends BaseTimeEntity {
 
     @Column(name = "archived", nullable = false)
     private boolean archived;
+
+    @Column(name = "image_stored_filename", length = 255)
+    private String imageStoredFilename;
+
+    @Column(name = "image_content_type", length = 100)
+    private String imageContentType;
+
+    @Column(name = "image_size_bytes")
+    private Long imageSizeBytes;
+
+    @Column(name = "image_uploaded_at")
+    private LocalDateTime imageUploadedAt;
 
     protected ClothingItem() {
     }
@@ -115,6 +128,25 @@ public class ClothingItem extends BaseTimeEntity {
         this.archived = true;
     }
 
+    public void updateImageMetadata(
+            String storedFilename,
+            String contentType,
+            long sizeBytes,
+            LocalDateTime uploadedAt
+    ) {
+        this.imageStoredFilename = requireImageStoredFilename(storedFilename);
+        this.imageContentType = requireImageContentType(contentType);
+        this.imageSizeBytes = requireImageSizeBytes(sizeBytes);
+        this.imageUploadedAt = Objects.requireNonNull(uploadedAt, "uploadedAt must not be null");
+    }
+
+    public void clearImageMetadata() {
+        this.imageStoredFilename = null;
+        this.imageContentType = null;
+        this.imageSizeBytes = null;
+        this.imageUploadedAt = null;
+    }
+
     public boolean belongsTo(Long userId) {
         return user != null && Objects.equals(user.getId(), userId);
     }
@@ -159,6 +191,22 @@ public class ClothingItem extends BaseTimeEntity {
         return archived;
     }
 
+    public String getImageStoredFilename() {
+        return imageStoredFilename;
+    }
+
+    public String getImageContentType() {
+        return imageContentType;
+    }
+
+    public Long getImageSizeBytes() {
+        return imageSizeBytes;
+    }
+
+    public LocalDateTime getImageUploadedAt() {
+        return imageUploadedAt;
+    }
+
     private String requireName(String name) {
         Objects.requireNonNull(name, "name must not be null");
         if (name.isBlank()) {
@@ -168,6 +216,35 @@ public class ClothingItem extends BaseTimeEntity {
             throw new IllegalArgumentException("name must be 50 characters or less");
         }
         return name;
+    }
+
+    private String requireImageStoredFilename(String storedFilename) {
+        Objects.requireNonNull(storedFilename, "storedFilename must not be null");
+        if (storedFilename.isBlank()) {
+            throw new IllegalArgumentException("storedFilename must not be blank");
+        }
+        if (storedFilename.length() > 255) {
+            throw new IllegalArgumentException("storedFilename must be 255 characters or less");
+        }
+        return storedFilename;
+    }
+
+    private String requireImageContentType(String contentType) {
+        Objects.requireNonNull(contentType, "contentType must not be null");
+        if (contentType.isBlank()) {
+            throw new IllegalArgumentException("contentType must not be blank");
+        }
+        if (contentType.length() > 100) {
+            throw new IllegalArgumentException("contentType must be 100 characters or less");
+        }
+        return contentType;
+    }
+
+    private Long requireImageSizeBytes(long sizeBytes) {
+        if (sizeBytes <= 0) {
+            throw new IllegalArgumentException("sizeBytes must be positive");
+        }
+        return sizeBytes;
     }
 
     private void validateTemperatureRange(int minTemperature, int maxTemperature) {
