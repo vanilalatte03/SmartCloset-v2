@@ -15,6 +15,8 @@ ADR-010은 MVP5를 옷 이미지 업로드 MVP로 확정하고, 기존 옷 JSON 
 
 ADR-011은 MVP6를 추천 피드백/개인화 MVP로 확정하고, 추천 상황, 옷별 `styleTags`, 추천 피드백 snapshot, `preferenceScore` 내부 확장 방식을 정의한다.
 
+ADR-012는 MVP7을 위치/날씨 신뢰도 MVP로 확정하고, KMA 행정구역 catalog, 브라우저 좌표 resolve, 예보 시간대 선택, 위치/날씨 source snapshot 저장 방식을 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -26,3 +28,4 @@ ADR-011은 MVP6를 추천 피드백/개인화 MVP로 확정하고, 추천 상황
 - [ADR-009: Define MVP4 as Responsive Usable UX](adr/009-mvp4-usable-ux.md)
 - [ADR-010: Define MVP5 as Clothing Image Upload](adr/010-mvp5-clothing-images.md)
 - [ADR-011: Define MVP6 as Feedback Personalization](adr/011-mvp6-feedback-personalization.md)
+- [ADR-012: Define MVP7 as Location Weather Trust](adr/012-mvp7-location-weather-trust.md)

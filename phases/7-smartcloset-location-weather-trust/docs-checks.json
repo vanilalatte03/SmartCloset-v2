@@ -1,0 +1,115 @@
+{
+  "paths": [
+    "README.md",
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/ERD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/FRONTEND.md",
+    "docs/DEMO_SCENARIO.md",
+    "docs/SHARING_GUIDE.md",
+    "docs/COMMANDS.md",
+    "docs/ADR.md",
+    "docs/adr/012-mvp7-location-weather-trust.md",
+    ".codex/agents",
+    "phases/7-smartcloset-location-weather-trust"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "MVP7 current docs marker",
+      "paths": ["README.md", "docs/PRD.md"],
+      "pattern": "MVP7.*위치/날씨 신뢰도"
+    },
+    {
+      "name": "ADR-012 linked",
+      "paths": ["docs/ADR.md"],
+      "pattern": "ADR-012"
+    },
+    {
+      "name": "Location resolve API",
+      "paths": ["docs/API.md"],
+      "pattern": "POST /api/locations/resolve"
+    },
+    {
+      "name": "ForecastPeriod API",
+      "paths": ["docs/API.md", "docs/RECOMMENDATION_RULES.md"],
+      "pattern": "ForecastPeriod"
+    },
+    {
+      "name": "Weather source response",
+      "paths": ["docs/API.md"],
+      "pattern": "WeatherSourceResponse"
+    },
+    {
+      "name": "Recommendation weather snapshot ERD",
+      "paths": ["docs/ERD.md"],
+      "pattern": "weather_provider"
+    },
+    {
+      "name": "No raw KMA storage decision",
+      "paths": ["docs/PRD.md", "docs/adr/012-mvp7-location-weather-trust.md"],
+      "pattern": "raw KMA.*저장하지"
+    },
+    {
+      "name": "Frontend geolocation UX",
+      "paths": ["docs/FRONTEND.md"],
+      "pattern": "Geolocation"
+    },
+    {
+      "name": "Phase docs exist",
+      "paths": ["phases/7-smartcloset-location-weather-trust/README.md"],
+      "pattern": "Location Weather Trust"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "external map API implemented",
+      "pattern": "외부 (지도|주소).*API.*구현한다|카카오.*API.*구현한다|네이버.*API.*구현한다|VWorld.*API.*구현한다"
+    },
+    {
+      "name": "raw KMA response storage implemented",
+      "pattern": "raw KMA 응답 JSON을 저장한다|KMA 원본 응답을 저장한다"
+    },
+    {
+      "name": "forbidden MVP7 out-of-scope implementation",
+      "pattern": "AI/GPT 추천.*구현한다|AI 자동 태[깅].*구현한다|Redis.*구현한다|AWS.*자동화.*구현한다|S3.*구현한다|CDN.*구현한다"
+    },
+    {
+      "name": "docker compose config must be quiet",
+      "paths": [
+        "README.md",
+        "docs/PRD.md",
+        "docs/COMMANDS.md",
+        "phases/7-smartcloset-location-weather-trust"
+      ],
+      "pattern": "docker compose config(?! --quiet)"
+    }
+  ]
+}

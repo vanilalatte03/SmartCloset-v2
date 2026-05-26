@@ -1,10 +1,10 @@
-# Frontend: SmartCloset MVP6 Feedback Personalization
+# Frontend: SmartCloset MVP7 Location Weather Trust
 
 ## 목표
 
-MVP6 프론트엔드는 MVP5 반응형 웹앱 위에 추천 상황 선택, 추천 피드백 저장/clear, 옷별 `styleTags`, 추천 이력의 착용/피드백 표시를 추가한다.
+MVP7 프론트엔드는 MVP6 반응형 웹앱 위에 동네 단위 위치 검색, 브라우저 현재 위치 후보 찾기, 오전/오후/저녁 예보 선택, 추천 결과와 이력의 위치/날씨 source 표시를 추가한다.
 
-사용자는 Today view에서 상황을 고르고 추천을 생성한 뒤, 추천 결과에 대해 "마음에 들어요", "별로예요", "추웠어요", "더웠어요" 피드백을 남길 수 있어야 한다.
+사용자는 Today view에서 "이 추천은 어느 동네, 어떤 예보 시각, KMA인지 fallback인지"를 바로 확인할 수 있어야 한다.
 
 ## 기술 기준
 
@@ -19,31 +19,36 @@ MVP6 프론트엔드는 MVP5 반응형 웹앱 위에 추천 상황 선택, 추�
 
 ## 인증 상태 기준
 
-추천 피드백 API와 이미지 API는 모두 보호 API다. 모든 보호 API 요청에는 `Authorization: Bearer {accessToken}` header가 필요하다.
+위치 검색, 좌표 resolve, 현재 날씨, 추천 생성, 이미지 API는 모두 보호 API다. 모든 보호 API 요청에는 `Authorization: Bearer {accessToken}` header가 필요하다.
 
 `401`은 기존 보호 API와 동일하게 인증 만료로 처리한다.
 
 ## API Client 기준
 
-MVP6에서 추가/변경할 함수:
+MVP7에서 추가/변경할 함수:
 
+- `searchLocations(accessToken, keyword?)`
+- `resolveLocation(accessToken, request)`
+- `getUserLocation(accessToken)`
+- `updateUserLocation(accessToken, request)`
+- `getCurrentWeather(accessToken)`
 - `createRecommendation(accessToken, request?)`
-- `replaceRecommendationFeedback(accessToken, recommendationId, request)`는 `RecommendationFeedbackResponse`를 반환한다.
+- 기존 `replaceRecommendationFeedback(accessToken, recommendationId, request)` 유지
 - 기존 `markRecommendationWorn(accessToken, recommendationId)` 유지
-- 옷 등록/수정 request에 `styleTags` 포함
 
 추천 생성:
 
 - body 없이 호출 가능해야 한다.
-- 사용자가 상황을 선택하면 `{ situation }` body를 보낸다.
+- 사용자가 상황만 선택하면 `{ situation }` body를 보낸다.
+- 사용자가 시간대만 선택하면 `{ forecastPeriod }` body를 보낸다.
 - situation이 없으면 서버 기본값 `CASUAL`을 신뢰한다.
+- forecastPeriod가 없으면 서버 기본값 `CURRENT`를 신뢰한다.
 
-피드백 저장:
+위치 resolve:
 
-- PUT은 전체 교체다.
-- 선택하지 않은 필드는 보내지 않아도 되지만 client type에서는 명시적으로 `null`을 보내도 된다.
-- clear action은 `{ sentiment: null, thermal: null }` 또는 `{}`로 보낼 수 있다.
-- 저장 후 Today 결과와 History 카드 상태를 갱신한다.
+- 브라우저 Geolocation API 성공 후 `{ latitude, longitude }`를 전송한다.
+- resolve 결과는 자동 저장하지 않는다.
+- 사용자가 후보를 선택하면 `PUT /api/users/me/location`을 호출한다.
 
 이미지 blob fetch:
 
@@ -53,61 +58,96 @@ MVP6에서 추가/변경할 함수:
 ## 타입 기준
 
 ```ts
-export type RecommendationSituation =
-  | 'WORK'
-  | 'CASUAL'
-  | 'WORKOUT'
-  | 'DATE'
-  | 'FORMAL';
+export type LocationSource = 'MANUAL_SEARCH' | 'BROWSER_GEOLOCATION';
 
-export type RecommendationFeedbackSentiment = 'LIKED' | 'DISLIKED';
+export type ForecastPeriod = 'CURRENT' | 'MORNING' | 'AFTERNOON' | 'EVENING';
 
-export type RecommendationThermalFeedback = 'TOO_COLD' | 'TOO_HOT';
-
-export type RecommendationRequest = {
-  situation?: RecommendationSituation;
+export type LocationOptionResponse = {
+  code: string;
+  name: string;
+  fullName: string;
+  region1: string;
+  region2: string | null;
+  region3: string | null;
+  nx: number;
+  ny: number;
+  latitude: number | null;
+  longitude: number | null;
 };
 
-export type RecommendationFeedbackRequest = {
-  sentiment?: RecommendationFeedbackSentiment | null;
-  thermal?: RecommendationThermalFeedback | null;
+export type LocationResolveRequest = {
+  latitude: number;
+  longitude: number;
 };
 
-export type RecommendationFeedbackStateResponse = {
-  sentiment: RecommendationFeedbackSentiment | null;
-  thermal: RecommendationThermalFeedback | null;
+export type LocationGridResponse = {
+  nx: number;
+  ny: number;
+};
+
+export type LocationResolveResponse = {
+  grid: LocationGridResponse;
+  nearest: LocationOptionResponse | null;
+  candidates: LocationOptionResponse[];
+};
+
+export type UserLocationResponse = {
+  code: string;
+  name: string;
+  fullName: string;
+  region1: string;
+  region2: string | null;
+  region3: string | null;
+  nx: number;
+  ny: number;
+  source: LocationSource;
   updatedAt: string;
 };
 
-export type RecommendationFeedbackResponse = {
-  recommendationId: number;
-  feedback: RecommendationFeedbackStateResponse | null;
+export type UpdateUserLocationRequest = {
+  locationCode: string;
+  source?: LocationSource;
 };
 
-export type ClothingRequest = {
+export type WeatherLocationSnapshotResponse = {
+  code: string;
   name: string;
-  category: ClothingCategory;
-  color: ClothingColor;
-  material: ClothingMaterial;
-  minTemperature: number;
-  maxTemperature: number;
-  rainSuitable: boolean;
-  styleTags: string[];
+  fullName: string;
+  nx: number;
+  ny: number;
+  source: LocationSource;
 };
 
-export type OutfitItemResponse = {
-  id: number;
-  name: string;
-  category: ClothingCategory;
-  color: ClothingColor;
-  material: ClothingMaterial;
-  styleTags: string[];
-  image: ClothingImageResponse | null;
+export type WeatherProvider = 'KMA_VILAGE_FORECAST' | 'STATIC_FALLBACK';
+
+export type WeatherSourceResponse = {
+  provider: WeatherProvider;
+  kmaUsed: boolean;
+  fallbackUsed: boolean;
+  baseDate: string | null;
+  baseTime: string | null;
+  forecastDate: string | null;
+  forecastTime: string | null;
+};
+
+export type WeatherResponse = {
+  temperature: number;
+  weatherType: WeatherType;
+  rainy: boolean;
+  windy: boolean;
+  location: WeatherLocationSnapshotResponse;
+  source: WeatherSourceResponse;
+};
+
+export type RecommendationRequest = {
+  situation?: RecommendationSituation;
+  forecastPeriod?: ForecastPeriod;
 };
 
 export type RecommendationResponse = {
   recommendationId: number;
   situation: RecommendationSituation;
+  forecastPeriod: ForecastPeriod;
   weather: WeatherResponse;
   outfit: RecommendationOutfitResponse;
   score: RecommendationScoreResponse;
@@ -119,81 +159,76 @@ export type RecommendationResponse = {
 };
 ```
 
-## Situation UX
+MVP6 `ClothingRequest`, `OutfitItemResponse`, feedback types는 유지한다.
 
-Today view에 상황 선택 control을 둔다.
+## Location View
 
-| Situation | Label |
+Location view에 검색과 현재 위치로 찾기 control을 둔다.
+
+검색 UX:
+
+- 검색 입력 placeholder는 행정구역 예시를 보여준다.
+- 검색 결과는 `fullName`, `nx/ny`를 함께 표시해 동명이인을 구분한다.
+- 후보 선택 시 저장 버튼 또는 후보 row action으로 `PUT /api/users/me/location`을 호출한다.
+- 수동 검색으로 저장하면 `source=MANUAL_SEARCH`다.
+
+현재 위치 UX:
+
+- 브라우저 위치 권한 요청은 "현재 위치로 찾기" 버튼 클릭 뒤에만 수행한다.
+- 권한 대기 중에는 버튼과 후보 UI가 안정적인 높이를 유지한다.
+- 권한 거부 또는 브라우저 미지원이면 수동 검색 안내를 보여준다.
+- 권한 허용 후 `POST /api/locations/resolve` 후보를 표시한다.
+- resolve 후보 선택 저장 시 `source=BROWSER_GEOLOCATION`이다.
+- resolve 결과를 자동 저장하지 않는다.
+
+## Forecast Period UX
+
+Today view에 예보 시간대 선택 control을 둔다.
+
+| ForecastPeriod | Label |
 | --- | --- |
-| `WORK` | 출근 |
-| `CASUAL` | 캐주얼 |
-| `WORKOUT` | 운동 |
-| `DATE` | 데이트 |
-| `FORMAL` | 격식 |
+| `CURRENT` | 현재 |
+| `MORNING` | 오전 |
+| `AFTERNOON` | 오후 |
+| `EVENING` | 저녁 |
 
 UX 기준:
 
-- 기본 선택은 `CASUAL`이다.
-- 추천 생성 중에는 상황 선택과 생성 버튼을 비활성화한다.
-- 추천 결과에는 생성 당시 situation label을 표시한다.
-- 상황 선택은 모바일에서 한 줄 overflow가 나지 않도록 wrap 또는 segmented layout을 사용한다.
+- 기본 선택은 `CURRENT`다.
+- 추천 생성 중에는 상황 선택, 시간대 선택, 생성 버튼을 비활성화한다.
+- 추천 결과에는 생성 당시 forecastPeriod label을 표시한다.
+- 모바일에서 한 줄 overflow가 나지 않도록 wrap 또는 segmented layout을 사용한다.
 
-## Feedback UX
+## Weather Trust Display
 
-추천 결과 카드에 피드백 control을 둔다.
+추천 결과와 History card에 source snapshot을 표시한다.
 
-Sentiment:
+표시 항목:
 
-- 마음에 들어요 -> `LIKED`
-- 별로예요 -> `DISLIKED`
+- 위치 fullName 또는 name
+- KMA grid `nx`, `ny`
+- 위치 source label: 직접 선택, 현재 위치로 찾음
+- weather provider label: KMA 단기예보, fallback
+- KMA 사용 여부
+- fallback 여부
+- 예보 기준: `baseDate baseTime`
+- 예보 대상: `forecastDate forecastTime`
 
-Thermal:
+문구 기준:
 
-- 추웠어요 -> `TOO_COLD`
-- 더웠어요 -> `TOO_HOT`
-
-규칙:
-
-- sentiment는 둘 중 하나만 선택 가능하다.
-- thermal은 둘 중 하나만 선택 가능하다.
-- sentiment와 thermal은 동시에 저장될 수 있다.
-- 같은 버튼을 다시 누르면 해당 필드를 `null`로 바꾼 전체 상태를 PUT한다.
-- "피드백 지우기"는 양쪽 `null`로 clear한다.
-- 저장 중에는 해당 추천의 피드백 버튼을 비활성화한다.
-- 저장 실패 시 기존 `ApiErrorMessage` 패턴을 사용한다.
-
-## Closet View
-
-옷 등록/수정 폼에 `styleTags` 입력을 추가한다.
-
-기준:
-
-- 상황별 추천 style tag chip을 제공해 사용자가 직접 문자열을 외우지 않아도 추가할 수 있게 한다.
-- 선택된 추천 style tag chip은 다시 클릭하면 제거된다.
-- 쉼표 또는 Enter 기반 tag 추가 중 기존 UX와 가장 잘 맞는 방식을 사용한다.
-- blank tag는 추가하지 않는다.
-- tag는 trim한다.
-- 중복 tag는 추가하지 않는다.
-- 저장 전 요약에 tag 개수를 표시한다.
-- 옷 카드와 수정 패널에 styleTags chip을 표시한다.
-- 기존 이미지 업로드/교체/삭제 UX는 유지한다.
-
-## Preferences View
-
-선호도 화면의 `styleTags`는 추천 개인화에 반영되는 취향 정보로 표시한다.
-
-기준:
-
-- 옷 등록/수정 폼과 같은 상황별 추천 style tag chip을 제공한다.
-- 선택된 추천 style tag chip은 다시 클릭하면 제거된다.
-- 쉼표 또는 Enter 기반 직접 입력을 지원한다.
-- blank tag, 중복 tag, 단일 tag 길이 제한은 옷 등록/수정 폼과 동일하게 처리한다.
+- `kmaUsed=true`: "KMA 단기예보 사용"
+- `fallbackUsed=true`: "기본 날씨 fallback 사용"
+- `baseDate/baseTime`이 있으면 "발표 기준 YYYY-MM-DD HH:mm" 형태로 표시한다.
+- `forecastDate/forecastTime`이 있으면 "예보 대상 YYYY-MM-DD HH:mm" 형태로 표시한다.
+- null 값은 빈 칸이 아니라 "확인 불가" 같은 neutral 문구로 표시한다.
 
 ## Today Recommendation View
 
 추천 결과에 아래를 표시한다.
 
 - situation label
+- forecastPeriod label
+- 위치/날씨 source snapshot
 - outfit item thumbnail 또는 fallback
 - outfit item styleTags
 - 추천 이유
@@ -201,7 +236,7 @@ Thermal:
 - 피드백 control
 - 점수 상세
 
-추천 결과 피드백 저장 후 `RecommendationResponse.feedback` 또는 feedback response 기준으로 UI 상태를 갱신한다.
+현재 날씨 패널과 추천 결과 weather card는 같은 DTO 구조를 사용한다. 다만 현재 날씨 조회는 추천을 저장하지 않고, 추천 결과는 생성 당시 snapshot을 표시한다.
 
 ## History View
 
@@ -209,38 +244,48 @@ Thermal:
 
 - 추천 생성 시각
 - situation label
+- forecastPeriod label
+- 위치/날씨 source snapshot
 - 착용 전/착용 완료
 - nullable wornAt
 - nullable feedback
 - outfit item thumbnail 또는 fallback
 - outfit item styleTags
 
-History에서 피드백을 수정하거나 clear할 수 있다면 Today와 같은 API helper를 재사용한다. MVP6 P0에서는 최소한 이력에서 피드백/착용 여부를 한눈에 보여야 한다.
+과거 이력의 위치/source는 현재 사용자 위치가 아니라 추천 생성 당시 snapshot임을 UI 구조로 자연스럽게 드러낸다.
 
-## 공통 표시 기준
+## Feedback UX
 
-- `LIKED`: 마음에 들어요
-- `DISLIKED`: 별로예요
-- `TOO_COLD`: 추웠어요
-- `TOO_HOT`: 더웠어요
-- feedback이 없으면 "피드백 없음" 또는 neutral 상태로 표시한다.
+MVP6 피드백 UX를 유지한다.
+
+- sentiment는 마음에 들어요/별로예요 중 하나만 선택 가능하다.
+- thermal은 추웠어요/더웠어요 중 하나만 선택 가능하다.
+- "피드백 지우기"는 양쪽 `null`로 clear한다.
+- 저장 중에는 해당 추천의 피드백 버튼을 비활성화한다.
 
 ## 반응형 기준
 
-- 모바일 375px에서 상황 선택, 피드백 버튼, 착용 완료 버튼, 이력 상태 pill이 겹치지 않아야 한다.
+- 모바일 375px에서 위치 후보, 현재 위치 버튼, 시간대 선택, 피드백 버튼, source snapshot이 겹치지 않아야 한다.
 - 버튼 그룹은 stable height를 유지한다.
+- 위치 후보 row는 fullName이 길면 wrap을 허용한다.
+- source snapshot은 작은 화면에서 2열 고정 대신 wrap되는 key-value list를 사용한다.
 - 추천 이력 카드의 status row는 wrap을 허용한다.
 - 이미지 thumbnail 영역은 기존 fixed aspect-ratio 기준을 유지한다.
 
 ## 접근성 기준
 
-- 상황 선택은 현재 선택 상태를 `aria-pressed` 또는 radio semantics로 표현한다.
-- 피드백 버튼은 현재 선택 상태를 알 수 있어야 한다.
+- 현재 위치 버튼은 권한 요청 중 상태를 알 수 있어야 한다.
+- 위치 후보 선택은 button 또는 radio semantics를 사용한다.
+- forecastPeriod 선택은 현재 선택 상태를 `aria-pressed` 또는 radio semantics로 표현한다.
+- source snapshot은 색상만으로 KMA/fallback을 구분하지 않는다.
 - 저장 성공/실패 문구는 status 영역으로 표시한다.
 - 이미지 `alt`는 옷 이름 기반으로 제공한다.
 
 ## 제외 범위
 
+- 외부 지도/주소 검색 UI
+- 지도 렌더링
+- 좌표 원문 저장 설정 UI
 - AI 추천 설명 UI
 - 피드백 analytics dashboard
 - drag and drop tag reorder

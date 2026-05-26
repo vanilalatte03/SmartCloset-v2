@@ -1,18 +1,18 @@
-# ERD: SmartCloset MVP6
+# ERD: SmartCloset MVP7
 
 ## 0. DB Baseline
 
-MVP6 DB baseline은 MVP5 인증 사용자 기반 옷 이미지 schema에 옷별 `styleTags`, 추천 상황 snapshot, 추천 피드백 snapshot을 추가한다.
+MVP7 DB baseline은 MVP6 추천 피드백/개인화 schema에 사용자 위치 source와 추천 결과의 위치/날씨 source snapshot을 추가한다.
 
-## MVP6 DB 결정
+## MVP7 DB 결정
 
-- `clothing_items`에 `style_tags_json`을 추가한다.
-- 추천 상황은 `recommendation_results.situation`에 저장한다.
-- 추천 피드백은 `recommendation_results` row의 최신 snapshot으로 저장한다.
-- 별도 feedback event log table은 만들지 않는다.
-- 착용 이력은 기존 `wear_histories`를 유지한다.
+- 사용자 위치는 계속 `users` row에 저장한다.
+- `users.location_source`를 추가해 위치 선택 경로를 저장한다.
+- 브라우저 GPS 원문 좌표는 저장하지 않는다.
+- 추천 결과 row에 forecast period와 위치/날씨 source snapshot을 저장한다.
+- raw KMA 응답 JSON은 저장하지 않는다.
+- 추천 피드백은 기존처럼 `recommendation_results` row의 최신 snapshot으로 저장한다.
 - 옷 이미지 파일 bytes는 계속 DB에 저장하지 않는다.
-- 추천 결과 item은 기존처럼 `clothing_items`를 참조한다.
 
 ## 1. 공통 DB 정책
 
@@ -42,8 +42,13 @@ erDiagram
     VARCHAR role
     VARCHAR location_code
     VARCHAR location_name
+    VARCHAR location_full_name
+    VARCHAR location_region1
+    VARCHAR location_region2
+    VARCHAR location_region3
     INT location_nx
     INT location_ny
+    VARCHAR location_source
     TEXT preferred_colors_json
     TEXT preferred_materials_json
     TEXT style_tags_json
@@ -75,10 +80,24 @@ erDiagram
     BIGINT id PK
     BIGINT user_id FK
     VARCHAR situation
+    VARCHAR forecast_period
     INT weather_temperature
     VARCHAR weather_type
     BOOLEAN rainy
     BOOLEAN windy
+    VARCHAR weather_location_code
+    VARCHAR weather_location_name
+    VARCHAR weather_location_full_name
+    INT weather_location_nx
+    INT weather_location_ny
+    VARCHAR weather_location_source
+    VARCHAR weather_provider
+    BOOLEAN weather_kma_used
+    BOOLEAN weather_fallback_used
+    VARCHAR weather_base_date
+    VARCHAR weather_base_time
+    VARCHAR weather_forecast_date
+    VARCHAR weather_forecast_time
     INT total_score
     INT weather_score
     INT color_score
@@ -124,10 +143,15 @@ erDiagram
 | `password_hash` | `VARCHAR(255)` | no | none | BCrypt hash |
 | `name` | `VARCHAR(50)` | no | none | 사용자 표시 이름 |
 | `role` | `VARCHAR(30)` | no | `USER` | 기본 role |
-| `location_code` | `VARCHAR(30)` | yes | none | 내장 위치 catalog code |
-| `location_name` | `VARCHAR(50)` | yes | none | 표시용 위치 이름 |
+| `location_code` | `VARCHAR(30)` | yes | none | KMA 위치 catalog code |
+| `location_name` | `VARCHAR(50)` | yes | none | 짧은 표시용 위치 이름 |
+| `location_full_name` | `VARCHAR(100)` | yes | none | 전체 위치 표시명 |
+| `location_region1` | `VARCHAR(50)` | yes | none | 1단계 행정구역 |
+| `location_region2` | `VARCHAR(50)` | yes | none | 2단계 행정구역 |
+| `location_region3` | `VARCHAR(50)` | yes | none | 3단계 행정구역 |
 | `location_nx` | `INT` | yes | none | KMA grid X |
 | `location_ny` | `INT` | yes | none | KMA grid Y |
+| `location_source` | `VARCHAR(30)` | no | `MANUAL_SEARCH` | `LocationSource` |
 | `preferred_colors_json` | `TEXT` | no | application `[]` | `ClothingColor` 배열 JSON 문자열 |
 | `preferred_materials_json` | `TEXT` | no | application `[]` | `ClothingMaterial` 배열 JSON 문자열 |
 | `style_tags_json` | `TEXT` | no | application `[]` | 선호 style tag 배열 JSON 문자열 |
@@ -139,8 +163,17 @@ Indexes:
 - Primary key: `id`
 - Unique: `(email)`
 - Index: `(location_code)`
+- Index: `(location_nx, location_ny)`
+
+Location policy:
+
+- 신규 사용자는 `SEOUL`, `서울특별시`, `nx=60`, `ny=127`, `location_source=MANUAL_SEARCH`로 시작한다.
+- 브라우저 GPS 원문 latitude/longitude는 `users`에 저장하지 않는다.
+- catalog에 latitude/longitude가 있더라도 사용자 row snapshot에는 저장하지 않는다.
 
 ### clothing_items
+
+MVP6 schema를 유지한다.
 
 | Column | Type | Nullable | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -162,28 +195,6 @@ Indexes:
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
-Indexes:
-
-- Primary key: `id`
-- Index: `(user_id, archived, id)`
-- Index: `(user_id, category, archived)`
-
-Style tag policy:
-
-- `style_tags_json`은 JSON array string이다.
-- 누락된 API 요청은 application에서 `[]`로 저장한다.
-- blank tag는 저장하지 않는다.
-- tag는 trim 후 저장한다.
-- 중복 tag는 제거한다.
-- 단일 tag 최대 길이는 30자다.
-
-Image metadata policy:
-
-- 이미지가 없으면 `image_*` 컬럼은 모두 `NULL`이다.
-- 이미지 업로드 또는 교체 시 `image_stored_filename`, `image_content_type`, `image_size_bytes`, `image_uploaded_at`을 함께 갱신한다.
-- 이미지 삭제 시 `image_*` 컬럼을 모두 `NULL`로 되돌린다.
-- 원본 파일명은 저장하지 않는다.
-
 ### recommendation_results
 
 | Column | Type | Nullable | Default | Description |
@@ -191,10 +202,24 @@ Image metadata policy:
 | `id` | `BIGINT` | no | auto increment | PK |
 | `user_id` | `BIGINT` | no | none | FK to `users.id` |
 | `situation` | `VARCHAR(30)` | no | `CASUAL` | 추천 생성 시점 `RecommendationSituation` snapshot |
+| `forecast_period` | `VARCHAR(30)` | no | `CURRENT` | 추천 생성 시점 `ForecastPeriod` snapshot |
 | `weather_temperature` | `INT` | no | none | 추천 생성 시점 `WeatherCondition.temperature` snapshot |
 | `weather_type` | `VARCHAR(30)` | no | none | 추천 생성 시점 `WeatherCondition.weatherType` snapshot |
 | `rainy` | `BOOLEAN` | no | none | 추천 생성 시점 `WeatherCondition.rainy` snapshot |
 | `windy` | `BOOLEAN` | no | none | 추천 생성 시점 `WeatherCondition.windy` snapshot |
+| `weather_location_code` | `VARCHAR(30)` | no | none | 추천 생성 시점 위치 code |
+| `weather_location_name` | `VARCHAR(50)` | no | none | 추천 생성 시점 위치 name |
+| `weather_location_full_name` | `VARCHAR(100)` | yes | none | 추천 생성 시점 위치 fullName |
+| `weather_location_nx` | `INT` | no | none | 추천 생성 시점 KMA grid X |
+| `weather_location_ny` | `INT` | no | none | 추천 생성 시점 KMA grid Y |
+| `weather_location_source` | `VARCHAR(30)` | no | none | 추천 생성 시점 `LocationSource` |
+| `weather_provider` | `VARCHAR(30)` | no | none | `KMA_VILAGE_FORECAST` 또는 `STATIC_FALLBACK` |
+| `weather_kma_used` | `BOOLEAN` | no | none | KMA 결과 사용 여부 |
+| `weather_fallback_used` | `BOOLEAN` | no | none | fallback 사용 여부 |
+| `weather_base_date` | `VARCHAR(8)` | yes | none | KMA base date |
+| `weather_base_time` | `VARCHAR(4)` | yes | none | KMA base time |
+| `weather_forecast_date` | `VARCHAR(8)` | yes | none | 실제 선택 forecast date |
+| `weather_forecast_time` | `VARCHAR(4)` | yes | none | 실제 선택 forecast time |
 | `total_score` | `INT` | no | none | 총점 |
 | `weather_score` | `INT` | no | none | 날씨 적합도 점수 |
 | `color_score` | `INT` | no | none | 색상 조합 점수 |
@@ -215,6 +240,16 @@ Indexes:
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
 - Index: `(user_id, feedback_updated_at)`
+- Index: `(user_id, forecast_period, created_at)`
+- Index: `(weather_location_code)`
+
+Weather snapshot policy:
+
+- 추천 생성 당시 사용자 위치와 weather source만 snapshot으로 저장한다.
+- 사용자 위치가 나중에 바뀌어도 기존 추천 row의 weather location snapshot은 바뀌지 않는다.
+- raw KMA response body는 저장하지 않는다.
+- 브라우저 GPS 원문 좌표는 저장하지 않는다.
+- `weather_kma_used`와 `weather_fallback_used`는 동시에 true가 될 수 없다.
 
 Feedback snapshot policy:
 
@@ -225,37 +260,29 @@ Feedback snapshot policy:
 
 ### recommendation_result_items
 
-| Column | Type | Nullable | Default | Description |
-| --- | --- | --- | --- | --- |
-| `id` | `BIGINT` | no | auto increment | PK |
-| `recommendation_result_id` | `BIGINT` | no | none | FK to `recommendation_results.id` |
-| `clothing_item_id` | `BIGINT` | no | none | FK to `clothing_items.id` |
-| `slot` | `VARCHAR(30)` | no | none | `OutfitSlot` |
-| `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
-| `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
-
-Indexes:
-
-- Primary key: `id`
-- Index: `(recommendation_result_id)`
-- Index: `(clothing_item_id)`
-- Unique: `(recommendation_result_id, slot)`
+MVP6 schema를 유지한다.
 
 ### wear_histories
 
-| Column | Type | Nullable | Default | Description |
-| --- | --- | --- | --- | --- |
-| `id` | `BIGINT` | no | auto increment | PK |
-| `user_id` | `BIGINT` | no | none | FK to `users.id` |
-| `recommendation_result_id` | `BIGINT` | no | none | FK to `recommendation_results.id` |
-| `worn_at` | `DATETIME(6)` | no | none | 착용 완료 시각 |
-| `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
-| `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
+MVP6 schema를 유지한다.
 
-Indexes:
+## 4. Catalog resource
 
-- Primary key: `id`
-- Index: `(user_id, worn_at)`
-- Unique: `(recommendation_result_id)`
+KMA 행정구역 catalog는 애플리케이션 리소스 또는 생성된 코드/CSV로 관리한다.
 
-WearHistory는 개별 `clothing_item_id`를 중복 저장하지 않는다. 실제 포함 옷은 `recommendation_result_items`를 통해 조회한다.
+권장 resource shape:
+
+| Field | Description |
+| --- | --- |
+| `code` | stable unique code |
+| `region1` | 1단계 행정구역 |
+| `region2` | 2단계 행정구역 |
+| `region3` | 3단계 행정구역, nullable |
+| `name` | 표시명 |
+| `fullName` | 전체 표시명 |
+| `nx` | KMA grid X |
+| `ny` | KMA grid Y |
+| `latitude` | nullable decimal |
+| `longitude` | nullable decimal |
+
+Catalog는 DB table로 만들지 않고 application resource로 시작한다. 이유: MVP7은 행정구역 검색 기능을 검증하는 단계이며, 사용자별 mutable data가 아니다.

@@ -1,14 +1,14 @@
-# Sharing Guide: SmartCloset MVP6
+# Sharing Guide: SmartCloset MVP7
 
 ## 공유 방식
 
-SmartCloset MVP6 공유 방식은 Docker Compose로 유지한다.
+SmartCloset MVP7 공유 방식은 Docker Compose로 유지한다.
 
-공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드, 이미지 저장 volume을 함께 실행한다. AWS 배포, S3, CDN, native mobile app, PWA 배포는 MVP6 공유 범위가 아니다.
+공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드, 이미지 저장 volume을 함께 실행한다. AWS 배포, S3, CDN, native mobile app, PWA 배포는 MVP7 공유 범위가 아니다.
 
-## MVP6 공유 기준
+## MVP7 공유 기준
 
-Docker Compose로 `mysql`, `app`, `frontend`가 함께 실행되고, 신규 사용자가 로그인 후 옷별 styleTags를 저장하고, 상황을 선택해 추천을 만들고, 착용 완료와 추천 피드백을 저장/clear하며, History에서 상황/착용/피드백 상태를 확인할 수 있어야 한다.
+Docker Compose로 `mysql`, `app`, `frontend`가 함께 실행되고, 신규 사용자가 로그인 후 KMA catalog 위치를 검색하거나 현재 위치 후보를 선택하고, 예보 시간대를 골라 추천을 만들며, 추천 결과와 History에서 위치/날씨 source snapshot을 확인할 수 있어야 한다.
 
 ## 전달해야 할 파일/경로
 
@@ -93,12 +93,16 @@ VITE_API_BASE_URL=http://localhost:8080
 | --- | --- |
 | `JWT_SECRET` | JWT access token 서명용 secret. 예시는 로컬 개발용 placeholder |
 | `KMA_SERVICE_KEY` | 공공데이터포털에서 발급받은 인증키. 커밋 금지 |
+| `KMA_NX`, `KMA_NY` | legacy/default KMA grid 값. MVP7 위치 선택 흐름은 사용자 저장 위치의 grid를 우선 사용 |
+| `KMA_BASE_URL` | KMA 단기예보 조회서비스 base URL |
 | `WEATHER_FALLBACK_ENABLED` | KMA 실패 시 fallback 사용 여부. 기본 `true` |
 | `CLOTHING_IMAGE_STORAGE_DIR` | app container 내부 이미지 저장 경로 |
 | `CLOTHING_IMAGE_MAX_SIZE_BYTES` | 이미지 업로드 최대 크기 bytes. 기본 5MB |
 | `APP_PORT` | 백엔드 API host port |
 | `FRONTEND_PORT` | 프론트엔드 host port |
 | `VITE_API_BASE_URL` | 브라우저에서 접근할 백엔드 API base URL |
+
+MVP7은 사용자 위치를 KMA catalog에서 선택하므로 고정 `KMA_NX`, `KMA_NY`가 새 위치 선택 흐름의 기준이 아니다. 기존 환경 호환을 위해 `.env.example`에는 기본값을 남긴다.
 
 ## 공유 성공 기준
 
@@ -111,16 +115,25 @@ VITE_API_BASE_URL=http://localhost:8080
 - 로그인 성공 후 access token이 `sessionStorage`에 저장된다.
 - 로그인 후 Today, Closet, Preferences, Location, History view를 탐색할 수 있다.
 
+### MVP7 위치/날씨 신뢰 기준
+
+- Location에서 동네 단위 KMA catalog 검색을 사용할 수 있다.
+- `일산동`처럼 동명이인이 있는 검색어는 구분 가능한 후보를 보여준다.
+- 현재 위치로 찾기 버튼은 브라우저 권한 요청 뒤 후보를 표시한다.
+- 현재 위치 후보는 자동 저장되지 않고 사용자가 선택해야 저장된다.
+- Today에서 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING` 중 하나를 선택할 수 있다.
+- body 없는 추천 생성은 `CASUAL`, `CURRENT`로 성공한다.
+- 추천 결과에 위치, KMA/fallback 여부, base/forecast 시각이 표시된다.
+- History에서 과거 추천별 위치/날씨 source snapshot을 확인할 수 있다.
+- 사용자 현재 위치 변경 후에도 과거 추천 snapshot은 바뀌지 않는다.
+
 ### MVP6 개인화 기준
 
 - Closet에서 옷별 styleTags를 저장하고 확인할 수 있다.
 - Today에서 상황을 선택할 수 있다.
-- body 없는 추천 생성은 `CASUAL`로 성공한다.
-- 상황을 선택한 추천 결과에 해당 상황이 표시된다.
 - 추천 결과에서 착용 완료를 저장할 수 있다.
 - 추천 결과에서 마음에 들어요, 별로예요, 추웠어요, 더웠어요 피드백을 저장할 수 있다.
 - 피드백을 전체 교체하거나 clear할 수 있다.
-- History에서 추천별 상황, 착용 여부, 착용 시각, 피드백을 확인할 수 있다.
 - styleTags와 최근 피드백이 추천 점수와 이유에 반영된다.
 
 ### 이미지 기준
@@ -139,14 +152,19 @@ VITE_API_BASE_URL=http://localhost:8080
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
 
-그 외 API는 보호 API이며 `Authorization: Bearer {accessToken}` header가 필요하다. 이미지 조회 API와 추천 피드백 API도 보호 API다.
+그 외 API는 보호 API이며 `Authorization: Bearer {accessToken}` header가 필요하다. 이미지 조회 API, 위치 resolve API, 추천 피드백 API도 보호 API다.
 
 프론트 access token 저장 위치는 `sessionStorage`다. JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정한다.
 
 ## 제외 범위 확인
 
-MVP6 공유 문서와 데모에는 아래 기능을 포함하지 않는다.
+MVP7 공유 문서와 데모에는 아래 기능을 포함하지 않는다.
 
+- 외부 주소/지도 API
+- 지도 렌더링
+- raw KMA 응답 JSON 저장
+- GPS 좌표 원문 DB 저장
+- KMA `getVilageFcst` 외 weather API
 - AI 자동 태깅
 - AI/GPT 추천
 - 피드백 analytics dashboard
