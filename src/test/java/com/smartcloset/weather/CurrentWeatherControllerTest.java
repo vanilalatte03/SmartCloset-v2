@@ -1,6 +1,7 @@
 package com.smartcloset.weather;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,6 +82,18 @@ class CurrentWeatherControllerTest {
                 .andExpect(jsonPath("$.data.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.rainy").value(false))
                 .andExpect(jsonPath("$.data.windy").value(false))
+                .andExpect(jsonPath("$.data.location.code").value("SEOUL"))
+                .andExpect(jsonPath("$.data.location.name").value("서울특별시"))
+                .andExpect(jsonPath("$.data.location.nx").value(60))
+                .andExpect(jsonPath("$.data.location.ny").value(127))
+                .andExpect(jsonPath("$.data.location.source").value("MANUAL_SEARCH"))
+                .andExpect(jsonPath("$.data.source.provider").value("STATIC_FALLBACK"))
+                .andExpect(jsonPath("$.data.source.kmaUsed").value(false))
+                .andExpect(jsonPath("$.data.source.fallbackUsed").value(true))
+                .andExpect(jsonPath("$.data.source.baseDate").isString())
+                .andExpect(jsonPath("$.data.source.baseTime").isString())
+                .andExpect(jsonPath("$.data.source.forecastDate").value(nullValue()))
+                .andExpect(jsonPath("$.data.source.forecastTime").value(nullValue()))
                 .andExpect(jsonPath("$.data.userId").doesNotExist());
 
         assertThat(recommendationResultRepository.count()).isEqualTo(recommendationCount);

@@ -1,7 +1,9 @@
 package com.smartcloset.weather.infrastructure.kma;
 
+import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,7 +23,7 @@ public class KmaWeatherConditionMapper {
     private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?\\d+(?:\\.\\d+)?");
     private static final String PCP_NO_PRECIPITATION = "\uAC15\uC218\uC5C6\uC74C";
 
-    public WeatherCondition map(List<KmaForecastItem> items, ZonedDateTime now) {
+    public KmaMappedWeather map(List<KmaForecastItem> items, ZonedDateTime now, ForecastPeriod forecastPeriod) {
         Objects.requireNonNull(items, "items must not be null");
         if (items.isEmpty()) {
             throw new KmaWeatherMappingException("KMA forecast items are empty");
@@ -30,13 +32,17 @@ public class KmaWeatherConditionMapper {
         LocalDateTime nowKst = Objects.requireNonNull(now, "now must not be null")
                 .withZoneSameInstant(KmaForecastBaseTimeCalculator.KST_ZONE)
                 .toLocalDateTime();
+        ForecastPeriod resolvedForecastPeriod = Objects.requireNonNull(
+                forecastPeriod,
+                "forecastPeriod must not be null"
+        );
         Map<LocalDateTime, Map<String, String>> groups = groupByForecastTime(items);
-        Map<String, String> selectedGroup = groups.entrySet()
-                .stream()
-                .filter(entry -> !entry.getKey().isBefore(nowKst))
-                .findFirst()
-                .map(Map.Entry::getValue)
-                .orElseThrow(() -> new KmaWeatherMappingException("No forecast group exists at or after current KST time"));
+        Map.Entry<LocalDateTime, Map<String, String>> selectedEntry = selectForecastGroup(
+                groups,
+                nowKst,
+                resolvedForecastPeriod
+        );
+        Map<String, String> selectedGroup = selectedEntry.getValue();
 
         validateRequiredCategories(selectedGroup);
 
@@ -46,7 +52,17 @@ public class KmaWeatherConditionMapper {
         boolean rainy = pty != 0 || hasPrecipitation(selectedGroup.get("PCP"));
         boolean windy = parseDouble("WSD", selectedGroup.get("WSD")) >= 4.0;
 
-        return WeatherCondition.of(temperature, mapWeatherType(pty, sky), rainy, windy);
+        WeatherCondition condition = WeatherCondition.of(temperature, mapWeatherType(pty, sky), rainy, windy);
+        LocalDateTime forecastDateTime = selectedEntry.getKey();
+        return new KmaMappedWeather(
+                condition,
+                forecastDateTime.format(DateTimeFormatter.BASIC_ISO_DATE),
+                forecastDateTime.format(DateTimeFormatter.ofPattern("HHmm"))
+        );
+    }
+
+    public KmaMappedWeather map(List<KmaForecastItem> items, ZonedDateTime now) {
+        return map(items, now, ForecastPeriod.CURRENT);
     }
 
     private Map<LocalDateTime, Map<String, String>> groupByForecastTime(List<KmaForecastItem> items) {
@@ -68,6 +84,53 @@ public class KmaWeatherConditionMapper {
                     exception
             );
         }
+    }
+
+    private Map.Entry<LocalDateTime, Map<String, String>> selectForecastGroup(
+            Map<LocalDateTime, Map<String, String>> groups,
+            LocalDateTime nowKst,
+            ForecastPeriod forecastPeriod
+    ) {
+        return switch (forecastPeriod) {
+            case CURRENT -> groups.entrySet()
+                    .stream()
+                    .filter(entry -> !entry.getKey().isBefore(nowKst))
+                    .findFirst()
+                    .orElseThrow(() -> new KmaWeatherMappingException(
+                            "No forecast group exists at or after current KST time"
+                    ));
+            case MORNING, AFTERNOON, EVENING -> selectTargetPeriodGroup(groups, nowKst.toLocalDate(), forecastPeriod);
+        };
+    }
+
+    private Map.Entry<LocalDateTime, Map<String, String>> selectTargetPeriodGroup(
+            Map<LocalDateTime, Map<String, String>> groups,
+            LocalDate today,
+            ForecastPeriod forecastPeriod
+    ) {
+        LocalDateTime targetDateTime = LocalDateTime.of(today, targetTime(forecastPeriod));
+        return groups.entrySet()
+                .stream()
+                .filter(entry -> entry.getKey().toLocalDate().equals(today))
+                .filter(entry -> !entry.getKey().isBefore(targetDateTime))
+                .findFirst()
+                .or(() -> groups.entrySet()
+                        .stream()
+                        .filter(entry -> entry.getKey().toLocalDate().equals(today))
+                        .filter(entry -> entry.getKey().isBefore(targetDateTime))
+                        .reduce((previous, current) -> current))
+                .orElseThrow(() -> new KmaWeatherMappingException(
+                        "No forecast group exists for " + forecastPeriod + " on current KST date"
+                ));
+    }
+
+    private java.time.LocalTime targetTime(ForecastPeriod forecastPeriod) {
+        return switch (forecastPeriod) {
+            case MORNING -> java.time.LocalTime.of(9, 0);
+            case AFTERNOON -> java.time.LocalTime.of(15, 0);
+            case EVENING -> java.time.LocalTime.of(21, 0);
+            case CURRENT -> throw new IllegalArgumentException("CURRENT does not have a fixed target time");
+        };
     }
 
     private void validateRequiredCategories(Map<String, String> group) {
