@@ -14,17 +14,22 @@ import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.OutfitCandidateGenerator;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationFailureException;
+import com.smartcloset.recommendation.domain.RecommendationFeedbackSentiment;
 import com.smartcloset.recommendation.domain.RecommendationHistorySnapshot;
 import com.smartcloset.recommendation.domain.RecommendationReasonGenerator;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import com.smartcloset.recommendation.domain.RecommendationScorer;
 import com.smartcloset.recommendation.domain.RecommendationSituation;
+import com.smartcloset.recommendation.domain.RecommendationThermalFeedback;
 import com.smartcloset.recommendation.domain.ScoredOutfitCandidate;
 import com.smartcloset.recommendation.domain.WeatherFilteredClothes;
 import com.smartcloset.recommendation.domain.WeatherSuitabilityFilter;
 import com.smartcloset.recommendation.domain.WearHistory;
 import com.smartcloset.recommendation.domain.WearHistorySnapshot;
+import com.smartcloset.recommendation.dto.RecommendationFeedbackRequest;
+import com.smartcloset.recommendation.dto.RecommendationFeedbackResponse;
+import com.smartcloset.recommendation.dto.RecommendationFeedbackStateResponse;
 import com.smartcloset.recommendation.dto.RecommendationResponse;
 import com.smartcloset.recommendation.dto.RecommendationWornResponse;
 import com.smartcloset.recommendation.repository.RecommendationResultItemRepository;
@@ -164,11 +169,13 @@ public class RecommendationService {
         }
 
         Map<Long, List<RecommendationResultItem>> itemsByResultId = findItemsByRecommendationResultIds(orderedResultIds);
+        Map<Long, LocalDateTime> wornAtByResultId = findWornAtByRecommendationResultIds(orderedResultIds);
         return findResultsInOrderedIds(orderedResultIds).stream()
                 .map(result -> RecommendationResponse.from(
                         result,
                         itemsByResultId.getOrDefault(result.getId(), List.of()),
                         readReasonsJson(result.getReasonsJson()),
+                        wornAtByResultId.get(result.getId()),
                         clothingStyleTagMapper
                 ))
                 .toList();
@@ -196,6 +203,28 @@ public class RecommendationService {
                 LocalDateTime.now()
         ));
         return RecommendationWornResponse.of(recommendationResult.getId(), wearHistory.getWornAt());
+    }
+
+    @Transactional
+    public RecommendationFeedbackResponse replaceFeedback(
+            Long userId,
+            Long recommendationId,
+            RecommendationFeedbackRequest request
+    ) {
+        RecommendationResult recommendationResult = recommendationResultRepository
+                .findByIdAndUserId(recommendationId, userId)
+                .orElseThrow(() -> new SmartClosetException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+        RecommendationFeedbackRequest resolvedRequest = request == null
+                ? new RecommendationFeedbackRequest(null, null)
+                : request;
+        RecommendationFeedbackSentiment sentiment = resolvedRequest.sentiment();
+        RecommendationThermalFeedback thermal = resolvedRequest.thermal();
+
+        recommendationResult.replaceFeedback(sentiment, thermal, LocalDateTime.now());
+        return new RecommendationFeedbackResponse(
+                recommendationResult.getId(),
+                RecommendationFeedbackStateResponse.from(recommendationResult)
+        );
     }
 
     private RecommendationResult saveRecommendation(
@@ -330,6 +359,18 @@ public class RecommendationService {
                                 .collect(Collectors.toUnmodifiableSet()),
                         (left, right) -> left,
                         LinkedHashMap::new
+                ));
+    }
+
+    private Map<Long, LocalDateTime> findWornAtByRecommendationResultIds(List<Long> orderedResultIds) {
+        if (orderedResultIds.isEmpty()) {
+            return Map.of();
+        }
+        return wearHistoryRepository.findByRecommendationResultIdIn(orderedResultIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        history -> history.getRecommendationResult().getId(),
+                        WearHistory::getWornAt
                 ));
     }
 

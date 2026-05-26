@@ -16,6 +16,8 @@ public record RecommendationResponse(
         RecommendationScoreResponse score,
         List<String> reasons,
         boolean worn,
+        LocalDateTime wornAt,
+        RecommendationFeedbackStateResponse feedback,
         LocalDateTime createdAt
 ) {
 
@@ -33,6 +35,8 @@ public record RecommendationResponse(
                 RecommendationScoreResponse.from(recommendationResult),
                 List.copyOf(reasons),
                 recommendationResult.isWorn(),
+                null,
+                RecommendationFeedbackStateResponse.from(recommendationResult),
                 recommendationResult.getCreatedAt()
         );
     }
@@ -41,6 +45,7 @@ public record RecommendationResponse(
             RecommendationResult recommendationResult,
             List<RecommendationResultItem> items,
             List<String> reasons,
+            LocalDateTime wornAt,
             ClothingStyleTagMapper styleTagMapper
     ) {
         return new RecommendationResponse(
@@ -51,6 +56,8 @@ public record RecommendationResponse(
                 RecommendationScoreResponse.from(recommendationResult),
                 List.copyOf(reasons),
                 recommendationResult.isWorn(),
+                wornAt,
+                RecommendationFeedbackStateResponse.from(recommendationResult),
                 recommendationResult.getCreatedAt()
         );
     }

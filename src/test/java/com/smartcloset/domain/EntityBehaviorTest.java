@@ -7,9 +7,11 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.recommendation.domain.OutfitSlot;
+import com.smartcloset.recommendation.domain.RecommendationFeedbackSentiment;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import com.smartcloset.recommendation.domain.RecommendationScore;
+import com.smartcloset.recommendation.domain.RecommendationThermalFeedback;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
@@ -105,8 +107,22 @@ class EntityBehaviorTest {
         RecommendationResultItem resultItem = RecommendationResultItem.of(result, top, OutfitSlot.TOP);
         result.markWorn();
         result.markWorn();
+        LocalDateTime feedbackUpdatedAt = LocalDateTime.of(2026, 5, 26, 10, 5);
+        result.replaceFeedback(
+                RecommendationFeedbackSentiment.LIKED,
+                RecommendationThermalFeedback.TOO_COLD,
+                feedbackUpdatedAt
+        );
 
         assertThat(result.isWorn()).isTrue();
+        assertThat(result.hasFeedback()).isTrue();
+        assertThat(result.getSentimentFeedback()).isEqualTo(RecommendationFeedbackSentiment.LIKED);
+        assertThat(result.getThermalFeedback()).isEqualTo(RecommendationThermalFeedback.TOO_COLD);
+        assertThat(result.getFeedbackUpdatedAt()).isEqualTo(feedbackUpdatedAt);
+
+        result.clearFeedback();
+        assertThat(result.hasFeedback()).isFalse();
+        assertThat(result.getFeedbackUpdatedAt()).isNull();
         assertThat(resultItem.getRecommendationResult()).isSameAs(result);
         assertThat(resultItem.getClothingItem()).isSameAs(top);
         assertThat(resultItem.getSlot()).isEqualTo(OutfitSlot.TOP);

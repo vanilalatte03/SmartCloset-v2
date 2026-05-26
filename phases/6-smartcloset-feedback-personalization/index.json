@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "recommendation-feedback-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-26T15:33:36+0900",
+      "summary": "추천 피드백 snapshot PUT API, feedback/wornAt 응답, 소유권/전체 교체/clear 검증 테스트를 구현했다.",
+      "completed_at": "2026-05-26T15:38:36+0900"
     },
     {
       "step": 4,

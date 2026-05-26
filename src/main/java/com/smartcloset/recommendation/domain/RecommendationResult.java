@@ -16,6 +16,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -23,7 +24,11 @@ import java.util.Objects;
         name = "recommendation_results",
         indexes = {
                 @Index(name = "idx_recommendation_results_user_created_at", columnList = "user_id, created_at"),
-                @Index(name = "idx_recommendation_results_user_worn", columnList = "user_id, worn")
+                @Index(name = "idx_recommendation_results_user_worn", columnList = "user_id, worn"),
+                @Index(
+                        name = "idx_recommendation_results_user_feedback_updated_at",
+                        columnList = "user_id, feedback_updated_at"
+                )
         }
 )
 public class RecommendationResult extends BaseTimeEntity {
@@ -77,6 +82,17 @@ public class RecommendationResult extends BaseTimeEntity {
     @Column(name = "worn", nullable = false)
     private boolean worn;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sentiment_feedback", length = 30)
+    private RecommendationFeedbackSentiment sentimentFeedback;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "thermal_feedback", length = 30)
+    private RecommendationThermalFeedback thermalFeedback;
+
+    @Column(name = "feedback_updated_at")
+    private LocalDateTime feedbackUpdatedAt;
+
     protected RecommendationResult() {
     }
 
@@ -128,8 +144,44 @@ public class RecommendationResult extends BaseTimeEntity {
         this.worn = true;
     }
 
+    public void replaceFeedback(
+            RecommendationFeedbackSentiment sentimentFeedback,
+            RecommendationThermalFeedback thermalFeedback,
+            LocalDateTime updatedAt
+    ) {
+        if (sentimentFeedback == null && thermalFeedback == null) {
+            clearFeedback();
+            return;
+        }
+        this.sentimentFeedback = sentimentFeedback;
+        this.thermalFeedback = thermalFeedback;
+        this.feedbackUpdatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+    }
+
+    public void clearFeedback() {
+        this.sentimentFeedback = null;
+        this.thermalFeedback = null;
+        this.feedbackUpdatedAt = null;
+    }
+
+    public boolean hasFeedback() {
+        return sentimentFeedback != null || thermalFeedback != null;
+    }
+
     public boolean isWorn() {
         return worn;
+    }
+
+    public RecommendationFeedbackSentiment getSentimentFeedback() {
+        return sentimentFeedback;
+    }
+
+    public RecommendationThermalFeedback getThermalFeedback() {
+        return thermalFeedback;
+    }
+
+    public LocalDateTime getFeedbackUpdatedAt() {
+        return feedbackUpdatedAt;
     }
 
     public Long getId() {
