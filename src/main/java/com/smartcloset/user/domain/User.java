@@ -2,6 +2,7 @@ package com.smartcloset.user.domain;
 
 import com.smartcloset.common.domain.BaseTimeEntity;
 import com.smartcloset.location.domain.LocationOption;
+import com.smartcloset.location.domain.LocationSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,7 +19,10 @@ import java.util.Objects;
 @Entity
 @Table(
         name = "users",
-        indexes = @Index(name = "idx_users_location_code", columnList = "location_code"),
+        indexes = {
+                @Index(name = "idx_users_location_code", columnList = "location_code"),
+                @Index(name = "idx_users_location_grid", columnList = "location_nx, location_ny")
+        },
         uniqueConstraints = @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 )
 public class User extends BaseTimeEntity {
@@ -50,11 +54,27 @@ public class User extends BaseTimeEntity {
     @Column(name = "location_name", length = 50)
     private String locationName;
 
+    @Column(name = "location_full_name", length = 100)
+    private String locationFullName;
+
+    @Column(name = "location_region1", length = 50)
+    private String locationRegion1;
+
+    @Column(name = "location_region2", length = 50)
+    private String locationRegion2;
+
+    @Column(name = "location_region3", length = 50)
+    private String locationRegion3;
+
     @Column(name = "location_nx")
     private Integer locationNx;
 
     @Column(name = "location_ny")
     private Integer locationNy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "location_source", nullable = false, length = 30)
+    private LocationSource locationSource = LocationSource.MANUAL_SEARCH;
 
     @Column(name = "preferred_colors_json", nullable = false, columnDefinition = "TEXT")
     private String preferredColorsJson;
@@ -99,11 +119,21 @@ public class User extends BaseTimeEntity {
     }
 
     public void updateLocation(LocationOption location) {
+        updateLocation(location, LocationSource.MANUAL_SEARCH);
+    }
+
+    public void updateLocation(LocationOption location, LocationSource source) {
         LocationOption requiredLocation = Objects.requireNonNull(location, "location must not be null");
+        LocationSource requiredSource = Objects.requireNonNull(source, "source must not be null");
         this.locationCode = requiredLocation.code();
         this.locationName = requiredLocation.name();
+        this.locationFullName = requiredLocation.fullName();
+        this.locationRegion1 = requiredLocation.region1();
+        this.locationRegion2 = requiredLocation.region2();
+        this.locationRegion3 = requiredLocation.region3();
         this.locationNx = requiredLocation.nx();
         this.locationNy = requiredLocation.ny();
+        this.locationSource = requiredSource;
     }
 
     public void updatePreferences(String preferredColorsJson, String preferredMaterialsJson, String styleTagsJson) {
@@ -114,6 +144,7 @@ public class User extends BaseTimeEntity {
 
     public void ensureDefaultLocation() {
         if (hasLocation()) {
+            ensureLocationSource();
             return;
         }
         updateLocation(LocationOption.defaultSeoul());
@@ -121,6 +152,12 @@ public class User extends BaseTimeEntity {
 
     public boolean hasLocation() {
         return locationCode != null && locationName != null && locationNx != null && locationNy != null;
+    }
+
+    public void ensureLocationSource() {
+        if (locationSource == null) {
+            locationSource = LocationSource.MANUAL_SEARCH;
+        }
     }
 
     public Long getId() {
@@ -151,12 +188,32 @@ public class User extends BaseTimeEntity {
         return locationName;
     }
 
+    public String getLocationFullName() {
+        return locationFullName;
+    }
+
+    public String getLocationRegion1() {
+        return locationRegion1;
+    }
+
+    public String getLocationRegion2() {
+        return locationRegion2;
+    }
+
+    public String getLocationRegion3() {
+        return locationRegion3;
+    }
+
     public Integer getLocationNx() {
         return locationNx;
     }
 
     public Integer getLocationNy() {
         return locationNy;
+    }
+
+    public LocationSource getLocationSource() {
+        return locationSource;
     }
 
     public String getPreferredColorsJson() {

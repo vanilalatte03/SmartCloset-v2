@@ -35,7 +35,7 @@ public class UserLocationService {
     public UserLocationResponse updateUserLocation(Long userId, UpdateUserLocationRequest request) {
         User user = findUser(userId);
         LocationOption location = findLocation(request.locationCode());
-        user.updateLocation(location);
+        user.updateLocation(location, request.resolvedSource());
         return UserLocationResponse.from(user);
     }
 
@@ -47,8 +47,8 @@ public class UserLocationService {
     private LocationOption findLocation(String locationCode) {
         return locationCatalog.findByCode(locationCode)
                 .orElseThrow(() -> new SmartClosetException(
-                        ErrorCode.LOCATION_NOT_FOUND,
-                        ErrorCode.LOCATION_NOT_FOUND.message(),
+                        ErrorCode.INVALID_REQUEST,
+                        ErrorCode.INVALID_REQUEST.message(),
                         List.of(ErrorDetail.of("locationCode", locationCode))
                 ));
     }

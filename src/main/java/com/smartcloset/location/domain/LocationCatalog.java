@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -60,6 +62,19 @@ public class LocationCatalog {
         return locations.stream()
                 .filter(location -> location.code().equals(normalizedCode))
                 .findFirst();
+    }
+
+    public List<LocationOption> findNearest(LocationGrid grid, BigDecimal latitude, BigDecimal longitude, int limit) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        Objects.requireNonNull(grid, "grid must not be null");
+        return locations.stream()
+                .sorted(Comparator
+                        .comparingDouble((LocationOption location) -> distance(location, grid, latitude, longitude))
+                        .thenComparing(LocationOption::code))
+                .limit(limit)
+                .toList();
     }
 
     public LocationOption defaultLocation() {
@@ -160,5 +175,32 @@ public class LocationCatalog {
     private BigDecimal decimalOrNull(String value) {
         String trimmed = required(value);
         return trimmed.isEmpty() ? null : new BigDecimal(trimmed);
+    }
+
+    private double distance(LocationOption location, LocationGrid grid, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null && longitude != null && location.latitude() != null && location.longitude() != null) {
+            return haversineDistanceKm(latitude, longitude, location.latitude(), location.longitude());
+        }
+        int dx = location.nx() - grid.nx();
+        int dy = location.ny() - grid.ny();
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private double haversineDistanceKm(
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal locationLatitude,
+            BigDecimal locationLongitude
+    ) {
+        double lat1 = latitude.setScale(8, RoundingMode.HALF_UP).doubleValue();
+        double lon1 = longitude.setScale(8, RoundingMode.HALF_UP).doubleValue();
+        double lat2 = locationLatitude.setScale(8, RoundingMode.HALF_UP).doubleValue();
+        double lon2 = locationLongitude.setScale(8, RoundingMode.HALF_UP).doubleValue();
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);
+        return 6371.00877 * 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0 - a));
     }
 }
