@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -13,8 +14,13 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-CHECK_NAMES = ("lint", "test", "build", "frontend-build")
+BASE_CHECK_NAMES = ("lint", "test", "build", "frontend-build")
+FINAL_ONLY_CHECK_NAMES = ("harness-test", "docs-check")
+CHECK_NAMES = (*BASE_CHECK_NAMES, *FINAL_ONLY_CHECK_NAMES)
+STAGES = ("manual", "pre-commit", "stop", "final")
 PLACEHOLDER_MARKERS = ("<", ">", "{", "}", "...", "TODO", "TBD")
+DOCS_CHECK_CONFIG_NAME = "docs-checks.json"
+ACTIVE_PHASE_STATUSES = {"pending", "error", "blocked"}
 
 
 @dataclass(frozen=True)
@@ -22,6 +28,30 @@ class CheckCommand:
     name: str
     command: str
     source: str
+
+
+@dataclass(frozen=True)
+class DocsMatch:
+    path: str
+    line: int
+    text: str
+
+
+@dataclass(frozen=True)
+class DocsCheckRule:
+    name: str
+    pattern: str
+    paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class DocsCheckConfig:
+    source: Path | None
+    paths: tuple[str, ...]
+    skip_dirs: frozenset[str]
+    skip_suffixes: frozenset[str]
+    required: tuple[DocsCheckRule, ...]
+    forbidden: tuple[DocsCheckRule, ...]
 
 
 def load_project_profile(root: Path = ROOT) -> dict:
@@ -184,24 +214,217 @@ def detect_commands(root: Path = ROOT) -> dict[str, list[CheckCommand]]:
     return result
 
 
-def _flatten(commands: dict[str, list[CheckCommand]]) -> list[CheckCommand]:
-    return [command for name in CHECK_NAMES for command in commands.get(name, [])]
+def check_names_for_stage(stage: str) -> tuple[str, ...]:
+    if stage == "final":
+        return CHECK_NAMES
+    return BASE_CHECK_NAMES
+
+
+def _flatten(commands: dict[str, list[CheckCommand]], names: Iterable[str] = CHECK_NAMES) -> list[CheckCommand]:
+    return [command for name in names for command in commands.get(name, [])]
 
 
 def collect_checks(root: Path = ROOT, stage: str = "manual") -> list[CheckCommand]:
-    del stage  # stages share the same lint/test/build order for now.
+    names = check_names_for_stage(stage)
     for provider in (commands_from_profile, commands_from_docs, detect_commands):
         commands = provider(root)
-        checks = _flatten(commands)
+        checks = _flatten(commands, names)
         if checks:
             return checks
     return []
 
 
+def _docs_config_path(root: Path = ROOT, config_path: str | None = None) -> Path | None:
+    if config_path:
+        path = Path(config_path)
+        return path if path.is_absolute() else root / path
+    return discover_docs_check_config(root)
+
+
+def _phase_docs_check_path(root: Path, phase_dir: str) -> Path:
+    return root / "phases" / phase_dir / DOCS_CHECK_CONFIG_NAME
+
+
+def _phase_index_entries(root: Path = ROOT) -> list[dict]:
+    path = root / "phases" / "index.json"
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    phases = payload.get("phases") if isinstance(payload, dict) else None
+    if not isinstance(phases, list):
+        return []
+    return [phase for phase in phases if isinstance(phase, dict)]
+
+
+def discover_docs_check_config(root: Path = ROOT) -> Path | None:
+    phases = _phase_index_entries(root)
+    for phase in phases:
+        phase_dir = phase.get("dir")
+        status = phase.get("status")
+        if not isinstance(phase_dir, str) or status not in ACTIVE_PHASE_STATUSES:
+            continue
+        config_path = _phase_docs_check_path(root, phase_dir)
+        if config_path.exists():
+            return config_path
+
+    for phase in reversed(phases):
+        phase_dir = phase.get("dir")
+        if not isinstance(phase_dir, str):
+            continue
+        config_path = _phase_docs_check_path(root, phase_dir)
+        if config_path.exists():
+            return config_path
+
+    phase_configs = sorted((root / "phases").glob(f"*/{DOCS_CHECK_CONFIG_NAME}"))
+    return phase_configs[-1] if phase_configs else None
+
+
+def _strings_from_value(value: object, default: Iterable[str] = ()) -> tuple[str, ...]:
+    values = value if isinstance(value, list) else list(default)
+    return tuple(item for item in values if isinstance(item, str) and item)
+
+
+def _config_strings(config: dict, key: str, default: Iterable[str] = ()) -> tuple[str, ...]:
+    values = config.get(key, list(default))
+    if not isinstance(values, list):
+        return tuple(default)
+    return _strings_from_value(values, default)
+
+
+def _config_rules(config: dict, key: str) -> tuple[DocsCheckRule, ...]:
+    values = config.get(key, [])
+    if not isinstance(values, list):
+        return ()
+
+    rules: list[DocsCheckRule] = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        name = value.get("name")
+        pattern = value.get("pattern")
+        paths = _strings_from_value(value.get("paths", []))
+        if isinstance(name, str) and name and isinstance(pattern, str) and pattern:
+            rules.append(DocsCheckRule(name, pattern, paths))
+    return tuple(rules)
+
+
+def load_docs_check_config(root: Path = ROOT, config_path: str | None = None) -> DocsCheckConfig:
+    path = _docs_config_path(root, config_path)
+    if path is None or not path.exists():
+        return DocsCheckConfig(None, (), frozenset(), frozenset(), (), ())
+
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path} is not valid JSON: {exc}") from exc
+    if not isinstance(config, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+
+    return DocsCheckConfig(
+        source=path,
+        paths=_config_strings(config, "paths"),
+        skip_dirs=frozenset(_config_strings(config, "skipDirs")),
+        skip_suffixes=frozenset(_config_strings(config, "skipSuffixes")),
+        required=_config_rules(config, "required"),
+        forbidden=_config_rules(config, "forbidden"),
+    )
+
+
+def _is_docs_check_file(path: Path, config: DocsCheckConfig) -> bool:
+    return (
+        path.is_file()
+        and path.suffix not in config.skip_suffixes
+        and not any(part in config.skip_dirs for part in path.parts)
+    )
+
+
+def _iter_docs_check_files(
+    root: Path,
+    config: DocsCheckConfig,
+    paths: Iterable[str] | None = None,
+) -> Iterable[Path]:
+    selected_paths = tuple(paths or config.paths)
+    for item in selected_paths:
+        target = root / item
+        if not target.exists():
+            continue
+        if target.is_file():
+            if _is_docs_check_file(target, config):
+                yield target
+            continue
+        for path in sorted(target.rglob("*")):
+            if _is_docs_check_file(path, config):
+                yield path
+
+
+def _find_docs_matches(
+    root: Path,
+    config: DocsCheckConfig,
+    pattern: str,
+    paths: Iterable[str] | None = None,
+) -> list[DocsMatch]:
+    regex = re.compile(pattern)
+    matches: list[DocsMatch] = []
+    for path in _iter_docs_check_files(root, config, paths):
+        try:
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+        relative = str(path.relative_to(root))
+        for line_number, line in enumerate(lines, start=1):
+            if regex.search(line):
+                matches.append(DocsMatch(relative, line_number, line.strip()))
+    return matches
+
+
+def _format_docs_matches(matches: list[DocsMatch], *, limit: int = 10) -> str:
+    rendered = [f"{match.path}:{match.line}: {match.text}" for match in matches[:limit]]
+    if len(matches) > limit:
+        rendered.append(f"... and {len(matches) - limit} more")
+    return "\n".join(f"  {line}" for line in rendered)
+
+
+def run_docs_checks(root: Path = ROOT, config_path: str | None = None) -> int:
+    failures: list[str] = []
+    try:
+        config = load_docs_check_config(root, config_path)
+    except ValueError as exc:
+        print(f"docs-check failed: {exc}", file=sys.stderr)
+        return 1
+
+    rules = (*config.required, *config.forbidden)
+    has_paths = bool(config.paths or any(rule.paths for rule in rules))
+    if not has_paths or not rules:
+        source = config.source or f"phases/*/{DOCS_CHECK_CONFIG_NAME}"
+        print(f"docs-check skipped: no rules configured in {source}.")
+        return 0
+
+    for rule in config.required:
+        if not _find_docs_matches(root, config, rule.pattern, rule.paths):
+            failures.append(f"Missing required docs marker: {rule.name}")
+
+    for rule in config.forbidden:
+        matches = _find_docs_matches(root, config, rule.pattern, rule.paths)
+        if matches:
+            failures.append(f"Forbidden docs marker found: {rule.name}\n{_format_docs_matches(matches)}")
+
+    if failures:
+        print("docs-check failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"- {failure}", file=sys.stderr)
+        return 1
+
+    print(f"docs-check passed. ({config.source})")
+    return 0
+
+
 def run_checks(checks: Iterable[CheckCommand], root: Path = ROOT) -> int:
     checks = list(checks)
     if not checks:
-        print("No lint/test/build/frontend-build commands configured or detected.")
+        print(f"No {'/'.join(CHECK_NAMES)} commands configured or detected.")
         return 0
 
     for check in checks:
@@ -225,9 +448,17 @@ def run_checks(checks: Iterable[CheckCommand], root: Path = ROOT) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run project checks for the Codex operating template.")
-    parser.add_argument("--stage", choices=("manual", "pre-commit", "stop"), default="manual")
+    parser.add_argument("--stage", choices=STAGES, default="manual")
     parser.add_argument("--list", action="store_true", help="Print selected commands without running them.")
+    parser.add_argument("--docs-check", action="store_true", help="Run SmartCloset docs consistency checks only.")
+    parser.add_argument(
+        "--docs-check-config",
+        help=f"Docs-check config path. Defaults to phases/<current-phase>/{DOCS_CHECK_CONFIG_NAME}.",
+    )
     args = parser.parse_args(argv)
+
+    if args.docs_check:
+        return run_docs_checks(ROOT, args.docs_check_config)
 
     checks = collect_checks(ROOT, args.stage)
     if args.list:

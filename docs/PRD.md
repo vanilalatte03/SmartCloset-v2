@@ -4,7 +4,21 @@
 
 이 문서는 SmartCloset MVP5의 확정 범위를 정의한다. MVP5는 MVP4에서 완성한 인증 사용자 기반 반응형 웹 UX 위에, 사용자가 직접 등록한 옷 이미지를 업로드하고 추천 결과에서 썸네일로 확인할 수 있게 만드는 단계다.
 
-현재 구현 baseline은 MVP4 완료 상태다. 회원가입/로그인, JWT Bearer access token, 인증 사용자 기준 옷장/위치/선호도/추천 이력/착용 이력 분리, `GET /api/weather/current`, React `sessionStorage` 세션, Today/Closet/Preferences/Location/History 반응형 UX는 이미 구현되어 있다.
+현재 구현 baseline은 MVP5 완료 상태다. 회원가입/로그인, JWT Bearer access token, 인증 사용자 기준 옷장/위치/선호도/추천 이력/착용 이력 분리, `GET /api/weather/current`, React `sessionStorage` 세션, Today/Closet/Preferences/Location/History 반응형 UX, 옷 이미지 업로드/교체/삭제/조회, 추천/이력 썸네일, Docker Compose 이미지 volume은 이미 구현되어 있다.
+
+## 문서 책임
+
+이 PRD는 제품 목표, MVP5 범위, 포함/제외, 완료 기준의 source of truth다. 세부 구현 계약은 아래 문서를 따른다.
+
+| 계약 영역 | Source of truth |
+| --- | --- |
+| HTTP endpoint, request/response DTO, 인증/에러 계약 | `docs/API.md` |
+| 추천 후보, 점수, 추천 이유 | `docs/RECOMMENDATION_RULES.md` |
+| 백엔드 구조, storage, transaction, 금지 패턴 | `docs/ARCHITECTURE.md` |
+| DB schema와 JPA/entity 기준 | `docs/ERD.md` |
+| 프론트 API client, 타입, UX, 반응형 기준 | `docs/FRONTEND.md` |
+| 데모/공유 검증 | `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md` |
+| 결정 배경 | `docs/ADR.md`, `docs/adr/010-mvp5-clothing-images.md` |
 
 ## MVP5 한 줄 정의
 
@@ -129,68 +143,41 @@
 - AWS 배포와 CD 자동화
 - native app/PWA 출시
 
-## API 변경 계획
+## API 변경 기준
 
-MVP5는 새 공개 API를 추가하지 않는다. 이미지 API는 모두 보호 API다.
+상세 HTTP 계약은 `docs/API.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
 
-추가할 보호 API:
-
-- `PUT /api/clothes/{clothingId}/image`
-- `GET /api/clothes/{clothingId}/image`
-- `DELETE /api/clothes/{clothingId}/image`
-
-원칙:
-
+- MVP5는 새 공개 API를 추가하지 않는다.
+- 이미지 업로드, 조회, 삭제는 별도 보호 API로 제공한다.
 - 기존 JSON 옷 등록/수정 API는 유지한다.
-- 이미지 업로드는 `multipart/form-data`를 사용한다.
-- multipart part name은 `image`로 고정한다.
-- 성공 응답 중 JSON API는 기존 `{ "data": ... }` envelope를 유지한다.
-- 이미지 bytes 조회 응답은 파일 stream과 `Content-Type` header를 반환한다.
-- 현재 사용자 전용 DTO에 `userId`를 되살리지 않는다.
-- 공개 `userId` query parameter를 추가하지 않는다.
+- 이미지 업로드는 `multipart/form-data`와 part name `image`를 사용한다.
+- 이미지 bytes는 보호 API에서 인증/소유권 확인 후 반환한다.
+- 현재 사용자 전용 DTO에 `userId`를 되살리지 않고, 공개 `userId` query parameter를 추가하지 않는다.
 
-## 데이터/ERD 변경 계획
+## 데이터/ERD 기준
 
-`clothing_items`에 nullable 이미지 메타데이터 컬럼을 추가한다.
+상세 schema는 `docs/ERD.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
 
-- `image_stored_filename`
-- `image_content_type`
-- `image_size_bytes`
-- `image_uploaded_at`
+- `clothing_items`에 nullable 이미지 메타데이터를 둔다.
+- 별도 이미지 테이블은 만들지 않는다.
+- 파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker volume에 저장한다.
+- 추천 이력은 별도 이미지 snapshot 없이 현재 옷의 최신 이미지 상태를 표시한다.
 
-별도 이미지 테이블은 만들지 않는다. 옷 1개당 이미지 1장 정책이므로 clothing item row에 메타데이터를 둔다.
+## 프론트엔드 기준
 
-파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker volume에 저장한다.
+상세 프론트 계약은 `docs/FRONTEND.md`와 `docs/design/mvp5/README.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
 
-## 프론트엔드 변경 계획
+- Closet view에서 옷 이미지 업로드, 교체, 삭제, fallback 표시를 제공한다.
+- Today 추천 결과와 History 추천 이력에서 썸네일을 표시한다.
+- 보호 이미지 API는 Authorization header를 붙인 blob fetch로 조회한다.
+- 이미지가 없거나 조회에 실패한 옷은 기존 category glyph, 색상 swatch, 소재 chip으로 fallback한다.
 
-Closet view:
+## 추천 규칙 기준
 
-- 옷 카드에 썸네일 영역을 추가한다.
-- 이미지가 있으면 authenticated blob fetch로 object URL을 만들고 표시한다.
-- 이미지가 없으면 기존 category visual을 표시한다.
-- 등록 후 이미지 업로드를 이어서 수행할 수 있다.
-- 수정 중 이미지 교체와 삭제를 수행할 수 있다.
+상세 추천 계약은 `docs/RECOMMENDATION_RULES.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
 
-Recommendation/History view:
-
-- 추천 outfit item에 nullable image metadata를 반영한다.
-- 썸네일이 있으면 표시하고, 없으면 swatch/chip 중심 fallback을 유지한다.
-
-프론트 API:
-
-- JSON API helper는 유지한다.
-- multipart upload 함수는 `Content-Type`을 직접 지정하지 않고 `FormData`를 전달한다.
-- 이미지 조회 함수는 `Authorization` header를 붙여 blob을 가져온다.
-- object URL은 컴포넌트 unmount 또는 이미지 변경 시 revoke한다.
-
-## 추천 규칙 변경 계획
-
-추천 규칙은 변경하지 않는다.
-
-- 이미지 존재 여부는 candidate filtering에 영향을 주지 않는다.
-- 이미지 존재 여부는 score와 tie-break에 영향을 주지 않는다.
-- 추천 이유에는 이미지 업로드 여부를 포함하지 않는다.
+- MVP5는 추천 후보 필터링, 점수 계산, tie-break, 추천 이유 규칙을 변경하지 않는다.
+- 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
 - `styleTags`는 계속 저장/조회/표시만 한다.
 
 ## 완료 기준

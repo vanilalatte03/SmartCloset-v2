@@ -1,5 +1,7 @@
 # Phase: SmartCloset 4차 Usable UX MVP
 
+> 상태: 완료된 과거 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 과거 API 또는 범위 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 SmartCloset MVP-3 인증 사용자 baseline을 유지하면서, React 웹앱을 "회원가입 또는 로그인 후 2분 안에 첫 추천 성공" 흐름으로 재구성한다. MVP4는 추천 규칙이나 DB schema를 확장하는 단계가 아니라, Today 중심 앱 셸, 첫 추천 준비 체크리스트, 한국어 라벨/swatch/chip, 옷장 관리, 추천 실패 CTA, 반응형 모바일 UX를 완성하는 단계다.
 
