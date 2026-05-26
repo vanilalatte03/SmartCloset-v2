@@ -11,6 +11,7 @@ import {
   MaterialChip,
   WeatherBadge,
   WeatherLabel,
+  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
@@ -19,6 +20,7 @@ import type {
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  forecastPeriodLabels,
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
   recommendationThermalFeedbackLabels,
@@ -113,6 +115,14 @@ function renderOutfitItem(
 function renderWeatherSnapshot(item: RecommendationResponse) {
   return (
     <dl className="metric-list history-weather-snapshot">
+      <div>
+        <dt>위치</dt>
+        <dd>{item.weather.location.fullName || item.weather.location.name}</dd>
+      </div>
+      <div>
+        <dt>예보 시간대</dt>
+        <dd>{forecastPeriodLabels[item.forecastPeriod]}</dd>
+      </div>
       <div>
         <dt>기온</dt>
         <dd>{item.weather.temperature}°C</dd>
@@ -270,6 +280,9 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                       <span className="situation-pill">
                         {recommendationSituationLabels[item.situation]}
                       </span>
+                      <span className="situation-pill">
+                        {forecastPeriodLabels[item.forecastPeriod]}
+                      </span>
                       <span className="feedback-state-pill">
                         {feedbackLabels.length > 0 ? feedbackLabels.join(' · ') : '피드백 없음'}
                       </span>
@@ -330,6 +343,7 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                     <section className="history-card-section" aria-label="추천 날씨 스냅샷">
                       <h3>날씨 스냅샷</h3>
                       {renderWeatherSnapshot(item)}
+                      <WeatherTrustSnapshot weather={item.weather} />
                     </section>
                   </div>
 

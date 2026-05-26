@@ -98,23 +98,53 @@ export type RecommendationFailureCode =
   | 'NO_WEATHER_SUITABLE_ITEM'
   | 'INSUFFICIENT_CLOSET_ITEMS';
 
+export type LocationSource = 'MANUAL_SEARCH' | 'BROWSER_GEOLOCATION';
+
 export type LocationOptionResponse = {
   code: string;
   name: string;
+  fullName: string;
+  region1: string;
+  region2: string | null;
+  region3: string | null;
   nx: number;
   ny: number;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type LocationResolveRequest = {
+  latitude: number;
+  longitude: number;
+};
+
+export type LocationGridResponse = {
+  nx: number;
+  ny: number;
+};
+
+export type LocationResolveResponse = {
+  grid: LocationGridResponse;
+  nearest: LocationOptionResponse | null;
+  candidates: LocationOptionResponse[];
 };
 
 export type UserLocationResponse = {
   code: string;
   name: string;
+  fullName: string;
+  region1: string;
+  region2: string | null;
+  region3: string | null;
   nx: number;
   ny: number;
+  source: LocationSource;
   updatedAt: string;
 };
 
 export type UpdateUserLocationRequest = {
   locationCode: string;
+  source?: LocationSource;
 };
 
 export type UserPreferencesResponse = {
@@ -125,11 +155,36 @@ export type UserPreferencesResponse = {
 
 export type UpdateUserPreferencesRequest = UserPreferencesResponse;
 
+export type ForecastPeriod = 'CURRENT' | 'MORNING' | 'AFTERNOON' | 'EVENING';
+
+export type WeatherLocationSnapshotResponse = {
+  code: string;
+  name: string;
+  fullName: string;
+  nx: number;
+  ny: number;
+  source: LocationSource;
+};
+
+export type WeatherProvider = 'KMA_VILAGE_FORECAST' | 'STATIC_FALLBACK';
+
+export type WeatherSourceResponse = {
+  provider: WeatherProvider;
+  kmaUsed: boolean;
+  fallbackUsed: boolean;
+  baseDate: string | null;
+  baseTime: string | null;
+  forecastDate: string | null;
+  forecastTime: string | null;
+};
+
 export type WeatherResponse = {
   temperature: number;
   weatherType: WeatherType;
   rainy: boolean;
   windy: boolean;
+  location: WeatherLocationSnapshotResponse;
+  source: WeatherSourceResponse;
 };
 
 export type OutfitItemResponse = {
@@ -165,6 +220,7 @@ export type RecommendationThermalFeedback = 'TOO_COLD' | 'TOO_HOT';
 
 export type RecommendationRequest = {
   situation?: RecommendationSituation;
+  forecastPeriod?: ForecastPeriod;
 };
 
 export type RecommendationFeedbackRequest = {
@@ -186,6 +242,7 @@ export type RecommendationFeedbackResponse = {
 export type RecommendationResponse = {
   recommendationId: number;
   situation: RecommendationSituation;
+  forecastPeriod: ForecastPeriod;
   weather: WeatherResponse;
   outfit: RecommendationOutfitResponse;
   score: RecommendationScoreResponse;
