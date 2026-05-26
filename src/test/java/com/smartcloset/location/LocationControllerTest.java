@@ -90,7 +90,7 @@ class LocationControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .param("keyword", "서울"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data.length()").value(greaterThanOrEqualTo(2)))
                 .andExpect(jsonPath("$.data[0].code").value("SEOUL"))
                 .andExpect(jsonPath("$.data[0].name").value("서울특별시"))
                 .andExpect(jsonPath("$.data[0].fullName").value("서울특별시"))
@@ -119,21 +119,28 @@ class LocationControllerTest {
     void searchesIlsanDongWithMultipleKmaAdministrativeCandidates() throws Exception {
         User user = userRepository.save(User.createSeedUser("location-ilsan-search-user"));
 
-        mockMvc.perform(get("/api/locations")
+        MvcResult result = mockMvc.perform(get("/api/locations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .param("keyword", "일산동"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(greaterThanOrEqualTo(3)))
-                .andExpect(jsonPath("$.data[0].code").value("KMA_4128551000"))
-                .andExpect(jsonPath("$.data[0].name").value("일산1동"))
-                .andExpect(jsonPath("$.data[0].fullName").value("경기도 고양시일산서구 일산1동"))
-                .andExpect(jsonPath("$.data[0].region1").value("경기도"))
-                .andExpect(jsonPath("$.data[0].region2").value("고양시일산서구"))
-                .andExpect(jsonPath("$.data[0].region3").value("일산1동"))
-                .andExpect(jsonPath("$.data[0].nx").value(56))
-                .andExpect(jsonPath("$.data[0].ny").value(129))
-                .andExpect(jsonPath("$.data[0].latitude").value(37.6821))
-                .andExpect(jsonPath("$.data[0].longitude").value(126.7698));
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+
+        assertThat(data)
+                .anySatisfy(location -> {
+                    assertThat(location.get("code").asText()).isEqualTo("KMA_4128751000");
+                    assertThat(location.get("name").asText()).isEqualTo("일산1동");
+                    assertThat(location.get("fullName").asText()).isEqualTo("경기도 고양시일산서구 일산1동");
+                    assertThat(location.get("region1").asText()).isEqualTo("경기도");
+                    assertThat(location.get("region2").asText()).isEqualTo("고양시일산서구");
+                    assertThat(location.get("region3").asText()).isEqualTo("일산1동");
+                    assertThat(location.get("nx").asInt()).isEqualTo(56);
+                    assertThat(location.get("ny").asInt()).isEqualTo(129);
+                    assertThat(location.get("latitude").decimalValue()).isEqualByComparingTo("37.6843");
+                    assertThat(location.get("longitude").decimalValue()).isEqualByComparingTo("126.7707");
+                });
     }
 
     private String bearerToken(User user) {

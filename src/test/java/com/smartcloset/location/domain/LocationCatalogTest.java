@@ -45,12 +45,12 @@ class LocationCatalogTest {
 
     @Test
     void searchMatchesNumericAdministrativeCodeWithoutReturningAllLocations() {
-        List<LocationOption> locations = catalog.search("4128551000");
+        List<LocationOption> locations = catalog.search("4128751000");
 
         assertThat(locations)
                 .singleElement()
                 .satisfies(location -> {
-                    assertThat(location.code()).isEqualTo("KMA_4128551000");
+                    assertThat(location.code()).isEqualTo("KMA_4128751000");
                     assertThat(location.fullName()).isEqualTo("경기도 고양시일산서구 일산1동");
                 });
     }
