@@ -17,6 +17,8 @@ import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
+import com.smartcloset.location.domain.LocationOption;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.recommendation.domain.OutfitSlot;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
@@ -27,6 +29,7 @@ import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
+import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherType;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -96,12 +99,24 @@ class RecommendationControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.recommendationId").exists())
                 .andExpect(jsonPath("$.data.situation").value("CASUAL"))
+                .andExpect(jsonPath("$.data.forecastPeriod").value("CURRENT"))
                 .andExpect(jsonPath("$.data.weather.temperature").value(12))
                 .andExpect(jsonPath("$.data.weather.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.weather.rainy").value(false))
                 .andExpect(jsonPath("$.data.weather.windy").value(false))
-                .andExpect(jsonPath("$.data.weather.location").doesNotExist())
-                .andExpect(jsonPath("$.data.weather.source").doesNotExist())
+                .andExpect(jsonPath("$.data.weather.location.code").value("SEOUL"))
+                .andExpect(jsonPath("$.data.weather.location.name").value("서울특별시"))
+                .andExpect(jsonPath("$.data.weather.location.fullName").value("서울특별시"))
+                .andExpect(jsonPath("$.data.weather.location.nx").value(60))
+                .andExpect(jsonPath("$.data.weather.location.ny").value(127))
+                .andExpect(jsonPath("$.data.weather.location.source").value("MANUAL_SEARCH"))
+                .andExpect(jsonPath("$.data.weather.source.provider").value("STATIC_FALLBACK"))
+                .andExpect(jsonPath("$.data.weather.source.kmaUsed").value(false))
+                .andExpect(jsonPath("$.data.weather.source.fallbackUsed").value(true))
+                .andExpect(jsonPath("$.data.weather.source.baseDate").exists())
+                .andExpect(jsonPath("$.data.weather.source.baseTime").exists())
+                .andExpect(jsonPath("$.data.weather.source.forecastDate").exists())
+                .andExpect(jsonPath("$.data.weather.source.forecastTime").exists())
                 .andExpect(jsonPath("$.data.outfit.top.category").value("TOP"))
                 .andExpect(jsonPath("$.data.outfit.bottom.category").value("BOTTOM"))
                 .andExpect(jsonPath("$.data.outfit.outer.category").value("OUTER"))
@@ -134,15 +149,45 @@ class RecommendationControllerTest {
 
         assertThat(saved.getUser().getId()).isEqualTo(user.getId());
         assertThat(saved.getSituation().name()).isEqualTo("CASUAL");
+        assertThat(saved.getForecastPeriod()).isEqualTo(ForecastPeriod.CURRENT);
         assertThat(saved.getWeatherTemperature()).isEqualTo(12);
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.CLOUDY);
         assertThat(saved.isRainy()).isFalse();
         assertThat(saved.isWindy()).isFalse();
+        assertThat(saved.getWeatherLocationCode()).isEqualTo("SEOUL");
+        assertThat(saved.getWeatherLocationSource()).isEqualTo(LocationSource.MANUAL_SEARCH);
+        assertThat(saved.getWeatherProvider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(saved.isWeatherKmaUsed()).isFalse();
+        assertThat(saved.isWeatherFallbackUsed()).isTrue();
         assertThat(savedItems).hasSize(3);
         assertThat(slots).containsExactlyInAnyOrder(OutfitSlot.TOP, OutfitSlot.BOTTOM, OutfitSlot.OUTER);
         assertThat(data.get("score").has("diversity" + "Score")).isFalse();
         assertThat(savedReasons).hasSizeBetween(3, 5);
         assertThat(saved.isWorn()).isFalse();
+    }
+
+    @Test
+    void createsRecommendationWithRequestedForecastPeriodSnapshot() throws Exception {
+        User user = createUserWithP0Closet("recommendation-forecast-user");
+
+        MvcResult result = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"forecastPeriod\":\"AFTERNOON\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.situation").value("CASUAL"))
+                .andExpect(jsonPath("$.data.forecastPeriod").value("AFTERNOON"))
+                .andExpect(jsonPath("$.data.weather.source.forecastTime").value("1500"))
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        RecommendationResult saved = recommendationResultRepository
+                .findById(data.get("recommendationId").asLong())
+                .orElseThrow();
+
+        assertThat(saved.getSituation().name()).isEqualTo("CASUAL");
+        assertThat(saved.getForecastPeriod()).isEqualTo(ForecastPeriod.AFTERNOON);
+        assertThat(saved.getWeatherForecastTime()).isEqualTo("1500");
     }
 
     @Test
@@ -163,6 +208,7 @@ class RecommendationControllerTest {
                 .orElseThrow();
 
         assertThat(saved.getSituation().name()).isEqualTo("WORK");
+        assertThat(saved.getForecastPeriod()).isEqualTo(ForecastPeriod.CURRENT);
     }
 
     @Test
@@ -175,6 +221,7 @@ class RecommendationControllerTest {
                         .content("{}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.situation").value("CASUAL"))
+                .andExpect(jsonPath("$.data.forecastPeriod").value("CURRENT"))
                 .andReturn();
 
         JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
@@ -183,6 +230,20 @@ class RecommendationControllerTest {
                 .orElseThrow();
 
         assertThat(saved.getSituation().name()).isEqualTo("CASUAL");
+        assertThat(saved.getForecastPeriod()).isEqualTo(ForecastPeriod.CURRENT);
+    }
+
+    @Test
+    void rejectsInvalidForecastPeriod() throws Exception {
+        User user = createUserWithP0Closet("recommendation-invalid-forecast-user");
+
+        mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"forecastPeriod\":\"LUNCH\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details").isArray());
     }
 
     @Test
@@ -575,6 +636,9 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].recommendationId").value(latestTargetRecommendationId))
                 .andExpect(jsonPath("$.data[0].situation").value("CASUAL"))
+                .andExpect(jsonPath("$.data[0].forecastPeriod").value("CURRENT"))
+                .andExpect(jsonPath("$.data[0].weather.location.code").value("SEOUL"))
+                .andExpect(jsonPath("$.data[0].weather.source.provider").value("STATIC_FALLBACK"))
                 .andExpect(jsonPath("$.data[0].score.preferenceScore").exists())
                 .andExpect(jsonPath("$.data[0].score.diversityScore").doesNotExist())
                 .andExpect(jsonPath("$.data[0].outfit.top").exists())
@@ -626,6 +690,43 @@ class RecommendationControllerTest {
                         .param("limit", ""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void recommendationHistoryReturnsPersistedWeatherSnapshotAfterUserLocationChanges() throws Exception {
+        User user = createUserWithP0Closet("history-weather-snapshot-user");
+        long recommendationId = createRecommendation(user);
+        RecommendationResult saved = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        assertThat(saved.getWeatherLocationCode()).isEqualTo("SEOUL");
+
+        user.updateLocation(
+                new LocationOption(
+                        "KMA_4128751000",
+                        "일산1동",
+                        "경기도 고양시일산서구 일산1동",
+                        "경기도",
+                        "고양시일산서구",
+                        "일산1동",
+                        56,
+                        129,
+                        null,
+                        null
+                ),
+                LocationSource.BROWSER_GEOLOCATION
+        );
+        userRepository.flush();
+
+        mockMvc.perform(get("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].recommendationId").value(recommendationId))
+                .andExpect(jsonPath("$.data[0].forecastPeriod").value("CURRENT"))
+                .andExpect(jsonPath("$.data[0].weather.location.code").value("SEOUL"))
+                .andExpect(jsonPath("$.data[0].weather.location.name").value("서울특별시"))
+                .andExpect(jsonPath("$.data[0].weather.location.fullName").value("서울특별시"))
+                .andExpect(jsonPath("$.data[0].weather.location.nx").value(60))
+                .andExpect(jsonPath("$.data[0].weather.location.ny").value(127))
+                .andExpect(jsonPath("$.data[0].weather.location.source").value("MANUAL_SEARCH"));
     }
 
     private long createRecommendation(User user) throws Exception {

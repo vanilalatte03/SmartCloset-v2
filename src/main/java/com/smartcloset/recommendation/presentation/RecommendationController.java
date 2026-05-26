@@ -39,9 +39,11 @@ public class RecommendationController {
             @AuthenticationPrincipal CurrentUserPrincipal principal,
             @RequestBody(required = false) RecommendationRequest request
     ) {
+        RecommendationRequest resolvedRequest = resolveRequest(request);
         RecommendationResponse response = recommendationService.createRecommendation(
                 principal.userId(),
-                resolveRequest(request).situationOrDefault()
+                resolvedRequest.situationOrDefault(),
+                resolvedRequest.forecastPeriodOrDefault()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
     }
@@ -86,6 +88,6 @@ public class RecommendationController {
     }
 
     private RecommendationRequest resolveRequest(RecommendationRequest request) {
-        return request == null ? new RecommendationRequest(null) : request;
+        return request == null ? new RecommendationRequest(null, null) : request;
     }
 }

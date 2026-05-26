@@ -39,7 +39,9 @@ import com.smartcloset.user.domain.PreferenceJsonMapper;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.application.WeatherProvider;
+import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
+import com.smartcloset.weather.domain.WeatherSnapshot;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -104,25 +106,36 @@ public class RecommendationService {
     }
 
     public RecommendationResponse createRecommendation(Long userId) {
-        return createRecommendation(userId, RecommendationSituation.CASUAL);
+        return createRecommendation(userId, RecommendationSituation.CASUAL, ForecastPeriod.CURRENT);
     }
 
     public RecommendationResponse createRecommendation(Long userId, RecommendationSituation situation) {
-        WeatherCondition weather = weatherProvider.getCurrentWeather(userId).condition();
+        return createRecommendation(userId, situation, ForecastPeriod.CURRENT);
+    }
+
+    public RecommendationResponse createRecommendation(
+            Long userId,
+            RecommendationSituation situation,
+            ForecastPeriod forecastPeriod
+    ) {
+        ForecastPeriod resolvedForecastPeriod = forecastPeriod == null ? ForecastPeriod.CURRENT : forecastPeriod;
+        WeatherSnapshot weather = weatherProvider.getWeather(userId, resolvedForecastPeriod);
         LocalDateTime requestedAt = LocalDateTime.now();
         RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
         return Objects.requireNonNull(transactionTemplate.execute(status ->
-                createRecommendationInTransaction(userId, resolvedSituation, weather, requestedAt)
+                createRecommendationInTransaction(userId, resolvedSituation, resolvedForecastPeriod, weather, requestedAt)
         ));
     }
 
     private RecommendationResponse createRecommendationInTransaction(
             Long userId,
             RecommendationSituation situation,
-            WeatherCondition weather,
+            ForecastPeriod forecastPeriod,
+            WeatherSnapshot weather,
             LocalDateTime requestedAt
     ) {
         User user = findUser(userId);
+        WeatherCondition condition = weather.condition();
         List<ClothingItem> activeClothes = clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(userId);
         List<WearHistorySnapshot> wearHistories = findWearHistorySnapshots(userId, requestedAt);
         List<RecommendationHistorySnapshot> recommendationHistories = findRecommendationHistories(userId, requestedAt);
@@ -131,11 +144,11 @@ public class RecommendationService {
         List<String> preferredStyleTags = preferenceJsonMapper.readStyleTags(user.getStyleTagsJson());
 
         try {
-            WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, weather);
-            List<OutfitCandidate> candidates = outfitCandidateGenerator.generate(filteredClothes, weather);
+            WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, condition);
+            List<OutfitCandidate> candidates = outfitCandidateGenerator.generate(filteredClothes, condition);
             List<ScoredOutfitCandidate> scoredCandidates = recommendationScorer.scoreAll(
                     candidates,
-                    weather,
+                    condition,
                     wearHistories,
                     recommendationHistories,
                     requestedAt,
@@ -144,18 +157,18 @@ public class RecommendationService {
                     preferredStyleTags,
                     situation
             );
-            ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates, weather);
+            ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates, condition);
             List<String> reasons = recommendationReasonGenerator.generate(
                     best.candidate(),
                     best.score(),
-                    weather,
+                    condition,
                     wearHistories,
                     recommendationHistories,
                     requestedAt,
                     preferredStyleTags,
                     situation
             );
-            RecommendationResult recommendationResult = saveRecommendation(user, situation, weather, best, reasons);
+            RecommendationResult recommendationResult = saveRecommendation(user, situation, forecastPeriod, weather, best, reasons);
             return RecommendationResponse.from(recommendationResult, best.candidate(), reasons, clothingStyleTagMapper);
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
@@ -235,13 +248,15 @@ public class RecommendationService {
     private RecommendationResult saveRecommendation(
             User user,
             RecommendationSituation situation,
-            WeatherCondition weather,
+            ForecastPeriod forecastPeriod,
+            WeatherSnapshot weather,
             ScoredOutfitCandidate best,
             List<String> reasons
     ) {
         RecommendationResult recommendationResult = RecommendationResult.create(
                 user,
                 situation,
+                forecastPeriod,
                 weather,
                 best.score(),
                 writeReasonsJson(reasons)

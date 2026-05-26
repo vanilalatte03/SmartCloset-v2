@@ -106,6 +106,17 @@ class RecommendationControllerKmaIntegrationTest {
                 .andExpect(jsonPath("$.data.weather.weatherType").value("RAINY"))
                 .andExpect(jsonPath("$.data.weather.rainy").value(true))
                 .andExpect(jsonPath("$.data.weather.windy").value(true))
+                .andExpect(jsonPath("$.data.forecastPeriod").value("CURRENT"))
+                .andExpect(jsonPath("$.data.weather.location.code").value("SEOUL"))
+                .andExpect(jsonPath("$.data.weather.location.nx").value(60))
+                .andExpect(jsonPath("$.data.weather.location.ny").value(127))
+                .andExpect(jsonPath("$.data.weather.source.provider").value("KMA_VILAGE_FORECAST"))
+                .andExpect(jsonPath("$.data.weather.source.kmaUsed").value(true))
+                .andExpect(jsonPath("$.data.weather.source.fallbackUsed").value(false))
+                .andExpect(jsonPath("$.data.weather.source.baseDate").exists())
+                .andExpect(jsonPath("$.data.weather.source.baseTime").exists())
+                .andExpect(jsonPath("$.data.weather.source.forecastDate").exists())
+                .andExpect(jsonPath("$.data.weather.source.forecastTime").exists())
                 .andExpect(jsonPath("$.data.score.totalScore").exists())
                 .andReturn();
 
@@ -118,6 +129,11 @@ class RecommendationControllerKmaIntegrationTest {
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.RAINY);
         assertThat(saved.isRainy()).isTrue();
         assertThat(saved.isWindy()).isTrue();
+        assertThat(saved.getForecastPeriod().name()).isEqualTo("CURRENT");
+        assertThat(saved.getWeatherLocationCode()).isEqualTo("SEOUL");
+        assertThat(saved.getWeatherProvider().name()).isEqualTo("KMA_VILAGE_FORECAST");
+        assertThat(saved.isWeatherKmaUsed()).isTrue();
+        assertThat(saved.isWeatherFallbackUsed()).isFalse();
     }
 
     @Test
@@ -163,6 +179,9 @@ class RecommendationControllerKmaIntegrationTest {
                 .andExpect(jsonPath("$.data.weather.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.weather.rainy").value(false))
                 .andExpect(jsonPath("$.data.weather.windy").value(false))
+                .andExpect(jsonPath("$.data.weather.source.provider").value("STATIC_FALLBACK"))
+                .andExpect(jsonPath("$.data.weather.source.kmaUsed").value(false))
+                .andExpect(jsonPath("$.data.weather.source.fallbackUsed").value(true))
                 .andReturn();
 
         long recommendationId = recommendationIdFrom(result);
@@ -173,6 +192,9 @@ class RecommendationControllerKmaIntegrationTest {
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.CLOUDY);
         assertThat(saved.isRainy()).isFalse();
         assertThat(saved.isWindy()).isFalse();
+        assertThat(saved.getWeatherProvider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(saved.isWeatherKmaUsed()).isFalse();
+        assertThat(saved.isWeatherFallbackUsed()).isTrue();
     }
 
     @Test
