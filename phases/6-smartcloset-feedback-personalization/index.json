@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "personalized-scoring-reasons",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-26T15:41:47+0900",
+      "summary": "MVP6 preferenceScore에 styleTags, 상황 tag, 최근 14일 피드백 보정을 반영하고 추천 이유와 도메인 테스트를 갱신했다.",
+      "completed_at": "2026-05-26T15:50:46+0900"
     },
     {
       "step": 5,

@@ -2,6 +2,7 @@ package com.smartcloset.recommendation.domain;
 
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.candidate;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.clothing;
+import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.feedbackHistory;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,10 +58,20 @@ class RecommendationReasonGeneratorTest {
     }
 
     @Test
-    void generatesPreferenceReasonOnlyWhenPreferenceScoreIsPositive() {
+    void generatesPreferenceAndStyleTagReasonsWhenScoreIsPositive() {
         User user = user(1);
         OutfitCandidate candidate = candidate(
-                clothing(1, user, ClothingCategory.TOP, ClothingColor.NAVY, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(
+                        1,
+                        user,
+                        ClothingCategory.TOP,
+                        ClothingColor.NAVY,
+                        ClothingMaterial.COTTON,
+                        0,
+                        30,
+                        false,
+                        List.of("OFFICE")
+                ),
                 clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false)
         );
         WeatherCondition weather = WeatherCondition.of(20, WeatherType.CLOUDY, false, false);
@@ -72,7 +83,9 @@ class RecommendationReasonGeneratorTest {
                 List.of(),
                 requestedAt,
                 List.of(ClothingColor.NAVY),
-                List.of()
+                List.of(),
+                List.of("office"),
+                RecommendationSituation.WORK
         );
 
         List<String> noPreferenceReasons = generator.generate(
@@ -89,10 +102,72 @@ class RecommendationReasonGeneratorTest {
                 weather,
                 List.of(),
                 List.of(),
+                requestedAt,
+                List.of("office"),
+                RecommendationSituation.WORK
+        );
+
+        assertThat(noPreferenceReasons).doesNotContain("선호 색상, 소재 또는 스타일 태그를 일부 반영했습니다.");
+        assertThat(preferenceReasons)
+                .contains("선호하는 스타일 태그와 겹치는 옷을 반영했어요.")
+                .contains("출근 상황에 맞는 스타일 태그를 반영했어요.");
+    }
+
+    @Test
+    void generatesFeedbackReasonWithNegativePriorityOverPositive() {
+        User user = user(1);
+        var top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
+        var bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
+        OutfitCandidate candidate = candidate(top, bottom);
+        WeatherCondition weather = WeatherCondition.of(20, WeatherType.CLOUDY, false, false);
+        RecommendationScore score = scorer.score(
+                candidate,
+                weather,
+                List.of(),
+                List.of(feedbackHistory(
+                        1,
+                        requestedAt.minusDays(2),
+                        20,
+                        RecommendationFeedbackSentiment.DISLIKED,
+                        null,
+                        requestedAt.minusDays(1),
+                        top,
+                        bottom
+                )),
                 requestedAt
         );
 
-        assertThat(noPreferenceReasons).doesNotContain("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
-        assertThat(preferenceReasons).contains("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
+        List<String> reasons = generator.generate(
+                candidate,
+                score,
+                weather,
+                List.of(),
+                List.of(
+                        feedbackHistory(
+                                1,
+                                requestedAt.minusDays(2),
+                                20,
+                                RecommendationFeedbackSentiment.LIKED,
+                                null,
+                                requestedAt.minusDays(1),
+                                top,
+                                bottom
+                        ),
+                        feedbackHistory(
+                                2,
+                                requestedAt.minusDays(2),
+                                20,
+                                RecommendationFeedbackSentiment.DISLIKED,
+                                null,
+                                requestedAt.minusHours(12),
+                                top,
+                                bottom
+                        )
+                ),
+                requestedAt
+        );
+
+        assertThat(reasons).contains("최근 별로였거나 온도가 맞지 않았던 피드백을 피해 점수에 반영했어요.");
+        assertThat(reasons).doesNotContain("최근 마음에 든 조합과 일부 겹쳐 선호를 반영했어요.");
     }
 }

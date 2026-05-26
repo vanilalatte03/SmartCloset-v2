@@ -128,6 +128,7 @@ public class RecommendationService {
         List<RecommendationHistorySnapshot> recommendationHistories = findRecommendationHistories(userId, requestedAt);
         List<ClothingColor> preferredColors = preferenceJsonMapper.readColors(user.getPreferredColorsJson());
         List<ClothingMaterial> preferredMaterials = preferenceJsonMapper.readMaterials(user.getPreferredMaterialsJson());
+        List<String> preferredStyleTags = preferenceJsonMapper.readStyleTags(user.getStyleTagsJson());
 
         try {
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, weather);
@@ -139,7 +140,9 @@ public class RecommendationService {
                     recommendationHistories,
                     requestedAt,
                     preferredColors,
-                    preferredMaterials
+                    preferredMaterials,
+                    preferredStyleTags,
+                    situation
             );
             ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates, weather);
             List<String> reasons = recommendationReasonGenerator.generate(
@@ -148,7 +151,9 @@ public class RecommendationService {
                     weather,
                     wearHistories,
                     recommendationHistories,
-                    requestedAt
+                    requestedAt,
+                    preferredStyleTags,
+                    situation
             );
             RecommendationResult recommendationResult = saveRecommendation(user, situation, weather, best, reasons);
             return RecommendationResponse.from(recommendationResult, best.candidate(), reasons, clothingStyleTagMapper);
@@ -291,11 +296,17 @@ public class RecommendationService {
                 userId,
                 PageRequest.of(0, 5)
         );
+        List<Long> feedbackIds = recommendationResultRepository
+                .findIdsByUserIdAndFeedbackUpdatedAtGreaterThanEqualOrderByFeedbackUpdatedAtDesc(
+                        userId,
+                        requestedAt.minusDays(14)
+                );
 
-        // Preserve the previous priority: 7-day ids first, then recent-five ids as backfill.
+        // Preserve previous recommendation-history priority, then include the MVP6 feedback window.
         LinkedHashSet<Long> orderedHistoryIds = new LinkedHashSet<>();
         orderedHistoryIds.addAll(lastSevenDaysIds);
         orderedHistoryIds.addAll(recentFiveIds);
+        orderedHistoryIds.addAll(feedbackIds);
         return findRecommendationHistorySnapshots(List.copyOf(orderedHistoryIds));
     }
 
@@ -309,7 +320,11 @@ public class RecommendationService {
                 .map(result -> new RecommendationHistorySnapshot(
                         result.getId(),
                         result.getCreatedAt(),
-                        itemIdsByResultId.getOrDefault(result.getId(), Set.of())
+                        itemIdsByResultId.getOrDefault(result.getId(), Set.of()),
+                        result.getWeatherTemperature(),
+                        result.getSentimentFeedback(),
+                        result.getThermalFeedback(),
+                        result.getFeedbackUpdatedAt()
                 ))
                 .toList();
     }

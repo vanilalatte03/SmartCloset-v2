@@ -3,13 +3,16 @@ package com.smartcloset.recommendation.domain;
 import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
+import com.smartcloset.weather.domain.WeatherType;
 import com.smartcloset.weather.domain.WeatherCondition;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class RecommendationScorer {
 
@@ -27,7 +30,9 @@ public class RecommendationScorer {
             List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt,
             List<ClothingColor> preferredColors,
-            List<ClothingMaterial> preferredMaterials
+            List<ClothingMaterial> preferredMaterials,
+            List<String> preferredStyleTags,
+            RecommendationSituation situation
     ) {
         Objects.requireNonNull(candidates, "candidates must not be null");
         return candidates.stream()
@@ -40,10 +45,34 @@ public class RecommendationScorer {
                                 recommendationHistories,
                                 requestedAt,
                                 preferredColors,
-                                preferredMaterials
+                                preferredMaterials,
+                                preferredStyleTags,
+                                situation
                         )
                 ))
                 .toList();
+    }
+
+    public List<ScoredOutfitCandidate> scoreAll(
+            List<OutfitCandidate> candidates,
+            WeatherCondition weather,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
+            LocalDateTime requestedAt,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials
+    ) {
+        return scoreAll(
+                candidates,
+                weather,
+                wearHistories,
+                recommendationHistories,
+                requestedAt,
+                preferredColors,
+                preferredMaterials,
+                List.of(),
+                RecommendationSituation.CASUAL
+        );
     }
 
     public List<ScoredOutfitCandidate> scoreAll(
@@ -63,7 +92,9 @@ public class RecommendationScorer {
             List<RecommendationHistorySnapshot> recommendationHistories,
             LocalDateTime requestedAt,
             List<ClothingColor> preferredColors,
-            List<ClothingMaterial> preferredMaterials
+            List<ClothingMaterial> preferredMaterials,
+            List<String> preferredStyleTags,
+            RecommendationSituation situation
     ) {
         Objects.requireNonNull(candidate, "candidate must not be null");
         Objects.requireNonNull(weather, "weather must not be null");
@@ -72,6 +103,7 @@ public class RecommendationScorer {
         Objects.requireNonNull(requestedAt, "requestedAt must not be null");
         Objects.requireNonNull(preferredColors, "preferredColors must not be null");
         Objects.requireNonNull(preferredMaterials, "preferredMaterials must not be null");
+        Objects.requireNonNull(preferredStyleTags, "preferredStyleTags must not be null");
 
         int weatherScore = calculateWeatherScore(candidate, weather);
         int colorScore = calculateColorScore(candidate);
@@ -81,7 +113,16 @@ public class RecommendationScorer {
                 recommendationHistories,
                 requestedAt
         );
-        int preferenceScore = calculatePreferenceScore(candidate, preferredColors, preferredMaterials);
+        int preferenceScore = calculatePreferenceScore(
+                candidate,
+                preferredColors,
+                preferredMaterials,
+                preferredStyleTags,
+                situation,
+                recommendationHistories,
+                requestedAt,
+                weather
+        );
         int totalScore = weatherScore + colorScore + wearHistoryScore + recommendationHistoryScore + preferenceScore;
 
         return RecommendationScore.of(
@@ -91,6 +132,28 @@ public class RecommendationScorer {
                 wearHistoryScore,
                 recommendationHistoryScore,
                 preferenceScore
+        );
+    }
+
+    public RecommendationScore score(
+            OutfitCandidate candidate,
+            WeatherCondition weather,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
+            LocalDateTime requestedAt,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials
+    ) {
+        return score(
+                candidate,
+                weather,
+                wearHistories,
+                recommendationHistories,
+                requestedAt,
+                preferredColors,
+                preferredMaterials,
+                List.of(),
+                RecommendationSituation.CASUAL
         );
     }
 
@@ -186,23 +249,106 @@ public class RecommendationScorer {
             List<ClothingColor> preferredColors,
             List<ClothingMaterial> preferredMaterials
     ) {
+        return calculatePreferenceScore(
+                candidate,
+                preferredColors,
+                preferredMaterials,
+                List.of(),
+                RecommendationSituation.CASUAL,
+                List.of(),
+                LocalDateTime.now(),
+                WeatherCondition.of(12, WeatherType.CLOUDY, false, false)
+        );
+    }
+
+    int calculatePreferenceScore(
+            OutfitCandidate candidate,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials,
+            List<String> preferredStyleTags,
+            RecommendationSituation situation,
+            List<RecommendationHistorySnapshot> recommendationHistories,
+            LocalDateTime requestedAt,
+            WeatherCondition weather
+    ) {
         Objects.requireNonNull(candidate, "candidate must not be null");
         Objects.requireNonNull(preferredColors, "preferredColors must not be null");
         Objects.requireNonNull(preferredMaterials, "preferredMaterials must not be null");
-        if (preferredColors.isEmpty() && preferredMaterials.isEmpty()) {
-            return 0;
-        }
+        Objects.requireNonNull(preferredStyleTags, "preferredStyleTags must not be null");
+        Objects.requireNonNull(recommendationHistories, "recommendationHistories must not be null");
+        Objects.requireNonNull(requestedAt, "requestedAt must not be null");
+        Objects.requireNonNull(weather, "weather must not be null");
 
         int score = 0;
         if (!preferredColors.isEmpty()
                 && candidate.stream().map(ClothingItem::getColor).anyMatch(preferredColors::contains)) {
-            score += 5;
+            score += 2;
         }
         if (!preferredMaterials.isEmpty()
                 && candidate.stream().map(ClothingItem::getMaterial).anyMatch(preferredMaterials::contains)) {
-            score += 5;
+            score += 2;
         }
+        score += calculateStyleTagScore(candidate, preferredStyleTags, situation);
+        score += calculateFeedbackAdjustment(candidate, recommendationHistories, requestedAt, weather);
         return clamp(score, 0, MAX_PREFERENCE_SCORE);
+    }
+
+    int calculateStyleTagScore(
+            OutfitCandidate candidate,
+            List<String> preferredStyleTags,
+            RecommendationSituation situation
+    ) {
+        Set<String> candidateTags = candidateStyleTagKeys(candidate);
+        int score = 0;
+        if (!candidateTags.isEmpty() && intersects(candidateTags, styleTagKeys(preferredStyleTags))) {
+            score += 2;
+        }
+        if (!candidateTags.isEmpty() && intersects(candidateTags, situationStyleTagKeys(situation))) {
+            score += 1;
+        }
+        return score;
+    }
+
+    int calculateFeedbackAdjustment(
+            OutfitCandidate candidate,
+            List<RecommendationHistorySnapshot> recommendationHistories,
+            LocalDateTime requestedAt,
+            WeatherCondition weather
+    ) {
+        int positiveAdjustment = 0;
+        int negativeAdjustment = 0;
+        LocalDateTime feedbackWindowStart = requestedAt.minusDays(14);
+
+        for (RecommendationHistorySnapshot history : recommendationHistories) {
+            if (!history.hasFeedback() || history.feedbackUpdatedAt().isBefore(feedbackWindowStart)) {
+                continue;
+            }
+
+            Overlap overlap = overlap(candidate, history.clothingItemIds());
+            if (overlap == Overlap.NONE) {
+                continue;
+            }
+
+            if (history.sentimentFeedback() == RecommendationFeedbackSentiment.DISLIKED) {
+                negativeAdjustment = Math.min(negativeAdjustment, overlap == Overlap.SAME ? -3 : -1);
+            } else if (history.sentimentFeedback() == RecommendationFeedbackSentiment.LIKED) {
+                positiveAdjustment = Math.max(positiveAdjustment, overlap == Overlap.SAME ? 3 : 1);
+            }
+
+            if (history.thermalFeedback() == RecommendationThermalFeedback.TOO_COLD
+                    && weather.temperature() <= history.weatherTemperature() + 3) {
+                negativeAdjustment = Math.min(negativeAdjustment, overlap == Overlap.SAME ? -2 : -1);
+            }
+            if (history.thermalFeedback() == RecommendationThermalFeedback.TOO_HOT
+                    && weather.temperature() >= history.weatherTemperature() - 3) {
+                negativeAdjustment = Math.min(negativeAdjustment, overlap == Overlap.SAME ? -2 : -1);
+            }
+        }
+
+        if (negativeAdjustment < 0) {
+            return clamp(negativeAdjustment, -3, 3);
+        }
+        return clamp(positiveAdjustment, -3, 3);
     }
 
     private int calculateOuterScore(OutfitCandidate candidate, WeatherCondition weather) {
@@ -396,6 +542,63 @@ public class RecommendationScorer {
 
     private int clamp(int score, int min, int max) {
         return Math.max(min, Math.min(score, max));
+    }
+
+    private Overlap overlap(OutfitCandidate candidate, Set<Long> historyItemIds) {
+        if (candidate.hasSameItemSet(historyItemIds)) {
+            return Overlap.SAME;
+        }
+        if (candidate.intersects(historyItemIds)) {
+            return Overlap.PARTIAL;
+        }
+        return Overlap.NONE;
+    }
+
+    private Set<String> candidateStyleTagKeys(OutfitCandidate candidate) {
+        return candidate.stream()
+                .flatMap(item -> readStyleTags(item.getStyleTagsJson()).stream())
+                .map(this::styleTagKey)
+                .filter(key -> !key.isBlank())
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private Set<String> styleTagKeys(List<String> styleTags) {
+        return styleTags.stream()
+                .map(this::styleTagKey)
+                .filter(key -> !key.isBlank())
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private Set<String> situationStyleTagKeys(RecommendationSituation situation) {
+        RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
+        return switch (resolvedSituation) {
+            case WORK -> styleTagKeys(List.of("WORK", "OFFICE", "MINIMAL", "SMART", "출근", "오피스", "미니멀", "단정"));
+            case CASUAL -> styleTagKeys(List.of("CASUAL", "DAILY", "COMFORT", "MINIMAL", "캐주얼", "데일리", "편안함", "미니멀"));
+            case WORKOUT -> styleTagKeys(List.of("WORKOUT", "SPORTY", "ACTIVE", "COMFORT", "운동", "스포티", "활동적", "편안함"));
+            case DATE -> styleTagKeys(List.of("DATE", "NEAT", "POINT", "MINIMAL", "데이트", "깔끔", "포인트", "미니멀"));
+            case FORMAL -> styleTagKeys(List.of("FORMAL", "OFFICIAL", "SMART", "MINIMAL", "격식", "포멀", "단정", "미니멀"));
+        };
+    }
+
+    private boolean intersects(Set<String> left, Set<String> right) {
+        return left.stream().anyMatch(right::contains);
+    }
+
+    private String styleTagKey(String styleTag) {
+        if (styleTag == null) {
+            return "";
+        }
+        return styleTag.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private List<String> readStyleTags(String styleTagsJson) {
+        return RecommendationStyleTags.fromJson(styleTagsJson);
+    }
+
+    private enum Overlap {
+        NONE,
+        PARTIAL,
+        SAME
     }
 
     private enum ColorGroup {
