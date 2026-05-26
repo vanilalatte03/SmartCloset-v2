@@ -228,6 +228,54 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void includesClothingStyleTagsInRecommendationOutfitItems() throws Exception {
+        User user = userRepository.save(User.createSeedUser("recommendation-style-tags-user"));
+        clothingItemRepository.save(ClothingItem.create(
+                user,
+                "미니멀 니트",
+                ClothingCategory.TOP,
+                ClothingColor.WHITE,
+                ClothingMaterial.KNIT,
+                0,
+                16,
+                false,
+                "[\"MINIMAL\",\"OFFICE\"]"
+        ));
+        clothingItemRepository.save(ClothingItem.create(
+                user,
+                "데일리 데님",
+                ClothingCategory.BOTTOM,
+                ClothingColor.BLACK,
+                ClothingMaterial.DENIM,
+                0,
+                22,
+                false,
+                "[\"CASUAL\"]"
+        ));
+        clothingItemRepository.save(ClothingItem.create(
+                user,
+                "네이비 코트",
+                ClothingCategory.OUTER,
+                ClothingColor.NAVY,
+                ClothingMaterial.WOOL,
+                -10,
+                12,
+                false,
+                "[]"
+        ));
+        clothingItemRepository.flush();
+
+        mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.outfit.top.styleTags[0]").value("MINIMAL"))
+                .andExpect(jsonPath("$.data.outfit.top.styleTags[1]").value("OFFICE"))
+                .andExpect(jsonPath("$.data.outfit.bottom.styleTags[0]").value("CASUAL"))
+                .andExpect(jsonPath("$.data.outfit.outer.styleTags").isArray())
+                .andExpect(jsonPath("$.data.outfit.outer.styleTags").isEmpty());
+    }
+
+    @Test
     void marksRecommendationWornIdempotentlyWithoutDuplicatingWearHistory() throws Exception {
         User user = createUserWithP0Closet("worn-user");
         long recommendationId = createRecommendation(user);

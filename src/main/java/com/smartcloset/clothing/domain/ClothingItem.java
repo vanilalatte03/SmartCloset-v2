@@ -27,6 +27,8 @@ import java.util.Objects;
 )
 public class ClothingItem extends BaseTimeEntity {
 
+    private static final String EMPTY_JSON_ARRAY = "[]";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -59,6 +61,9 @@ public class ClothingItem extends BaseTimeEntity {
     @Column(name = "rain_suitable", nullable = false)
     private boolean rainSuitable;
 
+    @Column(name = "style_tags_json", nullable = false, columnDefinition = "TEXT")
+    private String styleTagsJson;
+
     @Column(name = "archived", nullable = false)
     private boolean archived;
 
@@ -85,10 +90,11 @@ public class ClothingItem extends BaseTimeEntity {
             ClothingMaterial material,
             int minTemperature,
             int maxTemperature,
-            boolean rainSuitable
+            boolean rainSuitable,
+            String styleTagsJson
     ) {
         this.user = Objects.requireNonNull(user, "user must not be null");
-        updateDetails(name, category, color, material, minTemperature, maxTemperature, rainSuitable);
+        updateDetails(name, category, color, material, minTemperature, maxTemperature, rainSuitable, styleTagsJson);
         this.archived = false;
     }
 
@@ -102,7 +108,41 @@ public class ClothingItem extends BaseTimeEntity {
             int maxTemperature,
             boolean rainSuitable
     ) {
-        return new ClothingItem(user, name, category, color, material, minTemperature, maxTemperature, rainSuitable);
+        return new ClothingItem(
+                user,
+                name,
+                category,
+                color,
+                material,
+                minTemperature,
+                maxTemperature,
+                rainSuitable,
+                EMPTY_JSON_ARRAY
+        );
+    }
+
+    public static ClothingItem create(
+            User user,
+            String name,
+            ClothingCategory category,
+            ClothingColor color,
+            ClothingMaterial material,
+            int minTemperature,
+            int maxTemperature,
+            boolean rainSuitable,
+            String styleTagsJson
+    ) {
+        return new ClothingItem(
+                user,
+                name,
+                category,
+                color,
+                material,
+                minTemperature,
+                maxTemperature,
+                rainSuitable,
+                styleTagsJson
+        );
     }
 
     public void updateDetails(
@@ -114,6 +154,19 @@ public class ClothingItem extends BaseTimeEntity {
             int maxTemperature,
             boolean rainSuitable
     ) {
+        updateDetails(name, category, color, material, minTemperature, maxTemperature, rainSuitable, getStyleTagsJson());
+    }
+
+    public void updateDetails(
+            String name,
+            ClothingCategory category,
+            ClothingColor color,
+            ClothingMaterial material,
+            int minTemperature,
+            int maxTemperature,
+            boolean rainSuitable,
+            String styleTagsJson
+    ) {
         validateTemperatureRange(minTemperature, maxTemperature);
         this.name = requireName(name);
         this.category = Objects.requireNonNull(category, "category must not be null");
@@ -122,6 +175,7 @@ public class ClothingItem extends BaseTimeEntity {
         this.minTemperature = minTemperature;
         this.maxTemperature = maxTemperature;
         this.rainSuitable = rainSuitable;
+        this.styleTagsJson = requireJsonArrayString(styleTagsJson, "styleTagsJson");
     }
 
     public void archive() {
@@ -187,6 +241,10 @@ public class ClothingItem extends BaseTimeEntity {
         return rainSuitable;
     }
 
+    public String getStyleTagsJson() {
+        return styleTagsJson == null ? EMPTY_JSON_ARRAY : styleTagsJson;
+    }
+
     public boolean isArchived() {
         return archived;
     }
@@ -245,6 +303,15 @@ public class ClothingItem extends BaseTimeEntity {
             throw new IllegalArgumentException("sizeBytes must be positive");
         }
         return sizeBytes;
+    }
+
+    private String requireJsonArrayString(String value, String fieldName) {
+        Objects.requireNonNull(value, fieldName + " must not be null");
+        String trimmed = value.trim();
+        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+            throw new IllegalArgumentException(fieldName + " must be a JSON array string");
+        }
+        return trimmed;
     }
 
     private void validateTemperatureRange(int minTemperature, int maxTemperature) {

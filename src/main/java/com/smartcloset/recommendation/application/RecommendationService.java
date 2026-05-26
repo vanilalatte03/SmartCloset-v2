@@ -3,6 +3,7 @@ package com.smartcloset.recommendation.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.clothing.application.ClothingStyleTagMapper;
 import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
 import com.smartcloset.clothing.domain.ClothingMaterial;
@@ -66,6 +67,7 @@ public class RecommendationService {
     private final WearHistoryRepository wearHistoryRepository;
     private final WeatherProvider weatherProvider;
     private final PreferenceJsonMapper preferenceJsonMapper;
+    private final ClothingStyleTagMapper clothingStyleTagMapper;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WeatherSuitabilityFilter weatherSuitabilityFilter = new WeatherSuitabilityFilter();
@@ -81,6 +83,7 @@ public class RecommendationService {
             WearHistoryRepository wearHistoryRepository,
             WeatherProvider weatherProvider,
             PreferenceJsonMapper preferenceJsonMapper,
+            ClothingStyleTagMapper clothingStyleTagMapper,
             PlatformTransactionManager transactionManager
     ) {
         this.userRepository = userRepository;
@@ -90,6 +93,7 @@ public class RecommendationService {
         this.wearHistoryRepository = wearHistoryRepository;
         this.weatherProvider = weatherProvider;
         this.preferenceJsonMapper = preferenceJsonMapper;
+        this.clothingStyleTagMapper = clothingStyleTagMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -135,7 +139,7 @@ public class RecommendationService {
                     requestedAt
             );
             RecommendationResult recommendationResult = saveRecommendation(user, weather, best, reasons);
-            return RecommendationResponse.from(recommendationResult, best.candidate(), reasons);
+            return RecommendationResponse.from(recommendationResult, best.candidate(), reasons, clothingStyleTagMapper);
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
         }
@@ -157,7 +161,8 @@ public class RecommendationService {
                 .map(result -> RecommendationResponse.from(
                         result,
                         itemsByResultId.getOrDefault(result.getId(), List.of()),
-                        readReasonsJson(result.getReasonsJson())
+                        readReasonsJson(result.getReasonsJson()),
+                        clothingStyleTagMapper
                 ))
                 .toList();
     }

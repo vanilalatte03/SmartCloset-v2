@@ -106,6 +106,12 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data[0].minTemperature").value(8))
                 .andExpect(jsonPath("$.data[0].maxTemperature").value(30))
                 .andExpect(jsonPath("$.data[0].rainSuitable").value(false))
+                .andExpect(jsonPath("$.data[0].styleTags[0]").value("CASUAL"))
+                .andExpect(jsonPath("$.data[0].styleTags[1]").value("DAILY"))
+                .andExpect(jsonPath("$.data[0].styleTags[2]").value("캐주얼"))
+                .andExpect(jsonPath("$.data[4].styleTags[0]").value("MINIMAL"))
+                .andExpect(jsonPath("$.data[4].styleTags[1]").value("OFFICE"))
+                .andExpect(jsonPath("$.data[4].styleTags[2]").value("미니멀"))
                 .andExpect(jsonPath("$.data[0].image.url").exists())
                 .andExpect(jsonPath("$.data[0].image.contentType").value("image/jpeg"))
                 .andReturn();
