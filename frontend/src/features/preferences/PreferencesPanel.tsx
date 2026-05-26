@@ -13,8 +13,18 @@ import {
   clothingColorOptions,
   clothingMaterialOptions,
   formatStyleTagLabel,
+  recommendationSituationLabels,
   styleTagLabels,
+  styleTagSuggestionGroups,
 } from '../../utils/displayMappings';
+import {
+  hasStyleTag,
+  maxStyleTagLength,
+  mergeStyleTags,
+  normalizeStyleTags,
+  parseStyleTagInput,
+  removeStyleTag,
+} from '../../utils/styleTags';
 
 const emptyPreferences: UserPreferencesResponse = {
   preferredColors: [],
@@ -96,28 +106,44 @@ export function PreferencesPanel({
     void loadPreferences();
   }, [loadPreferences]);
 
-  const handleAddTag = () => {
-    const nextTag = tagInput.trim();
+  const addStyleTagsToPreferences = (nextTags: string[], reportEmpty: boolean): boolean => {
+    const normalizedNextTags = normalizeStyleTags(nextTags);
     setError(null);
     setStatus(null);
 
-    if (!nextTag) {
-      setError(validationError('스타일 태그를 입력해주세요.'));
-      return;
+    if (normalizedNextTags.length === 0) {
+      if (reportEmpty) {
+        setError(validationError('스타일 태그를 입력해주세요.'));
+      }
+      return false;
     }
-    if (nextTag.length > 30) {
+    if (normalizedNextTags.some((tag) => tag.length > maxStyleTagLength)) {
       setError(validationError('스타일 태그는 30자 이하로 입력해주세요.'));
-      return;
-    }
-    if (preferences.styleTags.includes(nextTag)) {
-      setTagInput('');
-      return;
+      return false;
     }
 
-    setPreferences({
-      ...preferences,
-      styleTags: [...preferences.styleTags, nextTag],
-    });
+    setPreferences((current) => ({
+      ...current,
+      styleTags: mergeStyleTags(current.styleTags, normalizedNextTags),
+    }));
+    return true;
+  };
+
+  const handleAddTag = () => {
+    if (addStyleTagsToPreferences(parseStyleTagInput(tagInput), true)) {
+      setTagInput('');
+    }
+  };
+
+  const handleToggleSuggestedTag = (tag: string) => {
+    setError(null);
+    setStatus(null);
+    setPreferences((current) => ({
+      ...current,
+      styleTags: hasStyleTag(current.styleTags, tag)
+        ? removeStyleTag(current.styleTags, tag)
+        : mergeStyleTags(current.styleTags, [tag]),
+    }));
     setTagInput('');
   };
 
@@ -144,12 +170,9 @@ export function PreferencesPanel({
     setStatus(null);
     setPreferences({
       ...preferences,
-      styleTags: preferences.styleTags.filter((candidate) => candidate !== tag),
+      styleTags: removeStyleTag(preferences.styleTags, tag),
     });
   };
-
-  const normalizeStyleTags = (tags: string[]) =>
-    Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -184,8 +207,7 @@ export function PreferencesPanel({
         <div>
           <h2>선호도</h2>
           <p className="muted preference-guidance">
-            색상과 소재는 취향 선택으로 저장하고, 스타일 태그는 화면에서 참고하기 위한
-            표시용 문구로만 보관합니다.
+            색상, 소재, 스타일 태그를 저장해 추천 개인화에 반영합니다.
           </p>
         </div>
         <button
@@ -299,12 +321,39 @@ export function PreferencesPanel({
                   <div>
                     <h3>{styleTagLabels.title}</h3>
                     <p className="muted preference-helper">
-                      룩을 기억하기 위한 별도 표시 영역입니다.
+                      추천 취향으로 함께 저장됩니다.
                     </p>
                   </div>
                   <span className="preference-count-pill">
                     {preferences.styleTags.length}개 태그
                   </span>
+                </div>
+                <div className="style-tag-suggestions" aria-label="추천 스타일 태그">
+                  {styleTagSuggestionGroups.map((group) => (
+                    <div className="style-tag-suggestion-group" key={group.situation}>
+                      <span className="style-tag-group-label">
+                        {recommendationSituationLabels[group.situation]}
+                      </span>
+                      <div className="style-tag-suggestion-chips">
+                        {group.tags.map((tag) => {
+                          const selected = hasStyleTag(preferences.styleTags, tag);
+
+                          return (
+                            <button
+                              className={selected ? 'suggestion-chip active' : 'suggestion-chip'}
+                              type="button"
+                              key={`${group.situation}:${tag}`}
+                              aria-pressed={selected}
+                              onClick={() => handleToggleSuggestedTag(tag)}
+                              disabled={saving}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 <div className="inline-form tag-form">
                   <label className="field">
@@ -318,11 +367,22 @@ export function PreferencesPanel({
                           event.preventDefault();
                           handleAddTag();
                         }
+                        if (event.key === ',') {
+                          event.preventDefault();
+                          if (tagInput.trim()) {
+                            handleAddTag();
+                          }
+                        }
                       }}
                       placeholder={styleTagLabels.placeholder}
                     />
                   </label>
-                  <button className="secondary-button" type="button" onClick={handleAddTag}>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={handleAddTag}
+                    disabled={saving}
+                  >
                     {styleTagLabels.addCta}
                   </button>
                 </div>

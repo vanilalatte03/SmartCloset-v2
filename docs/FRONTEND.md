@@ -168,6 +168,8 @@ Thermal:
 
 기준:
 
+- 상황별 추천 style tag chip을 제공해 사용자가 직접 문자열을 외우지 않아도 추가할 수 있게 한다.
+- 선택된 추천 style tag chip은 다시 클릭하면 제거된다.
 - 쉼표 또는 Enter 기반 tag 추가 중 기존 UX와 가장 잘 맞는 방식을 사용한다.
 - blank tag는 추가하지 않는다.
 - tag는 trim한다.
@@ -175,6 +177,17 @@ Thermal:
 - 저장 전 요약에 tag 개수를 표시한다.
 - 옷 카드와 수정 패널에 styleTags chip을 표시한다.
 - 기존 이미지 업로드/교체/삭제 UX는 유지한다.
+
+## Preferences View
+
+선호도 화면의 `styleTags`는 추천 개인화에 반영되는 취향 정보로 표시한다.
+
+기준:
+
+- 옷 등록/수정 폼과 같은 상황별 추천 style tag chip을 제공한다.
+- 선택된 추천 style tag chip은 다시 클릭하면 제거된다.
+- 쉼표 또는 Enter 기반 직접 입력을 지원한다.
+- blank tag, 중복 tag, 단일 tag 길이 제한은 옷 등록/수정 폼과 동일하게 처리한다.
 
 ## Today Recommendation View
 
