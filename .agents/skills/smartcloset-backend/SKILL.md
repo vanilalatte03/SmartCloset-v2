@@ -9,7 +9,7 @@ description: SmartCloset Spring Boot 4.0.6 백엔드 구현 또는 리뷰 시 �
 
 SmartCloset 현재 baseline 백엔드/프론트엔드 연동 작업을 구현하거나 리뷰하기 전에 반드시 따르는 실행 규칙이다.
 
-이 스킬은 기획 기록이 아니다. Codex가 따라야 하는 현재 구현 기준을 정의한다. 이 스킬이 과거 MVP 메모, archive 문서, 오래된 ADR 표현, seed/test-user 흐름과 충돌하면 `Current Execution Baseline`과 현재 루트 `README.md` 및 `docs/`를 우선한다.
+이 스킬은 기획 기록이 아니다. Codex가 따라야 하는 현재 구현 기준을 정의한다. 이 스킬이 과거 MVP 메모, 완료된 phase 문서, archive 문서, 오래된 ADR 표현, seed/test-user 흐름과 충돌하면 `Current Execution Baseline`과 현재 루트 `README.md` 및 `docs/`를 우선한다.
 
 ## Reading Policy
 
@@ -37,7 +37,7 @@ Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical
 
 ## Current Execution Baseline
 
-SmartCloset의 현재 기준은 MVP4 완료 baseline Spring Boot 4.0.6 서비스다. MVP5는 `docs/PRD.md`와 ADR-010에서 승인된 옷 이미지 업로드 MVP다.
+SmartCloset의 현재 기준은 MVP5 옷 이미지 업로드 완료 baseline Spring Boot 4.0.6 서비스다. MVP5 계약은 `docs/PRD.md`와 ADR-010을 따른다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
@@ -68,6 +68,7 @@ SmartCloset의 현재 기준은 MVP4 완료 baseline Spring Boot 4.0.6 서비스
 - 2차 MVP는 사용자 위치 저장, 내장 KMA 위치 catalog, React frontend를 추가했다.
 - MVP3는 Spring Security, JWT Bearer access token, 인증 사용자 API, 선호도, `preferenceScore`를 추가했다.
 - MVP4는 반응형 실사용 UX와 `GET /api/weather/current`를 추가했다.
+- MVP5는 옷 이미지 업로드/교체/조회/삭제, 기본 옷 프리셋 이미지, 추천/이력 썸네일, Docker Compose 이미지 volume을 추가했다.
 
 현재 작업에서 과거 seed/test-user API 계약, 공개 `userId` query parameter, 과거 점수 필드를 되살리지 않는다.
 

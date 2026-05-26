@@ -1,5 +1,7 @@
 # Phase: SmartCloset 5차 Clothing Images MVP
 
+> 상태: 완료된 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 
 MVP4 인증 사용자 반응형 UX 위에 옷 이미지 업로드와 썸네일 표시를 추가한다. 사용자는 옷 1개당 이미지 1장을 업로드, 교체, 삭제할 수 있고, 옷 목록과 추천 결과와 추천 이력에서 썸네일을 확인할 수 있어야 한다.

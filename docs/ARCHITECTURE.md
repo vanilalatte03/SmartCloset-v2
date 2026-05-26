@@ -158,7 +158,7 @@ smartcloset:
       max-size-bytes: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
 ```
 
-Docker Compose 구현 단계에서는 app container 내부 storage path를 volume에 mount한다. 이 문서 단계에서는 `docker-compose.yml`을 수정하지 않고, phase step에서 수정하도록 한다.
+Docker Compose에서는 app service가 `clothing-image-data` volume을 app container 내부 storage path인 `/data/smartcloset/clothing-images`에 mount한다.
 
 저장 파일명:
 

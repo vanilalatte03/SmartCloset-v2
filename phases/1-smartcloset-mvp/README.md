@@ -1,5 +1,7 @@
 # Phase: SmartCloset 1차 MVP
 
+> 상태: 완료된 과거 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 과거 API 또는 범위 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 SmartCloset 1차 MVP를 Docker Compose로 공유 가능한 Spring Boot 4.0.6 백엔드로 구현한다. P0는 Swagger 기준 공유 성공을 목표로 하고, P1은 P0 완료 후 공유 품질을 높이는 작업으로만 진행한다.
 

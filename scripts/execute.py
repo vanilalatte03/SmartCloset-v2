@@ -118,7 +118,8 @@ class StepExecutor:
         guardrails = self._load_guardrails()
         command_context = self._load_command_context()
         self._ensure_created_at()
-        if self._step_number is not None or self._next_step_only:
+        step_only = self._step_number is not None or self._next_step_only
+        if step_only:
             ran = self._execute_one_step(guardrails, command_context)
             if not ran:
                 return
@@ -128,6 +129,7 @@ class StepExecutor:
                 return
         else:
             self._execute_all_steps(guardrails, command_context)
+            self._run_final_checks()
         self._finalize()
 
     # --- timestamps ---
@@ -533,6 +535,28 @@ class StepExecutor:
             print(f"\n  ERROR: git push 실패: {r.stderr.strip()}")
             sys.exit(1)
         print(f"  ✓ Pushed to origin/{branch}")
+
+    def _run_final_checks(self):
+        checks_path = Path(self._root) / "scripts" / "checks.py"
+        if not checks_path.exists():
+            return
+
+        cmd = [sys.executable, "scripts/checks.py", "--stage", "final"]
+        result = subprocess.run(
+            cmd,
+            cwd=self._root,
+            capture_output=True,
+            text=True,
+            timeout=1800,
+        )
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        if result.returncode != 0:
+            self._update_top_index("error")
+            print("\n  ERROR: final checks failed.")
+            sys.exit(result.returncode)
 
     def _finalize(self):
         index = self._read_json(self._index_file)

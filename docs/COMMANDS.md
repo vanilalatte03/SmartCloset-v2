@@ -21,6 +21,8 @@ git config core.hooksPath .githooks
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
+| harness-test | `python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py` | yes | Harness 운영 스크립트 회귀 테스트 |
+| docs-check | `python3 scripts/checks.py --docs-check` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
 | compose-config | `docker compose config` | no | Docker Compose 파일 구문과 서비스 구성 확인 |
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
 | compose-down | `docker compose down` | yes | Docker Compose 중지 |
@@ -63,12 +65,14 @@ MVP5 최종 수동 QA에서는 브라우저에서 옷 이미지 업로드, 교�
 
 ## 문서 검증
 
+검증 규칙은 `phases/{phase}/docs-checks.json`에서 관리한다. MVP 범위가 바뀌면 `scripts/checks.py`가 아니라 해당 phase의 rule 파일을 갱신한다.
+`harness-test`와 `docs-check`는 step-local `manual` 검증에서는 제외되고, 마지막 step 이후 `final` stage 또는 직접 실행에서만 수행한다.
+프로젝트 skill의 Documentation Sync Rules는 에이전트가 따라야 하는 정성 규칙이고, `docs-checks.json`은 final stage에서 자동으로 잡을 수 있는 핵심 회귀 신호만 담는다.
+
 ```bash
-git diff --check
-rg -n 'MVP5|이미지 업로드|/api/clothes/.*/image|CLOTHING_IMAGE_STORAGE_DIR' README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md phases/5-smartcloset-clothing-images
-! rg -n 'GET /api/recommendations/(today)' README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md frontend/src
-! rg -n -F -e 'POST /api/recommendations''?userId' -e '/api/clothes''?userId' -e '/api/users/location''?userId' README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md frontend/src
-! rg -n 'AI 자동 태[깅].*구현''한다|다중 이미지.*구현''한다|S[3].*구현''한다|CD[N].*구현''한다|이미지 기반 추천 점[수].*반영''한다|이미지 기반 추천 이유.*생성''한다' README.md docs AGENTS.md .agents/skills/smartcloset-backend/SKILL.md
+python3 scripts/checks.py --stage final
+python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py
+python3 scripts/checks.py --docs-check
 ```
 
 ## 자동 PR 루프

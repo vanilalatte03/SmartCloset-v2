@@ -168,18 +168,22 @@ docker compose config
 
 MVP5 최종 공유 검증에서는 Docker Compose 실행 후 회원가입, 옷 등록, 이미지 업로드, 추천 생성, 썸네일 표시를 브라우저에서 확인합니다.
 
-## 주요 문서
+## 문서 기준
 
-- PRD: `docs/PRD.md`
-- API: `docs/API.md`
-- ERD: `docs/ERD.md`
-- 아키텍처: `docs/ARCHITECTURE.md`
-- 프론트엔드: `docs/FRONTEND.md`
-- 추천 규칙: `docs/RECOMMENDATION_RULES.md`
-- 데모 시나리오: `docs/DEMO_SCENARIO.md`
-- 공유 가이드: `docs/SHARING_GUIDE.md`
-- 명령: `docs/COMMANDS.md`
-- ADR: `docs/ADR.md`
+이 README는 프로젝트 개요와 실행 안내다. 세부 계약은 아래 source of truth 문서를 우선한다.
+
+| 영역 | 기준 문서 |
+| --- | --- |
+| 제품 목표, MVP 범위, 포함/제외 | `docs/PRD.md` |
+| API, 인증, DTO, 에러 코드 | `docs/API.md` |
+| 추천 후보, 점수, 추천 이유 | `docs/RECOMMENDATION_RULES.md` |
+| 아키텍처, storage, transaction | `docs/ARCHITECTURE.md` |
+| ERD, schema, JPA/entity 기준 | `docs/ERD.md` |
+| 프론트엔드 타입, API client, UX | `docs/FRONTEND.md` |
+| 데모 시나리오 | `docs/DEMO_SCENARIO.md` |
+| Docker Compose 공유 | `docs/SHARING_GUIDE.md` |
+| 명령 모음 | `docs/COMMANDS.md` |
+| 결정 기록 | `docs/ADR.md`, `docs/adr/` |
 
 ## Archive
 

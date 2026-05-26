@@ -213,6 +213,21 @@ def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
     assert ("pr", "merge", "https://github.com/org/repo/pull/2", "--squash", "--delete-branch") in gh_calls
 
 
+def test_run_executes_final_gate_when_no_pending_steps(runner, tmp_repo):
+    _mark_step_complete(tmp_repo, 0, "0 완료")
+    _mark_step_complete(tmp_repo, 1, "1 완료")
+    calls = []
+
+    runner._ensure_preconditions = lambda: calls.append("preconditions")
+    runner._sync_base = lambda: calls.append("sync")
+    runner._run_final_gate = lambda: calls.append("final-gate")
+
+    result = runner.run()
+
+    assert result == "No pending steps for 1-smartcloset-mvp."
+    assert calls == ["preconditions", "final-gate"]
+
+
 def test_review_fail_records_issue_and_leaves_pr_open(runner, tmp_repo):
     gh_calls = []
     runner.max_review_fixes = 0

@@ -1,0 +1,129 @@
+{
+  "paths": [
+    "README.md",
+    "docs",
+    "AGENTS.md",
+    "phases/5-smartcloset-clothing-images",
+    "frontend/src",
+    ".codex/agents",
+    "docker-compose.yml"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "API image upload endpoint",
+      "paths": ["docs/API.md"],
+      "pattern": "PUT /api/clothes/\\{clothingId\\}/image"
+    },
+    {
+      "name": "API image fetch endpoint",
+      "paths": ["docs/API.md"],
+      "pattern": "GET /api/clothes/\\{clothingId\\}/image"
+    },
+    {
+      "name": "API image delete endpoint",
+      "paths": ["docs/API.md"],
+      "pattern": "DELETE /api/clothes/\\{clothingId\\}/image"
+    },
+    {
+      "name": "API image multipart part name",
+      "paths": ["docs/API.md"],
+      "pattern": "part name:? `image`"
+    },
+    {
+      "name": "API public userId prohibition",
+      "paths": ["docs/API.md"],
+      "pattern": "공개 `userId` query parameter를 추가하지 않는다"
+    },
+    {
+      "name": "ERD clothing image metadata column",
+      "paths": ["docs/ERD.md"],
+      "pattern": "image_stored_filename"
+    },
+    {
+      "name": "ERD no separate image table",
+      "paths": ["docs/ERD.md"],
+      "pattern": "별도 이미지 테이블은 만들지 않는다"
+    },
+    {
+      "name": "ERD no image bytes in DB",
+      "paths": ["docs/ERD.md"],
+      "pattern": "파일 bytes는 DB에 저장하지 않는다"
+    },
+    {
+      "name": "Architecture filesystem or volume image storage",
+      "paths": ["docs/ARCHITECTURE.md"],
+      "pattern": "이미지 파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker Compose volume에 저장한다"
+    },
+    {
+      "name": "Architecture protected image fetch flow",
+      "paths": ["docs/ARCHITECTURE.md"],
+      "pattern": "GET /api/clothes/\\{clothingId\\}/image"
+    },
+    {
+      "name": "Architecture image ownership check",
+      "paths": ["docs/ARCHITECTURE.md"],
+      "pattern": "소유권 확인"
+    },
+    {
+      "name": "Frontend authenticated blob fetch",
+      "paths": ["docs/FRONTEND.md"],
+      "pattern": "Authorization header를 붙인다"
+    },
+    {
+      "name": "Frontend object URL cleanup",
+      "paths": ["docs/FRONTEND.md"],
+      "pattern": "URL\\.revokeObjectURL"
+    },
+    {
+      "name": "Sharing image storage env",
+      "paths": ["docs/SHARING_GUIDE.md"],
+      "pattern": "CLOTHING_IMAGE_STORAGE_DIR=/data/smartcloset/clothing-images"
+    },
+    {
+      "name": "Sharing protected image fetch",
+      "paths": ["docs/SHARING_GUIDE.md"],
+      "pattern": "인증 없이 접근할 수 없다"
+    },
+    {
+      "name": "Docker Compose image volume",
+      "paths": ["docker-compose.yml"],
+      "pattern": "clothing-image-data"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "out-of-scope image/AI hosting requirements",
+      "pattern": "AI 자동 태[깅].*구현한다|다중 이미지.*구현한다|S3.*구현한다|CDN.*구현한다|이미지 기반 추천 점[수].*반영한다|이미지 기반 추천 이유.*생성한다"
+    },
+    {
+      "name": "agent conflict forbidding MVP5 image upload",
+      "paths": [".codex/agents"],
+      "pattern": "이미지 업로드를 추가하지 않는다|이미지 업로드.*금지|이미지 업로드.*범위 밖"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Phase: SmartCloset 3차 Auth + Personalization MVP
 
+> 상태: 완료된 과거 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 과거 API 또는 범위 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 SmartCloset 2차의 위치 기반 React 프론트엔드와 KMA 추천 흐름을 인증 사용자 기반 서비스로 전환한다. 회원가입/로그인, Spring Security, JWT Bearer access token, 현재 사용자 기준 API, 사용자 선호도, `preferenceScore`, 추천 이력 조회, 프론트 세션 흐름, Docker Compose 공유 검증을 3차 MVP 범위로 완성한다.
 

@@ -1,5 +1,7 @@
 # Phase: SmartCloset 1.5차 KMA Weather MVP
 
+> 상태: 완료된 과거 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 과거 API 또는 범위 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 SmartCloset 1차 MVP의 추천 API 계약을 유지하면서 기상청 단기예보 조회서비스 `getVilageFcst` JSON 기반 날씨 provider를 추가한다. 서비스키가 없는 Docker Compose 데모는 fallback 날씨로 계속 성공해야 하고, 서비스키가 있으면 KMA 응답의 `TMP`, `SKY`, `PTY`, `PCP`, `WSD`가 추천 응답의 weather snapshot에 반영되어야 한다.
 

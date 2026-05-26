@@ -1,5 +1,7 @@
 # Phase: SmartCloset 2차 Location + Frontend MVP
 
+> 상태: 완료된 과거 phase 문서다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 현재 문서이며, 이 phase/step의 과거 API 또는 범위 표현이 현재 문서와 충돌하면 현재 문서를 우선한다. 완료 phase를 재실행할 때만 당시 step-local 기준으로 참고한다.
+
 ## 목표
 SmartCloset 1.5차 KMA weather provider 기반 추천 흐름에 사용자별 위치 저장, 내장 대표 격자 catalog API, 사용자 위치 기반 KMA 요청, React+Vite+TypeScript 프론트엔드 앱, Docker Compose 프론트 공유 흐름을 추가한다.
 

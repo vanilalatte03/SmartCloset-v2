@@ -234,6 +234,7 @@ class AutopilotRunner:
         while True:
             step = self._next_pending_step()
             if step is None:
+                self._run_final_gate()
                 return "\n".join(merged_prs) if merged_prs else f"No pending steps for {self.phase}."
 
             branch = self._step_branch(step)
@@ -408,6 +409,12 @@ class AutopilotRunner:
             "python3 scripts/checks.py --stage manual",
             f"git diff --check origin/{self.base}...HEAD",
         )
+
+    def _run_final_gate(self):
+        checks_path = self.root / "scripts" / "checks.py"
+        if not checks_path.exists():
+            return
+        self._run([sys.executable, "scripts/checks.py", "--stage", "final"], timeout=1800)
 
     def _mark_ready_and_merge(self, pr_url: str):
         self._gh("pr", "ready", pr_url)

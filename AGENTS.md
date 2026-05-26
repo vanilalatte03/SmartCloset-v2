@@ -1,86 +1,64 @@
 # AGENTS.md
 
-## 필수 읽기
-- `.agents/skills/smartcloset-backend/SKILL.md`
-- `docs/PRD.md`
-- `docs/ARCHITECTURE.md`
-- `docs/FRONTEND.md`
-- `docs/RECOMMENDATION_RULES.md`
-- `docs/API.md`
-- `docs/ERD.md`
-- `docs/DEMO_SCENARIO.md`
-- `docs/SHARING_GUIDE.md`
-- `docs/design/mvp5/README.md`
-- `docs/adr/`
+## 역할
+- 이 파일은 Codex 작업 라우터다. 제품/기술 계약의 본문은 루트 `README.md`와 `docs/` 아래 현재 문서를 따른다.
+- 구현 세부 규칙을 이 파일에 복사하지 않는다. 세부 규칙이 필요하면 아래 SSOT 문서를 확인한다.
+- `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다. `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
 
-## 규칙
-- 구현 전 반드시 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
-- 구현 기준 문서는 루트 `README.md`와 `docs/` 아래 현재 문서다.
-- 문서가 충돌하면 `docs/PRD.md`, `docs/API.md`, `docs/RECOMMENDATION_RULES.md`를 우선한다.
-- `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다.
-- `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
-- 현재 구현 baseline은 MVP4 완료 상태다. 회원가입/로그인, Spring Security, JWT Bearer access token, 인증 사용자 기반 API, 사용자별 옷장/위치/추천 이력/착용 이력 분리, 선호도 최소 버전, 현재 날씨 요약 API, 반응형 실사용 UX까지 완료되어 있다.
-- MVP5 범위는 `docs/PRD.md`와 ADR-010에서 승인된 옷 이미지 업로드 MVP다.
-- 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`만 둔다.
-- 보호 API는 `Authorization: Bearer {accessToken}`을 요구한다.
-- 프론트 access token 저장 위치는 `sessionStorage`로 고정한다.
-- JWT access token은 `HS256` + `JWT_SECRET`으로 서명하고 만료 시간은 2시간으로 고정한다.
-- 공개 HTTP API에서 `?userId=` query parameter를 제거한다.
-- 현재 사용자 전용 response DTO에서 `userId` 필드를 제거한다.
-- 추천 생성 API는 `POST /api/recommendations`만 사용한다.
-- today 추천 GET 경로는 사용하지 않는다.
-- 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`를 사용하며 기본 20, 최소 1, 최대 50, 최신순으로 고정한다.
-- 현재 날씨 요약 API는 `GET /api/weather/current`를 사용하며 보호 API다.
-- 현재 날씨 요약 API는 현재 인증 사용자 위치 기준의 `WeatherResponse`만 반환하고 추천 결과를 생성/저장하지 않는다.
-- Spring Boot 버전은 `4.0.6`으로 고정한다.
-- 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 허용한다.
-- 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
-- `GET /api/locations`는 보호 API이며 로그인 후 위치 선택 흐름에서만 사용한다.
-- 선호도는 `users` 테이블 JSON 문자열 컬럼 `preferred_colors_json`, `preferred_materials_json`, `style_tags_json`에 저장한다.
-- 선호도 API는 `preferredColors`, `preferredMaterials`, `styleTags` 배열로 주고받는다.
-- 신규 사용자의 기본 선호도는 모두 빈 배열이다.
-- 기존 다양성 점수는 현재 baseline에서 `preferenceScore`로 교체했다.
-- `preferenceScore`는 최대 10점이며 선호 색상 일치 5점, 선호 소재 일치 5점으로 계산한다.
-- 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`이다.
-- `styleTags`는 저장/조회/표시만 하고 추천 점수와 추천 이유에는 반영하지 않는다.
-- 선호도 별도 테이블 정규화는 후속 MVP 후보이며 MVP5에서는 구현하지 않는다.
-- MVP5에서는 옷 1개당 이미지 1장 업로드를 지원한다.
-- 기존 `POST /api/clothes`, `PUT /api/clothes/{clothingId}` JSON API는 유지한다.
-- 이미지 업로드/교체는 `PUT /api/clothes/{clothingId}/image` 보호 API를 사용한다.
-- 이미지 조회는 `GET /api/clothes/{clothingId}/image` 보호 API를 사용한다.
-- 이미지 삭제는 `DELETE /api/clothes/{clothingId}/image` 보호 API를 사용하며 idempotent해야 한다.
-- 이미지 API도 현재 인증 사용자 소유 옷만 접근할 수 있다.
-- 이미지 파일은 Docker Compose 기준 로컬 파일 또는 volume 저장부터 시작한다.
-- 이미지 제한은 5MB, jpg/jpeg/png/webp, 허용 MIME type `image/jpeg`, `image/png`, `image/webp`다.
-- 이미지 존재 여부는 추천 점수, 추천 후보 필터링, 추천 이유에 반영하지 않는다.
-- AI 자동 태깅은 MVP5 범위가 아니며 수동 입력을 유지한다.
-- 로컬 Docker Compose baseline 전환 시 `docker compose down -v` 후 `docker compose up --build`를 권장한다.
-- AWS 배포, refresh token, 소셜 로그인, 이메일 인증, 비밀번호 재설정, AI/GPT 추천, AI 자동 태깅, 다중 이미지, 이미지 압축 파이프라인, EXIF 분석, image moderation, S3/CDN, 이미지 기반 추천 이유 생성, Redis는 구현하지 않는다.
-- 공유 방식은 Docker Compose 기준이다.
-- 커밋은 항상 Codex 앱 커밋 지침을 따른다.
-- 자동 PR 루프는 clean worktree에서만 실행하고, Codex 앱 커밋/PR 지침을 따른다.
+## 구현 전 필수
+- 구현, 리뷰, 문서 동기화 전에는 반드시 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
+- 현재 baseline은 MVP5 옷 이미지 업로드 완료 상태다. MVP5 계약은 `docs/PRD.md`와 ADR-010을 따른다.
+- 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
+- phase/step 작업은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 함께 따른다.
+
+## SSOT 문서 지도
+| 영역 | 기준 문서 |
+| --- | --- |
+| 제품 목표, MVP 범위, 포함/제외 | `docs/PRD.md` |
+| HTTP API, 인증 경계, DTO, 에러 코드 | `docs/API.md` |
+| 추천 후보, 점수, tie-break, 추천 이유 | `docs/RECOMMENDATION_RULES.md` |
+| 백엔드 구조, 저장소, 트랜잭션, 금지 패턴 | `docs/ARCHITECTURE.md` |
+| DB schema, entity/JPA 기준 | `docs/ERD.md` |
+| 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
+| MVP5 화면 설계 참고 | `docs/design/mvp5/README.md` |
+| 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
+| Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
+| 실행 명령과 검증 명령 | `docs/COMMANDS.md` |
+| 결정 기록과 변경 이력 | `docs/ADR.md`, `docs/adr/` |
+
+## 문서 충돌 해석
+- 제품 범위 충돌은 `docs/PRD.md`를 우선한다.
+- HTTP 계약 충돌은 `docs/API.md`를 우선한다.
+- 추천 규칙 충돌은 `docs/RECOMMENDATION_RULES.md`를 우선한다.
+- 구조/DB/프론트 충돌은 각각 `docs/ARCHITECTURE.md`, `docs/ERD.md`, `docs/FRONTEND.md`를 우선한다.
+- 오래된 ADR, phase 문서, archive 내용이 현재 문서와 충돌하면 현재 `README.md`와 `docs/` 기준을 우선한다.
+- 완료된 phase 문서는 과거 실행 기록이며, 현재 구현 source of truth를 override하지 않는다.
+- `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md`, 디자인 문서는 검증과 사용 흐름 기준이며, API/DB/추천 계약을 override하지 않는다.
+
+## Codex 작업 규칙
+- 변경은 현재 요청과 현재 phase/step 범위 안에서만 수행한다.
+- 동작이 바뀌면 관련 SSOT 문서도 함께 확인하고 필요한 경우 동기화한다.
+- 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
+- 커밋과 PR은 Codex 앱의 한국어 Conventional Commits / PR 작성 지침을 따른다.
+- 자동 PR 루프는 clean worktree에서만 실행한다.
 - 자동 병합은 로컬 검증과 자체 리뷰가 모두 통과한 PR에만 허용한다.
 - 자동 리뷰 실패는 GitHub Issue와 `issues/{phase}/issue-N.md`에 함께 기록한다.
-- 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 
 ## Codex Reasoning Effort Policy
-- 기본 구현 작업은 `medium`을 사용한다.
+- 기본 구현, 문서 수정, 작은 UI 문구 변경은 `medium`을 사용한다.
 - Plan Mode, PR self-review, scope review는 `high`를 사용한다.
 - `xhigh`는 추천 규칙 변경, 인증/인가 구조 변경, JPA 성능 개선, 대규모 리팩토링, 머지 전 최종 범위 감사에만 사용한다.
-- 문서 수정, 오타, README 동기화, 작은 UI 문구 변경은 `medium`을 사용한다.
-- subagent 병렬 실행 시 `xhigh`를 기본값으로 사용하지 않는다.
-- Harness 자동 실행은 `scripts/execute.py`와 `scripts/autopilot.py`의 effort 옵션을 우선하며, `xhigh`는 명시적 허용 옵션이 있을 때만 사용한다.
+- Harness 자동 실행은 `scripts/execute.py`와 `scripts/autopilot.py`의 effort 옵션을 우선한다.
 
 ## Harness step PR 리뷰 규칙
-- 완료된 phase 기준은 phase 전체 완료 기준이다.
-- 중간 step PR 구현과 리뷰는 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 우선한다.
-- 아직 미래 step에 배정된 기능이 없다는 이유만으로 현재 step PR을 blocker 처리하지 않는다.
+- 완료 기준은 phase 전체 완료 기준이다.
+- 중간 step PR은 해당 step 문서의 작업, 인수 기준, 금지사항을 우선한다.
+- 미래 step 기능이 현재 step에 없다는 이유만으로 blocker 처리하지 않는다.
 - 현재 step이 미래 step 범위를 선행 구현하면 blocker로 본다.
-- 리뷰 실패를 수정할 때는 현재 step 범위 안에서만 해결하고, 미래 step 기능을 구현해서 통과시키지 않는다.
-- 최종 공개/보호 API 경계, 남은 `userId` 제거, `preferenceScore`, 추천 이력, 프론트 전환은 각 step 문서가 지정한 단계에서 검증한다.
+- 리뷰 실패 수정은 현재 step 범위 안에서 해결한다.
 
 ## 서브에이전트
 - 프로젝트 전용 서브에이전트 정의는 `.codex/agents/*.toml`을 기준으로 한다.
 - 서브에이전트는 사용자가 명시적으로 요청했거나, 병렬로 안전하게 분리 가능한 작업일 때만 사용한다.
 - 부모 에이전트는 작업 범위와 수정 가능/금지 경로를 명시하고, 최종 통합과 검증을 책임진다.
-- 사용 가능: `smartcloset_scope_reviewer`, `smartcloset_backend_implementer`, `smartcloset_recommendation_rules_engineer`, `smartcloset_test_guardian`, `smartcloset_docs_sync`.
+- 사용 가능: `smartcloset_scope_reviewer`, `smartcloset_backend_implementer`, `smartcloset_recommendation_rules_engineer`.

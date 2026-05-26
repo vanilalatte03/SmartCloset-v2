@@ -2,7 +2,7 @@
 
 ## 0. DB Baseline
 
-MVP5는 MVP4 완료 DB baseline에 옷 이미지 메타데이터 컬럼만 추가한다. 별도 이미지 테이블은 만들지 않는다.
+현재 MVP5 DB baseline은 인증 사용자 기반 MVP4 schema에 옷 이미지 메타데이터 컬럼을 추가한 상태다. 별도 이미지 테이블은 만들지 않는다.
 
 ## MVP5 DB 결정
 

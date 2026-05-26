@@ -1,6 +1,6 @@
 # API: SmartCloset MVP5 Contract
 
-이 문서는 MVP5에서 구현할 SmartCloset API 계약을 설명한다. MVP5는 기존 인증 사용자 API 위에 옷 이미지 업로드, 조회, 삭제 API를 추가한다.
+이 문서는 SmartCloset MVP5 API 계약을 설명한다. MVP5는 기존 인증 사용자 API 위에 옷 이미지 업로드, 조회, 삭제 API를 제공한다.
 
 ## MVP5 API 결정
 
