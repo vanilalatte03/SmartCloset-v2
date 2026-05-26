@@ -11,6 +11,7 @@ import {
   getRecommendationHistory,
   getUserPreferences,
   markRecommendationWorn,
+  replaceRecommendationFeedback,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import {
@@ -24,13 +25,19 @@ import type {
   ClothingCategory,
   ClothingResponse,
   ErrorResponse,
+  RecommendationFeedbackSentiment,
   RecommendationResponse,
+  RecommendationSituation,
+  RecommendationThermalFeedback,
   UserLocationResponse,
   UserPreferencesResponse,
   WeatherResponse,
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  recommendationFeedbackSentimentLabels,
+  recommendationSituationLabels,
+  recommendationThermalFeedbackLabels,
   type RecommendationFailureCta,
 } from '../../utils/displayMappings';
 
@@ -147,6 +154,9 @@ export function TodayPanel({
   const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [markingRecommendationWorn, setMarkingRecommendationWorn] = useState(false);
   const [recommendationWornAt, setRecommendationWornAt] = useState<string | null>(null);
+  const [selectedSituation, setSelectedSituation] =
+    useState<RecommendationSituation>('CASUAL');
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   const loadWeather = useCallback(async () => {
     setWeatherLoading(true);
@@ -242,9 +252,11 @@ export function TodayPanel({
     setRecommendationStatus(null);
 
     try {
-      const nextRecommendation = await createRecommendation(accessToken);
+      const nextRecommendation = await createRecommendation(accessToken, {
+        situation: selectedSituation,
+      });
       setRecommendation(nextRecommendation);
-      setRecommendationWornAt(null);
+      setRecommendationWornAt(nextRecommendation.wornAt);
       setRecommendationStatus('추천을 만들었습니다.');
       await loadHistoryPreview();
     } catch (caught) {
@@ -283,7 +295,7 @@ export function TodayPanel({
       );
       setRecommendation((current) =>
         current?.recommendationId === response.recommendationId
-          ? { ...current, worn: response.worn }
+          ? { ...current, worn: response.worn, wornAt: response.wornAt }
           : current
       );
       setRecommendationWornAt(response.wornAt);
@@ -297,6 +309,43 @@ export function TodayPanel({
       setRecommendationError(toErrorResponse(caught, '착용 완료를 기록하지 못했습니다.'));
     } finally {
       setMarkingRecommendationWorn(false);
+    }
+  };
+
+  const handleReplaceRecommendationFeedback = async (
+    sentiment: RecommendationFeedbackSentiment | null,
+    thermal: RecommendationThermalFeedback | null
+  ) => {
+    if (!recommendation) {
+      return;
+    }
+
+    setFeedbackSaving(true);
+    setRecommendationFailure(null);
+    setRecommendationError(null);
+    setRecommendationStatus(null);
+
+    try {
+      const response = await replaceRecommendationFeedback(
+        accessToken,
+        recommendation.recommendationId,
+        { sentiment, thermal }
+      );
+      setRecommendation((current) =>
+        current?.recommendationId === response.recommendationId
+          ? { ...current, feedback: response.feedback }
+          : current
+      );
+      setRecommendationStatus(response.feedback ? '피드백을 저장했습니다.' : '피드백을 지웠습니다.');
+      await loadHistoryPreview();
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setRecommendationError(toErrorResponse(caught, '피드백을 저장하지 못했습니다.'));
+    } finally {
+      setFeedbackSaving(false);
     }
   };
 
@@ -388,9 +437,13 @@ export function TodayPanel({
         wornAt={recommendationWornAt}
         loading={recommendationLoading}
         markingWorn={markingRecommendationWorn}
+        feedbackSaving={feedbackSaving}
+        selectedSituation={selectedSituation}
         accessToken={accessToken}
         onCreate={handleCreateRecommendation}
+        onSituationChange={setSelectedSituation}
         onMarkWorn={handleMarkRecommendationWorn}
+        onReplaceFeedback={handleReplaceRecommendationFeedback}
         onFailureCta={handleRecommendationFailureCta}
         onAuthExpired={onAuthExpired}
       />
@@ -509,10 +562,34 @@ export function TodayPanel({
                   <strong>{formatDateTime(item.createdAt)}</strong>
                   <span>{renderHistoryOutfit(item)}</span>
                   <span className="token-row">
+                    <span className="situation-pill">
+                      {recommendationSituationLabels[item.situation]}
+                    </span>
                     <span>{item.weather.temperature}°C</span>
                     <WeatherLabel weatherType={item.weather.weatherType} />
                     <ColorSwatch color={item.outfit.top.color} showLabel={false} />
                     <MaterialChip material={item.outfit.top.material} />
+                  </span>
+                  <span className="token-row">
+                    <span className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}>
+                      {item.worn
+                        ? `착용 완료${item.wornAt ? ` · ${formatDateTime(item.wornAt)}` : ''}`
+                        : '착용 전'}
+                    </span>
+                    <span className="feedback-state-pill">
+                      {item.feedback
+                        ? [
+                            item.feedback.sentiment
+                              ? recommendationFeedbackSentimentLabels[item.feedback.sentiment]
+                              : null,
+                            item.feedback.thermal
+                              ? recommendationThermalFeedbackLabels[item.feedback.thermal]
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : '피드백 없음'}
+                    </span>
                   </span>
                 </div>
                 <span className="item-meta">{item.worn ? '착용 완료' : '착용 전'}</span>

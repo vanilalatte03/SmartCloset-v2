@@ -559,6 +559,48 @@
   min-width: 136px;
 }
 
+.situation-selector {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  min-width: 0;
+}
+
+.situation-button,
+.feedback-button {
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.situation-button.active,
+.feedback-button.active {
+  background: #e9f2ec;
+  border-color: #6fa17c;
+  color: #14532d;
+}
+
+.situation-button:disabled,
+.feedback-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.situation-button:focus-visible,
+.feedback-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .recommendation-failure-card {
   align-items: center;
   background: #fff7e6;
@@ -686,6 +728,10 @@
   min-width: 0;
 }
 
+.outfit-slot-tags {
+  margin-top: 0;
+}
+
 .recommendation-reason-list {
   margin-top: 10px;
 }
@@ -707,6 +753,68 @@
 
 .recommendation-worn-section p {
   margin: 0;
+}
+
+.recommendation-feedback-section {
+  align-items: flex-start;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.recommendation-feedback-section > div {
+  min-width: 0;
+}
+
+.recommendation-feedback-section p {
+  margin: 0;
+}
+
+.feedback-control-stack {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  min-width: min(100%, 320px);
+}
+
+.feedback-button-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.feedback-clear-button {
+  width: fit-content;
+}
+
+.situation-pill,
+.feedback-state-pill {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 100%;
+  min-height: 28px;
+  overflow-wrap: anywhere;
+  padding: 0 10px;
+}
+
+.situation-pill {
+  background: #edf2fb;
+  border-color: #c6d4ee;
+  color: #243b63;
+}
+
+.feedback-state-pill {
+  background: #f7f9fb;
+  color: var(--text);
 }
 
 .recommendation-score-details {
@@ -1228,6 +1336,10 @@
   gap: 6px;
   min-height: 28px;
   padding: 0 8px 0 10px;
+}
+
+.tag-chip.readonly {
+  padding-right: 10px;
 }
 
 .tag-chip button {
@@ -1977,6 +2089,10 @@
   overflow-wrap: anywhere;
 }
 
+.closet-card-tags {
+  margin-top: 0;
+}
+
 .closet-card .color-swatch {
   height: 18px;
   width: 18px;
@@ -2020,6 +2136,22 @@
   gap: 12px;
   grid-template-columns: minmax(120px, 0.38fr) minmax(0, 1fr);
   padding: 12px;
+}
+
+.closet-style-tag-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.closet-style-tag-editor .section-title-row {
+  align-items: flex-start;
+}
+
+.closet-style-tag-editor .tag-form {
+  margin-top: 0;
 }
 
 .closet-image-preview {
@@ -2312,6 +2444,10 @@
   min-width: 0;
 }
 
+.history-outfit-tags {
+  margin-top: 0;
+}
+
 .history-weather-snapshot {
   background: #f7f9fb;
   border: 1px solid var(--border);
@@ -2568,6 +2704,7 @@
   .recommendation-failure-card,
   .recommendation-weather-snapshot,
   .recommendation-worn-section,
+  .recommendation-feedback-section,
   .history-summary-panel,
   .history-card-summary {
     align-items: stretch;
@@ -2610,6 +2747,18 @@
   .history-summary-actions .secondary-button,
   .history-card-actions .secondary-button {
     width: 100%;
+  }
+
+  .feedback-control-stack,
+  .feedback-button-group {
+    justify-items: stretch;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .feedback-button,
+  .feedback-clear-button {
+    flex: 1 1 132px;
   }
 
   .history-card {

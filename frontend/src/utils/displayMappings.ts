@@ -3,6 +3,9 @@ import type {
   ClothingColor,
   ClothingMaterial,
   RecommendationFailureCode,
+  RecommendationFeedbackSentiment,
+  RecommendationSituation,
+  RecommendationThermalFeedback,
   WeatherType,
 } from '../types/api';
 
@@ -172,6 +175,38 @@ export const styleTagLabels = {
   addCta: '추가',
   empty: '저장된 스타일 태그가 없어요.',
 } as const;
+
+export const recommendationSituationOptions = [
+  'WORK',
+  'CASUAL',
+  'WORKOUT',
+  'DATE',
+  'FORMAL',
+] as const satisfies readonly RecommendationSituation[];
+
+export const recommendationSituationLabels: Record<RecommendationSituation, string> = {
+  WORK: '출근',
+  CASUAL: '캐주얼',
+  WORKOUT: '운동',
+  DATE: '데이트',
+  FORMAL: '격식',
+};
+
+export const recommendationFeedbackSentimentLabels: Record<
+  RecommendationFeedbackSentiment,
+  string
+> = {
+  LIKED: '마음에 들어요',
+  DISLIKED: '별로예요',
+};
+
+export const recommendationThermalFeedbackLabels: Record<
+  RecommendationThermalFeedback,
+  string
+> = {
+  TOO_COLD: '추웠어요',
+  TOO_HOT: '더웠어요',
+};
 
 export function getClothingCategoryLabel(category: ClothingCategory): string {
   return clothingCategoryLabels[category];

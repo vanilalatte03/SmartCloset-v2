@@ -17,7 +17,12 @@ import type {
   OutfitItemResponse,
   RecommendationResponse,
 } from '../../types/api';
-import { clothingCategoryLabels } from '../../utils/displayMappings';
+import {
+  clothingCategoryLabels,
+  recommendationFeedbackSentimentLabels,
+  recommendationSituationLabels,
+  recommendationThermalFeedbackLabels,
+} from '../../utils/displayMappings';
 
 type HistoryPanelProps = {
   accessToken: string;
@@ -81,6 +86,17 @@ function renderOutfitItem(
             <span className="token-row">
               <ColorSwatch color={item.color} />
               <MaterialChip material={item.material} />
+            </span>
+            <span className="tag-list history-outfit-tags">
+              {item.styleTags.length > 0 ? (
+                item.styleTags.map((tag) => (
+                  <span className="tag-chip readonly" key={tag}>
+                    {tag}
+                  </span>
+                ))
+              ) : (
+                <span className="muted">스타일 태그 없음</span>
+              )}
             </span>
           </div>
         </>
@@ -160,7 +176,7 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
       setHistory((currentHistory) =>
         currentHistory.map((item) =>
           item.recommendationId === response.recommendationId
-            ? { ...item, worn: response.worn }
+            ? { ...item, worn: response.worn, wornAt: response.wornAt }
             : item
         )
       );
@@ -224,8 +240,18 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
       {!loading && history.length > 0 ? (
         <div className="history-card-list" aria-label="추천 이력 목록">
           {history.map((item) => {
-            const wornAt = wornAtById[item.recommendationId];
+            const wornAt = wornAtById[item.recommendationId] ?? item.wornAt;
             const markingThisItem = markingWornId === item.recommendationId;
+            const feedbackLabels = item.feedback
+              ? [
+                  item.feedback.sentiment
+                    ? recommendationFeedbackSentimentLabels[item.feedback.sentiment]
+                    : null,
+                  item.feedback.thermal
+                    ? recommendationThermalFeedbackLabels[item.feedback.thermal]
+                    : null,
+                ].filter(Boolean)
+              : [];
 
             return (
               <article className="panel history-card" key={item.recommendationId}>
@@ -240,6 +266,12 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                         {item.worn
                           ? `착용 완료${wornAt ? ` · ${formatDateTime(wornAt)}` : ''}`
                           : '착용 전'}
+                      </span>
+                      <span className="situation-pill">
+                        {recommendationSituationLabels[item.situation]}
+                      </span>
+                      <span className="feedback-state-pill">
+                        {feedbackLabels.length > 0 ? feedbackLabels.join(' · ') : '피드백 없음'}
                       </span>
                       <WeatherBadge weather={item.weather} />
                     </div>
