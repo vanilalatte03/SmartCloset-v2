@@ -27,17 +27,20 @@ public class ClothingService {
     private final UserRepository userRepository;
     private final ClothingImageValidator clothingImageValidator;
     private final ClothingImageStorage clothingImageStorage;
+    private final ClothingStyleTagMapper clothingStyleTagMapper;
 
     public ClothingService(
             ClothingItemRepository clothingItemRepository,
             UserRepository userRepository,
             ClothingImageValidator clothingImageValidator,
-            ClothingImageStorage clothingImageStorage
+            ClothingImageStorage clothingImageStorage,
+            ClothingStyleTagMapper clothingStyleTagMapper
     ) {
         this.clothingItemRepository = clothingItemRepository;
         this.userRepository = userRepository;
         this.clothingImageValidator = clothingImageValidator;
         this.clothingImageStorage = clothingImageStorage;
+        this.clothingStyleTagMapper = clothingStyleTagMapper;
     }
 
     @Transactional
@@ -51,10 +54,11 @@ public class ClothingService {
                 request.material(),
                 request.minTemperature(),
                 request.maxTemperature(),
-                request.rainSuitable()
+                request.rainSuitable(),
+                clothingStyleTagMapper.toJson(request.styleTags())
         );
 
-        return ClothingResponse.from(clothingItemRepository.save(clothingItem));
+        return ClothingResponse.from(clothingItemRepository.save(clothingItem), clothingStyleTagMapper);
     }
 
     @Transactional(readOnly = true)
@@ -62,14 +66,14 @@ public class ClothingService {
         findUser(currentUserId);
         return clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(currentUserId)
                 .stream()
-                .map(ClothingResponse::from)
+                .map(clothingItem -> ClothingResponse.from(clothingItem, clothingStyleTagMapper))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public ClothingResponse getClothing(Long currentUserId, Long clothingId) {
         findUser(currentUserId);
-        return ClothingResponse.from(findClothingOwnedByUser(clothingId, currentUserId));
+        return ClothingResponse.from(findClothingOwnedByUser(clothingId, currentUserId), clothingStyleTagMapper);
     }
 
     @Transactional
@@ -83,9 +87,10 @@ public class ClothingService {
                 request.material(),
                 request.minTemperature(),
                 request.maxTemperature(),
-                request.rainSuitable()
+                request.rainSuitable(),
+                clothingStyleTagMapper.toJson(request.styleTags())
         );
-        return ClothingResponse.from(clothingItem);
+        return ClothingResponse.from(clothingItem, clothingStyleTagMapper);
     }
 
     @Transactional
@@ -118,7 +123,7 @@ public class ClothingService {
         }
 
         clothingImageStorage.delete(previousStoredFilename);
-        return ClothingResponse.from(clothingItem);
+        return ClothingResponse.from(clothingItem, clothingStyleTagMapper);
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +146,7 @@ public class ClothingService {
         String storedFilename = clothingItem.getImageStoredFilename();
         clothingImageStorage.delete(storedFilename);
         clothingItem.clearImageMetadata();
-        return ClothingResponse.from(clothingItem);
+        return ClothingResponse.from(clothingItem, clothingStyleTagMapper);
     }
 
     private User findUser(Long currentUserId) {

@@ -26,6 +26,7 @@ import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.repository.UserRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,9 +92,42 @@ class ClothingControllerTest {
                 .andExpect(jsonPath("$.data.minTemperature").value(5))
                 .andExpect(jsonPath("$.data.maxTemperature").value(18))
                 .andExpect(jsonPath("$.data.rainSuitable").value(false))
+                .andExpect(jsonPath("$.data.styleTags").isArray())
+                .andExpect(jsonPath("$.data.styleTags").isEmpty())
                 .andExpect(jsonPath("$.data.archived").value(false))
                 .andExpect(jsonPath("$.data.createdAt").exists())
                 .andExpect(jsonPath("$.data.updatedAt").exists());
+    }
+
+    @Test
+    void normalizesAndPersistsClothingStyleTags() throws Exception {
+        User user = userRepository.save(User.createSeedUser("style-tag-user"));
+        Map<String, Object> request = validRequest();
+        request.put("styleTags", List.of(" MINIMAL ", "minimal", "OFFICE", " ", "오피스", "오피스"));
+
+        MvcResult result = mockMvc.perform(post("/api/clothes")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.styleTags[0]").value("MINIMAL"))
+                .andExpect(jsonPath("$.data.styleTags[1]").value("OFFICE"))
+                .andExpect(jsonPath("$.data.styleTags[2]").value("오피스"))
+                .andExpect(jsonPath("$.data.styleTags[3]").doesNotExist())
+                .andReturn();
+
+        long clothingId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("id")
+                .asLong();
+
+        mockMvc.perform(get("/api/clothes/{clothingId}", clothingId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.styleTags[0]").value("MINIMAL"))
+                .andExpect(jsonPath("$.data.styleTags[1]").value("OFFICE"))
+                .andExpect(jsonPath("$.data.styleTags[2]").value("오피스"))
+                .andExpect(jsonPath("$.data.styleTags[3]").doesNotExist());
     }
 
     @Test
@@ -218,6 +252,21 @@ class ClothingControllerTest {
     }
 
     @Test
+    void returnsInvalidRequestWhenStyleTagExceedsMaxLength() throws Exception {
+        User user = userRepository.save(User.createSeedUser("long-style-tag-user"));
+        Map<String, Object> request = validRequest();
+        request.put("styleTags", List.of("1234567890123456789012345678901"));
+
+        mockMvc.perform(post("/api/clothes")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
     void returnsInvalidRequestWhenRequiredBooleanIsMissing() throws Exception {
         User user = userRepository.save(User.createSeedUser("missing-boolean-user"));
         Map<String, Object> request = validRequest();
@@ -276,6 +325,7 @@ class ClothingControllerTest {
         request.put("material", "KNIT");
         request.put("minTemperature", 3);
         request.put("maxTemperature", 16);
+        request.put("styleTags", List.of(" OFFICE ", "MINIMAL"));
 
         mockMvc.perform(put("/api/clothes/{clothingId}", clothing.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
@@ -287,6 +337,8 @@ class ClothingControllerTest {
                 .andExpect(jsonPath("$.data.material").value("KNIT"))
                 .andExpect(jsonPath("$.data.minTemperature").value(3))
                 .andExpect(jsonPath("$.data.maxTemperature").value(16))
+                .andExpect(jsonPath("$.data.styleTags[0]").value("OFFICE"))
+                .andExpect(jsonPath("$.data.styleTags[1]").value("MINIMAL"))
                 .andExpect(jsonPath("$.data.archived").value(false));
     }
 

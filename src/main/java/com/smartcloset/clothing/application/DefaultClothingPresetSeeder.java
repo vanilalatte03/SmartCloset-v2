@@ -35,6 +35,7 @@ public class DefaultClothingPresetSeeder {
                     8,
                     30,
                     false,
+                    List.of("CASUAL", "DAILY", "캐주얼"),
                     "white-short-sleeve-tshirt.jpg"
             ),
             new Preset(
@@ -45,6 +46,7 @@ public class DefaultClothingPresetSeeder {
                     8,
                     30,
                     false,
+                    List.of("CASUAL", "MINIMAL", "미니멀"),
                     "black-short-sleeve-tshirt.jpg"
             ),
             new Preset(
@@ -55,6 +57,7 @@ public class DefaultClothingPresetSeeder {
                     0,
                     28,
                     false,
+                    List.of("CASUAL", "DAILY", "데일리"),
                     "black-denim-jeans.jpg"
             ),
             new Preset(
@@ -65,6 +68,7 @@ public class DefaultClothingPresetSeeder {
                     0,
                     28,
                     false,
+                    List.of("CASUAL", "DAILY", "데일리"),
                     "dark-blue-denim-jeans.jpg"
             ),
             new Preset(
@@ -75,6 +79,7 @@ public class DefaultClothingPresetSeeder {
                     8,
                     20,
                     false,
+                    List.of("MINIMAL", "OFFICE", "미니멀"),
                     "black-cardigan.jpg"
             )
     );
@@ -82,15 +87,18 @@ public class DefaultClothingPresetSeeder {
     private final ClothingItemRepository clothingItemRepository;
     private final ClothingImageStorage clothingImageStorage;
     private final ResourceLoader resourceLoader;
+    private final ClothingStyleTagMapper clothingStyleTagMapper;
 
     public DefaultClothingPresetSeeder(
             ClothingItemRepository clothingItemRepository,
             ClothingImageStorage clothingImageStorage,
-            ResourceLoader resourceLoader
+            ResourceLoader resourceLoader,
+            ClothingStyleTagMapper clothingStyleTagMapper
     ) {
         this.clothingItemRepository = clothingItemRepository;
         this.clothingImageStorage = clothingImageStorage;
         this.resourceLoader = resourceLoader;
+        this.clothingStyleTagMapper = clothingStyleTagMapper;
     }
 
     public void seedIfEmpty(User user) {
@@ -114,7 +122,8 @@ public class DefaultClothingPresetSeeder {
                         preset.material(),
                         preset.minTemperature(),
                         preset.maxTemperature(),
-                        preset.rainSuitable()
+                        preset.rainSuitable(),
+                        clothingStyleTagMapper.toJson(preset.styleTags())
                 );
                 clothingItem.updateImageMetadata(
                         storedImage.storedFilename(),
@@ -158,6 +167,7 @@ public class DefaultClothingPresetSeeder {
             int minTemperature,
             int maxTemperature,
             boolean rainSuitable,
+            List<String> styleTags,
             String imageFilename
     ) {
     }

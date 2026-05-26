@@ -7,6 +7,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 public record ClothingRequest(
         @NotBlank(message = "name must not be blank")
@@ -29,8 +30,15 @@ public record ClothingRequest(
         Integer maxTemperature,
 
         @NotNull(message = "rainSuitable is required")
-        Boolean rainSuitable
+        Boolean rainSuitable,
+
+        List<@NotNull(message = "style tag must not be null")
+                @Size(max = 30, message = "style tag must be 30 characters or less") String> styleTags
 ) {
+
+    public ClothingRequest {
+        styleTags = styleTags == null ? List.of() : List.copyOf(styleTags);
+    }
 
     @AssertTrue(message = "minTemperature must be less than or equal to maxTemperature")
     public boolean isTemperatureRangeValid() {

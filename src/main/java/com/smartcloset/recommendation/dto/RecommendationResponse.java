@@ -1,5 +1,6 @@
 package com.smartcloset.recommendation.dto;
 
+import com.smartcloset.clothing.application.ClothingStyleTagMapper;
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
@@ -19,12 +20,13 @@ public record RecommendationResponse(
     public static RecommendationResponse from(
             RecommendationResult recommendationResult,
             OutfitCandidate candidate,
-            List<String> reasons
+            List<String> reasons,
+            ClothingStyleTagMapper styleTagMapper
     ) {
         return new RecommendationResponse(
                 recommendationResult.getId(),
                 WeatherResponse.from(recommendationResult),
-                RecommendationOutfitResponse.from(candidate),
+                RecommendationOutfitResponse.from(candidate, styleTagMapper),
                 RecommendationScoreResponse.from(recommendationResult),
                 List.copyOf(reasons),
                 recommendationResult.isWorn(),
@@ -35,12 +37,13 @@ public record RecommendationResponse(
     public static RecommendationResponse from(
             RecommendationResult recommendationResult,
             List<RecommendationResultItem> items,
-            List<String> reasons
+            List<String> reasons,
+            ClothingStyleTagMapper styleTagMapper
     ) {
         return new RecommendationResponse(
                 recommendationResult.getId(),
                 WeatherResponse.from(recommendationResult),
-                RecommendationOutfitResponse.from(items),
+                RecommendationOutfitResponse.from(items, styleTagMapper),
                 RecommendationScoreResponse.from(recommendationResult),
                 List.copyOf(reasons),
                 recommendationResult.isWorn(),
