@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "kma-location-catalog",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T00:38:08+0900",
+      "summary": "KMA 행정구역 catalog resource와 MVP7 LocationOption 응답 shape, 일산동 복수 후보 검색 테스트를 추가했다.",
+      "completed_at": "2026-05-27T00:42:01+0900"
     },
     {
       "step": 2,

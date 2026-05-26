@@ -10,12 +10,12 @@ class LocationCatalogTest {
     private final LocationCatalog catalog = new LocationCatalog();
 
     @Test
-    void findAllReturnsNineRepresentativeLocationsInCatalogOrder() {
+    void findAllReturnsKmaCatalogWithLegacyDefaultsFirst() {
         List<LocationOption> locations = catalog.findAll();
 
         assertThat(locations)
                 .extracting(LocationOption::code)
-                .containsExactly(
+                .startsWith(
                         "SEOUL",
                         "BUSAN",
                         "DAEGU",
@@ -26,13 +26,21 @@ class LocationCatalogTest {
                         "SEJONG",
                         "JEJU"
                 );
+        assertThat(locations).hasSizeGreaterThan(9);
     }
 
     @Test
     void searchMatchesCodeCaseInsensitively() {
         List<LocationOption> locations = catalog.search("seo");
 
-        assertThat(locations).containsExactly(LocationOption.defaultSeoul());
+        assertThat(locations)
+                .singleElement()
+                .satisfies(location -> {
+                    assertThat(location.code()).isEqualTo("SEOUL");
+                    assertThat(location.name()).isEqualTo("서울특별시");
+                    assertThat(location.nx()).isEqualTo(60);
+                    assertThat(location.ny()).isEqualTo(127);
+                });
     }
 
     @Test
@@ -44,14 +52,43 @@ class LocationCatalogTest {
                 .satisfies(location -> {
                     assertThat(location.code()).isEqualTo("BUSAN");
                     assertThat(location.name()).isEqualTo("부산광역시");
+                    assertThat(location.fullName()).isEqualTo("부산광역시");
+                    assertThat(location.region1()).isEqualTo("부산광역시");
+                    assertThat(location.region2()).isNull();
+                    assertThat(location.region3()).isNull();
                     assertThat(location.nx()).isEqualTo(98);
                     assertThat(location.ny()).isEqualTo(76);
+                    assertThat(location.latitude()).isNotNull();
+                    assertThat(location.longitude()).isNotNull();
                 });
     }
 
     @Test
     void blankSearchReturnsAllLocations() {
-        assertThat(catalog.search(" ")).hasSize(9);
+        assertThat(catalog.search(" ")).hasSameSizeAs(catalog.findAll());
+    }
+
+    @Test
+    void searchIlsanDongReturnsMultipleAdministrativeCandidates() {
+        List<LocationOption> locations = catalog.search("일산동");
+
+        assertThat(locations)
+                .extracting(LocationOption::fullName)
+                .contains(
+                        "경기도 고양시일산서구 일산1동",
+                        "경기도 고양시일산서구 일산2동",
+                        "경기도 고양시일산서구 일산3동"
+                );
+        assertThat(locations).hasSizeGreaterThanOrEqualTo(3);
+    }
+
+    @Test
+    void searchMatchesRegionFields() {
+        List<LocationOption> locations = catalog.search("고양시일산동구");
+
+        assertThat(locations)
+                .extracting(LocationOption::region2)
+                .containsOnly("고양시일산동구");
     }
 
     @Test
