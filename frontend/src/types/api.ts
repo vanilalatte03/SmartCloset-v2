@@ -66,6 +66,7 @@ export type ClothingRequest = {
   minTemperature: number;
   maxTemperature: number;
   rainSuitable: boolean;
+  styleTags: string[];
 };
 
 export type ClothingImageResponse = {
@@ -137,6 +138,7 @@ export type OutfitItemResponse = {
   category: ClothingCategory;
   color: ClothingColor;
   material: ClothingMaterial;
+  styleTags: string[];
   image: ClothingImageResponse | null;
 };
 
@@ -155,13 +157,42 @@ export type RecommendationScoreResponse = {
   preferenceScore: number;
 };
 
+export type RecommendationSituation = 'WORK' | 'CASUAL' | 'WORKOUT' | 'DATE' | 'FORMAL';
+
+export type RecommendationFeedbackSentiment = 'LIKED' | 'DISLIKED';
+
+export type RecommendationThermalFeedback = 'TOO_COLD' | 'TOO_HOT';
+
+export type RecommendationRequest = {
+  situation?: RecommendationSituation;
+};
+
+export type RecommendationFeedbackRequest = {
+  sentiment?: RecommendationFeedbackSentiment | null;
+  thermal?: RecommendationThermalFeedback | null;
+};
+
+export type RecommendationFeedbackStateResponse = {
+  sentiment: RecommendationFeedbackSentiment | null;
+  thermal: RecommendationThermalFeedback | null;
+  updatedAt: string;
+};
+
+export type RecommendationFeedbackResponse = {
+  recommendationId: number;
+  feedback: RecommendationFeedbackStateResponse | null;
+};
+
 export type RecommendationResponse = {
   recommendationId: number;
+  situation: RecommendationSituation;
   weather: WeatherResponse;
   outfit: RecommendationOutfitResponse;
   score: RecommendationScoreResponse;
   reasons: string[];
   worn: boolean;
+  wornAt: string | null;
+  feedback: RecommendationFeedbackStateResponse | null;
   createdAt: string;
 };
 

@@ -11,12 +11,19 @@ import type {
   ClothingCategory,
   ErrorResponse,
   OutfitItemResponse,
+  RecommendationFeedbackSentiment,
   RecommendationResponse,
+  RecommendationSituation,
+  RecommendationThermalFeedback,
   UserLocationResponse,
   WeatherResponse,
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  recommendationFeedbackSentimentLabels,
+  recommendationSituationLabels,
+  recommendationSituationOptions,
+  recommendationThermalFeedbackLabels,
   type RecommendationFailureCta,
 } from '../../utils/displayMappings';
 
@@ -30,9 +37,16 @@ type RecommendationPanelProps = {
   wornAt: string | null;
   loading: boolean;
   markingWorn: boolean;
+  feedbackSaving: boolean;
+  selectedSituation: RecommendationSituation;
   accessToken: string;
   onCreate: () => void;
+  onSituationChange: (situation: RecommendationSituation) => void;
   onMarkWorn: () => void;
+  onReplaceFeedback: (
+    sentiment: RecommendationFeedbackSentiment | null,
+    thermal: RecommendationThermalFeedback | null
+  ) => void;
   onFailureCta: (category?: ClothingCategory) => void;
   onAuthExpired: () => void;
 };
@@ -129,6 +143,20 @@ function renderOutfitSlotCard(
         {item ? <MaterialChip material={item.material} /> : <MaterialChipPlaceholder />}
       </div>
 
+      {item ? (
+        <div className="tag-list outfit-slot-tags" aria-label={`${item.name} 스타일 태그`}>
+          {item.styleTags.length > 0 ? (
+            item.styleTags.map((tag) => (
+              <span className="tag-chip readonly" key={tag}>
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="muted">스타일 태그 없음</span>
+          )}
+        </div>
+      ) : null}
+
       {weather ? (
         <WeatherBadge weather={weather} />
       ) : (
@@ -148,12 +176,20 @@ export function RecommendationPanel({
   wornAt,
   loading,
   markingWorn,
+  feedbackSaving,
+  selectedSituation,
   accessToken,
   onCreate,
+  onSituationChange,
   onMarkWorn,
+  onReplaceFeedback,
   onFailureCta,
   onAuthExpired,
 }: RecommendationPanelProps) {
+  const currentSentiment = recommendation?.feedback?.sentiment ?? null;
+  const currentThermal = recommendation?.feedback?.thermal ?? null;
+  const controlsDisabled = loading || markingWorn || feedbackSaving;
+
   return (
     <article
       className="panel recommendation-panel"
@@ -173,11 +209,28 @@ export function RecommendationPanel({
             className="primary-button recommendation-create-button"
             type="button"
             onClick={() => onCreate()}
-            disabled={loading || markingWorn}
+            disabled={controlsDisabled}
           >
             {loading ? '추천 생성 중' : '추천 만들기'}
           </button>
         </div>
+      </div>
+
+      <div className="situation-selector" role="group" aria-label="추천 상황 선택">
+        {recommendationSituationOptions.map((situation) => (
+          <button
+            className={
+              selectedSituation === situation ? 'situation-button active' : 'situation-button'
+            }
+            type="button"
+            key={situation}
+            aria-pressed={selectedSituation === situation}
+            onClick={() => onSituationChange(situation)}
+            disabled={controlsDisabled}
+          >
+            {recommendationSituationLabels[situation]}
+          </button>
+        ))}
       </div>
 
       {failureCta ? (
@@ -212,6 +265,9 @@ export function RecommendationPanel({
             </div>
             <div className="recommendation-weather-snapshot">
               <span>{location ? location.name : '현재 위치'} 기준</span>
+              <span className="situation-pill">
+                {recommendationSituationLabels[recommendation.situation]}
+              </span>
               <WeatherBadge weather={recommendation.weather} />
             </div>
             <div className="recommendation-slot-grid" aria-label="추천 슬롯">
@@ -251,7 +307,7 @@ export function RecommendationPanel({
               className="secondary-button"
               type="button"
               onClick={() => onMarkWorn()}
-              disabled={recommendation.worn || markingWorn || loading}
+              disabled={recommendation.worn || controlsDisabled}
             >
               {recommendation.worn
                 ? '착용 완료'
@@ -259,6 +315,69 @@ export function RecommendationPanel({
                   ? '저장 중'
                   : '착용 완료하기'}
             </button>
+          </section>
+
+          <section className="panel-section recommendation-feedback-section" aria-label="추천 피드백">
+            <div>
+              <h3>피드백</h3>
+              <p className="muted">
+                {recommendation.feedback
+                  ? `저장됨 · ${formatDateTime(recommendation.feedback.updatedAt)}`
+                  : '피드백 없음'}
+              </p>
+            </div>
+            <div className="feedback-control-stack">
+              <div className="feedback-button-group" role="group" aria-label="추천 만족도">
+                {(['LIKED', 'DISLIKED'] as const).map((sentiment) => (
+                  <button
+                    className={
+                      currentSentiment === sentiment ? 'feedback-button active' : 'feedback-button'
+                    }
+                    type="button"
+                    key={sentiment}
+                    aria-pressed={currentSentiment === sentiment}
+                    onClick={() =>
+                      onReplaceFeedback(
+                        currentSentiment === sentiment ? null : sentiment,
+                        currentThermal
+                      )
+                    }
+                    disabled={controlsDisabled}
+                  >
+                    {recommendationFeedbackSentimentLabels[sentiment]}
+                  </button>
+                ))}
+              </div>
+              <div className="feedback-button-group" role="group" aria-label="체감 온도">
+                {(['TOO_COLD', 'TOO_HOT'] as const).map((thermal) => (
+                  <button
+                    className={
+                      currentThermal === thermal ? 'feedback-button active' : 'feedback-button'
+                    }
+                    type="button"
+                    key={thermal}
+                    aria-pressed={currentThermal === thermal}
+                    onClick={() =>
+                      onReplaceFeedback(
+                        currentSentiment,
+                        currentThermal === thermal ? null : thermal
+                      )
+                    }
+                    disabled={controlsDisabled}
+                  >
+                    {recommendationThermalFeedbackLabels[thermal]}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="secondary-button feedback-clear-button"
+                type="button"
+                onClick={() => onReplaceFeedback(null, null)}
+                disabled={controlsDisabled || (!currentSentiment && !currentThermal)}
+              >
+                {feedbackSaving ? '저장 중' : '피드백 지우기'}
+              </button>
+            </div>
           </section>
 
           <details className="panel-section recommendation-score-details">

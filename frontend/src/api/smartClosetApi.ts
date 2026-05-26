@@ -8,6 +8,9 @@ import type {
   CurrentUserResponse,
   LoginRequest,
   LocationOptionResponse,
+  RecommendationFeedbackRequest,
+  RecommendationFeedbackResponse,
+  RecommendationRequest,
   RecommendationResponse,
   RecommendationWornResponse,
   SignupRequest,
@@ -206,10 +209,14 @@ export async function getClothingImageBlob(
   return response.blob();
 }
 
-export function createRecommendation(accessToken: string): Promise<RecommendationResponse> {
+export function createRecommendation(
+  accessToken: string,
+  body?: RecommendationRequest
+): Promise<RecommendationResponse> {
   return request<RecommendationResponse>('/api/recommendations', {
     method: 'POST',
     accessToken,
+    body: body ? JSON.stringify(body) : undefined,
   });
 }
 
@@ -232,6 +239,21 @@ export function markRecommendationWorn(
     {
       method: 'PATCH',
       accessToken,
+    }
+  );
+}
+
+export function replaceRecommendationFeedback(
+  accessToken: string,
+  recommendationId: number,
+  body: RecommendationFeedbackRequest
+): Promise<RecommendationFeedbackResponse> {
+  return request<RecommendationFeedbackResponse>(
+    `/api/recommendations/${recommendationId}/feedback`,
+    {
+      method: 'PUT',
+      accessToken,
+      body: JSON.stringify(body),
     }
   );
 }

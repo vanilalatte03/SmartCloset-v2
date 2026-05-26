@@ -47,6 +47,7 @@ const defaultForm: ClothingRequest = {
   minTemperature: 5,
   maxTemperature: 18,
   rainSuitable: false,
+  styleTags: [],
 };
 
 const categoryFilterOptions: Array<{
@@ -132,7 +133,35 @@ function toClothingRequest(item: ClothingResponse): ClothingRequest {
     minTemperature: item.minTemperature,
     maxTemperature: item.maxTemperature,
     rainSuitable: item.rainSuitable,
+    styleTags: item.styleTags ?? [],
   };
+}
+
+function getStyleTagKey(tag: string): string {
+  const trimmed = tag.trim();
+  return /^[\x00-\x7F]+$/.test(trimmed) ? trimmed.toLowerCase() : trimmed;
+}
+
+function normalizeStyleTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const key = getStyleTagKey(trimmed);
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    normalized.push(trimmed);
+  }
+
+  return normalized;
 }
 
 function getActiveCategoryCounts(clothes: ClothingResponse[]): Record<ClothingCategory, number> {
@@ -278,6 +307,7 @@ export function ClosetPanel({
 }: ClosetPanelProps) {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
+  const [tagInput, setTagInput] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -321,6 +351,7 @@ export function ClosetPanel({
     }
 
     setEditingId(null);
+    setTagInput('');
     setCategoryFilter(initialCategory);
     setForm({
       ...defaultForm,
@@ -349,6 +380,7 @@ export function ClosetPanel({
 
   const resetForm = () => {
     setForm(defaultForm);
+    setTagInput('');
     setEditingId(null);
     setSelectedImageFile(null);
     setPreviewUrl(null);
@@ -423,6 +455,7 @@ export function ClosetPanel({
     const requestBody: ClothingRequest = {
       ...form,
       name: trimmedName,
+      styleTags: normalizeStyleTags(form.styleTags),
     };
 
     setSubmitting(true);
@@ -486,6 +519,7 @@ export function ClosetPanel({
     setError(null);
     setStatus(null);
     setEditingId(item.id);
+    setTagInput('');
     setForm(toClothingRequest(item));
     setSelectedImageFile(null);
     setDeleteImageRequested(false);
@@ -522,6 +556,40 @@ export function ClosetPanel({
       minTemperature: preset.minTemperature,
       maxTemperature: preset.maxTemperature,
       rainSuitable: preset.rainSuitable,
+    }));
+  };
+
+  const handleAddTag = () => {
+    const nextTag = tagInput.trim();
+    setError(null);
+    setStatus(null);
+
+    if (!nextTag) {
+      setError(validationError('스타일 태그를 입력해주세요.'));
+      return;
+    }
+    if (nextTag.length > 30) {
+      setError(validationError('스타일 태그는 30자 이하로 입력해주세요.'));
+      return;
+    }
+    if (form.styleTags.some((tag) => getStyleTagKey(tag) === getStyleTagKey(nextTag))) {
+      setTagInput('');
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      styleTags: [...current.styleTags, nextTag],
+    }));
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setError(null);
+    setStatus(null);
+    setForm((current) => ({
+      ...current,
+      styleTags: current.styleTags.filter((candidate) => candidate !== tag),
     }));
   };
 
@@ -615,6 +683,20 @@ export function ClosetPanel({
                         >
                           {item.rainSuitable ? '비 오는 날 적합' : '맑은 날 중심'}
                         </span>
+                      </span>
+                      <span
+                        className="tag-list closet-card-tags"
+                        aria-label={`${item.name} 스타일 태그`}
+                      >
+                        {item.styleTags.length > 0 ? (
+                          item.styleTags.map((tag) => (
+                            <span className="tag-chip readonly" key={tag}>
+                              {tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="muted">스타일 태그 없음</span>
+                        )}
                       </span>
                     </div>
                     <div className="closet-item-actions closet-card-actions">
@@ -840,6 +922,61 @@ export function ClosetPanel({
               <span>비 오는 날 입기 좋음</span>
             </label>
           </div>
+
+          <section className="closet-style-tag-editor" aria-label="옷 스타일 태그">
+            <div className="section-title-row">
+              <div>
+                <h3>스타일 태그</h3>
+                <p className="muted closet-form-note">
+                  저장 전 {form.styleTags.length}개 태그가 추천 개인화에 사용됩니다.
+                </p>
+              </div>
+            </div>
+            <div className="inline-form tag-form">
+              <label className="field">
+                <span>태그</span>
+                <input
+                  value={tagInput}
+                  maxLength={30}
+                  onChange={(event) => setTagInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                  placeholder="OFFICE"
+                />
+              </label>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={handleAddTag}
+                disabled={submitting}
+              >
+                추가
+              </button>
+            </div>
+            <div className="tag-list" aria-label="옷 스타일 태그 목록">
+              {form.styleTags.length > 0 ? (
+                form.styleTags.map((tag) => (
+                  <span className="tag-chip" key={tag}>
+                    {tag}
+                    <button
+                      type="button"
+                      aria-label={`${tag} 삭제`}
+                      onClick={() => handleRemoveTag(tag)}
+                      disabled={submitting}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="muted">저장된 스타일 태그가 없어요.</span>
+              )}
+            </div>
+          </section>
 
           <div className="closet-form-actions">
             <button className="primary-button" type="submit" disabled={submitting}>
