@@ -7,7 +7,7 @@
 
 ## 구현 전 필수
 - 구현, 리뷰, 문서 동기화 전에는 반드시 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
-- 현재 baseline은 MVP6 추천 피드백/개인화 문서 전환 상태다. MVP6 계약은 `docs/PRD.md`와 ADR-011을 따른다.
+- 현재 baseline은 MVP7 위치/날씨 신뢰도 문서 전환 상태다. MVP7 계약은 `docs/PRD.md`와 ADR-012를 따른다.
 - 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
 - phase/step 작업은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 함께 따른다.
 
@@ -20,7 +20,7 @@
 | 백엔드 구조, 저장소, 트랜잭션, 금지 패턴 | `docs/ARCHITECTURE.md` |
 | DB schema, entity/JPA 기준 | `docs/ERD.md` |
 | 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP6 프론트 UX 기준 | `docs/FRONTEND.md` |
+| MVP7 프론트 UX 기준 | `docs/FRONTEND.md` |
 | 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
 | Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
 | 실행 명령과 검증 명령 | `docs/COMMANDS.md` |

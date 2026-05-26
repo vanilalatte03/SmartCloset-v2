@@ -105,6 +105,15 @@ def _dedupe(items: list[str]) -> list[str]:
 class AutopilotRunner:
     """Coordinates a Harness phase as a sequence of small step PRs."""
 
+    TASK_REASON_ENDINGS = (
+        ("한다", "하기"),
+        ("만든다", "만들기"),
+        ("다룬다", "다루기"),
+        ("잠근다", "잠그기"),
+        ("바꾼다", "바꾸기"),
+        ("맞춘다", "맞추기"),
+        ("둔다", "두기"),
+    )
     SAFE_NEGATION_MARKERS = (
         "금지",
         "제외",
@@ -366,7 +375,7 @@ class AutopilotRunner:
             f"- `{self.phase}` Step {step['step']} `{step['name']}` 범위를 구현했습니다.\n"
             f"- 산출물: {summary}\n\n"
             "## 변경 이유\n"
-            "- SmartCloset 구현을 작은 step 단위로 리뷰하고 안전하게 병합하기 위해 분리했습니다.\n\n"
+            f"- {self._step_change_reason(step)}\n\n"
             "## 주요 변경 사항\n"
             f"- Step 작업: {task}\n"
             f"{changed_section}\n\n"
@@ -377,6 +386,26 @@ class AutopilotRunner:
             f"- 브랜치: `{branch}`\n"
             "- Draft PR로 생성하며 자체 리뷰 gate 통과 시 ready 전환 후 squash merge합니다.\n"
         )
+
+    def _step_change_reason(self, step: dict) -> str:
+        task = self._step_task_summary(step)
+        purpose = self._task_purpose_clause(task)
+        if purpose:
+            return f"{purpose} 위해 필요한 변경을 반영했습니다."
+        return (
+            f"`{self.phase}` Step {step['step']} `{step['name']}` 범위의 "
+            "제품/기술 계약을 충족하기 위해 필요한 변경을 반영했습니다."
+        )
+
+    def _task_purpose_clause(self, task: str) -> str:
+        normalized = " ".join(task.strip().strip("- ").rstrip(".").split())
+        if not normalized:
+            return ""
+        first_sentence = normalized.split(". ")[0].rstrip(".")
+        for ending, replacement in self.TASK_REASON_ENDINGS:
+            if first_sentence.endswith(ending):
+                return first_sentence[: -len(ending)] + replacement
+        return f"{first_sentence} 범위를 완료하기"
 
     def _step_from_index(self, step_num: int) -> dict | None:
         index = self._load_phase_index()

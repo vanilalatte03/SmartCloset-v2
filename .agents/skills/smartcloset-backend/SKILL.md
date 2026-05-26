@@ -37,7 +37,7 @@ Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical
 
 ## Current Execution Baseline
 
-SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 baseline Spring Boot 4.0.6 서비스다. MVP6 계약은 `docs/PRD.md`와 ADR-011을 따른다. 현재 코드 출발점은 MVP5 옷 이미지 업로드 완료 상태이며, MVP6 구현은 `phases/6-smartcloset-feedback-personalization` step 문서를 따른다.
+SmartCloset의 현재 기준은 MVP7 위치/날씨 신뢰도 문서 전환 baseline Spring Boot 4.0.6 서비스다. MVP7 계약은 `docs/PRD.md`와 ADR-012를 따른다. 현재 코드 출발점은 MVP6 추천 피드백/개인화 완료 상태이며, MVP7 구현은 `phases/7-smartcloset-location-weather-trust` step 문서를 따른다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
@@ -49,17 +49,19 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - 현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
 - 회원가입은 role `USER`, 기본 위치 `SEOUL`, 빈 선호도 배열을 가진 사용자를 생성한다.
 - 사용자 소유 옷장 데이터, 위치, 선호도, 추천 이력, 착용 이력, 추천 피드백은 인증 사용자별로 분리한다.
-- 추천 생성은 `POST /api/recommendations`를 사용하며 선택 body `{ "situation": "WORK" }`를 받을 수 있다.
+- 추천 생성은 `POST /api/recommendations`를 사용하며 선택 body `{ "situation": "WORK", "forecastPeriod": "AFTERNOON" }`를 받을 수 있다.
 - 추천 생성 body가 없거나 `situation`이 누락되면 `CASUAL`을 사용한다.
+- 추천 생성 body가 없거나 `forecastPeriod`가 누락되면 `CURRENT`를 사용한다.
 - 추천 이력은 `GET /api/recommendations?limit={limit}`를 사용하며 기본값 `20`, 최소 `1`, 최대 `50`, 최신순으로 정렬한다.
 - 추천 피드백 저장/clear는 `PUT /api/recommendations/{recommendationId}/feedback`를 사용한다.
 - 추천 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.
 - 현재 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
-- 현재 날씨 요약은 인증 사용자 위치 기준 `WeatherResponse`만 반환하며 추천 결과를 생성하거나 저장하지 않는다.
+- 현재 날씨 요약은 인증 사용자 위치와 `CURRENT` 기준 `WeatherResponse`를 반환하며 추천 결과를 생성하거나 저장하지 않는다.
 - React frontend는 access token을 `sessionStorage`에 저장한다.
 - MVP5부터 옷 1개당 이미지 1장 업로드를 지원한다.
 - 기존 옷 등록/수정 JSON API는 유지한다.
 - MVP6에서는 옷 등록/수정/응답에 `styleTags` 배열을 포함한다.
+- MVP7에서는 KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, 위치 source, 예보 시간대, 위치/날씨 source snapshot을 추가한다.
 - 이미지 업로드/교체/조회/삭제 API는 모두 보호 API다.
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
 - Docker Compose는 필수 공유 흐름으로 유지한다.
@@ -74,6 +76,7 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - MVP4는 반응형 실사용 UX와 `GET /api/weather/current`를 추가했다.
 - MVP5는 옷 이미지 업로드/교체/조회/삭제, 기본 옷 프리셋 이미지, 추천/이력 썸네일, Docker Compose 이미지 volume을 추가했다.
 - MVP6는 추천 상황, 옷별 styleTags, 추천 피드백 snapshot, 최근 피드백 기반 `preferenceScore`, 추천 이력의 착용/피드백 표시를 추가한다.
+- MVP7은 KMA 행정구역 catalog, 브라우저 좌표 resolve, forecastPeriod, 위치/날씨 source snapshot, KMA/fallback/base/forecast 표시를 추가한다.
 
 현재 작업에서 과거 seed/test-user API 계약, 공개 `userId` query parameter, 과거 점수 필드를 되살리지 않는다.
 
@@ -87,7 +90,7 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 
 ## Strict Out of Scope
 
-아래 항목은 MVP6 범위에 추가하지 않는다.
+아래 항목은 MVP7 범위에 추가하지 않는다.
 
 - refresh token
 - social login
@@ -95,10 +98,9 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - password reset
 - admin features
 - external address/map APIs
-- browser/current-location auto detection
-- latitude/longitude to KMA grid conversion APIs
 - KMA `getVilageFcst` 외 weather APIs
-- weather source DB persistence
+- raw KMA response DB persistence
+- browser GPS coordinate DB persistence
 - Redis
 - AWS deployment
 - CD automation
@@ -127,11 +129,15 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - 실패 응답은 `{ "code": "...", "message": "...", "details": [] }` 형태를 유지한다.
 - `details`는 항상 배열이다.
 - 추천 생성은 `POST /api/recommendations`다.
-- 추천 생성 request body는 선택이며 `situation`을 받을 수 있다.
+- 추천 생성 request body는 선택이며 `situation`과 `forecastPeriod`를 받을 수 있다.
 - 추천 생성 body가 없거나 `situation`이 누락되면 `CASUAL`이다.
+- 추천 생성 body가 없거나 `forecastPeriod`가 누락되면 `CURRENT`다.
 - today recommendation GET endpoint를 추가하거나 문서화하지 않는다.
 - 추천 이력은 `GET /api/recommendations?limit={limit}`다.
 - 현재 날씨 요약은 `GET /api/weather/current`다.
+- 위치 검색은 `GET /api/locations?keyword={keyword}`다.
+- 브라우저 좌표 resolve는 `POST /api/locations/resolve`다.
+- 위치 저장은 `PUT /api/users/me/location`이며 optional `source`를 받을 수 있다.
 - 옷 API는 현재 사용자 전용 API다: `GET/POST /api/clothes`, `GET/PUT /api/clothes/{clothingId}`, `PATCH /api/clothes/{clothingId}/archive`.
 - 옷 등록/수정/응답 DTO는 `styleTags` 배열을 포함한다.
 - 옷 이미지 API는 `PUT /api/clothes/{clothingId}/image`, `GET /api/clothes/{clothingId}/image`, `DELETE /api/clothes/{clothingId}/image`다.
@@ -196,13 +202,19 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - `StaticWeatherProvider`를 fallback/test provider로 유지한다.
 - Fallback weather는 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`다.
 - KMA request `nx`, `ny`는 인증 사용자의 저장 위치에서 온다.
+- MVP7 weather application 계약은 weather condition과 location/source metadata를 함께 다룬다.
+- Weather source metadata는 provider, KMA 사용 여부, fallback 여부, base date/time, forecast date/time을 포함한다.
+- raw KMA 응답 JSON은 저장하거나 response DTO로 노출하지 않는다.
 - `GET /api/weather/current`는 추천 결과, 추천 이력, 착용 이력을 생성하지 않는다.
 
 ## Location Rules
 
-- 내장 KMA 대표 격자 catalog를 사용한다.
+- KMA 행정구역 격자 catalog를 사용한다.
 - 외부 address/map API를 추가하지 않는다.
-- browser/current-location detection을 추가하지 않는다.
+- 브라우저 current-location은 프론트 Geolocation API와 서버 `POST /api/locations/resolve`로 후보를 찾는 데만 사용한다.
+- 브라우저 GPS 원문 좌표를 DB에 저장하지 않는다.
+- 위경도 -> KMA grid 변환은 서버 내부 로직으로 구현한다.
+- 위치 저장 source는 `MANUAL_SEARCH`, `BROWSER_GEOLOCATION`이다.
 - `GET /api/locations`는 보호 API이며 로그인 후에만 사용한다.
 - 신규 사용자는 Seoul `SEOUL`, `nx=60`, `ny=127`로 시작한다.
 
@@ -240,6 +252,8 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - MVP6 `preferenceScore`는 색상 0/2, 소재 0/2, styleTags 0..3, 최근 피드백 -3..3 보정을 clamp해 계산한다.
 - 최근 피드백 window는 14일이다.
 - 추천 상황은 `WORK`, `CASUAL`, `WORKOUT`, `DATE`, `FORMAL`이다.
+- 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
+- forecastPeriod는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
 - scoring, filtering, tie-break, recommendation reason에 image metadata를 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 - Tie-break rule은 deterministic해야 한다.
@@ -264,6 +278,10 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - 추천 DTO에 image metadata를 추가해도 추천 점수와 reason이 변하지 않음을 테스트해야 한다.
 - 추천 피드백 API에는 전체 교체, 누락 필드 null 처리, clear, 타 사용자 접근 차단 test가 필요하다.
 - styleTags와 최근 피드백이 `preferenceScore`와 추천 이유에 반영됨을 테스트해야 한다.
+- 위치 검색 test에는 `일산동` 같은 동명이인 후보 반환이 필요하다.
+- 좌표 resolve test에는 정상 좌표와 invalid latitude/longitude 실패가 필요하다.
+- weather source test에는 KMA 성공과 fallback metadata가 필요하다.
+- 추천 snapshot test에는 사용자 위치 변경 후 과거 추천 location/source snapshot 불변 검증이 필요하다.
 - P0 API는 integration, controller, service test 중 하나로 cover해야 한다.
 
 ## Documentation Sync Rules
@@ -277,6 +295,9 @@ SmartCloset의 현재 기준은 MVP6 추천 피드백/개인화 문서 전환 ba
 - 현재 사용자 전용 response DTO 예시와 frontend type에서 `userId`를 제거한다.
 - Recommendation creation은 `POST /api/recommendations`로만 문서화한다.
 - Today recommendation GET path가 현재 API 계약으로 나타나면 제거한다.
+- MVP7 위치 검색은 내부 KMA catalog 기준으로 문서화하고 외부 지도/주소 API를 사용하지 않는다.
+- MVP7 브라우저 현재 위치는 좌표 resolve 후보 찾기로만 문서화하고 GPS 원문 DB 저장을 추가하지 않는다.
+- MVP7 weather source snapshot은 raw KMA 응답 JSON 없이 provider, KMA/fallback 여부, base/forecast 시각만 문서화한다.
 - Image upload는 MVP5 승인 범위로 유지하지만 AI 자동 태깅, 다중 이미지, S3/CDN, 이미지 기반 추천 점수/이유, EXIF 분석, image moderation은 제외 범위로 문서화한다.
 - MVP별 자동 문서 검증 규칙은 `scripts/checks.py`가 아니라 `phases/{phase}/docs-checks.json`에 둔다.
 - 실제 API key, token, password, private key, production secret을 커밋하지 않는다.

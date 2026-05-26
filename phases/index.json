@@ -34,6 +34,10 @@
       "dir": "6-smartcloset-feedback-personalization",
       "status": "completed",
       "completed_at": "2026-05-26T16:14:52+0900"
+    },
+    {
+      "dir": "7-smartcloset-location-weather-trust",
+      "status": "pending"
     }
   ]
 }

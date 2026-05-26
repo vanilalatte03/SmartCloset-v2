@@ -1,0 +1,41 @@
+{
+  "project": "SmartCloset",
+  "phase": "7-smartcloset-location-weather-trust",
+  "steps": [
+    {
+      "step": 0,
+      "name": "mvp7-scope-docs",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "kma-location-catalog",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "geolocation-resolve-api",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "weather-source-snapshot",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "recommendation-weather-snapshot",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "frontend-location-weather-trust-ux",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "compose-docs-qa",
+      "status": "pending"
+    }
+  ]
+}

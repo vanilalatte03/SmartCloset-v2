@@ -213,6 +213,30 @@ def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
     assert ("pr", "merge", "https://github.com/org/repo/pull/2", "--squash", "--delete-branch") in gh_calls
 
 
+def test_pr_body_uses_step_task_as_change_reason(runner):
+    runner._changed_files = lambda: ["src/main/java/com/smartcloset/Clothing.java"]
+
+    body = runner._pr_body("codex/branch", {"step": 1, "name": "clothing-p0-api"})
+
+    assert "## 변경 이유\n- Clothing P0 API를 만들기 위해 필요한 변경을 반영했습니다.\n\n" in body
+    assert "SmartCloset 구현을 작은 step 단위로 리뷰하고 안전하게 병합하기 위해 분리했습니다." not in body
+    assert "- Draft PR로 생성하며 자체 리뷰 gate 통과 시 ready 전환 후 squash merge합니다." in body
+
+
+def test_step_change_reason_uses_first_sentence_only(runner, tmp_repo):
+    step_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "step1.md"
+    step_path.write_text(
+        "# 단계 1\n\n"
+        "## 작업\n"
+        "KMA provider 구현에 필요한 설정 계약을 코드에 준비한다. 이 단계는 설정 바인딩만 다룬다.\n",
+        encoding="utf-8",
+    )
+
+    reason = runner._step_change_reason({"step": 1, "name": "clothing-p0-api"})
+
+    assert reason == "KMA provider 구현에 필요한 설정 계약을 코드에 준비하기 위해 필요한 변경을 반영했습니다."
+
+
 def test_run_executes_final_gate_when_no_pending_steps(runner, tmp_repo):
     _mark_step_complete(tmp_repo, 0, "0 완료")
     _mark_step_complete(tmp_repo, 1, "1 완료")
