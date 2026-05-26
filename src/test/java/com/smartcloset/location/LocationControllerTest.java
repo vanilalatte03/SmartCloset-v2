@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -53,6 +55,14 @@ class LocationControllerTest {
     @Test
     void locationsRequireBearerToken() throws Exception {
         mockMvc.perform(get("/api/locations"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(post("/api/locations/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"latitude":37.6843,"longitude":126.7707}
+                                """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -141,6 +151,46 @@ class LocationControllerTest {
                     assertThat(location.get("latitude").decimalValue()).isEqualByComparingTo("37.6843");
                     assertThat(location.get("longitude").decimalValue()).isEqualByComparingTo("126.7707");
                 });
+    }
+
+    @Test
+    void resolvesBrowserCoordinatesToKmaGridAndNearestCandidatesWithoutSavingUserLocation() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-resolve-user"));
+
+        mockMvc.perform(post("/api/locations/resolve")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"latitude":37.6843,"longitude":126.7707}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.grid.nx").value(56))
+                .andExpect(jsonPath("$.data.grid.ny").value(129))
+                .andExpect(jsonPath("$.data.nearest.code").value("KMA_4128751000"))
+                .andExpect(jsonPath("$.data.nearest.name").value("일산1동"))
+                .andExpect(jsonPath("$.data.candidates[0].code").value("KMA_4128751000"))
+                .andExpect(jsonPath("$.data.candidates.length()").value(greaterThanOrEqualTo(1)));
+
+        User saved = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(saved.getLocationCode()).isEqualTo("SEOUL");
+        assertThat(saved.getLocationName()).isEqualTo("서울특별시");
+        assertThat(saved.getLocationNx()).isEqualTo(60);
+        assertThat(saved.getLocationNy()).isEqualTo(127);
+    }
+
+    @Test
+    void rejectsInvalidBrowserCoordinates() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-invalid-coordinate-user"));
+
+        mockMvc.perform(post("/api/locations/resolve")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"latitude":91,"longitude":126.7707}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("latitude"));
     }
 
     private String bearerToken(User user) {

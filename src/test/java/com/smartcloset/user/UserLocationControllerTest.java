@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
@@ -80,8 +81,13 @@ class UserLocationControllerTest {
                 .andExpect(jsonPath("$.data.userId").doesNotExist())
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
+                .andExpect(jsonPath("$.data.fullName").value("서울특별시"))
+                .andExpect(jsonPath("$.data.region1").value("서울특별시"))
+                .andExpect(jsonPath("$.data.region2").doesNotExist())
+                .andExpect(jsonPath("$.data.region3").doesNotExist())
                 .andExpect(jsonPath("$.data.nx").value(60))
                 .andExpect(jsonPath("$.data.ny").value(127))
+                .andExpect(jsonPath("$.data.source").value("MANUAL_SEARCH"))
                 .andExpect(jsonPath("$.data.updatedAt").exists());
     }
 
@@ -100,7 +106,8 @@ class UserLocationControllerTest {
                 .andExpect(jsonPath("$.data.code").value("SEOUL"))
                 .andExpect(jsonPath("$.data.name").value("서울특별시"))
                 .andExpect(jsonPath("$.data.nx").value(60))
-                .andExpect(jsonPath("$.data.ny").value(127));
+                .andExpect(jsonPath("$.data.ny").value(127))
+                .andExpect(jsonPath("$.data.source").value("MANUAL_SEARCH"));
 
         entityManager.flush();
         entityManager.clear();
@@ -110,13 +117,17 @@ class UserLocationControllerTest {
         assertThat(saved.getLocationName()).isEqualTo("서울특별시");
         assertThat(saved.getLocationNx()).isEqualTo(60);
         assertThat(saved.getLocationNy()).isEqualTo(127);
+        assertThat(saved.getLocationSource()).isEqualTo(LocationSource.MANUAL_SEARCH);
     }
 
     @Test
     void updatesUserLocationToSelectedCatalogLocation() throws Exception {
         User targetUser = userRepository.save(User.createSeedUser("location-target-user"));
         User otherUser = userRepository.save(User.createSeedUser("location-other-user"));
-        Map<String, Object> request = Map.of("locationCode", "BUSAN");
+        Map<String, Object> request = Map.of(
+                "locationCode", "KMA_4128751000",
+                "source", "BROWSER_GEOLOCATION"
+        );
 
         mockMvc.perform(put("/api/users/me/location")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
@@ -124,26 +135,57 @@ class UserLocationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").doesNotExist())
-                .andExpect(jsonPath("$.data.code").value("BUSAN"))
-                .andExpect(jsonPath("$.data.name").value("부산광역시"))
-                .andExpect(jsonPath("$.data.nx").value(98))
-                .andExpect(jsonPath("$.data.ny").value(76))
+                .andExpect(jsonPath("$.data.code").value("KMA_4128751000"))
+                .andExpect(jsonPath("$.data.name").value("일산1동"))
+                .andExpect(jsonPath("$.data.fullName").value("경기도 고양시일산서구 일산1동"))
+                .andExpect(jsonPath("$.data.region1").value("경기도"))
+                .andExpect(jsonPath("$.data.region2").value("고양시일산서구"))
+                .andExpect(jsonPath("$.data.region3").value("일산1동"))
+                .andExpect(jsonPath("$.data.nx").value(56))
+                .andExpect(jsonPath("$.data.ny").value(129))
+                .andExpect(jsonPath("$.data.source").value("BROWSER_GEOLOCATION"))
                 .andExpect(jsonPath("$.data.updatedAt").exists());
 
         entityManager.flush();
         entityManager.clear();
 
         User saved = userRepository.findById(targetUser.getId()).orElseThrow();
-        assertThat(saved.getLocationCode()).isEqualTo("BUSAN");
-        assertThat(saved.getLocationName()).isEqualTo("부산광역시");
-        assertThat(saved.getLocationNx()).isEqualTo(98);
-        assertThat(saved.getLocationNy()).isEqualTo(76);
+        assertThat(saved.getLocationCode()).isEqualTo("KMA_4128751000");
+        assertThat(saved.getLocationName()).isEqualTo("일산1동");
+        assertThat(saved.getLocationFullName()).isEqualTo("경기도 고양시일산서구 일산1동");
+        assertThat(saved.getLocationRegion1()).isEqualTo("경기도");
+        assertThat(saved.getLocationRegion2()).isEqualTo("고양시일산서구");
+        assertThat(saved.getLocationRegion3()).isEqualTo("일산1동");
+        assertThat(saved.getLocationNx()).isEqualTo(56);
+        assertThat(saved.getLocationNy()).isEqualTo(129);
+        assertThat(saved.getLocationSource()).isEqualTo(LocationSource.BROWSER_GEOLOCATION);
 
         User unchangedOtherUser = userRepository.findById(otherUser.getId()).orElseThrow();
         assertThat(unchangedOtherUser.getLocationCode()).isEqualTo("SEOUL");
         assertThat(unchangedOtherUser.getLocationName()).isEqualTo("서울특별시");
         assertThat(unchangedOtherUser.getLocationNx()).isEqualTo(60);
         assertThat(unchangedOtherUser.getLocationNy()).isEqualTo(127);
+        assertThat(unchangedOtherUser.getLocationSource()).isEqualTo(LocationSource.MANUAL_SEARCH);
+    }
+
+    @Test
+    void defaultsLocationSourceToManualSearchWhenRequestOmitsSource() throws Exception {
+        User user = userRepository.save(User.createSeedUser("location-manual-source-user"));
+        Map<String, Object> request = Map.of("locationCode", "BUSAN");
+
+        mockMvc.perform(put("/api/users/me/location")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value("BUSAN"))
+                .andExpect(jsonPath("$.data.source").value("MANUAL_SEARCH"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        User saved = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(saved.getLocationSource()).isEqualTo(LocationSource.MANUAL_SEARCH);
     }
 
     @Test
@@ -155,9 +197,9 @@ class UserLocationControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("LOCATION_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("위치를 찾을 수 없습니다."))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("요청 값이 올바르지 않습니다."))
                 .andExpect(jsonPath("$.details[0].field").value("locationCode"))
                 .andExpect(jsonPath("$.details[0].message").value("UNKNOWN"));
     }
