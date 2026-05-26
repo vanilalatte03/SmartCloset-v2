@@ -1,237 +1,172 @@
-# Demo Scenario: SmartCloset MVP5
+# Demo Scenario: SmartCloset MVP6
 
 ## 데모 목표
 
-Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 옷 이미지 업로드, 교체, 삭제, 추천 결과 썸네일 표시를 확인한다.
+Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 옷별 styleTags, 상황 선택 추천, 착용 완료, 추천 피드백 저장/clear, 추천 이력 상태 표시를 확인한다.
 
-MVP5 데모의 핵심은 추천 알고리즘 변경이 아니라, 사용자가 실제 옷 이미지를 옷장과 추천 결과에서 자연스럽게 확인할 수 있는지다.
+MVP6 데모의 핵심은 사용자가 추천 후 실제 경험을 남기고 다음 추천 개인화에 반영되는 흐름이다.
 
-## MVP5 데모 범위
+## MVP6 데모 범위
 
-- 회원가입/로그인
-- 신규/빈 계정 기본 옷 프리셋 자동 생성
-- `sessionStorage` access token 저장과 세션 복구
-- 옷 등록
-- 옷 이미지 업로드
-- 옷 이미지 교체
-- 옷 이미지 삭제
-- 옷 목록 썸네일 표시
+포함:
+
+- 회원가입 또는 로그인
+- 기본 옷 프리셋과 옷 이미지 확인
+- 옷 등록/수정에서 styleTags 저장
+- Today view 상황 선택
 - 추천 생성
-- 추천 결과 썸네일 표시
-- 추천 이력 썸네일 표시
-- Docker Compose app 재시작 후 이미지 유지 확인
+- 추천 결과의 상황, 이유, 점수 확인
+- 착용 완료
+- 마음에 들어요, 별로예요, 추웠어요, 더웠어요 피드백 저장
+- 피드백 clear
+- History view에서 상황, 착용 여부, 착용 시각, 피드백 확인
 
-AI 자동 태깅, AI/GPT 추천, 이미지 기반 점수 변경, 다중 이미지, S3/CDN, 이미지 편집, refresh token, 소셜 로그인은 데모 범위가 아니다.
+제외:
+
+- AI/GPT 추천
+- AI 자동 태깅
+- 외부 지도/주소 API
+- 피드백 analytics dashboard
+- AWS 배포
 
 ## 데모 전제
 
-- Docker Compose 실행 완료
-- Frontend 접속 가능: http://localhost:5173
-- Swagger UI 접속 가능: http://localhost:8080/swagger-ui/index.html
-- 신규 사용자는 기본 위치 서울특별시 `SEOUL`, `nx=60`, `ny=127`
-- 신규 가입자는 기본 옷 5개와 상품컷 이미지가 자동으로 생성된다.
-- 기존 계정도 로그인 시 옷이 0개이면 같은 기본 옷 5개를 한 번만 받는다.
-- 프론트 access token 저장 위치는 `sessionStorage`
-- 서비스키 없이 실행하면 fallback 날씨 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`를 사용한다.
-- fallback 날씨는 OUTER 필수 조건이므로 첫 추천 성공 데모에는 TOP, BOTTOM, OUTER가 각각 1개 이상 필요하다.
+- `.env`는 `.env.example`을 복사해 만든다.
+- `KMA_SERVICE_KEY`가 없어도 `WEATHER_FALLBACK_ENABLED=true`이면 fallback weather로 데모 가능하다.
+- Docker Compose reset 시 DB와 이미지 volume이 초기화된다.
 
-## DB와 이미지 볼륨 초기화
-
-로컬 Docker Compose DB와 이미지 볼륨은 기존 schema/file 상태와 충돌할 수 있으므로 데모 전 초기화를 권장한다.
+## 실행
 
 ```bash
 docker compose down -v
+test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
-MVP5 구현 후에는 이미지 저장 volume도 Compose volume으로 관리한다.
+Frontend:
 
-## 환경변수
-
-서비스키 없이 실행하면 fallback 날씨를 사용한다.
-
-```env
-JWT_SECRET=change-me-local-development-only
-KMA_SERVICE_KEY=
-KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
-WEATHER_FALLBACK_ENABLED=true
-CLOTHING_IMAGE_STORAGE_DIR=/data/smartcloset/clothing-images
-CLOTHING_IMAGE_MAX_SIZE_BYTES=5242880
-VITE_API_BASE_URL=http://localhost:8080
+```text
+http://localhost:5173
 ```
 
-실제 서비스키와 운영 JWT secret은 문서, 코드, 커밋에 남기지 않는다.
+Swagger UI:
 
-## React 앱 MVP5 데모 시나리오
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+## React 앱 MVP6 데모 시나리오
 
 ### 1. 회원가입 또는 로그인
 
-API:
+1. Frontend에 접속한다.
+2. 새 계정으로 회원가입하거나 기존 계정으로 로그인한다.
+3. 로그인 후 Today view가 보이는지 확인한다.
+4. access token이 `sessionStorage`에 저장되는지 확인한다.
 
-```http
-POST /api/auth/signup
-POST /api/auth/login
-GET /api/users/me
-```
+기대 결과:
 
-확인 포인트:
+- 기본 위치가 표시된다.
+- 기본 옷 프리셋이 준비된다.
+- Today, Closet, Preferences, Location, History view를 이동할 수 있다.
 
-- 로그인 성공 후 access token이 `sessionStorage`에 저장된다.
-- 새로고침 후 로그인 상태가 복구된다.
-- 로그인 후 기본 view는 `오늘`이다.
-- 신규 가입 직후 Closet view에는 기본 옷 프리셋 5개가 썸네일과 함께 보인다.
-- 기본 프리셋은 화이트 반팔 티셔츠, 블랙 반팔 티셔츠, 흑청 데님 팬츠, 진청 데님 팬츠, 블랙 가디건이다.
+### 2. 옷별 styleTags 확인과 수정
 
-### 2. 기본 옷 프리셋 확인
+1. Closet view로 이동한다.
+2. 기본 프리셋 옷의 styleTags chip이 보이는지 확인한다.
+3. 새 옷을 등록하며 `OFFICE`, `MINIMAL`, `출근` tag를 추가한다.
+4. 등록된 옷을 수정해 styleTags를 변경한다.
 
-API:
+기대 결과:
 
-```http
-GET /api/clothes
-GET /api/clothes/{clothingId}/image
-```
+- `ClothingResponse.styleTags`가 항상 배열로 표시된다.
+- blank tag는 저장되지 않는다.
+- 옷 이미지 업로드/교체/삭제 흐름은 기존처럼 동작한다.
 
-확인 포인트:
+### 3. 상황 선택 추천 생성
 
-- 기본 옷 5개는 현재 사용자 소유 옷으로 반환된다.
-- 각 기본 옷의 `image.contentType`은 `image/jpeg`이다.
-- 프리셋 이미지도 보호 API를 통해 Authorization header로 조회된다.
-- 프리셋 이미지를 삭제하거나 교체해도 다른 사용자에게 영향이 없다.
+1. Today view로 이동한다.
+2. 상황을 `출근`으로 선택한다.
+3. 추천 만들기를 누른다.
 
-### 3. 옷 등록
+기대 결과:
 
-API:
+- `POST /api/recommendations`에 `situation=WORK`가 반영된다.
+- 추천 결과에 `출근` 상황이 표시된다.
+- 추천 이유에 상황 또는 styleTags 반영 문구가 포함될 수 있다.
 
-```http
-POST /api/clothes
-GET /api/clothes
-```
+### 4. 착용 완료
 
-TOP 요청 예시:
+1. 추천 결과에서 착용 완료하기를 누른다.
+2. 같은 추천에서 다시 착용 완료 버튼 상태를 확인한다.
 
-```json
-{
-  "name": "그레이 후드",
-  "category": "TOP",
-  "color": "GRAY",
-  "material": "COTTON",
-  "minTemperature": 5,
-  "maxTemperature": 18,
-  "rainSuitable": false
-}
-```
+기대 결과:
 
-확인 포인트:
+- 착용 완료 상태가 표시된다.
+- `wornAt`이 표시된다.
+- 중복 착용 이력이 생기지 않는다.
 
-- 옷 등록은 여전히 JSON API를 사용한다.
-- 등록 직후 `image`는 `null`일 수 있다.
-- 이미지가 없는 카드는 기존 fallback visual을 표시한다.
+### 5. 추천 피드백 저장
 
-### 4. 옷 이미지 업로드
+1. 추천 결과에서 마음에 들어요를 선택한다.
+2. 추웠어요를 함께 선택한다.
+3. 저장 상태가 반영되는지 확인한다.
 
-API:
+기대 결과:
 
-```http
-PUT /api/clothes/{clothingId}/image
-```
+- `PUT /api/recommendations/{recommendationId}/feedback`가 호출된다.
+- 응답의 `feedback.sentiment=LIKED`, `feedback.thermal=TOO_COLD`가 UI에 반영된다.
+- `feedback.updatedAt`이 표시되거나 상태 갱신에 사용된다.
 
-요청:
+### 6. 추천 피드백 전체 교체와 clear
 
-- `multipart/form-data`
-- part name: `image`
-- jpg/jpeg/png/webp, 최대 5MB
+1. 마음에 들어요 대신 별로예요를 선택한다.
+2. 추웠어요를 해제하거나 더웠어요로 바꾼다.
+3. 피드백 지우기를 누른다.
 
-확인 포인트:
+기대 결과:
 
-- 업로드 성공 후 `ClothingResponse.image.url`이 생긴다.
-- 옷 카드에 썸네일이 표시된다.
-- 이미지 조회는 보호 API이므로 프론트가 Authorization header로 blob을 가져온다.
-- 새로고침 후에도 썸네일이 다시 표시된다.
+- PUT은 전체 상태를 교체한다.
+- 누락 필드 또는 명시적 `null`은 해당 필드를 clear한다.
+- 양쪽 `null`이면 `feedback=null` 상태가 된다.
 
-### 5. 이미지 교체
+### 7. 최근 피드백 반영 확인
 
-API:
+1. 같은 상황 또는 다른 상황으로 추천을 다시 생성한다.
+2. 점수 상세에서 `preferenceScore`가 표시되는지 확인한다.
+3. 이유 목록에서 최근 피드백 반영 또는 회피 문구가 나오는지 확인한다.
 
-```http
-PUT /api/clothes/{clothingId}/image
-```
+기대 결과:
 
-확인 포인트:
+- 최근 14일 피드백이 추천 점수와 이유에 반영된다.
+- 이미지 존재 여부는 점수와 이유를 바꾸지 않는다.
 
-- 새 파일 업로드 후 같은 옷 카드의 썸네일이 바뀐다.
-- 기존 파일은 더 이상 노출되지 않는다.
-- 옷 이름, 카테고리, 색상, 소재는 이미지 교체만으로 바뀌지 않는다.
+### 8. 추천 이력 확인
 
-### 6. 이미지 삭제
+1. History view로 이동한다.
+2. 최근 추천 카드들을 확인한다.
 
-API:
+기대 결과:
 
-```http
-DELETE /api/clothes/{clothingId}/image
-```
+- 추천별 상황이 표시된다.
+- 착용 전/착용 완료와 `wornAt`을 확인할 수 있다.
+- 피드백 없음 또는 저장된 피드백을 확인할 수 있다.
+- 추천 outfit thumbnail 또는 fallback이 표시된다.
 
-확인 포인트:
+## API 실패 케이스 확인
 
-- 삭제 후 `image`가 `null`이다.
-- 카드가 fallback visual로 돌아간다.
-- 이미 이미지가 없는 상태에서 다시 삭제해도 성공한다.
-
-### 7. 추천 결과 썸네일 확인
-
-API:
-
-```http
-POST /api/recommendations
-```
-
-확인 포인트:
-
-- 추천 결과의 TOP/BOTTOM/OUTER item에 image metadata가 포함된다.
-- 이미지가 있는 옷은 썸네일로 표시된다.
-- 이미지가 없는 옷은 fallback visual로 표시된다.
-- 추천 점수와 추천 이유는 이미지 여부와 관계없이 기존 규칙을 따른다.
-
-### 8. 추천 이력 썸네일 확인
-
-API:
-
-```http
-GET /api/recommendations?limit=20
-```
-
-확인 포인트:
-
-- History view의 outfit summary에 썸네일이 표시된다.
-- 추천 후 이미지를 교체하면 이력에도 최신 이미지 상태가 표시된다.
-- 추천 당시 이미지 snapshot을 별도로 저장하지 않는다.
-
-### 9. Docker Compose 재시작 유지 확인
-
-명령:
-
-```bash
-docker compose restart app
-```
-
-확인 포인트:
-
-- app container 재시작 후에도 기존 이미지가 조회된다.
-- DB 메타데이터와 volume 파일이 함께 유지된다.
-
-## 실패 케이스 확인
-
-- 토큰 없이 이미지 업로드: `401`
-- 다른 사용자 옷 이미지 조회: `404 CLOTHING_NOT_FOUND`
-- 내 옷이지만 이미지 없음: `404 CLOTHING_IMAGE_NOT_FOUND`
-- 5MB 초과 파일: `400 INVALID_REQUEST`
-- `.gif` 또는 `.heic` 파일: `400 INVALID_REQUEST`
-- MIME type과 확장자가 맞지 않는 파일: `400 INVALID_REQUEST`
+- 인증 없이 feedback PUT: `401 UNAUTHORIZED`
+- 다른 사용자 추천 feedback PUT: `404 RECOMMENDATION_NOT_FOUND`
+- 잘못된 situation enum: `400 INVALID_REQUEST`
+- 잘못된 feedback enum: `400 INVALID_REQUEST`
+- body 없는 `POST /api/recommendations`: `201 Created`, `situation=CASUAL`
+- `{}` feedback PUT: `200 OK`, `feedback=null`
 
 ## 완료 기준
 
-- 옷 이미지 업로드, 교체, 삭제가 가능하다.
-- 신규/빈 계정에 기본 옷 프리셋이 한 번만 생성된다.
-- 옷 목록과 추천 결과와 추천 이력에 썸네일이 보인다.
-- 이미지가 없는 옷도 기존 fallback UI로 자연스럽게 보인다.
-- Docker Compose 환경에서 app 재시작 후 이미지가 유지된다.
-- 이미지 업로드가 추천 점수나 추천 이유를 바꾸지 않는다.
+- 상황 선택 추천이 가능하다.
+- 옷별 styleTags가 저장/표시된다.
+- 착용 완료와 피드백 저장/clear가 가능하다.
+- 추천 이력에서 상황, 착용 여부, 착용 시각, 피드백이 보인다.
+- 기존 이미지 업로드와 썸네일 표시가 유지된다.
+- Docker Compose 환경에서 앱이 정상 실행된다.

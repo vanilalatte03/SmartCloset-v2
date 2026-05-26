@@ -1,0 +1,126 @@
+{
+  "paths": [
+    "README.md",
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/ERD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/FRONTEND.md",
+    "docs/DEMO_SCENARIO.md",
+    "docs/SHARING_GUIDE.md",
+    "docs/COMMANDS.md",
+    "docs/ADR.md",
+    "docs/adr/011-mvp6-feedback-personalization.md",
+    ".codex/agents",
+    "phases/6-smartcloset-feedback-personalization"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "MVP6 current docs marker",
+      "paths": ["README.md", "docs/PRD.md"],
+      "pattern": "MVP6.*추천 피드백/개인화"
+    },
+    {
+      "name": "ADR-011 linked",
+      "paths": ["docs/ADR.md"],
+      "pattern": "ADR-011"
+    },
+    {
+      "name": "API feedback endpoint",
+      "paths": ["docs/API.md"],
+      "pattern": "PUT /api/recommendations/\\{recommendationId\\}/feedback"
+    },
+    {
+      "name": "API feedback full replacement",
+      "paths": ["docs/API.md"],
+      "pattern": "PUT은 전체 교체"
+    },
+    {
+      "name": "API recommendation situation default",
+      "paths": ["docs/API.md"],
+      "pattern": "body가 없거나 `situation`이 누락되면 `CASUAL`"
+    },
+    {
+      "name": "API clothing styleTags",
+      "paths": ["docs/API.md"],
+      "pattern": "styleTags: string\\[\\]"
+    },
+    {
+      "name": "Recommendation situation mapping",
+      "paths": ["docs/RECOMMENDATION_RULES.md"],
+      "pattern": "`WORK` \\| 출근 \\| `WORK`, `OFFICE`, `MINIMAL`, `SMART`"
+    },
+    {
+      "name": "Preference score formula",
+      "paths": ["docs/RECOMMENDATION_RULES.md", "docs/PRD.md"],
+      "pattern": "preferenceScore = clamp"
+    },
+    {
+      "name": "ERD clothing style tags",
+      "paths": ["docs/ERD.md"],
+      "pattern": "style_tags_json"
+    },
+    {
+      "name": "ERD feedback snapshot",
+      "paths": ["docs/ERD.md"],
+      "pattern": "sentiment_feedback"
+    },
+    {
+      "name": "Frontend feedback UX",
+      "paths": ["docs/FRONTEND.md"],
+      "pattern": "피드백 control"
+    },
+    {
+      "name": "Phase docs exist",
+      "paths": ["phases/6-smartcloset-feedback-personalization/README.md"],
+      "pattern": "Feedback Personalization"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "styleTags old no-scoring rule",
+      "pattern": "styleTags.*(점수|score|추천 이유).*(반영하지 않는다|사용하지 않는다)"
+    },
+    {
+      "name": "MVP6 out-of-scope AI or infra requirements",
+      "pattern": "AI/GPT 추천.*구현한다|AI 자동 태[깅].*구현한다|Redis.*구현한다|AWS.*자동화.*구현한다|S3.*구현한다|CDN.*구현한다"
+    },
+    {
+      "name": "docker compose config must be quiet",
+      "paths": [
+        "README.md",
+        "docs/PRD.md",
+        "docs/COMMANDS.md",
+        "phases/6-smartcloset-feedback-personalization"
+      ],
+      "pattern": "docker compose config(?! --quiet)"
+    }
+  ]
+}

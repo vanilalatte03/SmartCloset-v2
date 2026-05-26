@@ -1,18 +1,18 @@
-# ERD: SmartCloset MVP5
+# ERD: SmartCloset MVP6
 
 ## 0. DB Baseline
 
-현재 MVP5 DB baseline은 인증 사용자 기반 MVP4 schema에 옷 이미지 메타데이터 컬럼을 추가한 상태다. 별도 이미지 테이블은 만들지 않는다.
+MVP6 DB baseline은 MVP5 인증 사용자 기반 옷 이미지 schema에 옷별 `styleTags`, 추천 상황 snapshot, 추천 피드백 snapshot을 추가한다.
 
-## MVP5 DB 결정
+## MVP6 DB 결정
 
-- `clothing_items`에 nullable 이미지 메타데이터 컬럼을 추가한다.
-- 파일 bytes는 DB에 저장하지 않는다.
-- 옷 1개당 이미지 1장만 지원한다.
-- 이미지 메타데이터는 현재 옷 row의 일부로 취급한다.
+- `clothing_items`에 `style_tags_json`을 추가한다.
+- 추천 상황은 `recommendation_results.situation`에 저장한다.
+- 추천 피드백은 `recommendation_results` row의 최신 snapshot으로 저장한다.
+- 별도 feedback event log table은 만들지 않는다.
+- 착용 이력은 기존 `wear_histories`를 유지한다.
+- 옷 이미지 파일 bytes는 계속 DB에 저장하지 않는다.
 - 추천 결과 item은 기존처럼 `clothing_items`를 참조한다.
-- 추천 이력은 현재 참조된 옷의 최신 이미지 메타데이터를 통해 썸네일을 표시한다.
-- 이미지 존재 여부는 추천 점수와 추천 이유에 영향을 주지 않는다.
 
 ## 1. 공통 DB 정책
 
@@ -20,10 +20,8 @@
 - 모든 JPA Entity는 `BaseTimeEntity`를 상속한다.
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
-- `recommendation_results.reasons_json`은 `JSON NOT NULL`로 저장한다.
-- Entity에서는 구현 단순성을 위해 JSON 값을 `String`으로 보관한다.
-- `users.preferred_colors_json`, `users.preferred_materials_json`, `users.style_tags_json`은 JSON array string으로 보관한다.
-- 운영 DB migration 전략은 MVP5 구현 단계에서 별도 migration 도구 없이 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
+- JSON 값은 구현 단순성을 위해 Entity에서 `String`으로 보관한다.
+- 운영 DB migration 전략은 별도 migration 도구 없이 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
 
 ## 2. Mermaid ERD
 
@@ -63,6 +61,7 @@ erDiagram
     INT min_temperature
     INT max_temperature
     BOOLEAN rain_suitable
+    TEXT style_tags_json
     BOOLEAN archived
     VARCHAR image_stored_filename
     VARCHAR image_content_type
@@ -75,6 +74,7 @@ erDiagram
   recommendation_results {
     BIGINT id PK
     BIGINT user_id FK
+    VARCHAR situation
     INT weather_temperature
     VARCHAR weather_type
     BOOLEAN rainy
@@ -87,6 +87,9 @@ erDiagram
     INT preference_score
     JSON reasons_json
     BOOLEAN worn
+    VARCHAR sentiment_feedback
+    VARCHAR thermal_feedback
+    DATETIME feedback_updated_at
     DATETIME created_at
     DATETIME updated_at
   }
@@ -127,7 +130,7 @@ erDiagram
 | `location_ny` | `INT` | yes | none | KMA grid Y |
 | `preferred_colors_json` | `TEXT` | no | application `[]` | `ClothingColor` 배열 JSON 문자열 |
 | `preferred_materials_json` | `TEXT` | no | application `[]` | `ClothingMaterial` 배열 JSON 문자열 |
-| `style_tags_json` | `TEXT` | no | application `[]` | style tag 문자열 배열 JSON 문자열 |
+| `style_tags_json` | `TEXT` | no | application `[]` | 선호 style tag 배열 JSON 문자열 |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
@@ -150,6 +153,7 @@ Indexes:
 | `min_temperature` | `INT` | no | none | 착용 가능 최저 기온 |
 | `max_temperature` | `INT` | no | none | 착용 가능 최고 기온 |
 | `rain_suitable` | `BOOLEAN` | no | none | 비 오는 날 적합 여부 |
+| `style_tags_json` | `TEXT` | no | application `[]` | 옷별 style tag 배열 JSON 문자열 |
 | `archived` | `BOOLEAN` | no | `FALSE` | 보관 여부 |
 | `image_stored_filename` | `VARCHAR(255)` | yes | `NULL` | 서버가 생성한 저장 파일명 |
 | `image_content_type` | `VARCHAR(100)` | yes | `NULL` | 검증된 MIME type |
@@ -164,6 +168,15 @@ Indexes:
 - Index: `(user_id, archived, id)`
 - Index: `(user_id, category, archived)`
 
+Style tag policy:
+
+- `style_tags_json`은 JSON array string이다.
+- 누락된 API 요청은 application에서 `[]`로 저장한다.
+- blank tag는 저장하지 않는다.
+- tag는 trim 후 저장한다.
+- 중복 tag는 제거한다.
+- 단일 tag 최대 길이는 30자다.
+
 Image metadata policy:
 
 - 이미지가 없으면 `image_*` 컬럼은 모두 `NULL`이다.
@@ -177,18 +190,22 @@ Image metadata policy:
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | no | auto increment | PK |
 | `user_id` | `BIGINT` | no | none | FK to `users.id` |
-| `weather_temperature` | `INT` | no | none | 추천 생성 시점의 내부 `WeatherCondition.temperature` snapshot |
-| `weather_type` | `VARCHAR(30)` | no | none | 내부 `WeatherCondition.weatherType` snapshot |
-| `rainy` | `BOOLEAN` | no | none | 내부 `WeatherCondition.rainy` snapshot |
-| `windy` | `BOOLEAN` | no | none | 내부 `WeatherCondition.windy` snapshot |
+| `situation` | `VARCHAR(30)` | no | `CASUAL` | 추천 생성 시점 `RecommendationSituation` snapshot |
+| `weather_temperature` | `INT` | no | none | 추천 생성 시점 `WeatherCondition.temperature` snapshot |
+| `weather_type` | `VARCHAR(30)` | no | none | 추천 생성 시점 `WeatherCondition.weatherType` snapshot |
+| `rainy` | `BOOLEAN` | no | none | 추천 생성 시점 `WeatherCondition.rainy` snapshot |
+| `windy` | `BOOLEAN` | no | none | 추천 생성 시점 `WeatherCondition.windy` snapshot |
 | `total_score` | `INT` | no | none | 총점 |
 | `weather_score` | `INT` | no | none | 날씨 적합도 점수 |
 | `color_score` | `INT` | no | none | 색상 조합 점수 |
 | `wear_history_score` | `INT` | no | none | 최근 착용 이력 점수 |
 | `recommendation_history_score` | `INT` | no | none | 최근 추천 이력 점수 |
-| `preference_score` | `INT` | no | none | 선호 색상/소재 점수 |
+| `preference_score` | `INT` | no | none | 선호/상황/styleTags/피드백 점수 |
 | `reasons_json` | `JSON` | no | none | 추천 이유 JSON array |
 | `worn` | `BOOLEAN` | no | `FALSE` | 착용 완료 여부 |
+| `sentiment_feedback` | `VARCHAR(30)` | yes | `NULL` | `LIKED` 또는 `DISLIKED` |
+| `thermal_feedback` | `VARCHAR(30)` | yes | `NULL` | `TOO_COLD` 또는 `TOO_HOT` |
+| `feedback_updated_at` | `DATETIME(6)` | yes | `NULL` | 피드백 저장/수정 시각 |
 | `created_at` | `DATETIME(6)` | no | none | 생성 시각 |
 | `updated_at` | `DATETIME(6)` | no | none | 수정 시각 |
 
@@ -197,6 +214,14 @@ Indexes:
 - Primary key: `id`
 - Index: `(user_id, created_at)`
 - Index: `(user_id, worn)`
+- Index: `(user_id, feedback_updated_at)`
+
+Feedback snapshot policy:
+
+- `sentiment_feedback`과 `thermal_feedback`이 모두 `NULL`이면 피드백이 없는 상태다.
+- feedback clear 시 `sentiment_feedback`, `thermal_feedback`, `feedback_updated_at`을 모두 `NULL`로 되돌린다.
+- 둘 중 하나라도 값이 있으면 `feedback_updated_at`은 `NOT NULL` application invariant다.
+- 별도 feedback event log table은 만들지 않는다.
 
 ### recommendation_result_items
 

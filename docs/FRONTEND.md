@@ -1,10 +1,10 @@
-# Frontend: SmartCloset MVP5 Clothing Images
+# Frontend: SmartCloset MVP6 Feedback Personalization
 
 ## 목표
 
-MVP5 프론트엔드는 MVP4 반응형 웹앱 위에 옷 이미지 업로드, 교체, 삭제, 썸네일 표시를 추가한다.
+MVP6 프론트엔드는 MVP5 반응형 웹앱 위에 추천 상황 선택, 추천 피드백 저장/clear, 옷별 `styleTags`, 추천 이력의 착용/피드백 표시를 추가한다.
 
-사용자는 Closet view에서 옷별 이미지를 관리하고, Today 추천 결과와 History 추천 이력에서 실제 옷 썸네일을 확인할 수 있어야 한다.
+사용자는 Today view에서 상황을 고르고 추천을 생성한 뒤, 추천 결과에 대해 "마음에 들어요", "별로예요", "추웠어요", "더웠어요" 피드백을 남길 수 있어야 한다.
 
 ## 기술 기준
 
@@ -19,50 +19,80 @@ MVP5 프론트엔드는 MVP4 반응형 웹앱 위에 옷 이미지 업로드, �
 
 ## 인증 상태 기준
 
-이미지 API도 보호 API다. 모든 이미지 업로드, 삭제, blob 조회 요청에는 `Authorization: Bearer {accessToken}` header가 필요하다.
+추천 피드백 API와 이미지 API는 모두 보호 API다. 모든 보호 API 요청에는 `Authorization: Bearer {accessToken}` header가 필요하다.
 
 `401`은 기존 보호 API와 동일하게 인증 만료로 처리한다.
 
 ## API Client 기준
 
-기존 JSON API helper는 유지한다.
+MVP6에서 추가/변경할 함수:
 
-MVP5에서 추가할 함수:
+- `createRecommendation(accessToken, request?)`
+- `replaceRecommendationFeedback(accessToken, recommendationId, request)`는 `RecommendationFeedbackResponse`를 반환한다.
+- 기존 `markRecommendationWorn(accessToken, recommendationId)` 유지
+- 옷 등록/수정 request에 `styleTags` 포함
 
-- `uploadClothingImage(accessToken, clothingId, file)`
-- `deleteClothingImage(accessToken, clothingId)`
-- `getClothingImageBlob(accessToken, imageUrl)`
+추천 생성:
 
-multipart upload:
+- body 없이 호출 가능해야 한다.
+- 사용자가 상황을 선택하면 `{ situation }` body를 보낸다.
+- situation이 없으면 서버 기본값 `CASUAL`을 신뢰한다.
 
-- `FormData`를 사용한다.
-- part name은 `image`다.
-- 브라우저가 boundary를 설정하도록 `Content-Type` header를 직접 지정하지 않는다.
+피드백 저장:
 
-blob fetch:
+- PUT은 전체 교체다.
+- 선택하지 않은 필드는 보내지 않아도 되지만 client type에서는 명시적으로 `null`을 보내도 된다.
+- clear action은 `{ sentiment: null, thermal: null }` 또는 `{}`로 보낼 수 있다.
+- 저장 후 Today 결과와 History 카드 상태를 갱신한다.
 
-- `image.url`은 `/api/clothes/{id}/image` 형태다.
-- fetch 시 API base URL과 합친다.
-- Authorization header를 붙인다.
-- 성공하면 `Blob`을 `URL.createObjectURL`로 변환한다.
-- 컴포넌트 unmount 또는 이미지 변경 시 `URL.revokeObjectURL`을 호출한다.
+이미지 blob fetch:
+
+- MVP5와 동일하게 Authorization header를 붙인다.
+- object URL은 cleanup한다.
 
 ## 타입 기준
 
 ```ts
-export type ClothingImageResponse = {
-  url: string;
-  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
-  sizeBytes: number;
-  uploadedAt: string;
+export type RecommendationSituation =
+  | 'WORK'
+  | 'CASUAL'
+  | 'WORKOUT'
+  | 'DATE'
+  | 'FORMAL';
+
+export type RecommendationFeedbackSentiment = 'LIKED' | 'DISLIKED';
+
+export type RecommendationThermalFeedback = 'TOO_COLD' | 'TOO_HOT';
+
+export type RecommendationRequest = {
+  situation?: RecommendationSituation;
 };
 
-export type ClothingResponse = ClothingRequest & {
-  id: number;
-  archived: boolean;
-  image: ClothingImageResponse | null;
-  createdAt: string;
+export type RecommendationFeedbackRequest = {
+  sentiment?: RecommendationFeedbackSentiment | null;
+  thermal?: RecommendationThermalFeedback | null;
+};
+
+export type RecommendationFeedbackStateResponse = {
+  sentiment: RecommendationFeedbackSentiment | null;
+  thermal: RecommendationThermalFeedback | null;
   updatedAt: string;
+};
+
+export type RecommendationFeedbackResponse = {
+  recommendationId: number;
+  feedback: RecommendationFeedbackStateResponse | null;
+};
+
+export type ClothingRequest = {
+  name: string;
+  category: ClothingCategory;
+  color: ClothingColor;
+  material: ClothingMaterial;
+  minTemperature: number;
+  maxTemperature: number;
+  rainSuitable: boolean;
+  styleTags: string[];
 };
 
 export type OutfitItemResponse = {
@@ -71,117 +101,137 @@ export type OutfitItemResponse = {
   category: ClothingCategory;
   color: ClothingColor;
   material: ClothingMaterial;
+  styleTags: string[];
   image: ClothingImageResponse | null;
 };
+
+export type RecommendationResponse = {
+  recommendationId: number;
+  situation: RecommendationSituation;
+  weather: WeatherResponse;
+  outfit: RecommendationOutfitResponse;
+  score: RecommendationScoreResponse;
+  reasons: string[];
+  worn: boolean;
+  wornAt: string | null;
+  feedback: RecommendationFeedbackStateResponse | null;
+  createdAt: string;
+};
 ```
+
+## Situation UX
+
+Today view에 상황 선택 control을 둔다.
+
+| Situation | Label |
+| --- | --- |
+| `WORK` | 출근 |
+| `CASUAL` | 캐주얼 |
+| `WORKOUT` | 운동 |
+| `DATE` | 데이트 |
+| `FORMAL` | 격식 |
+
+UX 기준:
+
+- 기본 선택은 `CASUAL`이다.
+- 추천 생성 중에는 상황 선택과 생성 버튼을 비활성화한다.
+- 추천 결과에는 생성 당시 situation label을 표시한다.
+- 상황 선택은 모바일에서 한 줄 overflow가 나지 않도록 wrap 또는 segmented layout을 사용한다.
+
+## Feedback UX
+
+추천 결과 카드에 피드백 control을 둔다.
+
+Sentiment:
+
+- 마음에 들어요 -> `LIKED`
+- 별로예요 -> `DISLIKED`
+
+Thermal:
+
+- 추웠어요 -> `TOO_COLD`
+- 더웠어요 -> `TOO_HOT`
+
+규칙:
+
+- sentiment는 둘 중 하나만 선택 가능하다.
+- thermal은 둘 중 하나만 선택 가능하다.
+- sentiment와 thermal은 동시에 저장될 수 있다.
+- 같은 버튼을 다시 누르면 해당 필드를 `null`로 바꾼 전체 상태를 PUT한다.
+- "피드백 지우기"는 양쪽 `null`로 clear한다.
+- 저장 중에는 해당 추천의 피드백 버튼을 비활성화한다.
+- 저장 실패 시 기존 `ApiErrorMessage` 패턴을 사용한다.
 
 ## Closet View
 
-MVP5 필수 구성:
+옷 등록/수정 폼에 `styleTags` 입력을 추가한다.
 
-- 옷 카드 썸네일 영역
-- 이미지 없음 fallback visual
-- 옷 등록 후 이미지 추가 흐름
-- 옷 수정 중 이미지 교체
-- 옷 수정 중 이미지 삭제
-- 업로드 진행/성공/실패 상태
-- 파일 검증 실패 메시지 표시
+기준:
 
-옷 카드:
-
-- 이미지가 있으면 카드 상단 또는 좌측에 썸네일을 표시한다.
-- 이미지가 없으면 기존 category glyph와 색상 swatch를 유지한다.
-- name, category label, color swatch, material chip은 계속 표시한다.
-- 수정/보관 액션은 모바일에서도 hover 없이 접근 가능해야 한다.
-
-등록 흐름:
-
-- 기본 옷 정보는 기존 JSON `POST /api/clothes`로 먼저 저장한다.
-- 사용자가 파일을 선택한 경우 생성된 clothing id로 `PUT /api/clothes/{id}/image`를 이어서 호출한다.
-- 이미지 업로드가 실패해도 옷 생성 자체를 되돌리지 않는다. 화면에는 "옷은 등록됐지만 이미지 저장에 실패했습니다."처럼 분리해서 안내한다.
-
-수정 흐름:
-
-- 기본 옷 정보 수정은 기존 JSON `PUT /api/clothes/{id}`를 사용한다.
-- 이미지 교체는 별도 `PUT /api/clothes/{id}/image`를 사용한다.
-- 이미지 삭제는 `DELETE /api/clothes/{id}/image`를 사용한다.
-- 수정 취소 시 선택한 로컬 파일 미리보기와 임시 object URL을 정리한다.
-
-파일 입력 UX:
-
-- 허용 파일 설명: `jpg, png, webp / 최대 5MB`
-- 파일 선택 후 로컬 preview를 보여준다.
-- 프론트에서도 5MB와 MIME type을 사전 검사하되, 최종 검증은 서버 응답을 신뢰한다.
+- 쉼표 또는 Enter 기반 tag 추가 중 기존 UX와 가장 잘 맞는 방식을 사용한다.
+- blank tag는 추가하지 않는다.
+- tag는 trim한다.
+- 중복 tag는 추가하지 않는다.
+- 저장 전 요약에 tag 개수를 표시한다.
+- 옷 카드와 수정 패널에 styleTags chip을 표시한다.
+- 기존 이미지 업로드/교체/삭제 UX는 유지한다.
 
 ## Today Recommendation View
 
-추천 결과 outfit slot 카드에 썸네일을 표시한다.
+추천 결과에 아래를 표시한다.
 
-우선순위:
+- situation label
+- outfit item thumbnail 또는 fallback
+- outfit item styleTags
+- 추천 이유
+- 착용 완료 control
+- 피드백 control
+- 점수 상세
 
-1. 이미지가 있으면 썸네일
-2. 이미지가 없으면 category glyph
-3. color swatch와 material chip은 항상 보조 정보로 표시
-
-이미지 fetch 실패:
-
-- 추천 결과 전체를 실패 처리하지 않는다.
-- 해당 item만 fallback visual을 표시한다.
-- 인증 만료로 판정되는 경우 기존 auth expired 흐름으로 연결한다.
+추천 결과 피드백 저장 후 `RecommendationResponse.feedback` 또는 feedback response 기준으로 UI 상태를 갱신한다.
 
 ## History View
 
-추천 이력의 outfit summary에 썸네일을 표시한다.
+추천 이력 카드에 아래를 표시한다.
 
-주의:
+- 추천 생성 시각
+- situation label
+- 착용 전/착용 완료
+- nullable wornAt
+- nullable feedback
+- outfit item thumbnail 또는 fallback
+- outfit item styleTags
 
-- 추천 이력은 현재 `ClothingItem` 참조를 통해 최신 이미지 상태를 보여준다.
-- 과거 추천 당시 이미지 snapshot을 별도로 저장하지 않는다.
-- 이미지가 삭제된 옷은 fallback visual로 보인다.
+History에서 피드백을 수정하거나 clear할 수 있다면 Today와 같은 API helper를 재사용한다. MVP6 P0에서는 최소한 이력에서 피드백/착용 여부를 한눈에 보여야 한다.
 
-## 공통 Thumbnail Component
+## 공통 표시 기준
 
-권장 공통 컴포넌트:
-
-```tsx
-type ClothingThumbnailProps = {
-  accessToken: string;
-  image: ClothingImageResponse | null;
-  fallbackLabel: string;
-  className?: string;
-};
-```
-
-역할:
-
-- image가 없으면 fallback을 표시한다.
-- image가 있으면 authenticated blob fetch를 수행한다.
-- loading 상태는 레이아웃 크기를 바꾸지 않는다.
-- 실패하면 fallback을 표시한다.
-- object URL cleanup을 책임진다.
+- `LIKED`: 마음에 들어요
+- `DISLIKED`: 별로예요
+- `TOO_COLD`: 추웠어요
+- `TOO_HOT`: 더웠어요
+- feedback이 없으면 "피드백 없음" 또는 neutral 상태로 표시한다.
 
 ## 반응형 기준
 
-- 모바일 375px에서 썸네일, 옷 이름, 수정/삭제/보관 버튼이 겹치지 않아야 한다.
-- 썸네일 영역은 고정 aspect-ratio를 사용한다.
-- 카드 hover에 의존하지 않는다.
-- 이미지가 늦게 로드되어도 카드 높이가 크게 튀지 않도록 placeholder 영역을 유지한다.
+- 모바일 375px에서 상황 선택, 피드백 버튼, 착용 완료 버튼, 이력 상태 pill이 겹치지 않아야 한다.
+- 버튼 그룹은 stable height를 유지한다.
+- 추천 이력 카드의 status row는 wrap을 허용한다.
+- 이미지 thumbnail 영역은 기존 fixed aspect-ratio 기준을 유지한다.
 
 ## 접근성 기준
 
-- 업로드 input은 label과 연결한다.
-- 썸네일 `alt`는 옷 이름 기반으로 제공한다.
-- 이미지 삭제 버튼은 파일 선택 input과 구분되는 명확한 텍스트를 가진다.
-- 업로드 실패와 성공 문구는 status 영역으로 표시한다.
+- 상황 선택은 현재 선택 상태를 `aria-pressed` 또는 radio semantics로 표현한다.
+- 피드백 버튼은 현재 선택 상태를 알 수 있어야 한다.
+- 저장 성공/실패 문구는 status 영역으로 표시한다.
+- 이미지 `alt`는 옷 이름 기반으로 제공한다.
 
 ## 제외 범위
 
+- AI 추천 설명 UI
+- 피드백 analytics dashboard
+- drag and drop tag reorder
+- 옷 styleTags 자동 추천
 - 이미지 크롭 UI
-- 이미지 편집 UI
 - 다중 이미지 carousel
-- drag and drop 전용 UX
-- 카메라 직접 촬영
-- EXIF 표시
-- AI 자동 태깅
-- 이미지 기반 추천 이유
 - S3/CDN 직접 업로드
