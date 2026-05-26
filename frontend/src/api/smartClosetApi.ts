@@ -7,6 +7,8 @@ import type {
   ErrorResponse,
   CurrentUserResponse,
   LoginRequest,
+  LocationResolveRequest,
+  LocationResolveResponse,
   LocationOptionResponse,
   RecommendationFeedbackRequest,
   RecommendationFeedbackResponse,
@@ -14,6 +16,7 @@ import type {
   RecommendationResponse,
   RecommendationWornResponse,
   SignupRequest,
+  UpdateUserLocationRequest,
   UpdateUserPreferencesRequest,
   UserPreferencesResponse,
   UserLocationResponse,
@@ -42,7 +45,7 @@ export function getCurrentUser(accessToken: string): Promise<CurrentUserResponse
   return request<CurrentUserResponse>('/api/users/me', { accessToken });
 }
 
-export function getLocations(
+export function searchLocations(
   accessToken: string,
   keyword?: string
 ): Promise<LocationOptionResponse[]> {
@@ -57,18 +60,36 @@ export function getLocations(
   });
 }
 
+export const getLocations = searchLocations;
+
+export function resolveLocation(
+  accessToken: string,
+  body: LocationResolveRequest
+): Promise<LocationResolveResponse> {
+  return request<LocationResolveResponse>('/api/locations/resolve', {
+    method: 'POST',
+    accessToken,
+    body: JSON.stringify(body),
+  });
+}
+
 export function getUserLocation(accessToken: string): Promise<UserLocationResponse> {
   return request<UserLocationResponse>('/api/users/me/location', { accessToken });
 }
 
 export function updateUserLocation(
   accessToken: string,
-  locationCode: string
+  requestOrLocationCode: UpdateUserLocationRequest | string
 ): Promise<UserLocationResponse> {
+  const body =
+    typeof requestOrLocationCode === 'string'
+      ? { locationCode: requestOrLocationCode }
+      : requestOrLocationCode;
+
   return request<UserLocationResponse>('/api/users/me/location', {
     method: 'PUT',
     accessToken,
-    body: JSON.stringify({ locationCode }),
+    body: JSON.stringify(body),
   });
 }
 

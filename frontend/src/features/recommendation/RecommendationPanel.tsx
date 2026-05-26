@@ -6,10 +6,12 @@ import {
   MaterialChip,
   MaterialChipPlaceholder,
   WeatherBadge,
+  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
   ErrorResponse,
+  ForecastPeriod,
   OutfitItemResponse,
   RecommendationFeedbackSentiment,
   RecommendationResponse,
@@ -20,6 +22,8 @@ import type {
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  forecastPeriodLabels,
+  forecastPeriodOptions,
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
   recommendationSituationOptions,
@@ -39,9 +43,11 @@ type RecommendationPanelProps = {
   markingWorn: boolean;
   feedbackSaving: boolean;
   selectedSituation: RecommendationSituation;
+  selectedForecastPeriod: ForecastPeriod;
   accessToken: string;
   onCreate: () => void;
   onSituationChange: (situation: RecommendationSituation) => void;
+  onForecastPeriodChange: (forecastPeriod: ForecastPeriod) => void;
   onMarkWorn: () => void;
   onReplaceFeedback: (
     sentiment: RecommendationFeedbackSentiment | null,
@@ -178,9 +184,11 @@ export function RecommendationPanel({
   markingWorn,
   feedbackSaving,
   selectedSituation,
+  selectedForecastPeriod,
   accessToken,
   onCreate,
   onSituationChange,
+  onForecastPeriodChange,
   onMarkWorn,
   onReplaceFeedback,
   onFailureCta,
@@ -201,7 +209,7 @@ export function RecommendationPanel({
           <p className="eyebrow">오늘 추천</p>
           <h3>오늘 추천</h3>
           <p className="muted recommendation-heading-copy">
-            현재 위치와 옷장 기준으로 조합을 만듭니다.
+            현재 위치, 예보 시간대, 옷장 기준으로 조합을 만듭니다.
           </p>
         </div>
         <div className="recommendation-action-bar">
@@ -229,6 +237,25 @@ export function RecommendationPanel({
             disabled={controlsDisabled}
           >
             {recommendationSituationLabels[situation]}
+          </button>
+        ))}
+      </div>
+
+      <div className="forecast-selector" role="group" aria-label="예보 시간대 선택">
+        {forecastPeriodOptions.map((forecastPeriod) => (
+          <button
+            className={
+              selectedForecastPeriod === forecastPeriod
+                ? 'situation-button active'
+                : 'situation-button'
+            }
+            type="button"
+            key={forecastPeriod}
+            aria-pressed={selectedForecastPeriod === forecastPeriod}
+            onClick={() => onForecastPeriodChange(forecastPeriod)}
+            disabled={controlsDisabled}
+          >
+            {forecastPeriodLabels[forecastPeriod]}
           </button>
         ))}
       </div>
@@ -264,12 +291,22 @@ export function RecommendationPanel({
               <span className="item-meta">{formatDateTime(recommendation.createdAt)}</span>
             </div>
             <div className="recommendation-weather-snapshot">
-              <span>{location ? location.name : '현재 위치'} 기준</span>
+              <span>
+                {recommendation.weather.location.fullName ||
+                  recommendation.weather.location.name ||
+                  location?.name ||
+                  '현재 위치'}{' '}
+                기준
+              </span>
               <span className="situation-pill">
                 {recommendationSituationLabels[recommendation.situation]}
               </span>
+              <span className="situation-pill">
+                {forecastPeriodLabels[recommendation.forecastPeriod]}
+              </span>
               <WeatherBadge weather={recommendation.weather} />
             </div>
+            <WeatherTrustSnapshot weather={recommendation.weather} />
             <div className="recommendation-slot-grid" aria-label="추천 슬롯">
               {outfitSlots.map((slot) =>
                 renderOutfitSlotCard(

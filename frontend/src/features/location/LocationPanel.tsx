@@ -3,20 +3,24 @@ import type { FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   getCurrentWeather,
-  getLocations,
+  resolveLocation,
+  searchLocations,
   updateUserLocation,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { WeatherBadge, WeatherLabel } from '../../components/DisplayTokens';
+import { WeatherBadge, WeatherLabel, WeatherTrustSnapshot } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
   LocationOptionResponse,
+  LocationSource,
   UserLocationResponse,
   WeatherResponse,
 } from '../../types/api';
+import { locationSourceLabels } from '../../utils/displayMappings';
 import { getRoParticle } from '../../utils/koreanParticles';
 
 const locationCatalogApiPath = '/api/locations?keyword={keyword}';
+const locationResolveApiPath = '/api/locations/resolve';
 const locationWeatherApiPath = '/api/weather/current';
 
 type LocationPanelProps = {
@@ -42,6 +46,10 @@ export function LocationPanel({
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState<ErrorResponse | null>(null);
   const [savingCode, setSavingCode] = useState<string | null>(null);
+  const [resolveOptions, setResolveOptions] = useState<LocationOptionResponse[]>([]);
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [resolveStatus, setResolveStatus] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<ErrorResponse | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
@@ -73,7 +81,7 @@ export function LocationPanel({
     setError(null);
 
     try {
-      const nextOptions = await getLocations(accessToken, submittedKeyword);
+      const nextOptions = await searchLocations(accessToken, submittedKeyword);
       setOptions(nextOptions);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -107,13 +115,19 @@ export function LocationPanel({
     setStatus(null);
   };
 
-  const handleSelect = async (option: LocationOptionResponse) => {
+  const handleSelect = async (
+    option: LocationOptionResponse,
+    source: LocationSource = 'MANUAL_SEARCH'
+  ) => {
     setSavingCode(option.code);
     setError(null);
     setStatus(null);
 
     try {
-      const updatedLocation = await updateUserLocation(accessToken, option.code);
+      const updatedLocation = await updateUserLocation(accessToken, {
+        locationCode: option.code,
+        source,
+      });
       onLocationChange(updatedLocation);
       setStatus(
         `현재 위치를 ${updatedLocation.name}${getRoParticle(updatedLocation.name)} 저장했습니다.`
@@ -129,6 +143,66 @@ export function LocationPanel({
     }
   };
 
+  const handleResolveCurrentLocation = () => {
+    setResolveError(null);
+    setResolveStatus(null);
+    setResolveOptions([]);
+
+    if (!('geolocation' in navigator)) {
+      setResolveError({
+        code: 'GEOLOCATION_UNSUPPORTED',
+        message: '이 브라우저에서는 현재 위치 찾기를 사용할 수 없습니다.',
+        details: [],
+      });
+      return;
+    }
+
+    setResolveLoading(true);
+    setResolveStatus('브라우저 위치 권한을 확인하고 있습니다.');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        resolveLocation(accessToken, { latitude, longitude })
+          .then((response) => {
+            setResolveOptions(response.candidates);
+            setResolveStatus(
+              response.nearest
+                ? `KMA 격자 nx=${response.grid.nx}, ny=${response.grid.ny} 기준 후보를 찾았습니다.`
+                : `KMA 격자 nx=${response.grid.nx}, ny=${response.grid.ny} 기준 후보가 없습니다.`
+            );
+          })
+          .catch((caught) => {
+            if (isUnauthorizedError(caught)) {
+              onAuthExpired();
+              return;
+            }
+            setResolveError(toErrorResponse(caught, '현재 위치 후보를 찾지 못했습니다.'));
+          })
+          .finally(() => {
+            setResolveLoading(false);
+          });
+      },
+      (positionError) => {
+        const denied = positionError.code === positionError.PERMISSION_DENIED;
+        setResolveError({
+          code: denied ? 'GEOLOCATION_DENIED' : 'GEOLOCATION_FAILED',
+          message: denied
+            ? '브라우저 위치 권한이 거부되었습니다. 수동 검색으로 위치를 선택해주세요.'
+            : '브라우저 현재 위치를 가져오지 못했습니다. 수동 검색으로 위치를 선택해주세요.',
+          details: [],
+        });
+        setResolveLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 5 * 60 * 1000,
+        timeout: 10000,
+      }
+    );
+  };
+
   return (
     <article className="location-panel">
       <section className="panel location-current-card" aria-label="현재 위치">
@@ -137,7 +211,7 @@ export function LocationPanel({
             <p className="eyebrow">현재 위치</p>
             <h2>{location ? location.name : '위치 확인 중'}</h2>
             <p className="muted location-panel-copy">
-              저장된 대표 격자를 기준으로 오늘 날씨와 추천에 사용할 위치를 정합니다.
+              저장된 행정구역과 KMA 격자를 기준으로 오늘 날씨와 추천에 사용할 위치를 정합니다.
             </p>
           </div>
           {location ? <span className="location-code-pill">{location.code}</span> : null}
@@ -156,6 +230,10 @@ export function LocationPanel({
               <dd>
                 nx={location.nx}, ny={location.ny}
               </dd>
+            </div>
+            <div>
+              <dt>선택 방식</dt>
+              <dd>{locationSourceLabels[location.source]}</dd>
             </div>
             <div>
               <dt>갱신</dt>
@@ -207,6 +285,7 @@ export function LocationPanel({
                 <dd>{weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
               </div>
             </dl>
+            <WeatherTrustSnapshot weather={weather} />
           </div>
         ) : null}
         {!weatherLoading && weatherError ? (
@@ -228,8 +307,7 @@ export function LocationPanel({
           <div>
             <h2>위치</h2>
             <p className="muted location-panel-copy">
-              내장 대표 격자 catalog에서 현재 위치를 선택하면 오늘 날씨 요약도 새로
-              확인됩니다.
+              행정구역 catalog에서 직접 검색하거나 현재 위치 후보를 확인한 뒤 저장합니다.
             </p>
           </div>
           <span className="location-result-count">
@@ -262,6 +340,65 @@ export function LocationPanel({
           </div>
         </form>
 
+        <section className="location-resolve-box" data-api-path={locationResolveApiPath}>
+          <div className="section-title-row">
+            <div>
+              <p className="eyebrow">현재 위치 후보</p>
+              <h3>브라우저 현재 위치로 찾기</h3>
+              <p className="muted location-panel-copy">
+                좌표는 후보 찾기에만 사용하며, 후보를 선택해야 내 위치로 저장됩니다.
+              </p>
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleResolveCurrentLocation}
+              disabled={resolveLoading || savingCode !== null}
+            >
+              {resolveLoading ? '확인 중' : '현재 위치로 찾기'}
+            </button>
+          </div>
+
+          {resolveStatus ? (
+            <p className="panel-success location-resolve-status" role="status">
+              {resolveStatus}
+            </p>
+          ) : null}
+          {resolveError ? <ApiErrorMessage error={resolveError} /> : null}
+
+          {resolveOptions.length > 0 ? (
+            <div className="location-option-list" aria-label="현재 위치 후보 목록">
+              {resolveOptions.map((option) => {
+                const selected = location?.code === option.code;
+                const saving = savingCode === option.code;
+
+                return (
+                  <article
+                    className={selected ? 'location-option-card selected' : 'location-option-card'}
+                    key={`resolve-${option.code}`}
+                  >
+                    <div className="location-option-main">
+                      <strong>{option.name}</strong>
+                      <span>{option.fullName}</span>
+                      <span>
+                        KMA 격자 nx={option.nx}, ny={option.ny}
+                      </span>
+                    </div>
+                    <button
+                      className={selected ? 'primary-button' : 'secondary-button'}
+                      type="button"
+                      onClick={() => void handleSelect(option, 'BROWSER_GEOLOCATION')}
+                      disabled={selected || savingCode !== null}
+                    >
+                      {selected ? '현재 위치' : saving ? '저장 중' : '후보 저장'}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+
         {error ? <ApiErrorMessage error={error} /> : null}
         {status ? (
           <p className="panel-success" role="status">
@@ -291,7 +428,8 @@ export function LocationPanel({
                 >
                   <div className="location-option-main">
                     <strong>{option.name}</strong>
-                    <span>대표 위치 code {option.code}</span>
+                    <span>{option.fullName}</span>
+                    <span>catalog code {option.code}</span>
                     <span>
                       KMA 격자 nx={option.nx}, ny={option.ny}
                     </span>
@@ -299,7 +437,7 @@ export function LocationPanel({
                   <button
                     className={selected ? 'primary-button' : 'secondary-button'}
                     type="button"
-                    onClick={() => void handleSelect(option)}
+                    onClick={() => void handleSelect(option, 'MANUAL_SEARCH')}
                     disabled={selected || savingCode !== null}
                   >
                     {selected ? '현재 위치' : saving ? '저장 중' : '이 위치 선택'}

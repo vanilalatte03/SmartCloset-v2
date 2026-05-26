@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "frontend-location-weather-trust-ux",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T01:54:53+0900",
+      "summary": "MVP7 프론트 타입/API client와 Location/Today/History 위치·날씨 source 표시 UX를 추가했다.",
+      "completed_at": "2026-05-27T01:59:08+0900"
     },
     {
       "step": 6,

@@ -2,10 +2,13 @@ import type {
   ClothingCategory,
   ClothingColor,
   ClothingMaterial,
+  ForecastPeriod,
+  LocationSource,
   RecommendationFailureCode,
   RecommendationFeedbackSentiment,
   RecommendationSituation,
   RecommendationThermalFeedback,
+  WeatherProvider,
   WeatherType,
 } from '../types/api';
 
@@ -190,6 +193,30 @@ export const recommendationSituationLabels: Record<RecommendationSituation, stri
   WORKOUT: '운동',
   DATE: '데이트',
   FORMAL: '격식',
+};
+
+export const forecastPeriodOptions = [
+  'CURRENT',
+  'MORNING',
+  'AFTERNOON',
+  'EVENING',
+] as const satisfies readonly ForecastPeriod[];
+
+export const forecastPeriodLabels: Record<ForecastPeriod, string> = {
+  CURRENT: '현재',
+  MORNING: '오전',
+  AFTERNOON: '오후',
+  EVENING: '저녁',
+};
+
+export const locationSourceLabels: Record<LocationSource, string> = {
+  MANUAL_SEARCH: '직접 선택',
+  BROWSER_GEOLOCATION: '현재 위치로 찾음',
+};
+
+export const weatherProviderLabels: Record<WeatherProvider, string> = {
+  KMA_VILAGE_FORECAST: 'KMA 단기예보',
+  STATIC_FALLBACK: '기본 날씨 fallback',
 };
 
 export const styleTagSuggestionGroups: Array<{

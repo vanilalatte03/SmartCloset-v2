@@ -12,6 +12,8 @@ import type {
 import {
   clothingColorMetadata,
   clothingMaterialLabels,
+  locationSourceLabels,
+  weatherProviderLabels,
   weatherTypeLabels,
 } from '../utils/displayMappings';
 
@@ -102,6 +104,65 @@ export function WeatherBadge({ weather }: WeatherBadgeProps) {
       <span>{rainLabel}</span>
       <span>{windLabel}</span>
     </span>
+  );
+}
+
+type WeatherTrustSnapshotProps = {
+  weather: WeatherResponse;
+  className?: string;
+};
+
+function formatKmaDateTime(date: string | null, time: string | null): string {
+  if (!date || !time || date.length !== 8 || time.length !== 4) {
+    return '확인 불가';
+  }
+
+  return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${time.slice(
+    0,
+    2
+  )}:${time.slice(2, 4)}`;
+}
+
+export function WeatherTrustSnapshot({ weather, className }: WeatherTrustSnapshotProps) {
+  const classNames = ['weather-trust-list', className].filter(Boolean).join(' ');
+
+  return (
+    <dl className={classNames}>
+      <div>
+        <dt>위치</dt>
+        <dd>{weather.location.fullName || weather.location.name}</dd>
+      </div>
+      <div>
+        <dt>KMA 격자</dt>
+        <dd>
+          nx={weather.location.nx}, ny={weather.location.ny}
+        </dd>
+      </div>
+      <div>
+        <dt>위치 source</dt>
+        <dd>{locationSourceLabels[weather.location.source]}</dd>
+      </div>
+      <div>
+        <dt>날씨 source</dt>
+        <dd>{weatherProviderLabels[weather.source.provider]}</dd>
+      </div>
+      <div>
+        <dt>KMA 사용</dt>
+        <dd>{weather.source.kmaUsed ? 'KMA 단기예보 사용' : 'KMA 미사용'}</dd>
+      </div>
+      <div>
+        <dt>fallback</dt>
+        <dd>{weather.source.fallbackUsed ? '기본 날씨 fallback 사용' : 'fallback 미사용'}</dd>
+      </div>
+      <div>
+        <dt>발표 기준</dt>
+        <dd>{formatKmaDateTime(weather.source.baseDate, weather.source.baseTime)}</dd>
+      </div>
+      <div>
+        <dt>예보 대상</dt>
+        <dd>{formatKmaDateTime(weather.source.forecastDate, weather.source.forecastTime)}</dd>
+      </div>
+    </dl>
   );
 }
 

@@ -19,12 +19,14 @@ import {
   MaterialChip,
   WeatherBadge,
   WeatherLabel,
+  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import { RecommendationPanel } from '../recommendation/RecommendationPanel';
 import type {
   ClothingCategory,
   ClothingResponse,
   ErrorResponse,
+  ForecastPeriod,
   RecommendationFeedbackSentiment,
   RecommendationResponse,
   RecommendationSituation,
@@ -35,6 +37,7 @@ import type {
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  forecastPeriodLabels,
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
   recommendationThermalFeedbackLabels,
@@ -156,6 +159,8 @@ export function TodayPanel({
   const [recommendationWornAt, setRecommendationWornAt] = useState<string | null>(null);
   const [selectedSituation, setSelectedSituation] =
     useState<RecommendationSituation>('CASUAL');
+  const [selectedForecastPeriod, setSelectedForecastPeriod] =
+    useState<ForecastPeriod>('CURRENT');
   const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   const loadWeather = useCallback(async () => {
@@ -254,6 +259,7 @@ export function TodayPanel({
     try {
       const nextRecommendation = await createRecommendation(accessToken, {
         situation: selectedSituation,
+        forecastPeriod: selectedForecastPeriod,
       });
       setRecommendation(nextRecommendation);
       setRecommendationWornAt(nextRecommendation.wornAt);
@@ -371,7 +377,7 @@ export function TodayPanel({
       id: 'location',
       label: '위치 확인',
       complete: Boolean(location),
-      detail: location ? `${location.name} 기준` : '현재 위치를 확인해주세요.',
+      detail: location ? `${location.fullName || location.name} 기준` : '현재 위치를 확인해주세요.',
       ctaLabel: location ? '위치 변경' : '위치 확인',
       targetView: 'location',
     },
@@ -418,7 +424,12 @@ export function TodayPanel({
         </div>
 
         {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
-        {!weatherLoading && weather ? renderWeatherState(weather) : null}
+        {!weatherLoading && weather ? (
+          <>
+            {renderWeatherState(weather)}
+            <WeatherTrustSnapshot weather={weather} />
+          </>
+        ) : null}
         {!weatherLoading && weatherError ? (
           <div className="today-soft-error">
             <ApiErrorMessage error={weatherError} />
@@ -439,9 +450,11 @@ export function TodayPanel({
         markingWorn={markingRecommendationWorn}
         feedbackSaving={feedbackSaving}
         selectedSituation={selectedSituation}
+        selectedForecastPeriod={selectedForecastPeriod}
         accessToken={accessToken}
         onCreate={handleCreateRecommendation}
         onSituationChange={setSelectedSituation}
+        onForecastPeriodChange={setSelectedForecastPeriod}
         onMarkWorn={handleMarkRecommendationWorn}
         onReplaceFeedback={handleReplaceRecommendationFeedback}
         onFailureCta={handleRecommendationFailureCta}
@@ -565,12 +578,16 @@ export function TodayPanel({
                     <span className="situation-pill">
                       {recommendationSituationLabels[item.situation]}
                     </span>
+                    <span className="situation-pill">
+                      {forecastPeriodLabels[item.forecastPeriod]}
+                    </span>
                     <span>{item.weather.temperature}°C</span>
                     <WeatherLabel weatherType={item.weather.weatherType} />
                     <ColorSwatch color={item.outfit.top.color} showLabel={false} />
                     <MaterialChip material={item.outfit.top.material} />
                   </span>
                   <span className="token-row">
+                    <span>{item.weather.location.fullName || item.weather.location.name}</span>
                     <span className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}>
                       {item.worn
                         ? `착용 완료${item.wornAt ? ` · ${formatDateTime(item.wornAt)}` : ''}`
