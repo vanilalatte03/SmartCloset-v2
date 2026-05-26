@@ -171,7 +171,7 @@ export const recommendationFailureCtas: Record<
 export const styleTagLabels = {
   title: '스타일 태그',
   inputLabel: '태그',
-  placeholder: '미니멀',
+  placeholder: '미니멀, 단정',
   addCta: '추가',
   empty: '저장된 스타일 태그가 없어요.',
 } as const;
@@ -191,6 +191,32 @@ export const recommendationSituationLabels: Record<RecommendationSituation, stri
   DATE: '데이트',
   FORMAL: '격식',
 };
+
+export const styleTagSuggestionGroups: Array<{
+  situation: RecommendationSituation;
+  tags: string[];
+}> = [
+  {
+    situation: 'WORK',
+    tags: ['출근', '오피스', '미니멀', '단정'],
+  },
+  {
+    situation: 'CASUAL',
+    tags: ['캐주얼', '데일리', '편안함', '미니멀'],
+  },
+  {
+    situation: 'WORKOUT',
+    tags: ['운동', '스포티', '활동적', '편안함'],
+  },
+  {
+    situation: 'DATE',
+    tags: ['데이트', '깔끔', '포인트', '미니멀'],
+  },
+  {
+    situation: 'FORMAL',
+    tags: ['격식', '포멀', '단정', '미니멀'],
+  },
+];
 
 export const recommendationFeedbackSentimentLabels: Record<
   RecommendationFeedbackSentiment,

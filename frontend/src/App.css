@@ -1315,6 +1315,64 @@
   margin-top: 10px;
 }
 
+.style-tag-suggestions {
+  display: grid;
+  gap: 8px;
+}
+
+.style-tag-suggestion-group {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.style-tag-group-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 30px;
+}
+
+.style-tag-suggestion-chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.suggestion-chip {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.suggestion-chip:hover:not(:disabled) {
+  border-color: #2f6c9f;
+  color: #1f4f7a;
+}
+
+.suggestion-chip.active {
+  background: #e6f4ec;
+  border-color: #78b994;
+  color: #195f3b;
+  cursor: pointer;
+}
+
+.suggestion-chip:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .tag-list {
   align-items: center;
   display: flex;
@@ -2609,8 +2667,13 @@
   .location-weather-metrics,
   .recommendation-layout,
   .recommendation-slot-grid,
+  .style-tag-suggestion-group,
   .score-grid {
     grid-template-columns: 1fr;
+  }
+
+  .style-tag-group-label {
+    line-height: 1.2;
   }
 
   .today-layout > .recommendation-panel,

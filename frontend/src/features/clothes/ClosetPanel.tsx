@@ -27,7 +27,18 @@ import {
   clothingColorOptions,
   clothingMaterialLabels,
   clothingMaterialOptions,
+  formatStyleTagLabel,
+  recommendationSituationLabels,
+  styleTagSuggestionGroups,
 } from '../../utils/displayMappings';
+import {
+  hasStyleTag,
+  maxStyleTagLength,
+  mergeStyleTags,
+  normalizeStyleTags,
+  parseStyleTagInput,
+  removeStyleTag,
+} from '../../utils/styleTags';
 
 type CategoryFilter = 'ALL' | ClothingCategory;
 
@@ -135,33 +146,6 @@ function toClothingRequest(item: ClothingResponse): ClothingRequest {
     rainSuitable: item.rainSuitable,
     styleTags: item.styleTags ?? [],
   };
-}
-
-function getStyleTagKey(tag: string): string {
-  const trimmed = tag.trim();
-  return /^[\x00-\x7F]+$/.test(trimmed) ? trimmed.toLowerCase() : trimmed;
-}
-
-function normalizeStyleTags(tags: string[]): string[] {
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-
-  for (const tag of tags) {
-    const trimmed = tag.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    const key = getStyleTagKey(trimmed);
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    normalized.push(trimmed);
-  }
-
-  return normalized;
 }
 
 function getActiveCategoryCounts(clothes: ClothingResponse[]): Record<ClothingCategory, number> {
@@ -559,27 +543,43 @@ export function ClosetPanel({
     }));
   };
 
-  const handleAddTag = () => {
-    const nextTag = tagInput.trim();
+  const addStyleTagsToForm = (nextTags: string[], reportEmpty: boolean): boolean => {
+    const normalizedNextTags = normalizeStyleTags(nextTags);
     setError(null);
     setStatus(null);
 
-    if (!nextTag) {
-      setError(validationError('스타일 태그를 입력해주세요.'));
-      return;
+    if (normalizedNextTags.length === 0) {
+      if (reportEmpty) {
+        setError(validationError('스타일 태그를 입력해주세요.'));
+      }
+      return false;
     }
-    if (nextTag.length > 30) {
+    if (normalizedNextTags.some((tag) => tag.length > maxStyleTagLength)) {
       setError(validationError('스타일 태그는 30자 이하로 입력해주세요.'));
-      return;
-    }
-    if (form.styleTags.some((tag) => getStyleTagKey(tag) === getStyleTagKey(nextTag))) {
-      setTagInput('');
-      return;
+      return false;
     }
 
     setForm((current) => ({
       ...current,
-      styleTags: [...current.styleTags, nextTag],
+      styleTags: mergeStyleTags(current.styleTags, normalizedNextTags),
+    }));
+    return true;
+  };
+
+  const handleAddTag = () => {
+    if (addStyleTagsToForm(parseStyleTagInput(tagInput), true)) {
+      setTagInput('');
+    }
+  };
+
+  const handleToggleSuggestedTag = (tag: string) => {
+    setError(null);
+    setStatus(null);
+    setForm((current) => ({
+      ...current,
+      styleTags: hasStyleTag(current.styleTags, tag)
+        ? removeStyleTag(current.styleTags, tag)
+        : mergeStyleTags(current.styleTags, [tag]),
     }));
     setTagInput('');
   };
@@ -589,7 +589,7 @@ export function ClosetPanel({
     setStatus(null);
     setForm((current) => ({
       ...current,
-      styleTags: current.styleTags.filter((candidate) => candidate !== tag),
+      styleTags: removeStyleTag(current.styleTags, tag),
     }));
   };
 
@@ -932,6 +932,33 @@ export function ClosetPanel({
                 </p>
               </div>
             </div>
+            <div className="style-tag-suggestions" aria-label="추천 스타일 태그">
+              {styleTagSuggestionGroups.map((group) => (
+                <div className="style-tag-suggestion-group" key={group.situation}>
+                  <span className="style-tag-group-label">
+                    {recommendationSituationLabels[group.situation]}
+                  </span>
+                  <div className="style-tag-suggestion-chips">
+                    {group.tags.map((tag) => {
+                      const selected = hasStyleTag(form.styleTags, tag);
+
+                      return (
+                        <button
+                          className={selected ? 'suggestion-chip active' : 'suggestion-chip'}
+                          type="button"
+                          key={`${group.situation}:${tag}`}
+                          aria-pressed={selected}
+                          onClick={() => handleToggleSuggestedTag(tag)}
+                          disabled={submitting}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="inline-form tag-form">
               <label className="field">
                 <span>태그</span>
@@ -944,8 +971,14 @@ export function ClosetPanel({
                       event.preventDefault();
                       handleAddTag();
                     }
+                    if (event.key === ',') {
+                      event.preventDefault();
+                      if (tagInput.trim()) {
+                        handleAddTag();
+                      }
+                    }
                   }}
-                  placeholder="OFFICE"
+                  placeholder="미니멀, 단정"
                 />
               </label>
               <button
@@ -961,7 +994,7 @@ export function ClosetPanel({
               {form.styleTags.length > 0 ? (
                 form.styleTags.map((tag) => (
                   <span className="tag-chip" key={tag}>
-                    {tag}
+                    {formatStyleTagLabel(tag)}
                     <button
                       type="button"
                       aria-label={`${tag} 삭제`}
