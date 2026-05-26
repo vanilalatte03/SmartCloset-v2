@@ -35,8 +35,19 @@ public class LocationCatalog {
         String trimmedKeyword = keyword.trim();
         String normalizedKeyword = trimmedKeyword.toUpperCase(Locale.ROOT);
         String compactKeyword = compact(trimmedKeyword);
+        String digitKeyword = digitsOnly(trimmedKeyword);
+        boolean hasCompactKeyword = !compactKeyword.isBlank();
+        boolean hasNumericCodeKeyword = !digitKeyword.isBlank() && digitKeyword.length() == trimmedKeyword.length();
         return locations.stream()
-                .filter(location -> matches(location, trimmedKeyword, normalizedKeyword, compactKeyword))
+                .filter(location -> matches(
+                        location,
+                        trimmedKeyword,
+                        normalizedKeyword,
+                        compactKeyword,
+                        digitKeyword,
+                        hasCompactKeyword,
+                        hasNumericCodeKeyword
+                ))
                 .toList();
     }
 
@@ -59,19 +70,25 @@ public class LocationCatalog {
             LocationOption location,
             String keyword,
             String normalizedKeyword,
-            String compactKeyword
+            String compactKeyword,
+            String digitKeyword,
+            boolean hasCompactKeyword,
+            boolean hasNumericCodeKeyword
     ) {
         return containsIgnoreCase(location.code(), normalizedKeyword)
+                || (hasNumericCodeKeyword && contains(digitsOnly(location.code()), digitKeyword))
                 || contains(location.name(), keyword)
                 || contains(location.fullName(), keyword)
                 || contains(location.region1(), keyword)
                 || contains(location.region2(), keyword)
                 || contains(location.region3(), keyword)
-                || contains(compact(location.name()), compactKeyword)
-                || contains(compact(location.fullName()), compactKeyword)
-                || contains(compact(location.region1()), compactKeyword)
-                || contains(compact(location.region2()), compactKeyword)
-                || contains(compact(location.region3()), compactKeyword);
+                || (hasCompactKeyword && (
+                        contains(compact(location.name()), compactKeyword)
+                                || contains(compact(location.fullName()), compactKeyword)
+                                || contains(compact(location.region1()), compactKeyword)
+                                || contains(compact(location.region2()), compactKeyword)
+                                || contains(compact(location.region3()), compactKeyword)
+                ));
     }
 
     private List<LocationOption> loadLocations() {
@@ -122,6 +139,13 @@ public class LocationCatalog {
             return "";
         }
         return value.replaceAll("[\\s\\d]+", "");
+    }
+
+    private String digitsOnly(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\D+", "");
     }
 
     private String required(String value) {

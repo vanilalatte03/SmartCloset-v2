@@ -26,7 +26,7 @@ class LocationCatalogTest {
                         "SEJONG",
                         "JEJU"
                 );
-        assertThat(locations).hasSizeGreaterThan(9);
+        assertThat(locations).hasSizeGreaterThan(1_000);
     }
 
     @Test
@@ -44,12 +44,34 @@ class LocationCatalogTest {
     }
 
     @Test
-    void searchMatchesName() {
-        List<LocationOption> locations = catalog.search("부산");
+    void searchMatchesNumericAdministrativeCodeWithoutReturningAllLocations() {
+        List<LocationOption> locations = catalog.search("4128551000");
 
         assertThat(locations)
                 .singleElement()
                 .satisfies(location -> {
+                    assertThat(location.code()).isEqualTo("KMA_4128551000");
+                    assertThat(location.fullName()).isEqualTo("경기도 고양시일산서구 일산1동");
+                });
+    }
+
+    @Test
+    void searchWithKoreanAndDigitsDoesNotMatchCodeDigitsOnly() {
+        List<LocationOption> locations = catalog.search("신사제1동");
+
+        assertThat(locations).isNotEmpty();
+        assertThat(locations).hasSizeLessThan(catalog.findAll().size());
+        assertThat(locations)
+                .extracting(LocationOption::name)
+                .contains("신사제1동");
+    }
+
+    @Test
+    void searchMatchesName() {
+        List<LocationOption> locations = catalog.search("부산");
+
+        assertThat(locations)
+                .anySatisfy(location -> {
                     assertThat(location.code()).isEqualTo("BUSAN");
                     assertThat(location.name()).isEqualTo("부산광역시");
                     assertThat(location.fullName()).isEqualTo("부산광역시");
