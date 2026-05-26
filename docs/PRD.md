@@ -4,7 +4,7 @@
 
 이 문서는 SmartCloset MVP6의 확정 범위를 정의한다. MVP6는 MVP5 옷 이미지 업로드 완료 baseline 위에 추천 상황 선택, 추천 피드백 저장, 최근 피드백 기반 개인화, 옷별 `styleTags` 점수 반영, 추천 이력의 착용/피드백 표시를 추가하는 단계다.
 
-현재 코드 baseline은 MVP5 완료 상태다. MVP6 phase 완료 후에는 이 문서와 `docs/` 아래 문서가 구현 source of truth가 된다.
+현재 코드 baseline은 MVP6 추천 피드백/개인화 구현 완료 상태다. 이 문서와 `docs/` 아래 문서가 구현 source of truth다.
 
 ## 문서 책임
 

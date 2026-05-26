@@ -2,7 +2,7 @@
 
 현재 문서 기준은 **MVP6: 추천 피드백/개인화 MVP**입니다. MVP6는 MVP5 옷 이미지 업로드 완료 상태 위에 추천 상황 선택, 추천 피드백 저장, 최근 피드백 기반 개인화, 옷별 `styleTags` 점수 반영, 추천 이력의 착용/피드백 상태 표시를 추가하는 단계입니다.
 
-현재 코드 baseline은 MVP5 완료 상태이며, MVP6 구현은 `phases/6-smartcloset-feedback-personalization` 단계 문서를 따라 진행합니다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서입니다.
+현재 코드 baseline은 MVP6 추천 피드백/개인화 구현 완료 상태입니다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서입니다.
 
 ## 현재 Baseline
 

@@ -11,6 +11,7 @@
     "docs/DEMO_SCENARIO.md",
     "docs/SHARING_GUIDE.md",
     "docs/COMMANDS.md",
+    "docs/qa/mvp6-feedback-personalization-qa.md",
     "docs/ADR.md",
     "docs/adr/011-mvp6-feedback-personalization.md",
     ".codex/agents",
@@ -93,6 +94,11 @@
       "name": "Phase docs exist",
       "paths": ["phases/6-smartcloset-feedback-personalization/README.md"],
       "pattern": "Feedback Personalization"
+    },
+    {
+      "name": "MVP6 QA record",
+      "paths": ["docs/qa/mvp6-feedback-personalization-qa.md"],
+      "pattern": "MVP6 추천 피드백/개인화 QA 기록"
     }
   ],
   "forbidden": [

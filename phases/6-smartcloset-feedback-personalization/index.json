@@ -53,8 +53,12 @@
     {
       "step": 6,
       "name": "compose-docs-qa",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-26T16:04:23+0900",
+      "summary": "MVP6 최종 문서 기준과 QA 기록을 동기화하고 Docker Compose smoke와 브라우저 QA를 검증했다.",
+      "completed_at": "2026-05-26T16:14:41+0900"
     }
   ],
-  "created_at": "2026-05-26T15:07:24+0900"
+  "created_at": "2026-05-26T15:07:24+0900",
+  "completed_at": "2026-05-26T16:14:52+0900"
 }
