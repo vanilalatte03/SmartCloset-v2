@@ -1,8 +1,14 @@
 package com.smartcloset.recommendation.domain;
 
 import com.smartcloset.common.domain.BaseTimeEntity;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
+import com.smartcloset.weather.domain.WeatherLocationSnapshot;
+import com.smartcloset.weather.domain.WeatherProviderType;
+import com.smartcloset.weather.domain.WeatherSnapshot;
+import com.smartcloset.weather.domain.WeatherSource;
 import com.smartcloset.weather.domain.WeatherType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,7 +34,12 @@ import java.util.Objects;
                 @Index(
                         name = "idx_recommendation_results_user_feedback_updated_at",
                         columnList = "user_id, feedback_updated_at"
-                )
+                ),
+                @Index(
+                        name = "idx_recommendation_results_user_forecast_created_at",
+                        columnList = "user_id, forecast_period, created_at"
+                ),
+                @Index(name = "idx_recommendation_results_weather_location_code", columnList = "weather_location_code")
         }
 )
 public class RecommendationResult extends BaseTimeEntity {
@@ -45,6 +56,10 @@ public class RecommendationResult extends BaseTimeEntity {
     @Column(name = "situation", nullable = false, length = 30, columnDefinition = "varchar(30) default 'CASUAL'")
     private RecommendationSituation situation;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forecast_period", nullable = false, length = 30, columnDefinition = "varchar(30) default 'CURRENT'")
+    private ForecastPeriod forecastPeriod;
+
     @Column(name = "weather_temperature", nullable = false)
     private int weatherTemperature;
 
@@ -57,6 +72,47 @@ public class RecommendationResult extends BaseTimeEntity {
 
     @Column(name = "windy", nullable = false)
     private boolean windy;
+
+    @Column(name = "weather_location_code", nullable = false, length = 30)
+    private String weatherLocationCode;
+
+    @Column(name = "weather_location_name", nullable = false, length = 50)
+    private String weatherLocationName;
+
+    @Column(name = "weather_location_full_name", length = 100)
+    private String weatherLocationFullName;
+
+    @Column(name = "weather_location_nx", nullable = false)
+    private int weatherLocationNx;
+
+    @Column(name = "weather_location_ny", nullable = false)
+    private int weatherLocationNy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weather_location_source", nullable = false, length = 30)
+    private LocationSource weatherLocationSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weather_provider", nullable = false, length = 30)
+    private WeatherProviderType weatherProvider;
+
+    @Column(name = "weather_kma_used", nullable = false)
+    private boolean weatherKmaUsed;
+
+    @Column(name = "weather_fallback_used", nullable = false)
+    private boolean weatherFallbackUsed;
+
+    @Column(name = "weather_base_date", length = 8)
+    private String weatherBaseDate;
+
+    @Column(name = "weather_base_time", length = 4)
+    private String weatherBaseTime;
+
+    @Column(name = "weather_forecast_date", length = 8)
+    private String weatherForecastDate;
+
+    @Column(name = "weather_forecast_time", length = 4)
+    private String weatherForecastTime;
 
     @Column(name = "total_score", nullable = false)
     private int totalScore;
@@ -99,18 +155,36 @@ public class RecommendationResult extends BaseTimeEntity {
     private RecommendationResult(
             User user,
             RecommendationSituation situation,
-            WeatherCondition weather,
+            ForecastPeriod forecastPeriod,
+            WeatherSnapshot weather,
             RecommendationScore score,
             String reasonsJson
     ) {
         this.user = Objects.requireNonNull(user, "user must not be null");
         this.situation = Objects.requireNonNull(situation, "situation must not be null");
-        WeatherCondition requiredWeather = Objects.requireNonNull(weather, "weather must not be null");
+        this.forecastPeriod = Objects.requireNonNull(forecastPeriod, "forecastPeriod must not be null");
+        WeatherSnapshot requiredWeather = Objects.requireNonNull(weather, "weather must not be null");
+        WeatherCondition requiredCondition = requiredWeather.condition();
+        WeatherLocationSnapshot requiredLocation = requiredWeather.location();
+        WeatherSource requiredSource = requiredWeather.source();
         RecommendationScore requiredScore = Objects.requireNonNull(score, "score must not be null");
-        this.weatherTemperature = requiredWeather.temperature();
-        this.weatherType = requiredWeather.weatherType();
-        this.rainy = requiredWeather.rainy();
-        this.windy = requiredWeather.windy();
+        this.weatherTemperature = requiredCondition.temperature();
+        this.weatherType = requiredCondition.weatherType();
+        this.rainy = requiredCondition.rainy();
+        this.windy = requiredCondition.windy();
+        this.weatherLocationCode = requiredLocation.code();
+        this.weatherLocationName = requiredLocation.name();
+        this.weatherLocationFullName = requiredLocation.fullName();
+        this.weatherLocationNx = requiredLocation.nx();
+        this.weatherLocationNy = requiredLocation.ny();
+        this.weatherLocationSource = requiredLocation.source();
+        this.weatherProvider = requiredSource.provider();
+        this.weatherKmaUsed = requiredSource.kmaUsed();
+        this.weatherFallbackUsed = requiredSource.fallbackUsed();
+        this.weatherBaseDate = requiredSource.baseDate();
+        this.weatherBaseTime = requiredSource.baseTime();
+        this.weatherForecastDate = requiredSource.forecastDate();
+        this.weatherForecastTime = requiredSource.forecastTime();
         this.totalScore = requiredScore.totalScore();
         this.weatherScore = requiredScore.weatherScore();
         this.colorScore = requiredScore.colorScore();
@@ -124,11 +198,22 @@ public class RecommendationResult extends BaseTimeEntity {
     public static RecommendationResult create(
             User user,
             RecommendationSituation situation,
+            ForecastPeriod forecastPeriod,
+            WeatherSnapshot weather,
+            RecommendationScore score,
+            String reasonsJson
+    ) {
+        return new RecommendationResult(user, situation, forecastPeriod, weather, score, reasonsJson);
+    }
+
+    public static RecommendationResult create(
+            User user,
+            RecommendationSituation situation,
             WeatherCondition weather,
             RecommendationScore score,
             String reasonsJson
     ) {
-        return new RecommendationResult(user, situation, weather, score, reasonsJson);
+        return create(user, situation, ForecastPeriod.CURRENT, defaultWeatherSnapshot(weather), score, reasonsJson);
     }
 
     public static RecommendationResult create(
@@ -138,6 +223,21 @@ public class RecommendationResult extends BaseTimeEntity {
             String reasonsJson
     ) {
         return create(user, RecommendationSituation.CASUAL, weather, score, reasonsJson);
+    }
+
+    private static WeatherSnapshot defaultWeatherSnapshot(WeatherCondition weather) {
+        return new WeatherSnapshot(
+                Objects.requireNonNull(weather, "weather must not be null"),
+                new WeatherLocationSnapshot(
+                        "SEOUL",
+                        "서울특별시",
+                        "서울특별시",
+                        60,
+                        127,
+                        LocationSource.MANUAL_SEARCH
+                ),
+                WeatherSource.fallback(null, null)
+        );
     }
 
     public void markWorn() {
@@ -196,6 +296,10 @@ public class RecommendationResult extends BaseTimeEntity {
         return situation;
     }
 
+    public ForecastPeriod getForecastPeriod() {
+        return forecastPeriod;
+    }
+
     public int getWeatherTemperature() {
         return weatherTemperature;
     }
@@ -210,6 +314,58 @@ public class RecommendationResult extends BaseTimeEntity {
 
     public boolean isWindy() {
         return windy;
+    }
+
+    public String getWeatherLocationCode() {
+        return weatherLocationCode;
+    }
+
+    public String getWeatherLocationName() {
+        return weatherLocationName;
+    }
+
+    public String getWeatherLocationFullName() {
+        return weatherLocationFullName;
+    }
+
+    public int getWeatherLocationNx() {
+        return weatherLocationNx;
+    }
+
+    public int getWeatherLocationNy() {
+        return weatherLocationNy;
+    }
+
+    public LocationSource getWeatherLocationSource() {
+        return weatherLocationSource;
+    }
+
+    public WeatherProviderType getWeatherProvider() {
+        return weatherProvider;
+    }
+
+    public boolean isWeatherKmaUsed() {
+        return weatherKmaUsed;
+    }
+
+    public boolean isWeatherFallbackUsed() {
+        return weatherFallbackUsed;
+    }
+
+    public String getWeatherBaseDate() {
+        return weatherBaseDate;
+    }
+
+    public String getWeatherBaseTime() {
+        return weatherBaseTime;
+    }
+
+    public String getWeatherForecastDate() {
+        return weatherForecastDate;
+    }
+
+    public String getWeatherForecastTime() {
+        return weatherForecastTime;
     }
 
     public int getTotalScore() {
