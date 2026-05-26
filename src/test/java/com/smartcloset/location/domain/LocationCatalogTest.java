@@ -114,12 +114,29 @@ class LocationCatalogTest {
     }
 
     @Test
+    void ilsanSeoGuRowsUseCorrectDistrictForKnownKmaSourceTypos() {
+        assertIlsanSeoGu("KMA_4128754500", "탄현1동");
+        assertIlsanSeoGu("KMA_4128754600", "탄현2동");
+        assertIlsanSeoGu("KMA_4128760000", "덕이동");
+        assertIlsanSeoGu("KMA_4128761000", "가좌동");
+    }
+
+    @Test
     void findByCodeMatchesCaseInsensitively() {
         assertThat(catalog.findByCode("jeju"))
                 .hasValueSatisfying(location -> {
                     assertThat(location.name()).isEqualTo("제주특별자치도");
                     assertThat(location.nx()).isEqualTo(52);
                     assertThat(location.ny()).isEqualTo(38);
+                });
+    }
+
+    private void assertIlsanSeoGu(String code, String region3) {
+        assertThat(catalog.findByCode(code))
+                .hasValueSatisfying(location -> {
+                    assertThat(location.region2()).isEqualTo("고양시일산서구");
+                    assertThat(location.region3()).isEqualTo(region3);
+                    assertThat(location.fullName()).isEqualTo("경기도 고양시일산서구 " + region3);
                 });
     }
 }
