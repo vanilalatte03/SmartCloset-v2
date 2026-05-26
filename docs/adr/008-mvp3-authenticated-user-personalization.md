@@ -44,7 +44,7 @@ API 계약에서는 `preferredColors`, `preferredMaterials`, `styleTags` 배열�
 - 선호 색상/소재가 모두 비어 있으면 `preferenceScore=0`
 - 후보 옷 중 선호 색상이 하나 이상 있으면 5점
 - 후보 옷 중 선호 소재가 하나 이상 있으면 5점
-- `styleTags`는 저장/조회/표시만 하며 추천 점수와 추천 이유에는 반영하지 않는다.
+- `styleTags`는 MVP-3 당시 저장/조회/표시 전용이었다. MVP6 이후 추천 점수와 추천 이유 반영 기준은 ADR-011을 따른다.
 
 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`로 둔다.
 
@@ -63,7 +63,7 @@ MVP-3 전환 시 로컬 Docker Compose DB는 기존 2차 schema/seed data와 충
 - 현재 사용자 전용 DTO에서 `userId`가 사라지므로 프론트 타입과 API 문서를 함께 갱신해야 한다.
 - 추천 점수 DTO와 DB snapshot 컬럼은 `preferenceScore`를 사용해야 한다.
 - 기존 다양성 점수 기반 테스트와 문서는 갱신해야 한다.
-- `styleTags`를 저장하더라도 MVP-3 추천 결과에는 영향을 주지 않는다.
+- `styleTags`를 저장하더라도 MVP-3 추천 결과에는 영향을 주지 않았다. MVP6 이후 기준은 ADR-011을 따른다.
 - 선호도 정규화가 필요해지면 4차 이후 별도 테이블 도입을 검토한다.
 
 ## Out of Scope
