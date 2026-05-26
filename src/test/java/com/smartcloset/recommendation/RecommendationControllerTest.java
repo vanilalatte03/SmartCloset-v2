@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -110,6 +111,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.score.preferenceScore").value(0))
                 .andExpect(jsonPath("$.data.reasons").isArray())
                 .andExpect(jsonPath("$.data.worn").value(false))
+                .andExpect(jsonPath("$.data.wornAt").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback").doesNotExist())
                 .andExpect(jsonPath("$.data.createdAt").exists())
                 .andReturn();
 
@@ -369,6 +372,94 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void replacesRecommendationFeedbackSnapshotAndClearsWithEmptyRequest() throws Exception {
+        User user = createUserWithP0Closet("feedback-user");
+        long recommendationId = createRecommendation(user);
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":\"LIKED\",\"thermal\":\"TOO_COLD\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationId").value(recommendationId))
+                .andExpect(jsonPath("$.data.feedback.sentiment").value("LIKED"))
+                .andExpect(jsonPath("$.data.feedback.thermal").value("TOO_COLD"))
+                .andExpect(jsonPath("$.data.feedback.updatedAt").exists());
+
+        RecommendationResult savedFeedback = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        assertThat(savedFeedback.getSentimentFeedback().name()).isEqualTo("LIKED");
+        assertThat(savedFeedback.getThermalFeedback().name()).isEqualTo("TOO_COLD");
+        assertThat(savedFeedback.getFeedbackUpdatedAt()).isNotNull();
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":\"DISLIKED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.feedback.sentiment").value("DISLIKED"))
+                .andExpect(jsonPath("$.data.feedback.thermal").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.updatedAt").exists());
+
+        RecommendationResult replacedFeedback = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        assertThat(replacedFeedback.getSentimentFeedback().name()).isEqualTo("DISLIKED");
+        assertThat(replacedFeedback.getThermalFeedback()).isNull();
+        assertThat(replacedFeedback.getFeedbackUpdatedAt()).isNotNull();
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendationId").value(recommendationId))
+                .andExpect(jsonPath("$.data.feedback").doesNotExist());
+
+        RecommendationResult clearedFeedback = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        assertThat(clearedFeedback.getSentimentFeedback()).isNull();
+        assertThat(clearedFeedback.getThermalFeedback()).isNull();
+        assertThat(clearedFeedback.getFeedbackUpdatedAt()).isNull();
+    }
+
+    @Test
+    void clearsRecommendationFeedbackSnapshotWithExplicitNulls() throws Exception {
+        User user = createUserWithP0Closet("feedback-explicit-clear-user");
+        long recommendationId = createRecommendation(user);
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":\"LIKED\",\"thermal\":\"TOO_HOT\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.feedback.sentiment").value("LIKED"))
+                .andExpect(jsonPath("$.data.feedback.thermal").value("TOO_HOT"));
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":null,\"thermal\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.feedback").doesNotExist());
+
+        RecommendationResult clearedFeedback = recommendationResultRepository.findById(recommendationId).orElseThrow();
+        assertThat(clearedFeedback.hasFeedback()).isFalse();
+        assertThat(clearedFeedback.getFeedbackUpdatedAt()).isNull();
+    }
+
+    @Test
+    void returnsRecommendationNotFoundWhenFeedbackTargetDoesNotBelongToUser() throws Exception {
+        User owner = createUserWithP0Closet("feedback-owner-user");
+        User otherUser = createUserWithP0Closet("feedback-other-user");
+        long recommendationId = createRecommendation(owner);
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", recommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(otherUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":\"LIKED\",\"thermal\":\"TOO_COLD\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RECOMMENDATION_NOT_FOUND"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
     void returnsRecommendationFailureAsUnprocessableEntity() throws Exception {
         User user = userRepository.save(User.createSeedUser("failure-user"));
         clothingItemRepository.save(ClothingItem.create(
@@ -437,6 +528,12 @@ class RecommendationControllerTest {
         mockMvc.perform(patch("/api/recommendations/{recommendationId}/worn", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test
@@ -446,6 +543,14 @@ class RecommendationControllerTest {
         createRecommendation(targetUser);
         long latestTargetRecommendationId = createRecommendation(targetUser);
         long otherRecommendationId = createRecommendation(otherUser);
+        mockMvc.perform(patch("/api/recommendations/{recommendationId}/worn", latestTargetRecommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/recommendations/{recommendationId}/feedback", latestTargetRecommendationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentiment\":\"LIKED\",\"thermal\":\"TOO_COLD\"}"))
+                .andExpect(status().isOk());
 
         MvcResult defaultLimitResult = mockMvc.perform(get("/api/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
@@ -456,6 +561,11 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data[0].score.preferenceScore").exists())
                 .andExpect(jsonPath("$.data[0].score.diversityScore").doesNotExist())
                 .andExpect(jsonPath("$.data[0].outfit.top").exists())
+                .andExpect(jsonPath("$.data[0].worn").value(true))
+                .andExpect(jsonPath("$.data[0].wornAt").exists())
+                .andExpect(jsonPath("$.data[0].feedback.sentiment").value("LIKED"))
+                .andExpect(jsonPath("$.data[0].feedback.thermal").value("TOO_COLD"))
+                .andExpect(jsonPath("$.data[0].feedback.updatedAt").exists())
                 .andExpect(jsonPath("$.data[0].userId").doesNotExist())
                 .andReturn();
 

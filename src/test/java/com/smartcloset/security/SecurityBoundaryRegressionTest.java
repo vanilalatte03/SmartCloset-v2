@@ -145,6 +145,9 @@ class SecurityBoundaryRegressionTest {
         assertRequiresBearerToken(post("/api/recommendations"));
         assertRequiresBearerToken(get("/api/recommendations"));
         assertRequiresBearerToken(patch("/api/recommendations/{recommendationId}/worn", 1L));
+        assertRequiresBearerToken(put("/api/recommendations/{recommendationId}/feedback", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"));
     }
 
     @Test
