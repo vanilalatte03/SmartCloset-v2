@@ -1,27 +1,30 @@
 package com.smartcloset.location.domain;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LocationCatalog {
 
-    private static final List<LocationOption> LOCATIONS = List.of(
-            LocationOption.defaultSeoul(),
-            new LocationOption("BUSAN", "부산광역시", 98, 76),
-            new LocationOption("DAEGU", "대구광역시", 89, 90),
-            new LocationOption("INCHEON", "인천광역시", 55, 124),
-            new LocationOption("GWANGJU", "광주광역시", 58, 74),
-            new LocationOption("DAEJEON", "대전광역시", 67, 100),
-            new LocationOption("ULSAN", "울산광역시", 102, 84),
-            new LocationOption("SEJONG", "세종특별자치시", 66, 103),
-            new LocationOption("JEJU", "제주특별자치도", 52, 38)
-    );
+    private static final String CATALOG_RESOURCE = "kma-location-catalog.csv";
+
+    private final List<LocationOption> locations;
+
+    public LocationCatalog() {
+        this.locations = loadLocations();
+    }
 
     public List<LocationOption> findAll() {
-        return LOCATIONS;
+        return locations;
     }
 
     public List<LocationOption> search(String keyword) {
@@ -31,8 +34,20 @@ public class LocationCatalog {
 
         String trimmedKeyword = keyword.trim();
         String normalizedKeyword = trimmedKeyword.toUpperCase(Locale.ROOT);
-        return LOCATIONS.stream()
-                .filter(location -> matches(location, trimmedKeyword, normalizedKeyword))
+        String compactKeyword = compact(trimmedKeyword);
+        String digitKeyword = digitsOnly(trimmedKeyword);
+        boolean hasCompactKeyword = !compactKeyword.isBlank();
+        boolean hasNumericCodeKeyword = !digitKeyword.isBlank() && digitKeyword.length() == trimmedKeyword.length();
+        return locations.stream()
+                .filter(location -> matches(
+                        location,
+                        trimmedKeyword,
+                        normalizedKeyword,
+                        compactKeyword,
+                        digitKeyword,
+                        hasCompactKeyword,
+                        hasNumericCodeKeyword
+                ))
                 .toList();
     }
 
@@ -42,7 +57,7 @@ public class LocationCatalog {
         }
 
         String normalizedCode = code.trim().toUpperCase(Locale.ROOT);
-        return LOCATIONS.stream()
+        return locations.stream()
                 .filter(location -> location.code().equals(normalizedCode))
                 .findFirst();
     }
@@ -51,7 +66,99 @@ public class LocationCatalog {
         return LocationOption.defaultSeoul();
     }
 
-    private boolean matches(LocationOption location, String keyword, String normalizedKeyword) {
-        return location.code().contains(normalizedKeyword) || location.name().contains(keyword);
+    private boolean matches(
+            LocationOption location,
+            String keyword,
+            String normalizedKeyword,
+            String compactKeyword,
+            String digitKeyword,
+            boolean hasCompactKeyword,
+            boolean hasNumericCodeKeyword
+    ) {
+        return containsIgnoreCase(location.code(), normalizedKeyword)
+                || (hasNumericCodeKeyword && contains(digitsOnly(location.code()), digitKeyword))
+                || contains(location.name(), keyword)
+                || contains(location.fullName(), keyword)
+                || contains(location.region1(), keyword)
+                || contains(location.region2(), keyword)
+                || contains(location.region3(), keyword)
+                || (hasCompactKeyword && (
+                        contains(compact(location.name()), compactKeyword)
+                                || contains(compact(location.fullName()), compactKeyword)
+                                || contains(compact(location.region1()), compactKeyword)
+                                || contains(compact(location.region2()), compactKeyword)
+                                || contains(compact(location.region3()), compactKeyword)
+                ));
+    }
+
+    private List<LocationOption> loadLocations() {
+        ClassPathResource resource = new ClassPathResource(CATALOG_RESOURCE);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                resource.getInputStream(),
+                StandardCharsets.UTF_8
+        ))) {
+            return reader.lines()
+                    .skip(1)
+                    .filter(line -> !line.isBlank())
+                    .map(this::parseLocation)
+                    .toList();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to load KMA location catalog", exception);
+        }
+    }
+
+    private LocationOption parseLocation(String line) {
+        String[] columns = line.split(",", -1);
+        if (columns.length != 10) {
+            throw new IllegalStateException("Invalid KMA location catalog row: " + line);
+        }
+        return new LocationOption(
+                required(columns[0]).toUpperCase(Locale.ROOT),
+                required(columns[4]),
+                required(columns[5]),
+                required(columns[1]),
+                nullable(columns[2]),
+                nullable(columns[3]),
+                Integer.parseInt(required(columns[6])),
+                Integer.parseInt(required(columns[7])),
+                decimalOrNull(columns[8]),
+                decimalOrNull(columns[9])
+        );
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedKeyword) {
+        return value.toUpperCase(Locale.ROOT).contains(normalizedKeyword);
+    }
+
+    private boolean contains(String value, String keyword) {
+        return value != null && value.contains(keyword);
+    }
+
+    private String compact(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("[\\s\\d]+", "");
+    }
+
+    private String digitsOnly(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\D+", "");
+    }
+
+    private String required(String value) {
+        return Objects.requireNonNull(value, "catalog value must not be null").trim();
+    }
+
+    private String nullable(String value) {
+        String trimmed = required(value);
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private BigDecimal decimalOrNull(String value) {
+        String trimmed = required(value);
+        return trimmed.isEmpty() ? null : new BigDecimal(trimmed);
     }
 }

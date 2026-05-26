@@ -134,7 +134,7 @@
 
 ```json
 {
-  "code": "KMA_4128551000",
+  "code": "KMA_4128751000",
   "name": "일산1동",
   "fullName": "경기도 고양시일산서구 일산1동",
   "region1": "경기도",
@@ -142,8 +142,8 @@
   "region3": "일산1동",
   "nx": 56,
   "ny": 129,
-  "latitude": 37.6821,
-  "longitude": 126.7698
+  "latitude": 37.6843,
+  "longitude": 126.7707
 }
 ```
 
@@ -171,7 +171,7 @@
 {
   "data": [
     {
-      "code": "KMA_4128551000",
+      "code": "KMA_4128751000",
       "name": "일산1동",
       "fullName": "경기도 고양시일산서구 일산1동",
       "region1": "경기도",
@@ -179,8 +179,8 @@
       "region3": "일산1동",
       "nx": 56,
       "ny": 129,
-      "latitude": 37.6821,
-      "longitude": 126.7698
+      "latitude": 37.6843,
+      "longitude": 126.7707
     }
   ]
 }
@@ -190,8 +190,8 @@
 
 ```json
 {
-  "latitude": 37.6821,
-  "longitude": 126.7698
+  "latitude": 37.6843,
+  "longitude": 126.7707
 }
 ```
 
@@ -211,7 +211,7 @@ Validation:
     "ny": 129
   },
   "nearest": {
-    "code": "KMA_4128551000",
+    "code": "KMA_4128751000",
     "name": "일산1동",
     "fullName": "경기도 고양시일산서구 일산1동",
     "region1": "경기도",
@@ -219,12 +219,12 @@ Validation:
     "region3": "일산1동",
     "nx": 56,
     "ny": 129,
-    "latitude": 37.6821,
-    "longitude": 126.7698
+    "latitude": 37.6843,
+    "longitude": 126.7707
   },
   "candidates": [
     {
-      "code": "KMA_4128551000",
+      "code": "KMA_4128751000",
       "name": "일산1동",
       "fullName": "경기도 고양시일산서구 일산1동",
       "region1": "경기도",
@@ -232,8 +232,8 @@ Validation:
       "region3": "일산1동",
       "nx": 56,
       "ny": 129,
-      "latitude": 37.6821,
-      "longitude": 126.7698
+      "latitude": 37.6843,
+      "longitude": 126.7707
     }
   ]
 }
@@ -250,7 +250,7 @@ Validation:
 
 ```json
 {
-  "code": "KMA_4128551000",
+  "code": "KMA_4128751000",
   "name": "일산1동",
   "fullName": "경기도 고양시일산서구 일산1동",
   "region1": "경기도",
@@ -267,7 +267,7 @@ Validation:
 
 ```json
 {
-  "locationCode": "KMA_4128551000",
+  "locationCode": "KMA_4128751000",
   "source": "BROWSER_GEOLOCATION"
 }
 ```
@@ -345,7 +345,7 @@ MVP5 이미지 API와 MVP6 `styleTags` 계약을 유지한다.
 
 ```json
 {
-  "code": "KMA_4128551000",
+  "code": "KMA_4128751000",
   "name": "일산1동",
   "fullName": "경기도 고양시일산서구 일산1동",
   "nx": 56,
@@ -385,7 +385,7 @@ MVP5 이미지 API와 MVP6 `styleTags` 계약을 유지한다.
   "rainy": false,
   "windy": false,
   "location": {
-    "code": "KMA_4128551000",
+    "code": "KMA_4128751000",
     "name": "일산1동",
     "fullName": "경기도 고양시일산서구 일산1동",
     "nx": 56,
@@ -442,7 +442,7 @@ MVP5 이미지 API와 MVP6 `styleTags` 계약을 유지한다.
     "rainy": false,
     "windy": false,
     "location": {
-      "code": "KMA_4128551000",
+      "code": "KMA_4128751000",
       "name": "일산1동",
       "fullName": "경기도 고양시일산서구 일산1동",
       "nx": 56,
