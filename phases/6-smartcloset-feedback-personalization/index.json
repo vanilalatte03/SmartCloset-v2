@@ -7,7 +7,8 @@
       "name": "mvp6-scope-docs",
       "status": "completed",
       "started_at": "2026-05-26T15:07:24+0900",
-      "summary": "MVP6 문서 기준, ADR-011 연결, archive, agent 규칙, docs-check 회귀 규칙을 확인하고 과거 ADR-008 styleTags 문맥을 정리했다."
+      "summary": "MVP6 문서 기준, ADR-011 연결, archive, agent 규칙, docs-check 회귀 규칙을 확인하고 과거 ADR-008 styleTags 문맥을 정리했다.",
+      "completed_at": "2026-05-26T15:09:24+0900"
     },
     {
       "step": 1,
