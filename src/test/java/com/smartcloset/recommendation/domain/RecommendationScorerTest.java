@@ -2,6 +2,7 @@ package com.smartcloset.recommendation.domain;
 
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.candidate;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.clothing;
+import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.feedbackHistory;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.recommendationHistory;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.user;
 import static com.smartcloset.recommendation.domain.RecommendationDomainTestFixtures.wearHistory;
@@ -115,21 +116,180 @@ class RecommendationScorerTest {
     }
 
     @Test
-    void calculatesPreferenceScoreFromPreferredColorsAndMaterialsOnly() {
+    void calculatesPreferenceScoreFromPreferredColorsMaterialsAndStyleTags() {
         User user = user(1);
         OutfitCandidate candidate = candidate(
-                clothing(1, user, ClothingCategory.TOP, ClothingColor.NAVY, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(
+                        1,
+                        user,
+                        ClothingCategory.TOP,
+                        ClothingColor.NAVY,
+                        ClothingMaterial.COTTON,
+                        0,
+                        30,
+                        false,
+                        List.of("office")
+                ),
                 clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false)
         );
 
         assertThat(scorer.calculatePreferenceScore(candidate, List.of(), List.of())).isZero();
-        assertThat(scorer.calculatePreferenceScore(candidate, List.of(ClothingColor.NAVY), List.of())).isEqualTo(5);
-        assertThat(scorer.calculatePreferenceScore(candidate, List.of(), List.of(ClothingMaterial.COTTON))).isEqualTo(5);
+        assertThat(scorer.calculatePreferenceScore(candidate, List.of(ClothingColor.NAVY), List.of())).isEqualTo(2);
+        assertThat(scorer.calculatePreferenceScore(candidate, List.of(), List.of(ClothingMaterial.COTTON))).isEqualTo(2);
         assertThat(scorer.calculatePreferenceScore(
                 candidate,
                 List.of(ClothingColor.NAVY),
-                List.of(ClothingMaterial.COTTON)
-        )).isEqualTo(10);
+                List.of(ClothingMaterial.COTTON),
+                List.of("OFFICE"),
+                RecommendationSituation.WORK,
+                List.of(),
+                requestedAt,
+                WeatherCondition.of(20, WeatherType.CLOUDY, false, false)
+        )).isEqualTo(7);
+    }
+
+    @Test
+    void appliesRecentFeedbackAdjustmentOnlyInsideFourteenDayWindow() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
+        OutfitCandidate candidate = candidate(top, bottom);
+
+        int likedSameCombination = scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(feedbackHistory(
+                        1,
+                        requestedAt.minusDays(3),
+                        20,
+                        RecommendationFeedbackSentiment.LIKED,
+                        null,
+                        requestedAt.minusDays(1),
+                        top,
+                        bottom
+                )),
+                requestedAt,
+                WeatherCondition.of(20, WeatherType.CLOUDY, false, false)
+        );
+        int oldFeedbackIgnored = scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(feedbackHistory(
+                        2,
+                        requestedAt.minusDays(20),
+                        20,
+                        RecommendationFeedbackSentiment.LIKED,
+                        null,
+                        requestedAt.minusDays(15).minusNanos(1),
+                        top,
+                        bottom
+                )),
+                requestedAt,
+                WeatherCondition.of(20, WeatherType.CLOUDY, false, false)
+        );
+
+        assertThat(likedSameCombination).isEqualTo(3);
+        assertThat(oldFeedbackIgnored).isZero();
+    }
+
+    @Test
+    void prioritizesNegativeFeedbackSignalsAndUsesStrongestPenalty() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
+        ClothingItem otherBottom = clothing(3, user, ClothingCategory.BOTTOM, ClothingColor.BLUE, ClothingMaterial.DENIM, 0, 30, false);
+        OutfitCandidate candidate = candidate(top, bottom);
+
+        int adjustment = scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(
+                        feedbackHistory(
+                                1,
+                                requestedAt.minusDays(2),
+                                20,
+                                RecommendationFeedbackSentiment.LIKED,
+                                null,
+                                requestedAt.minusDays(1),
+                                top,
+                                bottom
+                        ),
+                        feedbackHistory(
+                                2,
+                                requestedAt.minusDays(2),
+                                20,
+                                RecommendationFeedbackSentiment.DISLIKED,
+                                null,
+                                requestedAt.minusHours(12),
+                                top,
+                                bottom
+                        ),
+                        feedbackHistory(
+                                3,
+                                requestedAt.minusDays(2),
+                                20,
+                                null,
+                                RecommendationThermalFeedback.TOO_COLD,
+                                requestedAt.minusHours(10),
+                                top,
+                                otherBottom
+                        )
+                ),
+                requestedAt,
+                WeatherCondition.of(21, WeatherType.CLOUDY, false, false)
+        );
+
+        assertThat(adjustment).isEqualTo(-3);
+    }
+
+    @Test
+    void appliesThermalFeedbackOnlyWhenCurrentTemperatureMatchesRule() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false);
+        OutfitCandidate candidate = candidate(top, bottom);
+        RecommendationHistorySnapshot tooCold = feedbackHistory(
+                1,
+                requestedAt.minusDays(2),
+                20,
+                null,
+                RecommendationThermalFeedback.TOO_COLD,
+                requestedAt.minusDays(1),
+                top,
+                bottom
+        );
+        RecommendationHistorySnapshot tooHot = feedbackHistory(
+                2,
+                requestedAt.minusDays(2),
+                20,
+                null,
+                RecommendationThermalFeedback.TOO_HOT,
+                requestedAt.minusDays(1),
+                top,
+                bottom
+        );
+
+        assertThat(scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(tooCold),
+                requestedAt,
+                WeatherCondition.of(23, WeatherType.CLOUDY, false, false)
+        )).isEqualTo(-2);
+        assertThat(scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(tooCold),
+                requestedAt,
+                WeatherCondition.of(24, WeatherType.CLOUDY, false, false)
+        )).isZero();
+        assertThat(scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(tooHot),
+                requestedAt,
+                WeatherCondition.of(17, WeatherType.CLOUDY, false, false)
+        )).isEqualTo(-2);
+        assertThat(scorer.calculateFeedbackAdjustment(
+                candidate,
+                List.of(tooHot),
+                requestedAt,
+                WeatherCondition.of(16, WeatherType.CLOUDY, false, false)
+        )).isZero();
     }
 
     @Test

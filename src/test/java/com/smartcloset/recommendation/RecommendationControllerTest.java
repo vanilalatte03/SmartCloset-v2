@@ -208,7 +208,7 @@ class RecommendationControllerTest {
         MvcResult result = mockMvc.perform(post("/api/recommendations")
                 .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.score.preferenceScore").value(10))
+                .andExpect(jsonPath("$.data.score.preferenceScore").value(4))
                 .andExpect(jsonPath("$.data.reasons").isArray())
                 .andReturn();
 
@@ -221,15 +221,27 @@ class RecommendationControllerTest {
                 }
         );
 
-        assertThat(saved.getPreferenceScore()).isEqualTo(10);
+        assertThat(saved.getPreferenceScore()).isEqualTo(4);
         assertThat(data.get("score").has("diversity" + "Score")).isFalse();
-        assertThat(reasons).contains("선호 색상 또는 소재와 맞는 옷이 포함되어 있습니다.");
+        assertThat(reasons).contains("선호 색상, 소재 또는 스타일 태그를 일부 반영했습니다.");
     }
 
     @Test
-    void changingOnlyStyleTagsDoesNotChangeRecommendationScoreOrReasons() throws Exception {
+    void changingOnlyStyleTagsChangesRecommendationScoreAndReasons() throws Exception {
         User emptyStyleTagsUser = createUserWithP0Closet("empty-style-tags-user", "[]", "[]", "[]");
         User styleTagsUser = createUserWithP0Closet("style-tags-user", "[]", "[]", "[\"MINIMAL\"]");
+        ClothingItem styleTaggedTop = findActiveClothingByCategory(styleTagsUser, ClothingCategory.TOP);
+        styleTaggedTop.updateDetails(
+                styleTaggedTop.getName(),
+                styleTaggedTop.getCategory(),
+                styleTaggedTop.getColor(),
+                styleTaggedTop.getMaterial(),
+                styleTaggedTop.getMinTemperature(),
+                styleTaggedTop.getMaxTemperature(),
+                styleTaggedTop.isRainSuitable(),
+                "[\"MINIMAL\"]"
+        );
+        clothingItemRepository.flush();
 
         MvcResult emptyStyleTagsResult = mockMvc.perform(post("/api/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(emptyStyleTagsUser)))
@@ -245,8 +257,11 @@ class RecommendationControllerTest {
         JsonNode styleTagsData = objectMapper.readTree(styleTagsResult.getResponse().getContentAsString())
                 .get("data");
 
-        assertThat(styleTagsData.get("score")).isEqualTo(emptyStyleTagsData.get("score"));
-        assertThat(styleTagsData.get("reasons")).isEqualTo(emptyStyleTagsData.get("reasons"));
+        assertThat(styleTagsData.get("score").get("preferenceScore").asInt())
+                .isGreaterThan(emptyStyleTagsData.get("score").get("preferenceScore").asInt());
+        assertThat(styleTagsData.get("reasons").toString())
+                .contains("선호하는 스타일 태그와 겹치는 옷을 반영했어요.")
+                .contains("캐주얼 상황에 맞는 스타일 태그를 반영했어요.");
     }
 
     @Test

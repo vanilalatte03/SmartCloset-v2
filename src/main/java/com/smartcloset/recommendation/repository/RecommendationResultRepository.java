@@ -34,5 +34,17 @@ public interface RecommendationResultRepository extends JpaRepository<Recommenda
             @Param("createdAt") LocalDateTime createdAt
     );
 
+    @Query("""
+            select r.id
+            from RecommendationResult r
+            where r.user.id = :userId
+              and r.feedbackUpdatedAt >= :feedbackUpdatedAt
+            order by r.feedbackUpdatedAt desc, r.id desc
+            """)
+    List<Long> findIdsByUserIdAndFeedbackUpdatedAtGreaterThanEqualOrderByFeedbackUpdatedAtDesc(
+            @Param("userId") Long userId,
+            @Param("feedbackUpdatedAt") LocalDateTime feedbackUpdatedAt
+    );
+
     List<RecommendationResult> findByIdIn(Collection<Long> ids);
 }
