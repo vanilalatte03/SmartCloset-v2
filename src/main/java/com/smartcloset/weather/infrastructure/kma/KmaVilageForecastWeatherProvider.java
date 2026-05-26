@@ -2,6 +2,7 @@ package com.smartcloset.weather.infrastructure.kma;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.application.WeatherProvider;
@@ -181,8 +182,11 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     private record WeatherCacheKey(
             Long userId,
             String locationCode,
+            String locationName,
+            String locationFullName,
             int nx,
             int ny,
+            LocationSource locationSource,
             String baseDate,
             String baseTime,
             ForecastPeriod forecastPeriod,
@@ -193,6 +197,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         private WeatherCacheKey {
             Objects.requireNonNull(userId, "userId must not be null");
             Objects.requireNonNull(locationCode, "locationCode must not be null");
+            Objects.requireNonNull(locationName, "locationName must not be null");
+            Objects.requireNonNull(locationFullName, "locationFullName must not be null");
+            Objects.requireNonNull(locationSource, "locationSource must not be null");
             Objects.requireNonNull(baseDate, "baseDate must not be null");
             Objects.requireNonNull(baseTime, "baseTime must not be null");
             Objects.requireNonNull(forecastPeriod, "forecastPeriod must not be null");
@@ -209,8 +216,11 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             return new WeatherCacheKey(
                     userId,
                     location.code(),
+                    location.name(),
+                    location.fullName(),
                     location.nx(),
                     location.ny(),
+                    location.source(),
                     baseTime.baseDate(),
                     baseTime.baseTime(),
                     forecastPeriod,

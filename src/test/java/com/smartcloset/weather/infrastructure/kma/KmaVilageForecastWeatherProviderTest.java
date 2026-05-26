@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.domain.ForecastPeriod;
@@ -159,6 +160,51 @@ class KmaVilageForecastWeatherProviderTest {
 
         assertThat(client.callCount()).isEqualTo(2);
         assertThat(client.requestedGrids()).containsExactly(new KmaGrid(98, 76), new KmaGrid(60, 127));
+    }
+
+    @Test
+    void doesNotReuseCachedWeatherWhenLocationSourceChangesForSameGrid() {
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        MutableUserLocationReader locationReader = new MutableUserLocationReader(new UserLocationSnapshot(
+                1L,
+                "BUSAN",
+                "부산광역시",
+                "부산광역시",
+                "부산광역시",
+                null,
+                null,
+                98,
+                76,
+                LocationSource.MANUAL_SEARCH,
+                LocalDateTime.parse("2026-05-21T13:00:00")
+        ));
+        KmaVilageForecastWeatherProvider provider = newProvider(
+                properties("test-service-key", true),
+                client,
+                new StaticWeatherProvider(),
+                locationReader,
+                clock
+        );
+
+        WeatherSnapshot firstWeather = provider.getCurrentWeather(1L);
+        locationReader.setLocation(new UserLocationSnapshot(
+                1L,
+                "BUSAN",
+                "부산광역시",
+                "부산광역시",
+                "부산광역시",
+                null,
+                null,
+                98,
+                76,
+                LocationSource.BROWSER_GEOLOCATION,
+                LocalDateTime.parse("2026-05-21T13:01:00")
+        ));
+        WeatherSnapshot secondWeather = provider.getCurrentWeather(1L);
+
+        assertThat(client.callCount()).isEqualTo(2);
+        assertThat(firstWeather.location().source()).isEqualTo(LocationSource.MANUAL_SEARCH);
+        assertThat(secondWeather.location().source()).isEqualTo(LocationSource.BROWSER_GEOLOCATION);
     }
 
     @Test
