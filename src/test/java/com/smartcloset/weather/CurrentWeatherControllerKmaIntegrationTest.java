@@ -107,6 +107,18 @@ class CurrentWeatherControllerKmaIntegrationTest {
                 .andExpect(jsonPath("$.data.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.rainy").value(false))
                 .andExpect(jsonPath("$.data.windy").value(false))
+                .andExpect(jsonPath("$.data.location.code").value("BUSAN"))
+                .andExpect(jsonPath("$.data.location.name").value("부산광역시"))
+                .andExpect(jsonPath("$.data.location.nx").value(98))
+                .andExpect(jsonPath("$.data.location.ny").value(76))
+                .andExpect(jsonPath("$.data.location.source").value("MANUAL_SEARCH"))
+                .andExpect(jsonPath("$.data.source.provider").value("KMA_VILAGE_FORECAST"))
+                .andExpect(jsonPath("$.data.source.kmaUsed").value(true))
+                .andExpect(jsonPath("$.data.source.fallbackUsed").value(false))
+                .andExpect(jsonPath("$.data.source.baseDate").isString())
+                .andExpect(jsonPath("$.data.source.baseTime").isString())
+                .andExpect(jsonPath("$.data.source.forecastDate").isString())
+                .andExpect(jsonPath("$.data.source.forecastTime").isString())
                 .andExpect(jsonPath("$.data.userId").doesNotExist());
 
         assertThat(kmaForecastClient.called()).isTrue();

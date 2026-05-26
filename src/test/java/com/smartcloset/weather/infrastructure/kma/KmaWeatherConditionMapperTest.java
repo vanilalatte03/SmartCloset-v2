@@ -3,6 +3,7 @@ package com.smartcloset.weather.infrastructure.kma;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
 import java.time.ZonedDateTime;
@@ -37,7 +38,7 @@ class KmaWeatherConditionMapperTest {
                         item("20260521", "1200", "WSD", "4.0")
                 ),
                 kst("2026-05-21T10:30:00+09:00")
-        );
+        ).condition();
 
         assertThat(weather.temperature()).isEqualTo(13);
         assertThat(weather.weatherType()).isEqualTo(WeatherType.SUNNY);
@@ -51,7 +52,7 @@ class KmaWeatherConditionMapperTest {
         WeatherCondition weather = mapper.map(
                 completeGroup("20260521", "1100", "16", "1", pty, "-", "3.0"),
                 kst("2026-05-21T10:00:00+09:00")
-        );
+        ).condition();
 
         assertThat(weather.weatherType()).isEqualTo(WeatherType.RAINY);
         assertThat(weather.rainy()).isTrue();
@@ -62,7 +63,7 @@ class KmaWeatherConditionMapperTest {
         WeatherCondition weather = mapper.map(
                 completeGroup("20260521", "1100", "0", "1", "3", "-", "3.0"),
                 kst("2026-05-21T10:00:00+09:00")
-        );
+        ).condition();
 
         assertThat(weather.weatherType()).isEqualTo(WeatherType.SNOWY);
         assertThat(weather.rainy()).isTrue();
@@ -73,7 +74,7 @@ class KmaWeatherConditionMapperTest {
         WeatherCondition weather = mapper.map(
                 completeGroup("20260521", "1100", "18", "3", "0", "0.5mm", "4.0"),
                 kst("2026-05-21T10:00:00+09:00")
-        );
+        ).condition();
 
         assertThat(weather.weatherType()).isEqualTo(WeatherType.CLOUDY);
         assertThat(weather.rainy()).isTrue();
@@ -87,7 +88,7 @@ class KmaWeatherConditionMapperTest {
         WeatherCondition weather = mapper.map(
                 completeGroup("20260521", "1100", "18", "1", "0", pcp, "3.0"),
                 kst("2026-05-21T10:00:00+09:00")
-        );
+        ).condition();
 
         assertThat(weather.rainy()).isFalse();
     }
@@ -119,6 +120,47 @@ class KmaWeatherConditionMapperTest {
         ))
                 .isInstanceOf(KmaWeatherMappingException.class)
                 .hasMessageContaining("No forecast group");
+    }
+
+    @Test
+    void mapsForecastPeriodToTargetGroupAndReturnsSelectedForecastTime() {
+        KmaMappedWeather weather = mapper.map(
+                List.of(
+                        item("20260521", "0900", "TMP", "9"),
+                        item("20260521", "0900", "SKY", "1"),
+                        item("20260521", "0900", "PTY", "0"),
+                        item("20260521", "0900", "PCP", "-"),
+                        item("20260521", "0900", "WSD", "2.0"),
+                        item("20260521", "1500", "TMP", "15"),
+                        item("20260521", "1500", "SKY", "3"),
+                        item("20260521", "1500", "PTY", "0"),
+                        item("20260521", "1500", "PCP", "-"),
+                        item("20260521", "1500", "WSD", "2.0"),
+                        item("20260521", "2100", "TMP", "21"),
+                        item("20260521", "2100", "SKY", "4"),
+                        item("20260521", "2100", "PTY", "0"),
+                        item("20260521", "2100", "PCP", "-"),
+                        item("20260521", "2100", "WSD", "2.0")
+                ),
+                kst("2026-05-21T10:00:00+09:00"),
+                ForecastPeriod.AFTERNOON
+        );
+
+        assertThat(weather.condition().temperature()).isEqualTo(15);
+        assertThat(weather.forecastDate()).isEqualTo("20260521");
+        assertThat(weather.forecastTime()).isEqualTo("1500");
+    }
+
+    @Test
+    void targetForecastPeriodFallsBackToNearestPreviousGroupOnSameDate() {
+        KmaMappedWeather weather = mapper.map(
+                completeGroup("20260521", "2000", "20", "1", "0", "-", "2.0"),
+                kst("2026-05-21T10:00:00+09:00"),
+                ForecastPeriod.EVENING
+        );
+
+        assertThat(weather.condition().temperature()).isEqualTo(20);
+        assertThat(weather.forecastTime()).isEqualTo("2000");
     }
 
     private List<KmaForecastItem> completeGroup(

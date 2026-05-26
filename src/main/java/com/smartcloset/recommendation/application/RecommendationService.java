@@ -108,7 +108,7 @@ public class RecommendationService {
     }
 
     public RecommendationResponse createRecommendation(Long userId, RecommendationSituation situation) {
-        WeatherCondition weather = weatherProvider.getCurrentWeather(userId);
+        WeatherCondition weather = weatherProvider.getCurrentWeather(userId).condition();
         LocalDateTime requestedAt = LocalDateTime.now();
         RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
         return Objects.requireNonNull(transactionTemplate.execute(status ->

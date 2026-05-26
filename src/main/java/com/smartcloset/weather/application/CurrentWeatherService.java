@@ -1,7 +1,7 @@
 package com.smartcloset.weather.application;
 
-import com.smartcloset.recommendation.dto.WeatherResponse;
-import com.smartcloset.weather.domain.WeatherCondition;
+import com.smartcloset.weather.domain.WeatherSnapshot;
+import com.smartcloset.weather.dto.WeatherResponse;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,7 +14,7 @@ public class CurrentWeatherService {
     }
 
     public WeatherResponse getCurrentWeather(Long userId) {
-        WeatherCondition weather = weatherProvider.getCurrentWeather(userId);
+        WeatherSnapshot weather = weatherProvider.getCurrentWeather(userId);
         return WeatherResponse.from(weather);
     }
 }

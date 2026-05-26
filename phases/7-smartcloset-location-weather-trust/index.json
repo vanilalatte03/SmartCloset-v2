@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "weather-source-snapshot",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T01:19:48+0900",
+      "summary": "WeatherSnapshot 계약과 ForecastPeriod별 KMA forecast 선택, 현재 날씨 source metadata 응답을 추가했다.",
+      "completed_at": "2026-05-27T01:24:57+0900"
     },
     {
       "step": 4,

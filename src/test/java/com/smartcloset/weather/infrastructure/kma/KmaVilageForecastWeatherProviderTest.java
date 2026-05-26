@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
-import com.smartcloset.weather.domain.WeatherCondition;
+import com.smartcloset.weather.domain.ForecastPeriod;
+import com.smartcloset.weather.domain.WeatherSnapshot;
 import com.smartcloset.weather.domain.WeatherType;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
 import java.time.Clock;
@@ -32,10 +34,34 @@ class KmaVilageForecastWeatherProviderTest {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         KmaVilageForecastWeatherProvider provider = newProvider(properties("", true), client);
 
-        WeatherCondition weather = provider.getCurrentWeather(1L);
+        WeatherSnapshot weather = provider.getCurrentWeather(1L);
 
         assertFallbackWeather(weather);
         assertThat(client.called()).isFalse();
+        assertThat(weather.source().provider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(weather.source().fallbackUsed()).isTrue();
+        assertThat(weather.source().baseDate()).isEqualTo("20260521");
+        assertThat(weather.source().baseTime()).isEqualTo("1400");
+        assertThat(weather.source().forecastDate()).isEqualTo("20260521");
+        assertThat(weather.source().forecastTime()).isEqualTo("1500");
+        assertThat(weather.location().code()).isEqualTo("BUSAN");
+    }
+
+    @Test
+    void fallbackWeatherUsesRequestedForecastPeriodForForecastTime() {
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(properties("", true), client);
+
+        WeatherSnapshot weather = provider.getWeather(1L, ForecastPeriod.EVENING);
+
+        assertFallbackWeather(weather);
+        assertThat(client.called()).isFalse();
+        assertThat(weather.source().provider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(weather.source().fallbackUsed()).isTrue();
+        assertThat(weather.source().baseDate()).isEqualTo("20260521");
+        assertThat(weather.source().baseTime()).isEqualTo("1400");
+        assertThat(weather.source().forecastDate()).isEqualTo("20260521");
+        assertThat(weather.source().forecastTime()).isEqualTo("2100");
     }
 
     @Test
@@ -43,15 +69,22 @@ class KmaVilageForecastWeatherProviderTest {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         KmaVilageForecastWeatherProvider provider = newProvider(properties("test-service-key", true), client);
 
-        WeatherCondition weather = provider.getCurrentWeather(1L);
+        WeatherSnapshot weather = provider.getCurrentWeather(1L);
 
         assertThat(client.requestedBaseTime()).isEqualTo(new KmaForecastBaseTime("20260521", "1400"));
         assertThat(client.requestedGrid()).isEqualTo(new KmaGrid(98, 76));
         assertThat(client.callCount()).isEqualTo(1);
-        assertThat(weather.temperature()).isEqualTo(13);
-        assertThat(weather.weatherType()).isEqualTo(WeatherType.SUNNY);
-        assertThat(weather.rainy()).isFalse();
-        assertThat(weather.windy()).isFalse();
+        assertThat(weather.condition().temperature()).isEqualTo(13);
+        assertThat(weather.condition().weatherType()).isEqualTo(WeatherType.SUNNY);
+        assertThat(weather.condition().rainy()).isFalse();
+        assertThat(weather.condition().windy()).isFalse();
+        assertThat(weather.source().provider().name()).isEqualTo("KMA_VILAGE_FORECAST");
+        assertThat(weather.source().kmaUsed()).isTrue();
+        assertThat(weather.source().fallbackUsed()).isFalse();
+        assertThat(weather.source().baseDate()).isEqualTo("20260521");
+        assertThat(weather.source().baseTime()).isEqualTo("1400");
+        assertThat(weather.source().forecastDate()).isEqualTo("20260521");
+        assertThat(weather.source().forecastTime()).isEqualTo("1500");
     }
 
     @Test
@@ -59,8 +92,8 @@ class KmaVilageForecastWeatherProviderTest {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         KmaVilageForecastWeatherProvider provider = newProvider(properties("test-service-key", true), client);
 
-        WeatherCondition firstWeather = provider.getCurrentWeather(1L);
-        WeatherCondition secondWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot firstWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot secondWeather = provider.getCurrentWeather(1L);
 
         assertThat(secondWeather).isEqualTo(firstWeather);
         assertThat(client.callCount()).isEqualTo(1);
@@ -76,8 +109,8 @@ class KmaVilageForecastWeatherProviderTest {
                 fallbackProvider
         );
 
-        WeatherCondition firstWeather = provider.getCurrentWeather(1L);
-        WeatherCondition secondWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot firstWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot secondWeather = provider.getCurrentWeather(1L);
 
         assertThat(secondWeather).isEqualTo(firstWeather);
         assertFallbackWeather(secondWeather);
@@ -130,6 +163,51 @@ class KmaVilageForecastWeatherProviderTest {
     }
 
     @Test
+    void doesNotReuseCachedWeatherWhenLocationSourceChangesForSameGrid() {
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        MutableUserLocationReader locationReader = new MutableUserLocationReader(new UserLocationSnapshot(
+                1L,
+                "BUSAN",
+                "부산광역시",
+                "부산광역시",
+                "부산광역시",
+                null,
+                null,
+                98,
+                76,
+                LocationSource.MANUAL_SEARCH,
+                LocalDateTime.parse("2026-05-21T13:00:00")
+        ));
+        KmaVilageForecastWeatherProvider provider = newProvider(
+                properties("test-service-key", true),
+                client,
+                new StaticWeatherProvider(),
+                locationReader,
+                clock
+        );
+
+        WeatherSnapshot firstWeather = provider.getCurrentWeather(1L);
+        locationReader.setLocation(new UserLocationSnapshot(
+                1L,
+                "BUSAN",
+                "부산광역시",
+                "부산광역시",
+                "부산광역시",
+                null,
+                null,
+                98,
+                76,
+                LocationSource.BROWSER_GEOLOCATION,
+                LocalDateTime.parse("2026-05-21T13:01:00")
+        ));
+        WeatherSnapshot secondWeather = provider.getCurrentWeather(1L);
+
+        assertThat(client.callCount()).isEqualTo(2);
+        assertThat(firstWeather.location().source()).isEqualTo(LocationSource.MANUAL_SEARCH);
+        assertThat(secondWeather.location().source()).isEqualTo(LocationSource.BROWSER_GEOLOCATION);
+    }
+
+    @Test
     void doesNotReuseCachedWeatherWhenBaseTimeChangesWithinTtl() {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         MutableBaseTimeCalculator baseTimeCalculator = new MutableBaseTimeCalculator(
@@ -162,7 +240,7 @@ class KmaVilageForecastWeatherProviderTest {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         KmaVilageForecastWeatherProvider provider = newProvider(properties, client);
 
-        WeatherCondition fallbackWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot fallbackWeather = provider.getCurrentWeather(1L);
         properties.setFallbackEnabled(false);
 
         assertFallbackWeather(fallbackWeather);
@@ -174,7 +252,7 @@ class KmaVilageForecastWeatherProviderTest {
         FakeKmaForecastClient client = FakeKmaForecastClient.failing(new KmaForecastClientException("NODATA_ERROR"));
         KmaVilageForecastWeatherProvider provider = newProvider(properties("test-service-key", true), client);
 
-        WeatherCondition weather = provider.getCurrentWeather(1L);
+        WeatherSnapshot weather = provider.getCurrentWeather(1L);
 
         assertFallbackWeather(weather);
         assertThat(client.called()).isTrue();
@@ -190,7 +268,7 @@ class KmaVilageForecastWeatherProviderTest {
         ));
         KmaVilageForecastWeatherProvider provider = newProvider(properties("test-service-key", true), client);
 
-        WeatherCondition weather = provider.getCurrentWeather(1L);
+        WeatherSnapshot weather = provider.getCurrentWeather(1L);
 
         assertFallbackWeather(weather);
     }
@@ -281,11 +359,11 @@ class KmaVilageForecastWeatherProviderTest {
         return new UserLocationSnapshot(1L, "BUSAN", "부산광역시", 98, 76, LocalDateTime.now());
     }
 
-    private void assertFallbackWeather(WeatherCondition weather) {
-        assertThat(weather.temperature()).isEqualTo(12);
-        assertThat(weather.weatherType()).isEqualTo(WeatherType.CLOUDY);
-        assertThat(weather.rainy()).isFalse();
-        assertThat(weather.windy()).isFalse();
+    private void assertFallbackWeather(WeatherSnapshot weather) {
+        assertThat(weather.condition().temperature()).isEqualTo(12);
+        assertThat(weather.condition().weatherType()).isEqualTo(WeatherType.CLOUDY);
+        assertThat(weather.condition().rainy()).isFalse();
+        assertThat(weather.condition().windy()).isFalse();
     }
 
     private void assertInternalServerError(KmaVilageForecastWeatherProvider provider) {
@@ -405,9 +483,9 @@ class KmaVilageForecastWeatherProviderTest {
         private int callCount;
 
         @Override
-        public WeatherCondition getCurrentWeather(Long userId) {
+        public WeatherSnapshot getWeather(Long userId, ForecastPeriod forecastPeriod) {
             callCount++;
-            return super.getCurrentWeather(userId);
+            return super.getWeather(userId, forecastPeriod);
         }
 
         private int callCount() {

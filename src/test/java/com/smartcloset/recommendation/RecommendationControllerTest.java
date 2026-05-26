@@ -100,6 +100,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.weather.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.weather.rainy").value(false))
                 .andExpect(jsonPath("$.data.weather.windy").value(false))
+                .andExpect(jsonPath("$.data.weather.location").doesNotExist())
+                .andExpect(jsonPath("$.data.weather.source").doesNotExist())
                 .andExpect(jsonPath("$.data.outfit.top.category").value("TOP"))
                 .andExpect(jsonPath("$.data.outfit.bottom.category").value("BOTTOM"))
                 .andExpect(jsonPath("$.data.outfit.outer.category").value("OUTER"))
