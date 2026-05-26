@@ -7,7 +7,8 @@
       "name": "mvp7-scope-docs",
       "status": "completed",
       "started_at": "2026-05-27T00:35:02+0900",
-      "summary": "MVP7 문서 전환, MVP6 최소 archive, agent baseline, docs-check 회귀 신호를 확인했다."
+      "summary": "MVP7 문서 전환, MVP6 최소 archive, agent baseline, docs-check 회귀 신호를 확인했다.",
+      "completed_at": "2026-05-27T00:36:26+0900"
     },
     {
       "step": 1,
