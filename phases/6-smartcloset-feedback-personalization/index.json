@@ -24,7 +24,7 @@
       "status": "completed",
       "started_at": "2026-05-26T15:26:11+0900",
       "summary": "추천 상황 request 기본값, 결과 snapshot 저장, RecommendationResponse.situation 반환과 검증 테스트를 구현했다.",
-      "completed_at": "2026-05-26T15:29:15+0900"
+      "completed_at": "2026-05-26T15:30:00+0900"
     },
     {
       "step": 3,
