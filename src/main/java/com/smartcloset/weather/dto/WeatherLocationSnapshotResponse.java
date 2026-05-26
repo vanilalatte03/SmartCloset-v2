@@ -1,4 +1,4 @@
-package com.smartcloset.recommendation.dto;
+package com.smartcloset.weather.dto;
 
 import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.weather.domain.WeatherLocationSnapshot;
@@ -13,9 +13,6 @@ public record WeatherLocationSnapshotResponse(
 ) {
 
     public static WeatherLocationSnapshotResponse from(WeatherLocationSnapshot location) {
-        if (location == null) {
-            return null;
-        }
         return new WeatherLocationSnapshotResponse(
                 location.code(),
                 location.name(),

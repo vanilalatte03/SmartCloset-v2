@@ -1,7 +1,7 @@
 package com.smartcloset.weather.application;
 
-import com.smartcloset.recommendation.dto.WeatherResponse;
 import com.smartcloset.weather.domain.WeatherSnapshot;
+import com.smartcloset.weather.dto.WeatherResponse;
 import org.springframework.stereotype.Service;
 
 @Service

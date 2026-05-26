@@ -1,4 +1,4 @@
-package com.smartcloset.recommendation.dto;
+package com.smartcloset.weather.dto;
 
 import com.smartcloset.weather.domain.WeatherProviderType;
 import com.smartcloset.weather.domain.WeatherSource;
@@ -14,9 +14,6 @@ public record WeatherSourceResponse(
 ) {
 
     public static WeatherSourceResponse from(WeatherSource source) {
-        if (source == null) {
-            return null;
-        }
         return new WeatherSourceResponse(
                 source.provider(),
                 source.kmaUsed(),
