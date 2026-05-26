@@ -4,6 +4,7 @@ import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.common.response.ApiResponse;
 import com.smartcloset.recommendation.application.RecommendationService;
+import com.smartcloset.recommendation.dto.RecommendationRequest;
 import com.smartcloset.recommendation.dto.RecommendationResponse;
 import com.smartcloset.recommendation.dto.RecommendationWornResponse;
 import com.smartcloset.security.CurrentUserPrincipal;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,9 +33,13 @@ public class RecommendationController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<RecommendationResponse>> createRecommendation(
-            @AuthenticationPrincipal CurrentUserPrincipal principal
+            @AuthenticationPrincipal CurrentUserPrincipal principal,
+            @RequestBody(required = false) RecommendationRequest request
     ) {
-        RecommendationResponse response = recommendationService.createRecommendation(principal.userId());
+        RecommendationResponse response = recommendationService.createRecommendation(
+                principal.userId(),
+                resolveRequest(request).situationOrDefault()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
     }
 
@@ -65,5 +71,9 @@ public class RecommendationController {
         } catch (NumberFormatException exception) {
             throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
         }
+    }
+
+    private RecommendationRequest resolveRequest(RecommendationRequest request) {
+        return request == null ? new RecommendationRequest(null) : request;
     }
 }

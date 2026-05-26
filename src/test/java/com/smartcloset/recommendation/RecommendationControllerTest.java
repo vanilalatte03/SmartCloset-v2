@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -93,6 +94,7 @@ class RecommendationControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.recommendationId").exists())
+                .andExpect(jsonPath("$.data.situation").value("CASUAL"))
                 .andExpect(jsonPath("$.data.weather.temperature").value(12))
                 .andExpect(jsonPath("$.data.weather.weatherType").value("CLOUDY"))
                 .andExpect(jsonPath("$.data.weather.rainy").value(false))
@@ -126,6 +128,7 @@ class RecommendationControllerTest {
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(OutfitSlot.class)));
 
         assertThat(saved.getUser().getId()).isEqualTo(user.getId());
+        assertThat(saved.getSituation().name()).isEqualTo("CASUAL");
         assertThat(saved.getWeatherTemperature()).isEqualTo(12);
         assertThat(saved.getWeatherType()).isEqualTo(WeatherType.CLOUDY);
         assertThat(saved.isRainy()).isFalse();
@@ -135,6 +138,59 @@ class RecommendationControllerTest {
         assertThat(data.get("score").has("diversity" + "Score")).isFalse();
         assertThat(savedReasons).hasSizeBetween(3, 5);
         assertThat(saved.isWorn()).isFalse();
+    }
+
+    @Test
+    void createsRecommendationWithRequestedSituationSnapshot() throws Exception {
+        User user = createUserWithP0Closet("recommendation-situation-user");
+
+        MvcResult result = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"situation\":\"WORK\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.situation").value("WORK"))
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        RecommendationResult saved = recommendationResultRepository
+                .findById(data.get("recommendationId").asLong())
+                .orElseThrow();
+
+        assertThat(saved.getSituation().name()).isEqualTo("WORK");
+    }
+
+    @Test
+    void defaultsRecommendationSituationWhenRequestBodyOmitsSituation() throws Exception {
+        User user = createUserWithP0Closet("recommendation-default-situation-user");
+
+        MvcResult result = mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.situation").value("CASUAL"))
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        RecommendationResult saved = recommendationResultRepository
+                .findById(data.get("recommendationId").asLong())
+                .orElseThrow();
+
+        assertThat(saved.getSituation().name()).isEqualTo("CASUAL");
+    }
+
+    @Test
+    void rejectsInvalidRecommendationSituation() throws Exception {
+        User user = createUserWithP0Closet("recommendation-invalid-situation-user");
+
+        mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"situation\":\"TRAVEL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details").isArray());
     }
 
     @Test
@@ -396,6 +452,7 @@ class RecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].recommendationId").value(latestTargetRecommendationId))
+                .andExpect(jsonPath("$.data[0].situation").value("CASUAL"))
                 .andExpect(jsonPath("$.data[0].score.preferenceScore").exists())
                 .andExpect(jsonPath("$.data[0].score.diversityScore").doesNotExist())
                 .andExpect(jsonPath("$.data[0].outfit.top").exists())
