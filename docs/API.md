@@ -1,19 +1,19 @@
-# API: SmartCloset MVP5 Contract
+# API: SmartCloset MVP6 Contract
 
-이 문서는 SmartCloset MVP5 API 계약을 설명한다. MVP5는 기존 인증 사용자 API 위에 옷 이미지 업로드, 조회, 삭제 API를 제공한다.
+이 문서는 SmartCloset MVP6 API 계약을 설명한다. MVP6는 기존 인증 사용자 API와 MVP5 이미지 API 위에 추천 상황, 옷별 `styleTags`, 추천 피드백 snapshot을 추가한다.
 
-## MVP5 API 결정
+## MVP6 API 결정
 
 - 새 공개 API를 추가하지 않는다.
-- 기존 옷 등록/수정 JSON API를 multipart로 바꾸지 않는다.
-- 이미지 업로드는 별도 보호 API `PUT /api/clothes/{clothingId}/image`로 처리한다.
-- 이미지 조회는 보호 API `GET /api/clothes/{clothingId}/image`로 처리한다.
-- 이미지 삭제는 보호 API `DELETE /api/clothes/{clothingId}/image`로 처리한다.
-- 이미지 API도 현재 인증 사용자 소유 옷만 접근할 수 있다.
-- 회원가입 직후 기본 옷 프리셋 5개를 생성한다.
-- 기존 계정은 로그인 시 옷이 0개이면 같은 프리셋을 한 번만 생성한다.
 - 공개 `userId` query parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
+- 기존 옷 등록/수정 JSON API는 유지하고 `styleTags` 필드를 추가한다.
+- `POST /api/recommendations`는 선택 JSON body를 받을 수 있다.
+- 추천 상황 body가 없거나 `situation`이 누락되면 `CASUAL`로 처리한다.
+- 추천 피드백은 `PUT /api/recommendations/{recommendationId}/feedback` 보호 API로 저장한다.
+- 추천 피드백은 추천 결과별 최신 상태 snapshot이며 이벤트 로그를 만들지 않는다.
+- 피드백 PUT은 전체 교체다. 누락 필드는 `null`로 간주하고 양쪽 `null`이면 clear한다.
+- 이미지 API는 MVP5 보호 API 계약을 유지한다.
 
 ## 1. 공통 규칙
 
@@ -26,6 +26,7 @@
 - enum 값은 대문자 문자열로 주고받는다.
 - JSON 성공 응답은 항상 `data` 필드를 가진다.
 - JSON 실패 응답은 항상 `code`, `message`, `details` 필드를 가진다.
+- `details`는 항상 배열이다.
 
 ### 공통 성공 응답
 
@@ -45,14 +46,12 @@
   "message": "요청 값이 올바르지 않습니다.",
   "details": [
     {
-      "field": "image",
-      "message": "허용되지 않는 이미지 형식입니다."
+      "field": "situation",
+      "message": "지원하지 않는 추천 상황입니다."
     }
   ]
 }
 ```
-
-`details` 필드는 항상 배열이다. 상세 항목이 없으면 빈 배열 `[]`이다.
 
 ## 2. API 목록
 
@@ -82,9 +81,10 @@
 | `PUT` | `/api/clothes/{clothingId}/image` | 옷 이미지 업로드 또는 교체 | `200 OK` |
 | `GET` | `/api/clothes/{clothingId}/image` | 옷 이미지 bytes 조회 | `200 OK` |
 | `DELETE` | `/api/clothes/{clothingId}/image` | 옷 이미지 삭제 | `200 OK` |
-| `POST` | `/api/recommendations` | 추천 생성 및 저장 | `201 Created` |
+| `POST` | `/api/recommendations` | 상황 기반 추천 생성 및 저장 | `201 Created` |
 | `GET` | `/api/recommendations?limit={limit}` | 추천 이력 조회 | `200 OK` |
 | `PATCH` | `/api/recommendations/{recommendationId}/worn` | 추천 결과 착용 완료 처리 | `200 OK` |
+| `PUT` | `/api/recommendations/{recommendationId}/feedback` | 추천 피드백 전체 교체 또는 clear | `200 OK` |
 
 ## 3. 인증 API
 
@@ -98,7 +98,7 @@
 }
 ```
 
-회원가입 시 서버는 기본 위치 `SEOUL`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다. 기본 옷 프리셋도 현재 사용자 소유 옷이므로 `GET /api/clothes`와 보호 이미지 API로만 조회한다.
+회원가입 시 서버는 기본 위치 `SEOUL`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다.
 
 ### LoginRequest
 
@@ -109,7 +109,7 @@
 }
 ```
 
-로그인 시 현재 사용자 옷이 0개이면 서버는 기본 옷 프리셋 5개를 한 번만 생성한다. 옷 row가 하나라도 있으면 archived 상태와 관계없이 자동 프리셋을 추가하지 않는다.
+로그인 시 현재 사용자 옷이 0개이면 서버는 기본 옷 프리셋 5개를 한 번만 생성한다.
 
 ### AuthResponse
 
@@ -143,7 +143,7 @@ JWT access token 정책:
 
 ### ClothingRequest
 
-옷 등록과 옷 전체 수정에서 같은 JSON 요청 필드를 사용한다. MVP5에서도 이 요청은 이미지 파일을 포함하지 않는다.
+옷 등록과 옷 전체 수정에서 같은 JSON 요청 필드를 사용한다. 이미지 파일은 포함하지 않는다.
 
 ```json
 {
@@ -153,13 +153,22 @@ JWT access token 정책:
   "material": "KNIT",
   "minTemperature": 5,
   "maxTemperature": 18,
-  "rainSuitable": false
+  "rainSuitable": false,
+  "styleTags": ["MINIMAL", "OFFICE", "미니멀"]
 }
 ```
 
-### ClothingImageResponse
+`styleTags` 규칙:
 
-`image`가 있는 경우:
+- Type contract: `styleTags: string[]`.
+- 요청에서 누락되면 빈 배열 `[]`로 처리한다.
+- 응답은 항상 배열을 반환한다.
+- blank tag는 저장하지 않는다.
+- tag는 trim 후 저장한다.
+- 중복 tag는 제거한다.
+- 단일 tag 최대 길이는 30자다.
+
+### ClothingImageResponse
 
 ```json
 {
@@ -184,6 +193,7 @@ JWT access token 정책:
   "minTemperature": 5,
   "maxTemperature": 18,
   "rainSuitable": false,
+  "styleTags": ["MINIMAL", "OFFICE", "미니멀"],
   "archived": false,
   "image": {
     "url": "/api/clothes/1/image",
@@ -203,144 +213,73 @@ JWT access token 정책:
 `GET /api/clothes`
 
 - 현재 인증 사용자의 `archived=false` 옷만 반환한다.
-- 정렬은 기존 구현 기준인 `id` 오름차순을 유지한다.
+- 정렬은 `id` 오름차순을 유지한다.
 - 각 옷의 `image`는 nullable이다.
-- 신규 가입 직후에는 기본 옷 프리셋 5개가 이미지 metadata와 함께 반환된다.
+- 각 옷의 `styleTags`는 항상 배열이다.
 
 ### 기본 옷 프리셋
 
-서버는 신규 가입자와 옷이 0개인 기존 로그인 사용자에게 아래 프리셋을 현재 사용자 소유 옷으로 생성한다.
+서버는 신규 가입자와 옷이 0개인 기존 로그인 사용자에게 기본 프리셋을 현재 사용자 소유 옷으로 생성한다.
 
-| Name | Category | Color | Material | Min | Max | Rain |
-| --- | --- | --- | --- | ---: | ---: | --- |
-| 화이트 반팔 티셔츠 | `TOP` | `WHITE` | `COTTON` | 8 | 30 | false |
-| 블랙 반팔 티셔츠 | `TOP` | `BLACK` | `COTTON` | 8 | 30 | false |
-| 흑청 데님 팬츠 | `BOTTOM` | `BLACK` | `DENIM` | 0 | 28 | false |
-| 진청 데님 팬츠 | `BOTTOM` | `BLUE` | `DENIM` | 0 | 28 | false |
-| 블랙 가디건 | `OUTER` | `BLACK` | `KNIT` | 8 | 20 | false |
-
-프리셋 이미지는 번들 resource에서 사용자별 UUID 파일로 복사해 저장하며 content type은 `image/jpeg`이다. 삭제, 교체, 조회 규칙은 사용자가 직접 업로드한 이미지와 동일하다.
-
-### 옷 등록
-
-`POST /api/clothes`
-
-- 요청은 `application/json`이다.
-- 성공 시 `201 Created`와 `ClothingResponse`를 반환한다.
-- 이미지는 이 API에서 받지 않는다.
-
-### 옷 전체 수정
-
-`PUT /api/clothes/{clothingId}`
-
-- 요청은 `application/json`이다.
-- 이름, 카테고리, 색상, 소재, 기온 범위, 비 적합 여부를 전체 수정한다.
-- 이미지 메타데이터는 이 API에서 변경하지 않는다.
-
-### 옷 보관 처리
-
-`PATCH /api/clothes/{clothingId}/archive`
-
-- idempotent해야 한다.
-- 이미지 파일과 이미지 메타데이터는 보관 처리만으로 삭제하지 않는다.
+| Name | Category | Color | Material | Style tags |
+| --- | --- | --- | --- | --- |
+| 화이트 반팔 티셔츠 | `TOP` | `WHITE` | `COTTON` | `CASUAL`, `DAILY`, `캐주얼` |
+| 블랙 반팔 티셔츠 | `TOP` | `BLACK` | `COTTON` | `CASUAL`, `MINIMAL`, `미니멀` |
+| 흑청 데님 팬츠 | `BOTTOM` | `BLACK` | `DENIM` | `CASUAL`, `DAILY`, `데일리` |
+| 진청 데님 팬츠 | `BOTTOM` | `BLUE` | `DENIM` | `CASUAL`, `DAILY`, `데일리` |
+| 블랙 가디건 | `OUTER` | `BLACK` | `KNIT` | `MINIMAL`, `OFFICE`, `미니멀` |
 
 ## 5. 옷 이미지 API
+
+이미지 API는 MVP5 계약을 유지한다.
 
 ### 업로드 또는 교체
 
 `PUT /api/clothes/{clothingId}/image`
 
-Request:
-
 - `Content-Type: multipart/form-data`
 - part name: `image`
 - file: jpg/jpeg/png/webp, 최대 5MB
-
-성공 응답:
-
-```json
-{
-  "data": {
-    "id": 1,
-    "name": "Gray Knit",
-    "category": "TOP",
-    "color": "GRAY",
-    "material": "KNIT",
-    "minTemperature": 5,
-    "maxTemperature": 18,
-    "rainSuitable": false,
-    "archived": false,
-    "image": {
-      "url": "/api/clothes/1/image",
-      "contentType": "image/jpeg",
-      "sizeBytes": 123456,
-      "uploadedAt": "2026-05-25T10:00:00"
-    },
-    "createdAt": "2026-05-22T10:00:00",
-    "updatedAt": "2026-05-25T10:00:00"
-  }
-}
-```
-
-동작:
-
-- 기존 이미지가 있으면 새 이미지 저장 성공 후 기존 파일을 삭제한다.
-- DB 메타데이터와 파일 저장이 불일치하지 않도록 실패 시 기존 이미지 상태를 유지한다.
-- 원본 파일명은 저장 경로에 사용하지 않는다.
+- 현재 인증 사용자 소유 옷만 수정 가능
 
 ### 이미지 조회
 
 `GET /api/clothes/{clothingId}/image`
 
-성공:
-
-- `200 OK`
-- `Content-Type: image/jpeg`, `image/png`, 또는 `image/webp`
-- response body: image bytes
-
-실패:
-
-- 토큰 없음 또는 잘못된 토큰: `401`
-- 다른 사용자 옷 또는 존재하지 않는 옷: `404 CLOTHING_NOT_FOUND`
-- 내 옷이지만 이미지가 없음: `404 CLOTHING_IMAGE_NOT_FOUND`
+- 인증과 소유권 확인 후 image content type과 bytes를 반환한다.
+- 다른 사용자 옷 또는 존재하지 않는 옷은 `CLOTHING_NOT_FOUND`다.
+- 내 옷이지만 이미지가 없으면 `CLOTHING_IMAGE_NOT_FOUND`다.
 
 ### 이미지 삭제
 
 `DELETE /api/clothes/{clothingId}/image`
 
 - idempotent하다.
-- 이미지가 이미 없어도 `200 OK`와 `ClothingResponse`를 반환한다.
-- 삭제 후 `image`는 `null`이다.
+- 이미지가 이미 없어도 성공한다.
 
-## 6. 이미지 검증 정책
+## 6. 추천 API
 
-| 항목 | 기준 |
+### RecommendationSituation
+
+| Value | Label |
 | --- | --- |
-| 최대 크기 | 5MB |
-| 허용 확장자 | `.jpg`, `.jpeg`, `.png`, `.webp` |
-| 허용 MIME type | `image/jpeg`, `image/png`, `image/webp` |
-| part name | `image` |
+| `WORK` | 출근 |
+| `CASUAL` | 캐주얼 |
+| `WORKOUT` | 운동 |
+| `DATE` | 데이트 |
+| `FORMAL` | 격식 |
 
-잘못된 파일은 `400 INVALID_REQUEST`로 실패한다.
-Spring multipart limit은 앱 validator의 `CLOTHING_IMAGE_MAX_SIZE_BYTES`보다 작게 설정하지 않는다. 파일 크기 초과와 multipart size 초과는 모두 `400 INVALID_REQUEST`와 `details` 배열로 실패한다.
+### RecommendationRequest
 
-검증 대상:
+`POST /api/recommendations` 요청 body는 선택이다. body가 없거나 `situation`이 누락되면 `CASUAL`이다.
 
-- 파일 없음
-- 빈 파일
-- 최대 크기 초과
-- 허용되지 않는 확장자
-- 허용되지 않는 MIME type
-- 확장자와 MIME type 불일치
-- 이미지 signature 불일치
-
-## 7. 추천 API
-
-추천 생성은 기존처럼 `POST /api/recommendations`만 사용한다. today 추천 GET 경로는 사용하지 않는다.
+```json
+{
+  "situation": "WORK"
+}
+```
 
 ### OutfitItemResponse
-
-MVP5에서 추천 outfit item은 nullable image metadata를 포함한다.
 
 ```json
 {
@@ -349,6 +288,7 @@ MVP5에서 추천 outfit item은 nullable image metadata를 포함한다.
   "category": "TOP",
   "color": "GRAY",
   "material": "KNIT",
+  "styleTags": ["MINIMAL", "OFFICE"],
   "image": {
     "url": "/api/clothes/1/image",
     "contentType": "image/jpeg",
@@ -358,15 +298,41 @@ MVP5에서 추천 outfit item은 nullable image metadata를 포함한다.
 }
 ```
 
-이미지가 없으면 `image`는 `null`이다.
+### RecommendationFeedbackStateResponse
 
-### RecommendationResponse
+피드백이 있는 경우:
 
-추천 응답의 전체 구조는 유지한다.
+```json
+{
+  "sentiment": "LIKED",
+  "thermal": "TOO_COLD",
+  "updatedAt": "2026-05-26T10:05:00"
+}
+```
+
+피드백이 없거나 clear된 경우 `feedback`은 `null`이다.
+
+### RecommendationFeedbackResponse
+
+`PUT /api/recommendations/{recommendationId}/feedback` 성공 응답의 `data`는 아래 wrapper 형태다.
 
 ```json
 {
   "recommendationId": 10,
+  "feedback": {
+    "sentiment": "LIKED",
+    "thermal": "TOO_COLD",
+    "updatedAt": "2026-05-26T10:05:00"
+  }
+}
+```
+
+### RecommendationResponse
+
+```json
+{
+  "recommendationId": 10,
+  "situation": "WORK",
   "weather": {
     "temperature": 12,
     "weatherType": "CLOUDY",
@@ -380,6 +346,7 @@ MVP5에서 추천 outfit item은 nullable image metadata를 포함한다.
       "category": "TOP",
       "color": "GRAY",
       "material": "KNIT",
+      "styleTags": ["MINIMAL", "OFFICE"],
       "image": null
     },
     "bottom": {
@@ -388,57 +355,140 @@ MVP5에서 추천 outfit item은 nullable image metadata를 포함한다.
       "category": "BOTTOM",
       "color": "BLACK",
       "material": "DENIM",
+      "styleTags": ["CASUAL"],
       "image": null
     },
     "outer": null
   },
   "score": {
-    "totalScore": 80,
-    "weatherScore": 30,
-    "colorScore": 20,
+    "totalScore": 83,
+    "weatherScore": 35,
+    "colorScore": 24,
     "wearHistoryScore": 20,
-    "recommendationHistoryScore": 5,
-    "preferenceScore": 5
+    "recommendationHistoryScore": 7,
+    "preferenceScore": 7
   },
-  "reasons": ["현재 기온에 맞는 조합이에요."],
-  "worn": false,
-  "createdAt": "2026-05-25T10:00:00"
+  "reasons": [
+    "출근 상황에 맞는 단정한 태그를 반영했어요.",
+    "최근 마음에 든 조합과 일부 겹쳐 선호를 반영했어요."
+  ],
+  "worn": true,
+  "wornAt": "2026-05-26T10:00:00",
+  "feedback": {
+    "sentiment": "LIKED",
+    "thermal": "TOO_COLD",
+    "updatedAt": "2026-05-26T10:05:00"
+  },
+  "createdAt": "2026-05-26T09:00:00"
 }
 ```
 
-이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
+`wornAt`과 `feedback`은 nullable이다.
 
-## 8. 에러 코드
+### 추천 생성
 
-기존 에러 코드에 아래 코드를 추가한다.
+`POST /api/recommendations`
 
-| Code | HTTP | Message |
-| --- | --- | --- |
-| `CLOTHING_IMAGE_NOT_FOUND` | `404` | 옷 이미지를 찾을 수 없습니다. |
+- 현재 인증 사용자 위치의 현재 날씨를 조회한다.
+- 현재 인증 사용자 옷장, 선호도, 최근 착용/추천/피드백 이력을 사용한다.
+- 추천 결과와 상황 snapshot을 저장한다.
+- 성공 시 `201 Created`와 `RecommendationResponse`를 반환한다.
+- 추천 business failure는 `422 Unprocessable Entity`를 사용한다.
 
-이미지 검증 실패는 새 도메인 코드가 아니라 `INVALID_REQUEST`와 `details`로 표현한다.
+### 추천 이력 조회
 
-기존 주요 코드:
+`GET /api/recommendations?limit={limit}`
 
-| Code | HTTP |
+- 기본 `limit=20`
+- 최소 `1`, 최대 `50`
+- 최신순
+- 각 항목은 `situation`, `worn`, `wornAt`, `feedback`을 포함한다.
+
+### 착용 완료
+
+`PATCH /api/recommendations/{recommendationId}/worn`
+
+- idempotent하다.
+- 현재 사용자 소유 추천만 처리한다.
+- 이미 착용 완료된 추천이면 기존 착용 시각을 반환한다.
+
+### 추천 피드백 전체 교체
+
+`PUT /api/recommendations/{recommendationId}/feedback`
+
+Request:
+
+```json
+{
+  "sentiment": "LIKED",
+  "thermal": "TOO_COLD"
+}
+```
+
+Field values:
+
+| Field | Allowed values |
 | --- | --- |
-| `INVALID_REQUEST` | `400` |
-| `UNAUTHORIZED` | `401` |
-| `INVALID_TOKEN` | `401` |
-| `FORBIDDEN` | `403` |
-| `USER_NOT_FOUND` | `404` |
-| `CLOTHING_NOT_FOUND` | `404` |
-| `RECOMMENDATION_NOT_FOUND` | `404` |
-| `NO_TOP_AVAILABLE` | `422` |
-| `NO_BOTTOM_AVAILABLE` | `422` |
-| `NO_WEATHER_SUITABLE_ITEM` | `422` |
-| `OUTER_REQUIRED_BUT_NOT_AVAILABLE` | `422` |
-| `INSUFFICIENT_CLOSET_ITEMS` | `422` |
-| `INTERNAL_SERVER_ERROR` | `500` |
+| `sentiment` | `LIKED`, `DISLIKED`, `null` |
+| `thermal` | `TOO_COLD`, `TOO_HOT`, `null` |
 
-## 9. 프론트 API 주의
+처리 규칙:
 
-- 이미지 업로드 함수는 `FormData`를 사용한다.
-- 브라우저가 multipart boundary를 설정하도록 `Content-Type` header를 직접 지정하지 않는다.
-- 이미지 조회 함수는 `Authorization` header를 붙여 `Blob`을 가져온다.
-- blob object URL은 화면에서 더 이상 쓰지 않을 때 revoke한다.
+- 현재 사용자 소유 추천만 수정 가능하다.
+- PUT은 전체 교체다.
+- 누락 필드는 `null`로 간주한다.
+- 명시적 `null`도 해당 필드를 clear한다.
+- `{}`는 `{ "sentiment": null, "thermal": null }`과 같다.
+- 둘 다 `null`이면 피드백 전체 clear이며 응답 `feedback`은 `null`이다.
+- 둘 중 하나라도 값이 있으면 `feedback.updatedAt`을 현재 시각으로 갱신한다.
+
+성공 응답:
+
+```json
+{
+  "data": {
+    "recommendationId": 10,
+    "feedback": {
+      "sentiment": "LIKED",
+      "thermal": "TOO_COLD",
+      "updatedAt": "2026-05-26T10:05:00"
+    }
+  }
+}
+```
+
+Clear 응답:
+
+```json
+{
+  "data": {
+    "recommendationId": 10,
+    "feedback": null
+  }
+}
+```
+
+## 7. 에러 코드
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `INVALID_REQUEST` | `400` | 요청 값이 올바르지 않습니다. |
+| `UNAUTHORIZED` | `401` | 인증이 필요합니다. |
+| `FORBIDDEN` | `403` | 접근 권한이 없습니다. |
+| `USER_NOT_FOUND` | `404` | 사용자를 찾을 수 없습니다. |
+| `CLOTHING_NOT_FOUND` | `404` | 옷을 찾을 수 없습니다. |
+| `CLOTHING_IMAGE_NOT_FOUND` | `404` | 옷 이미지를 찾을 수 없습니다. |
+| `RECOMMENDATION_NOT_FOUND` | `404` | 추천 결과를 찾을 수 없습니다. |
+| `NO_TOP_AVAILABLE` | `422` | 추천 가능한 상의가 없습니다. |
+| `NO_BOTTOM_AVAILABLE` | `422` | 추천 가능한 하의가 없습니다. |
+| `OUTER_REQUIRED_BUT_NOT_AVAILABLE` | `422` | 아우터가 필요한 날씨지만 추천 가능한 아우터가 없습니다. |
+| `NO_WEATHER_SUITABLE_ITEM` | `422` | 현재 날씨에 맞는 옷이 없습니다. |
+| `INSUFFICIENT_CLOSET_ITEMS` | `422` | 추천을 만들 옷이 부족합니다. |
+| `INTERNAL_SERVER_ERROR` | `500` | 서버 오류가 발생했습니다. |
+
+## 8. 프론트 API 주의
+
+- 로그인 전 보호 API를 호출하지 않는다.
+- protected image URL은 Authorization header가 필요하므로 blob fetch로 조회한다.
+- `POST /api/recommendations`는 body 없이 호출 가능해야 한다.
+- feedback clear는 `{}` 또는 양쪽 `null` body로 처리한다.

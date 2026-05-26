@@ -34,8 +34,9 @@ description: "Codex가 이 Harness 프레임워크로 작업해야 할 때 사�
 7. 단계 이름은 `project-setup`, `api-layer`, `auth-flow`처럼 kebab-case를 사용한다.
 8. 각 단계는 Must-have / Should-have / Later 중 어느 범위에 속하는지 명시한다. 프로젝트가 P0/P1/P2 같은 용어를 쓰면 해당 프로젝트 skill의 정의를 따른다.
 9. 문서 간 API, 범위, 실행 방법 충돌이 발견되면 구현 단계에 섞지 말고 별도 문서 동기화 step으로 분리한다.
-10. phase별 문서 정합성 규칙은 `phases/{작업명}/docs-checks.json`에 함께 작성한다. MVP나 phase 범위가 바뀌면 `scripts/checks.py`가 아니라 이 파일을 갱신한다.
-11. `docs-checks.json`은 프로젝트 skill의 Documentation Sync Rules를 대체하거나 복제하는 SSOT가 아니다. skill은 에이전트가 따라야 하는 정성 규칙이고, `docs-checks.json`은 final stage에서 기계적으로 잡을 수 있는 핵심 회귀 신호만 담는다.
+10. MVP나 phase 범위가 바뀌면 `docs/MVP_CHANGE_CHECKLIST.md`를 먼저 확인한다.
+11. phase별 문서 정합성 규칙은 `phases/{작업명}/docs-checks.json`에 함께 작성한다. MVP나 phase 범위가 바뀌면 `scripts/checks.py`가 아니라 이 파일을 갱신한다.
+12. `docs-checks.json`은 프로젝트 skill의 Documentation Sync Rules를 대체하거나 복제하는 SSOT가 아니다. skill은 에이전트가 따라야 하는 정성 규칙이고, `docs-checks.json`은 final stage에서 기계적으로 잡을 수 있는 핵심 회귀 신호만 담는다.
 
 ## 생성할 파일
 

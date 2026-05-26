@@ -1,37 +1,33 @@
-# PRD: SmartCloset MVP5 옷 이미지 업로드
+# PRD: SmartCloset MVP6 추천 피드백/개인화
 
 ## 문서 목적
 
-이 문서는 SmartCloset MVP5의 확정 범위를 정의한다. MVP5는 MVP4에서 완성한 인증 사용자 기반 반응형 웹 UX 위에, 사용자가 직접 등록한 옷 이미지를 업로드하고 추천 결과에서 썸네일로 확인할 수 있게 만드는 단계다.
+이 문서는 SmartCloset MVP6의 확정 범위를 정의한다. MVP6는 MVP5 옷 이미지 업로드 완료 baseline 위에 추천 상황 선택, 추천 피드백 저장, 최근 피드백 기반 개인화, 옷별 `styleTags` 점수 반영, 추천 이력의 착용/피드백 표시를 추가하는 단계다.
 
-현재 구현 baseline은 MVP5 완료 상태다. 회원가입/로그인, JWT Bearer access token, 인증 사용자 기준 옷장/위치/선호도/추천 이력/착용 이력 분리, `GET /api/weather/current`, React `sessionStorage` 세션, Today/Closet/Preferences/Location/History 반응형 UX, 옷 이미지 업로드/교체/삭제/조회, 추천/이력 썸네일, Docker Compose 이미지 volume은 이미 구현되어 있다.
+현재 코드 baseline은 MVP5 완료 상태다. MVP6 phase 완료 후에는 이 문서와 `docs/` 아래 문서가 구현 source of truth가 된다.
 
 ## 문서 책임
-
-이 PRD는 제품 목표, MVP5 범위, 포함/제외, 완료 기준의 source of truth다. 세부 구현 계약은 아래 문서를 따른다.
 
 | 계약 영역 | Source of truth |
 | --- | --- |
 | HTTP endpoint, request/response DTO, 인증/에러 계약 | `docs/API.md` |
-| 추천 후보, 점수, 추천 이유 | `docs/RECOMMENDATION_RULES.md` |
-| 백엔드 구조, storage, transaction, 금지 패턴 | `docs/ARCHITECTURE.md` |
+| 추천 후보, 점수, 추천 이유, 피드백 반영 | `docs/RECOMMENDATION_RULES.md` |
+| 백엔드 구조, transaction, storage/provider 정책 | `docs/ARCHITECTURE.md` |
 | DB schema와 JPA/entity 기준 | `docs/ERD.md` |
 | 프론트 API client, 타입, UX, 반응형 기준 | `docs/FRONTEND.md` |
 | 데모/공유 검증 | `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md` |
-| 결정 배경 | `docs/ADR.md`, `docs/adr/010-mvp5-clothing-images.md` |
+| 결정 배경 | `docs/ADR.md`, `docs/adr/011-mvp6-feedback-personalization.md` |
 
-## MVP5 한 줄 정의
+## MVP6 한 줄 정의
 
-사용자가 옷 1개당 이미지 1장을 등록하고, 옷장과 추천 결과에서 실제 옷 썸네일을 확인할 수 있게 한다.
-
-신규 가입자와 옷이 0개인 기존 계정은 기본 옷 프리셋 5개와 상품컷 이미지를 자동으로 받아 첫 추천까지 더 빠르게 도달할 수 있다.
+사용자가 추천 상황과 추천 후 피드백을 남기면, SmartCloset이 최근 피드백과 옷별 style tag를 다음 추천 점수와 이유에 반영한다.
 
 ## 목표
 
-- 옷장을 텍스트와 enum 중심 목록에서 실제 옷 이미지 중심 경험으로 개선한다.
-- 추천 결과에서 사용자가 어떤 옷을 입을지 더 빠르게 알아볼 수 있게 한다.
-- Docker Compose 로컬 공유 환경에서 이미지 저장까지 재현 가능하게 한다.
-- AI 자동 태깅 없이 기존 수동 입력 방식을 유지한다.
+- 사용자가 "마음에 들어요", "별로예요", "추웠어요", "더웠어요" 같은 착용 후 피드백을 저장할 수 있게 한다.
+- 최근 피드백과 상황을 이용해 같은 실수를 줄이고 선호하는 조합을 더 잘 추천한다.
+- 기존 선호도 `styleTags`를 저장/표시용에서 추천 점수 입력으로 승격한다.
+- 추천 이력에서 착용 여부와 피드백 상태를 빠르게 확인하게 한다.
 
 ## 현재 Baseline
 
@@ -39,172 +35,164 @@
 - 그 외 API는 `Authorization: Bearer {accessToken}` header를 요구한다.
 - 공개 HTTP API는 `userId` query parameter를 받지 않는다.
 - 현재 사용자 전용 응답 DTO는 `userId`를 노출하지 않는다.
-- 옷 등록/수정 API는 JSON `ClothingRequest`를 사용한다.
+- 사용자 소유 옷장, 위치, 선호도, 추천 이력, 착용 이력은 인증 사용자별로 분리한다.
 - 추천 생성 API는 `POST /api/recommendations`다.
 - 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
 - 현재 날씨 요약 API는 `GET /api/weather/current`이며 보호 API다.
 - 프론트 access token 저장 위치는 `sessionStorage`다.
-- 추천 점수는 규칙 기반 100점 체계이며 `preferenceScore`는 선호 색상/소재만 반영한다.
-- `styleTags`는 저장/조회/표시만 하며 추천 점수와 추천 이유에는 반영하지 않는다.
-- 외부 Weather API는 기상청 단기예보 `getVilageFcst` JSON 연동만 사용한다.
-- 위치 선택은 외부 지도/주소 API 없이 서버 내장 대표 격자 catalog를 사용한다.
-- Docker Compose 공유 방식을 유지한다.
+- 옷 이미지 업로드/교체/조회/삭제, 추천/이력 썸네일, Docker Compose image volume은 MVP5 계약을 유지한다.
 
 ## 해결하려는 문제
 
-- 옷 목록에서 이름, 색상, 소재만으로 실제 옷을 구분해야 한다.
-- 추천 결과에 표시되는 옷 조합이 텍스트 중심이라 사용자가 실제 착장으로 연결하기 어렵다.
-- 사용자가 이미 등록한 옷을 수정할 때 이미지 교체나 삭제 흐름이 없다.
-- 공유 환경에서 이미지 저장 방식이 정의되어 있지 않아 후속 구현자가 파일 저장 경로, 접근 권한, 검증 기준을 임의로 정할 수 있다.
-- 신규 사용자는 처음 로그인했을 때 옷장이 비어 있어 이미지 UX와 추천 흐름을 체험하기 전 수동 등록 부담이 크다.
+- 현재 추천은 생성과 착용 완료만 저장하므로 사용자가 싫어한 조합이나 불편했던 온도 경험을 다음 추천에 반영하지 못한다.
+- `styleTags`가 사용자 선호도에 저장되지만 추천 후보별 점수 차이를 만들지 못한다.
+- 추천 생성 시 출근, 운동, 격식 같은 상황을 고를 수 없어 같은 옷장이라도 다른 목적의 추천을 만들기 어렵다.
+- 추천 이력에서 착용 여부와 피드백 상태를 함께 파악하기 어렵다.
 
 ## 핵심 사용자 시나리오
 
-1. 사용자가 로그인 후 Closet view에서 옷을 등록한다.
-2. 사용자가 등록한 옷에 이미지 1장을 업로드한다.
-3. 옷 목록 카드에 업로드한 이미지 썸네일이 표시된다.
-4. 사용자가 옷 이미지를 교체하거나 삭제한다.
-5. 사용자가 추천을 생성하면 추천 결과의 상의/하의/아우터 카드에 썸네일이 표시된다.
-6. 추천 이력에서도 추천 당시 포함된 옷의 현재 이미지 상태를 확인한다.
+1. 사용자가 Closet view에서 옷을 등록하거나 수정하며 `styleTags`를 입력한다.
+2. 사용자가 Today view에서 상황을 선택한다.
+3. 사용자가 추천을 생성한다.
+4. 추천 결과에 상황과 추천 이유가 표시된다.
+5. 사용자가 추천을 착용 완료 처리한다.
+6. 사용자가 마음에 들어요, 별로예요, 추웠어요, 더웠어요 피드백을 저장하거나 clear한다.
+7. 다음 추천은 최근 14일 피드백과 style tag 점수를 반영한다.
+8. History view에서 추천별 상황, 착용 여부, 착용 시각, 피드백을 확인한다.
 
-기본 프리셋 시나리오:
+## MVP6 우선순위
 
-1. 신규 사용자가 회원가입한다.
-2. 서버가 현재 사용자 소유 기본 옷 5개와 이미지 metadata를 생성한다.
-3. 사용자는 별도 등록 없이 Closet view에서 기본 옷 썸네일을 확인한다.
-4. 옷이 0개인 기존 계정은 다음 로그인 시 같은 프리셋을 한 번만 받는다.
+### P0: 피드백 저장
 
-## MVP5 우선순위
+- 추천 1건당 최신 피드백 snapshot 1개를 저장한다.
+- `sentiment`는 `LIKED`, `DISLIKED`, `null`을 허용한다.
+- `thermal`은 `TOO_COLD`, `TOO_HOT`, `null`을 허용한다.
+- PUT feedback은 전체 교체다.
+- 누락 필드는 `null`로 간주한다.
+- `{}` 또는 양쪽 `null` 요청은 피드백 전체 clear다.
+- 현재 사용자 소유 추천만 피드백을 저장할 수 있다.
 
-### P0: 이미지 저장과 보호 API
+### P0: 상황 선택
 
-- 옷 1개당 이미지 1장만 허용한다.
-- 기존 `POST /api/clothes`, `PUT /api/clothes/{clothingId}` JSON 계약은 유지한다.
-- 별도 보호 API로 이미지 업로드, 조회, 삭제를 제공한다.
-- 모든 이미지 API는 인증 사용자 소유 옷만 접근할 수 있다.
-- 이미지 조회는 public static path가 아니라 보호 API로 제공한다.
-- 로컬 파일 저장과 Docker Compose volume 저장 기준을 문서화한다.
+- 추천 상황 enum은 `WORK`, `CASUAL`, `WORKOUT`, `DATE`, `FORMAL`이다.
+- `POST /api/recommendations` body가 없거나 `situation`이 누락되면 `CASUAL`을 사용한다.
+- 추천 결과는 생성 당시 상황 snapshot을 저장하고 응답한다.
 
-### P0: 파일 검증
+### P0: 옷별 styleTags
 
-- 최대 파일 크기는 5MB다.
-- 허용 확장자는 `.jpg`, `.jpeg`, `.png`, `.webp`다.
-- 허용 MIME type은 `image/jpeg`, `image/png`, `image/webp`다.
-- 원본 파일명은 저장 경로에 사용하지 않는다.
-- 저장 파일명은 서버가 생성한 UUID 기반 이름을 사용한다.
-- 잘못된 파일은 `400 INVALID_REQUEST`로 실패한다.
+- `ClothingRequest`와 `ClothingResponse`는 `styleTags: string[]`를 포함한다.
+- 누락된 `styleTags`는 빈 배열로 처리한다.
+- blank tag는 저장하지 않는다.
+- 중복 tag는 제거한다.
+- 단일 tag 최대 길이는 30자다.
+- 비교는 trim 후 수행하고 ASCII는 case-insensitive다.
+- 사용자 선호 `styleTags`와 옷별 `styleTags`를 추천 점수에 반영한다.
 
-### P0: 썸네일 UX
+### P0: 개인화 점수와 이유
 
-- Closet 옷 목록과 수정 패널에서 이미지 미리보기를 제공한다.
-- 추천 결과의 outfit slot 카드에 썸네일을 표시한다.
-- 추천 이력의 outfit summary에 썸네일을 표시한다.
-- 이미지가 없으면 기존 category glyph, 색상 swatch, 소재 chip으로 fallback한다.
-- 모바일 375px에서 썸네일, 버튼, 텍스트가 겹치지 않아야 한다.
+- 총점 100점과 기존 score response field를 유지한다.
+- `preferenceScore` 최대 10점 내부에 색상, 소재, style tag, 최근 피드백 보정을 반영한다.
+- 피드백 반영 window는 최근 14일이다.
+- 추천 이유는 template 기반으로 유지하며 상황, style tag, 최근 피드백 반영 문구를 추가한다.
 
-### P1: 사용성 보강
+### P0: History UX
 
-- 업로드 진행/성공/실패 상태를 한국어 문장으로 표시한다.
-- 교체와 삭제 액션을 수정 흐름에서 명확히 분리한다.
-- 이미지 삭제는 idempotent하게 처리한다.
-- 인증 만료 시 이미지 blob fetch도 기존 인증 만료 흐름으로 연결한다.
-- 신규/빈 계정에는 기본 옷 프리셋을 자동 제공해 첫 화면의 빈 상태를 줄인다.
+- 추천 이력은 상황, 착용 여부, 착용 시각, 피드백 상태를 표시한다.
+- 피드백 저장/clear 후 이력 카드 상태가 갱신된다.
+- 모바일 375px에서 피드백 버튼과 이력 상태가 겹치지 않는다.
 
 ## 포함 범위
 
-- 이미지 메타데이터 컬럼 추가
-- 로컬 파일 저장 service
-- 이미지 검증
-- 이미지 업로드/조회/삭제 보호 API
-- 기본 옷 프리셋 5개와 번들 상품컷 이미지
-- 옷/추천 DTO에 nullable 이미지 메타데이터 추가
-- 프론트 API client에 multipart upload와 authenticated blob fetch 추가
-- Closet, Recommendation, History 썸네일 표시
-- Docker Compose volume 기반 공유 문서화
-- MVP5 phase 문서와 데모 시나리오 작성
+- `clothing_items.style_tags_json`
+- `recommendation_results.situation`
+- `recommendation_results.sentiment_feedback`
+- `recommendation_results.thermal_feedback`
+- `recommendation_results.feedback_updated_at`
+- `RecommendationSituation`, `RecommendationFeedbackSentiment`, `RecommendationThermalFeedback` enum
+- `RecommendationRequest`, `RecommendationFeedbackRequest`, `RecommendationFeedbackStateResponse`, `RecommendationFeedbackResponse`
+- `RecommendationResponse.situation`, `wornAt`, `feedback`
+- 최근 피드백 snapshot 기반 `preferenceScore` 반영
+- 상황별 styleTags 매핑표
+- 프론트 상황 선택, 피드백 저장/clear, 이력 표시 UX
+- MVP6 phase 문서와 docs-check 규칙
 
 ## 제외 범위
 
-- AI 자동 태깅
 - AI/GPT 추천
-- 다중 이미지 업로드
-- 이미지 편집, 크롭, 리사이즈, 압축 파이프라인
-- EXIF 기반 위치/시간 분석
-- S3, CDN, 외부 image hosting
-- 관리자 이미지 관리 기능
-- 이미지 moderation
-- 이미지 기반 추천 점수 변경
+- AI 자동 태깅
+- 피드백 이벤트 로그 테이블과 analytics
+- 옷별 styleTags 자동 추론
+- preference normalization table 분리
+- 쇼핑 추천
 - refresh token
-- 소셜 로그인
-- 이메일 인증
-- 비밀번호 재설정
-- 외부 주소/지도 검색 API
+- social login
+- email verification
+- password reset
 - Redis
+- 외부 주소/지도 검색 API
 - AWS 배포와 CD 자동화
-- native app/PWA 출시
+- S3/CDN 이미지 hosting
+- 다중 이미지 업로드
 
 ## API 변경 기준
 
-상세 HTTP 계약은 `docs/API.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
-
-- MVP5는 새 공개 API를 추가하지 않는다.
-- 이미지 업로드, 조회, 삭제는 별도 보호 API로 제공한다.
-- 기존 JSON 옷 등록/수정 API는 유지한다.
-- 이미지 업로드는 `multipart/form-data`와 part name `image`를 사용한다.
-- 이미지 bytes는 보호 API에서 인증/소유권 확인 후 반환한다.
-- 현재 사용자 전용 DTO에 `userId`를 되살리지 않고, 공개 `userId` query parameter를 추가하지 않는다.
+- 새 공개 API는 추가하지 않는다.
+- 피드백 API는 보호 API다.
+- 추천 feedback, situation, clothing styleTags는 현재 사용자 소유 데이터로만 처리한다.
+- 기존 `PATCH /api/recommendations/{recommendationId}/worn`는 유지하고 idempotent해야 한다.
+- `POST /api/recommendations`는 body 없이도 기존 호출이 성공해야 한다.
+- 현재 사용자 전용 DTO에 `userId`를 되살리지 않고 공개 `userId` query parameter를 추가하지 않는다.
 
 ## 데이터/ERD 기준
 
-상세 schema는 `docs/ERD.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
-
-- `clothing_items`에 nullable 이미지 메타데이터를 둔다.
-- 별도 이미지 테이블은 만들지 않는다.
-- 파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker volume에 저장한다.
-- 추천 이력은 별도 이미지 snapshot 없이 현재 옷의 최신 이미지 상태를 표시한다.
+- 별도 피드백 이벤트 로그 테이블은 만들지 않는다.
+- 추천 결과 row에 최신 feedback snapshot과 update 시각을 둔다.
+- 착용 완료 시각은 추천 이력 표시를 위해 응답 DTO에 포함한다.
+- 옷별 styleTags는 `clothing_items.style_tags_json` JSON array string으로 저장한다.
+- 운영 DB migration 전략은 기존과 같이 Hibernate `ddl-auto=update`와 로컬 Docker Compose reset 기준으로 검증한다.
 
 ## 프론트엔드 기준
 
-상세 프론트 계약은 `docs/FRONTEND.md`와 `docs/design/mvp5/README.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
-
-- Closet view에서 옷 이미지 업로드, 교체, 삭제, fallback 표시를 제공한다.
-- Today 추천 결과와 History 추천 이력에서 썸네일을 표시한다.
-- 보호 이미지 API는 Authorization header를 붙인 blob fetch로 조회한다.
-- 이미지가 없거나 조회에 실패한 옷은 기존 category glyph, 색상 swatch, 소재 chip으로 fallback한다.
+- Today view에는 상황 선택 control을 둔다.
+- 추천 결과에는 피드백 control을 둔다.
+- History view는 추천별 상황, 착용 여부, 착용 시각, 피드백을 함께 보여준다.
+- Closet view는 옷 등록/수정 시 `styleTags`를 입력하고 표시한다.
+- 큰 state-management library를 추가하지 않는다.
 
 ## 추천 규칙 기준
 
-상세 추천 계약은 `docs/RECOMMENDATION_RULES.md`를 따른다. PRD 레벨의 확정 사항은 아래와 같다.
+상세 추천 계약은 `docs/RECOMMENDATION_RULES.md`를 따른다.
 
-- MVP5는 추천 후보 필터링, 점수 계산, tie-break, 추천 이유 규칙을 변경하지 않는다.
+- `preferenceScore = clamp(color 0/2 + material 0/2 + styleTag 0..3 + feedbackAdjustment -3..3, 0, 10)`
+- 부정 피드백은 긍정 피드백보다 우선한다.
+- 여러 부정 signal이 있으면 가장 강한 감점을 사용한다.
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
-- `styleTags`는 계속 저장/조회/표시만 한다.
 
 ## 완료 기준
 
-- 로그인한 사용자가 자신의 옷에 이미지 1장을 업로드할 수 있다.
-- 신규 가입자와 옷이 0개인 기존 로그인 사용자는 기본 옷 5개와 이미지 metadata를 받는다.
-- 옷 이미지 교체와 삭제가 가능하다.
-- 다른 사용자의 옷 이미지에 접근하면 기존 소유권 정책대로 실패한다.
-- 잘못된 파일 크기, 확장자, MIME type은 실패한다.
-- 옷 목록에 썸네일이 표시된다.
-- 추천 결과와 추천 이력에 썸네일이 표시된다.
-- 이미지가 없는 옷도 기존 fallback UI로 자연스럽게 표시된다.
-- Docker Compose 환경에서 app 재시작 후 업로드 이미지가 유지된다.
-- AI 자동 태깅이나 이미지 기반 추천 점수 변경이 포함되지 않는다.
+- 로그인한 사용자가 상황을 선택해 추천을 생성할 수 있다.
+- body 없이 `POST /api/recommendations`를 호출하면 `CASUAL` 추천이 생성된다.
+- 옷 등록/수정/조회에서 `styleTags`가 저장되고 응답된다.
+- 추천 결과와 추천 이력에 `situation`, `wornAt`, `feedback`이 포함된다.
+- 추천 피드백 PUT 전체 교체, 누락/null 처리, clear가 동작한다.
+- 다른 사용자 추천에는 피드백을 저장할 수 없다.
+- 최근 피드백과 style tag가 `preferenceScore`와 추천 이유에 반영된다.
+- 기존 착용 완료 API는 계속 idempotent하다.
+- MVP5 이미지 업로드와 썸네일 흐름은 유지된다.
 
 ## 테스트/검증 기준
 
+- `git diff --check`
 - `./gradlew test`
 - `./gradlew build`
 - `cd frontend && npm run build`
-- Docker Compose 실행 후 이미지 업로드, 교체, 삭제, 추천 썸네일 표시 확인
-- 모바일 375px에서 Closet, Today 추천 결과, History 화면 overflow 확인
+- `docker compose config --quiet`
+- `python3 scripts/checks.py --docs-check-config phases/6-smartcloset-feedback-personalization/docs-checks.json --docs-check`
 
 ## 결정 완료 사항
 
-- 이미지 API 형태: 기존 JSON 옷 API 유지 + 별도 보호 이미지 API
-- 이미지 접근: 보호 API에서 인증/소유권 확인 후 bytes 반환
-- 파일 제한: 5MB, jpg/jpeg/png/webp
-- 저장 방식: MVP5는 Docker Compose 로컬 볼륨 기반 파일 저장부터 시작
-- AI 자동 태깅: MVP5 제외
+- 피드백 모델: 추천 결과별 최신 상태 snapshot
+- feedback PUT 의미: 전체 교체, 누락 필드는 `null`, 양쪽 `null`은 clear
+- 점수 계약: 총점 100점과 기존 score DTO 유지, `preferenceScore` 내부 확장
+- styleTags 점수화: 옷별 styleTags와 사용자 선호 styleTags, 상황 매핑 tag를 비교
+- 기본 상황: `CASUAL`

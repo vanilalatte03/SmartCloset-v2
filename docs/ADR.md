@@ -13,6 +13,8 @@ ADR-009는 MVP4를 백엔드 API/DB/추천 규칙 변경이 아닌 반응형 웹
 
 ADR-010은 MVP5를 옷 이미지 업로드 MVP로 확정하고, 기존 옷 JSON API 유지와 별도 보호 이미지 API, Docker Compose 로컬 볼륨 저장 방식을 정의한다.
 
+ADR-011은 MVP6를 추천 피드백/개인화 MVP로 확정하고, 추천 상황, 옷별 `styleTags`, 추천 피드백 snapshot, `preferenceScore` 내부 확장 방식을 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -23,3 +25,4 @@ ADR-010은 MVP5를 옷 이미지 업로드 MVP로 확정하고, 기존 옷 JSON 
 - [ADR-008: Use Authenticated User APIs and Preference Score](adr/008-mvp3-authenticated-user-personalization.md)
 - [ADR-009: Define MVP4 as Responsive Usable UX](adr/009-mvp4-usable-ux.md)
 - [ADR-010: Define MVP5 as Clothing Image Upload](adr/010-mvp5-clothing-images.md)
+- [ADR-011: Define MVP6 as Feedback Personalization](adr/011-mvp6-feedback-personalization.md)

@@ -7,7 +7,7 @@
 
 ## 구현 전 필수
 - 구현, 리뷰, 문서 동기화 전에는 반드시 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
-- 현재 baseline은 MVP5 옷 이미지 업로드 완료 상태다. MVP5 계약은 `docs/PRD.md`와 ADR-010을 따른다.
+- 현재 baseline은 MVP6 추천 피드백/개인화 문서 전환 상태다. MVP6 계약은 `docs/PRD.md`와 ADR-011을 따른다.
 - 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
 - phase/step 작업은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 함께 따른다.
 
@@ -20,10 +20,11 @@
 | 백엔드 구조, 저장소, 트랜잭션, 금지 패턴 | `docs/ARCHITECTURE.md` |
 | DB schema, entity/JPA 기준 | `docs/ERD.md` |
 | 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP5 화면 설계 참고 | `docs/design/mvp5/README.md` |
+| MVP6 프론트 UX 기준 | `docs/FRONTEND.md` |
 | 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
 | Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
 | 실행 명령과 검증 명령 | `docs/COMMANDS.md` |
+| MVP 변경 시 확인할 문서/스크립트/서브에이전트 체크리스트 | `docs/MVP_CHANGE_CHECKLIST.md` |
 | 결정 기록과 변경 이력 | `docs/ADR.md`, `docs/adr/` |
 
 ## 문서 충돌 해석

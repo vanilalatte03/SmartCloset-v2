@@ -1,0 +1,41 @@
+{
+  "project": "SmartCloset",
+  "phase": "6-smartcloset-feedback-personalization",
+  "steps": [
+    {
+      "step": 0,
+      "name": "mvp6-scope-docs",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "clothing-style-tags",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "recommendation-situation",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "recommendation-feedback-api",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "personalized-scoring-reasons",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "frontend-feedback-personalization-ux",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "compose-docs-qa",
+      "status": "pending"
+    }
+  ]
+}

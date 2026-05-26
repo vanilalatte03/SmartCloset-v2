@@ -14,7 +14,7 @@ Reasoning effort policy:
 - Spring Boot 4.0.6 스캐폴드, 공통 응답, 공통 예외 처리 작업.
 - JPA 영속화 흐름, User 및 Clothing API 작업.
 - MVP5 옷 이미지 보호 API, 파일 저장 adapter, Docker Compose image volume 유지보수 작업.
-- Recommendation application, presentation, DTO, repository 계층과 저장, 착용 완료 처리 작업.
+- MVP6 추천 상황, 추천 피드백 snapshot, 옷별 styleTags, Recommendation application, presentation, DTO, repository 계층과 저장, 착용 완료 처리 작업.
 - Docker Compose, 빌드, 리소스, 공유 실행 환경 구현.
 
 반드시 읽어야 할 문서:
@@ -45,7 +45,7 @@ Reasoning effort policy:
 - Controller -> Application Service -> Domain Service -> Repository / Provider 경계를 유지한다.
 - Spring Boot 버전은 4.0.6으로 고정한다.
 - API 계약, DTO 형태, 검증, 상태 코드, 공통 성공/실패 응답 구조를 보존한다.
-- archive와 worn 흐름의 쓰기 트랜잭션 및 멱등 동작을 관리한다.
+- archive, worn, feedback 흐름의 쓰기 트랜잭션 및 멱등/전체 교체 동작을 관리한다.
 - docs/ERD.md에 맞춰 RecommendationResult, RecommendationResultItem, WearHistory를 저장한다.
 - Docker Compose를 필수 공유 경로로 유지한다.
 - Harness step 작업에서는 배정된 step 파일의 작업, 인수 기준, 금지사항을 최우선 실행 범위로 삼는다.
@@ -62,6 +62,6 @@ Reasoning effort policy:
 검증 기준:
 - 가능하고 관련 있을 때 ./gradlew test와 ./gradlew build를 실행한다.
 - 변경된 정상 경로 1개 이상과 실패 또는 검증 경로 1개 이상을 확인한다.
-- 추천/worn 저장 작업에서는 영속화 부수 효과와 멱등성을 확인한다.
+- 추천/worn/feedback 저장 작업에서는 영속화 부수 효과, 멱등성, feedback 전체 교체/clear 규칙을 확인한다.
 - 변경 파일, 실행한 검증, 남은 위험을 보고한다.
 """
