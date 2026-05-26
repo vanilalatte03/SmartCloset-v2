@@ -41,14 +41,23 @@ public record WeatherSource(
     }
 
     public static WeatherSource fallback(String baseDate, String baseTime) {
+        return fallback(baseDate, baseTime, null, null);
+    }
+
+    public static WeatherSource fallback(
+            String baseDate,
+            String baseTime,
+            String forecastDate,
+            String forecastTime
+    ) {
         return new WeatherSource(
                 WeatherProviderType.STATIC_FALLBACK,
                 false,
                 true,
                 baseDate,
                 baseTime,
-                null,
-                null
+                forecastDate,
+                forecastTime
         );
     }
 

@@ -41,7 +41,26 @@ class KmaVilageForecastWeatherProviderTest {
         assertThat(weather.source().fallbackUsed()).isTrue();
         assertThat(weather.source().baseDate()).isEqualTo("20260521");
         assertThat(weather.source().baseTime()).isEqualTo("1400");
+        assertThat(weather.source().forecastDate()).isEqualTo("20260521");
+        assertThat(weather.source().forecastTime()).isEqualTo("1500");
         assertThat(weather.location().code()).isEqualTo("BUSAN");
+    }
+
+    @Test
+    void fallbackWeatherUsesRequestedForecastPeriodForForecastTime() {
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(properties("", true), client);
+
+        WeatherSnapshot weather = provider.getWeather(1L, ForecastPeriod.EVENING);
+
+        assertFallbackWeather(weather);
+        assertThat(client.called()).isFalse();
+        assertThat(weather.source().provider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(weather.source().fallbackUsed()).isTrue();
+        assertThat(weather.source().baseDate()).isEqualTo("20260521");
+        assertThat(weather.source().baseTime()).isEqualTo("1400");
+        assertThat(weather.source().forecastDate()).isEqualTo("20260521");
+        assertThat(weather.source().forecastTime()).isEqualTo("2100");
     }
 
     @Test

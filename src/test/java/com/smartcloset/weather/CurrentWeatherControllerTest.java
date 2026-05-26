@@ -1,7 +1,6 @@
 package com.smartcloset.weather;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -92,8 +91,8 @@ class CurrentWeatherControllerTest {
                 .andExpect(jsonPath("$.data.source.fallbackUsed").value(true))
                 .andExpect(jsonPath("$.data.source.baseDate").isString())
                 .andExpect(jsonPath("$.data.source.baseTime").isString())
-                .andExpect(jsonPath("$.data.source.forecastDate").value(nullValue()))
-                .andExpect(jsonPath("$.data.source.forecastTime").value(nullValue()))
+                .andExpect(jsonPath("$.data.source.forecastDate").isString())
+                .andExpect(jsonPath("$.data.source.forecastTime").isString())
                 .andExpect(jsonPath("$.data.userId").doesNotExist());
 
         assertThat(recommendationResultRepository.count()).isEqualTo(recommendationCount);

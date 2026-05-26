@@ -13,7 +13,11 @@ import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +31,8 @@ import org.springframework.stereotype.Component;
 public class KmaVilageForecastWeatherProvider implements WeatherProvider {
 
     private static final Duration WEATHER_CACHE_TTL = Duration.ofMinutes(2);
+    private static final DateTimeFormatter FORECAST_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter FORECAST_TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
 
     private final KmaWeatherProperties properties;
     private final KmaForecastClient client;
@@ -109,7 +115,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         KmaGrid grid = new KmaGrid(location.nx(), location.ny());
 
         if (properties.serviceKey().isBlank()) {
-            return fallbackOrThrow(userId, location, baseTime);
+            return fallbackOrThrow(userId, location, baseTime, forecastPeriod);
         }
 
         try {
@@ -126,19 +132,50 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                     )
             );
         } catch (KmaForecastClientException | KmaWeatherMappingException exception) {
-            return fallbackOrThrow(userId, location, baseTime);
+            return fallbackOrThrow(userId, location, baseTime, forecastPeriod);
         }
     }
 
-    private WeatherSnapshot fallbackOrThrow(Long userId, UserLocationSnapshot location, KmaForecastBaseTime baseTime) {
+    private WeatherSnapshot fallbackOrThrow(
+            Long userId,
+            UserLocationSnapshot location,
+            KmaForecastBaseTime baseTime,
+            ForecastPeriod forecastPeriod
+    ) {
         if (properties.fallbackEnabled()) {
+            LocalDateTime forecastDateTime = fallbackForecastDateTime(forecastPeriod);
             return new WeatherSnapshot(
                     fallbackProvider.getCurrentWeather(userId).condition(),
                     WeatherLocationSnapshot.from(location),
-                    WeatherSource.fallback(baseTime.baseDate(), baseTime.baseTime())
+                    WeatherSource.fallback(
+                            baseTime.baseDate(),
+                            baseTime.baseTime(),
+                            forecastDateTime.format(FORECAST_DATE_FORMATTER),
+                            forecastDateTime.format(FORECAST_TIME_FORMATTER)
+                    )
             );
         }
         throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    private LocalDateTime fallbackForecastDateTime(ForecastPeriod forecastPeriod) {
+        ZonedDateTime nowKst = ZonedDateTime.now(clock)
+                .withZoneSameInstant(KmaForecastBaseTimeCalculator.KST_ZONE);
+        LocalDate today = nowKst.toLocalDate();
+        return switch (forecastPeriod) {
+            case CURRENT -> roundUpToForecastHour(nowKst.toLocalDateTime());
+            case MORNING -> LocalDateTime.of(today, LocalTime.of(9, 0));
+            case AFTERNOON -> LocalDateTime.of(today, LocalTime.of(15, 0));
+            case EVENING -> LocalDateTime.of(today, LocalTime.of(21, 0));
+        };
+    }
+
+    private LocalDateTime roundUpToForecastHour(LocalDateTime dateTime) {
+        LocalDateTime truncatedToHour = dateTime.withMinute(0).withSecond(0).withNano(0);
+        if (dateTime.equals(truncatedToHour)) {
+            return truncatedToHour;
+        }
+        return truncatedToHour.plusHours(1);
     }
 
     private record WeatherCacheKey(
