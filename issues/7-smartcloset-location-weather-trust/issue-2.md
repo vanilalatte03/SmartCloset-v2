@@ -39,3 +39,29 @@ git diff --check origin/main...HEAD
 
 ## 완료 기준
 - 로컬 검증, 금지 범위 검색, Codex 자체 리뷰를 모두 통과한다.
+
+---
+
+## 재시도 1 리뷰 실패
+
+## 자체 리뷰
+
+| 항목 | 결과 | 비고 |
+| --- | --- | --- |
+| 로컬 검증 | 통과 | docs/COMMANDS.md 기준 명령 |
+| diff 검사 | 통과 | git diff --check |
+| 금지 범위 | 통과 | MVP 제외 범위와 금지 API 검색 |
+| 자체 리뷰 | 실패 | Codex read-only review |
+
+## 확인한 명령
+
+```bash
+python3 scripts/checks.py --stage manual
+git diff --check origin/main...HEAD
+```
+
+## 발견사항
+- src/main/java/com/smartcloset/weather/infrastructure/kma/KmaVilageForecastWeatherProvider.java:87-99 and 181-219 cache and return the entire WeatherSnapshot, but the cache key omits location source/name/fullName/updatedAt. If a user updates the same location/grid with a different LocationSource, GET /api/weather/current can keep returning the old source for up to 2 minutes, violating Step 3's weather source snapshot contract. Include the full location snapshot/source or updatedAt in the key, or cache only KMA condition/source and rebuild WeatherLocationSnapshot from the current user location on each request.
+
+## 리뷰 결론
+블로커가 있어 merge하지 않습니다.
