@@ -4,11 +4,13 @@ import com.smartcloset.clothing.application.ClothingStyleTagMapper;
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
+import com.smartcloset.recommendation.domain.RecommendationSituation;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public record RecommendationResponse(
         Long recommendationId,
+        RecommendationSituation situation,
         WeatherResponse weather,
         RecommendationOutfitResponse outfit,
         RecommendationScoreResponse score,
@@ -25,6 +27,7 @@ public record RecommendationResponse(
     ) {
         return new RecommendationResponse(
                 recommendationResult.getId(),
+                recommendationResult.getSituation(),
                 WeatherResponse.from(recommendationResult),
                 RecommendationOutfitResponse.from(candidate, styleTagMapper),
                 RecommendationScoreResponse.from(recommendationResult),
@@ -42,6 +45,7 @@ public record RecommendationResponse(
     ) {
         return new RecommendationResponse(
                 recommendationResult.getId(),
+                recommendationResult.getSituation(),
                 WeatherResponse.from(recommendationResult),
                 RecommendationOutfitResponse.from(items, styleTagMapper),
                 RecommendationScoreResponse.from(recommendationResult),

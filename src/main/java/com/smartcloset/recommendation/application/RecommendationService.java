@@ -19,6 +19,7 @@ import com.smartcloset.recommendation.domain.RecommendationReasonGenerator;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
 import com.smartcloset.recommendation.domain.RecommendationScorer;
+import com.smartcloset.recommendation.domain.RecommendationSituation;
 import com.smartcloset.recommendation.domain.ScoredOutfitCandidate;
 import com.smartcloset.recommendation.domain.WeatherFilteredClothes;
 import com.smartcloset.recommendation.domain.WeatherSuitabilityFilter;
@@ -98,15 +99,21 @@ public class RecommendationService {
     }
 
     public RecommendationResponse createRecommendation(Long userId) {
+        return createRecommendation(userId, RecommendationSituation.CASUAL);
+    }
+
+    public RecommendationResponse createRecommendation(Long userId, RecommendationSituation situation) {
         WeatherCondition weather = weatherProvider.getCurrentWeather(userId);
         LocalDateTime requestedAt = LocalDateTime.now();
+        RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
         return Objects.requireNonNull(transactionTemplate.execute(status ->
-                createRecommendationInTransaction(userId, weather, requestedAt)
+                createRecommendationInTransaction(userId, resolvedSituation, weather, requestedAt)
         ));
     }
 
     private RecommendationResponse createRecommendationInTransaction(
             Long userId,
+            RecommendationSituation situation,
             WeatherCondition weather,
             LocalDateTime requestedAt
     ) {
@@ -138,7 +145,7 @@ public class RecommendationService {
                     recommendationHistories,
                     requestedAt
             );
-            RecommendationResult recommendationResult = saveRecommendation(user, weather, best, reasons);
+            RecommendationResult recommendationResult = saveRecommendation(user, situation, weather, best, reasons);
             return RecommendationResponse.from(recommendationResult, best.candidate(), reasons, clothingStyleTagMapper);
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
@@ -193,12 +200,14 @@ public class RecommendationService {
 
     private RecommendationResult saveRecommendation(
             User user,
+            RecommendationSituation situation,
             WeatherCondition weather,
             ScoredOutfitCandidate best,
             List<String> reasons
     ) {
         RecommendationResult recommendationResult = RecommendationResult.create(
                 user,
+                situation,
                 weather,
                 best.score(),
                 writeReasonsJson(reasons)
