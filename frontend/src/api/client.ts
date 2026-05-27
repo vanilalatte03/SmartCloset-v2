@@ -26,9 +26,27 @@ type ApiRequestInit = RequestInit & {
 type RefreshAccessTokenHandler = () => Promise<string | null>;
 
 let refreshAccessTokenHandler: RefreshAccessTokenHandler | null = null;
+let refreshAccessTokenPromise: Promise<string | null> | null = null;
 
 export function setRefreshAccessTokenHandler(handler: RefreshAccessTokenHandler | null) {
   refreshAccessTokenHandler = handler;
+  if (!handler) {
+    refreshAccessTokenPromise = null;
+  }
+}
+
+function refreshAccessTokenOnce(): Promise<string | null> {
+  if (!refreshAccessTokenHandler) {
+    return Promise.resolve(null);
+  }
+
+  if (!refreshAccessTokenPromise) {
+    refreshAccessTokenPromise = refreshAccessTokenHandler().finally(() => {
+      refreshAccessTokenPromise = null;
+    });
+  }
+
+  return refreshAccessTokenPromise;
 }
 
 function isErrorResponse(value: unknown): value is ErrorResponse {
@@ -80,7 +98,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
     retryOnUnauthorized &&
     refreshAccessTokenHandler
   ) {
-    const nextAccessToken = await refreshAccessTokenHandler();
+    const nextAccessToken = await refreshAccessTokenOnce();
     if (nextAccessToken) {
       const retryResponse = await send(path, nextAccessToken, requestInit);
       const retryPayload = await parseJson(retryResponse);
@@ -141,7 +159,7 @@ export async function fetchWithAuthRetry(
     return response;
   }
 
-  const nextAccessToken = await refreshAccessTokenHandler();
+  const nextAccessToken = await refreshAccessTokenOnce();
   if (!nextAccessToken) {
     return response;
   }
