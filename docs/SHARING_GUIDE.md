@@ -83,6 +83,7 @@ REFRESH_TOKEN_COOKIE_SECURE=false
 REFRESH_TOKEN_COOKIE_SAME_SITE=Lax
 REFRESH_TOKEN_COOKIE_DOMAIN=
 REFRESH_TOKEN_COOKIE_PATH=/api/auth
+REFRESH_TOKEN_COOKIE_MAX_AGE=14d
 REFRESH_TOKEN_TTL_DAYS=14
 
 KMA_SERVICE_KEY=
@@ -98,6 +99,12 @@ GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/oauth2/callback/google
 FRONTEND_AUTH_CALLBACK_URL=http://localhost:5173/auth/callback
+OAUTH_STATE_COOKIE_NAME=smartcloset.oauth2State
+OAUTH_STATE_COOKIE_SECURE=false
+OAUTH_STATE_COOKIE_SAME_SITE=Lax
+OAUTH_STATE_COOKIE_DOMAIN=
+OAUTH_STATE_COOKIE_PATH=/api/auth/oauth2
+OAUTH_STATE_COOKIE_MAX_AGE=5m
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=true
 
@@ -110,6 +117,7 @@ VITE_API_BASE_URL=http://localhost:8080
 | --- | --- |
 | `JWT_SECRET` | JWT access token 서명용 secret. 예시는 로컬 개발용 placeholder |
 | `REFRESH_TOKEN_COOKIE_*` | refresh cookie name, secure, SameSite, domain, path 설정 |
+| `REFRESH_TOKEN_COOKIE_MAX_AGE` | refresh cookie Max-Age. local 기본값은 `14d` |
 | `REFRESH_TOKEN_TTL_DAYS` | refresh session 만료 기준 |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
@@ -167,6 +175,7 @@ MVP8 공유 문서에는 AWS 구현을 포함하지 않는다. 다만 MVP9를 �
 - `EmailSender`는 MVP9에서 SES/SMTP 구현체로 교체 가능해야 한다.
 - `ClothingImageStorage`는 MVP9에서 S3 구현체를 추가할 수 있어야 한다.
 - Cookie/CORS/OAuth redirect/base URL은 env로 바꿀 수 있어야 한다.
+- `SPRING_PROFILES_ACTIVE=local`은 Docker Compose 기본값으로 유지하고, future `prod` profile은 별도 env와 운영 adapter bean으로 추가한다.
 - local Docker Compose 실행은 prod profile 추가 후에도 유지되어야 한다.
 
 ## 제외 범위 확인

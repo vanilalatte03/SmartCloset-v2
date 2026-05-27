@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "aws-ready-local-profile-boundaries",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T13:16:10+0900",
+      "summary": "local 실행 유지와 MVP9 AWS-ready adapter/profile 경계를 정리했다.",
+      "completed_at": "2026-05-27T13:18:19+0900"
     },
     {
       "step": 7,

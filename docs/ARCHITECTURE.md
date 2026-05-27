@@ -231,6 +231,7 @@ MVP8은 AWS 배포를 구현하지 않는다.
 - `ClothingImageStorage`는 기존 local file 구현을 유지한다.
 - MVP9에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
 - Cookie, CORS, OAuth URL은 properties/env로 분리한다.
+- `local` profile은 Docker Compose 기본 실행 경로로 유지하고, future `prod` profile은 별도 properties/env와 adapter bean으로 추가한다.
 - local profile과 Docker Compose 경로는 계속 동작해야 한다.
 
 ## 기존 domain 흐름 유지
