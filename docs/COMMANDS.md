@@ -61,6 +61,8 @@ curl -fsS http://localhost:5173 >/dev/null
 docker compose down
 ```
 
+Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. MVP9에서 `prod` profile을 추가하더라도 local Compose 명령과 local env 기본값은 유지한다.
+
 MVP8 최종 수동 QA에서는 브라우저에서 이메일 인증, refresh 세션 복구, 비밀번호 재설정, Google provider 상태, 세션 만료 UX, 계정 삭제, 기존 위치/날씨 추천과 이미지/피드백 흐름 유지 여부를 확인한다.
 
 ## URLs
