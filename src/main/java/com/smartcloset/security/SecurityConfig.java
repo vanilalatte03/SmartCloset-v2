@@ -50,6 +50,12 @@ public class SecurityConfig {
                                 "/api/auth/password-reset/confirm"
                         ).permitAll()
                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/auth/oauth2/providers",
+                                "/api/auth/oauth2/google",
+                                "/api/auth/oauth2/callback/google"
+                        ).permitAll()
+                        .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/demo/**",

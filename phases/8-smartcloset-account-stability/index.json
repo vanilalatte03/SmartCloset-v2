@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "google-oauth-login",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T12:22:07+0900",
+      "summary": "Google OAuth provider status, login/callback, social account link 흐름을 추가했다.",
+      "completed_at": "2026-05-27T12:28:26+0900"
     },
     {
       "step": 4,

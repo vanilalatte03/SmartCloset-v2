@@ -2,6 +2,7 @@ package com.smartcloset.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -110,6 +111,22 @@ class AuthControllerTest {
                     assertThat(signupResult.getResponse().getContentAsString()).doesNotContain(token.getTokenHash());
                     assertThat(token.getUsedAt()).isNull();
                 });
+    }
+
+    @Test
+    void oauthProvidersReturnsGoogleDisabledWhenClientConfigIsMissing() throws Exception {
+        mockMvc.perform(get("/api/auth/oauth2/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.google.enabled").value(false))
+                .andExpect(jsonPath("$.data.google.loginUrl").doesNotExist());
+    }
+
+    @Test
+    void googleLoginStartFailsWhenProviderIsDisabled() throws Exception {
+        mockMvc.perform(get("/api/auth/oauth2/google"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("OAUTH2_PROVIDER_UNAVAILABLE"))
+                .andExpect(jsonPath("$.details").isArray());
     }
 
     @Test

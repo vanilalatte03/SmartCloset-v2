@@ -17,13 +17,17 @@ public record CurrentUserResponse(
 ) {
 
     public static CurrentUserResponse from(User user) {
+        return from(user, user.isPasswordLoginEnabled() ? List.of("PASSWORD") : List.of());
+    }
+
+    public static CurrentUserResponse from(User user, List<String> authProviders) {
         return new CurrentUserResponse(
                 user.getEmail(),
                 user.getName(),
                 user.getRole(),
                 user.isEmailVerified(),
                 user.isPasswordLoginEnabled(),
-                user.isPasswordLoginEnabled() ? List.of("PASSWORD") : List.of(),
+                List.copyOf(authProviders),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
