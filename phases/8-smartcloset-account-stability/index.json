@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "refresh-token-session",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T11:46:01+0900",
+      "summary": "DB-backed refresh session, rotation, logout, cookie 설정을 추가했다.",
+      "completed_at": "2026-05-27T11:51:42+0900"
     },
     {
       "step": 2,

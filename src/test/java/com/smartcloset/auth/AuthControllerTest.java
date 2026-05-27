@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.clothing.domain.ClothingCategory;
 import com.smartcloset.clothing.domain.ClothingColor;
 import com.smartcloset.clothing.domain.ClothingItem;
@@ -17,6 +18,7 @@ import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import java.util.Map;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +51,9 @@ class AuthControllerTest {
 
     @Autowired
     private ClothingItemRepository clothingItemRepository;
+
+    @Autowired
+    private RefreshSessionRepository refreshSessionRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -159,23 +164,124 @@ class AuthControllerTest {
                 "password", "password123!"
         );
 
-        mockMvc.perform(post("/api/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.email").value("login@example.com"))
                 .andExpect(jsonPath("$.data.user.name").value("Login User"))
-                .andExpect(jsonPath("$.data.user.userId").doesNotExist());
+                .andExpect(jsonPath("$.data.user.userId").doesNotExist())
+                .andReturn();
 
         assertThat(clothingItemRepository.countByUserId(user.getId())).isEqualTo(5);
+        Cookie refreshCookie = loginResult.getResponse().getCookie("smartcloset.refreshToken");
+        assertThat(refreshCookie).isNotNull();
+        assertThat(refreshCookie.getValue()).isNotBlank();
+        assertThat(loginResult.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                .contains("HttpOnly")
+                .contains("SameSite=Lax");
+        assertThat(loginResult.getResponse().getContentAsString()).doesNotContain(refreshCookie.getValue());
+        assertThat(refreshSessionRepository.findAll())
+                .hasSize(1)
+                .allSatisfy(session -> {
+                    assertThat(session.getUser().getId()).isEqualTo(user.getId());
+                    assertThat(session.getTokenHash()).isNotBlank();
+                    assertThat(session.getTokenHash()).isNotEqualTo(refreshCookie.getValue());
+                    assertThat(session.getRevokedAt()).isNull();
+                    assertThat(session.getReplacedByTokenHash()).isNull();
+                });
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
         assertThat(clothingItemRepository.countByUserId(user.getId())).isEqualTo(5);
+    }
+
+    @Test
+    void refreshRotatesRefreshCookieAndReturnsNewAccessTokenWithoutRefreshTokenBody() throws Exception {
+        userRepository.save(User.create("refresh@example.com", passwordEncoder.encode("password123!"), "Refresh User"));
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "refresh@example.com",
+                                "password", "password123!"
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie originalRefreshCookie = loginResult.getResponse().getCookie("smartcloset.refreshToken");
+        String originalRefreshToken = originalRefreshCookie.getValue();
+
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(originalRefreshCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.data.user.email").value("refresh@example.com"))
+                .andReturn();
+
+        Cookie rotatedRefreshCookie = refreshResult.getResponse().getCookie("smartcloset.refreshToken");
+        assertThat(rotatedRefreshCookie).isNotNull();
+        assertThat(rotatedRefreshCookie.getValue()).isNotBlank();
+        assertThat(rotatedRefreshCookie.getValue()).isNotEqualTo(originalRefreshToken);
+        assertThat(refreshSessionRepository.findAll())
+                .hasSize(2)
+                .anySatisfy(session -> {
+                    assertThat(session.getRevokedAt()).isNotNull();
+                    assertThat(session.getReplacedByTokenHash()).isNotBlank();
+                })
+                .anySatisfy(session -> {
+                    assertThat(session.getRevokedAt()).isNull();
+                    assertThat(session.getReplacedByTokenHash()).isNull();
+                });
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(originalRefreshCookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+    }
+
+    @Test
+    void refreshRequiresRefreshCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void logoutRevokesRefreshSessionAndExpiresCookieEvenWhenCookieIsMissing() throws Exception {
+        userRepository.save(User.create("logout@example.com", passwordEncoder.encode("password123!"), "Logout User"));
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "logout@example.com",
+                                "password", "password123!"
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie refreshCookie = loginResult.getResponse().getCookie("smartcloset.refreshToken");
+
+        MvcResult logoutResult = mockMvc.perform(post("/api/auth/logout")
+                        .cookie(refreshCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loggedOut").value(true))
+                .andReturn();
+
+        assertThat(refreshSessionRepository.findAll())
+                .singleElement()
+                .satisfies(session -> assertThat(session.getRevokedAt()).isNotNull());
+        assertThat(logoutResult.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                .contains("smartcloset.refreshToken=")
+                .contains("Max-Age=0")
+                .contains("HttpOnly");
+
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loggedOut").value(true));
     }
 
     @Test

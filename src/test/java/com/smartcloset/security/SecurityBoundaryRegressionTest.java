@@ -64,7 +64,7 @@ class SecurityBoundaryRegressionTest {
     }
 
     @Test
-    void onlySignupAndLoginArePublicApiEndpoints() throws Exception {
+    void authBootstrapEndpointsArePublicApiEndpoints() throws Exception {
         Map<String, Object> signupRequest = Map.of(
                 "email", "public-signup@example.com",
                 "password", "password123!",
@@ -89,6 +89,14 @@ class SecurityBoundaryRegressionTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.user.userId").doesNotExist());
+
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loggedOut").value(true));
     }
 
     @Test
@@ -182,6 +190,7 @@ class SecurityBoundaryRegressionTest {
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "POST"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "authorization, content-type"));
     }

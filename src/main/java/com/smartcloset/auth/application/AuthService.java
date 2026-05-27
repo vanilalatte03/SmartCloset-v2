@@ -22,17 +22,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
-            DefaultClothingPresetSeeder defaultClothingPresetSeeder
+            DefaultClothingPresetSeeder defaultClothingPresetSeeder,
+            RefreshTokenService refreshTokenService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional
@@ -59,6 +62,28 @@ public class AuthService {
         }
         defaultClothingPresetSeeder.seedIfEmpty(user);
         return authResponse(user);
+    }
+
+    @Transactional
+    public RefreshTokenBundle loginWithRefreshSession(LoginRequest request) {
+        AuthResponse response = login(request);
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new SmartClosetException(ErrorCode.UNAUTHORIZED));
+        RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
+        return new RefreshTokenBundle(response, refreshToken.refreshToken());
+    }
+
+    @Transactional
+    public RefreshTokenBundle refresh(String refreshToken) {
+        RefreshTokenService.RotatedRefreshToken rotated = refreshTokenService.rotate(refreshToken);
+        return new RefreshTokenBundle(authResponse(rotated.user()), rotated.refreshToken());
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenService.revokeIfPresent(refreshToken);
+        }
     }
 
     private AuthResponse authResponse(User user) {
