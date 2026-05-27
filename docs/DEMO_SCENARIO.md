@@ -13,6 +13,7 @@ MVP8 데모의 핵심은 사용자가 계정을 안정적으로 유지하고 복
 - 회원가입 후 이메일 인증 필요 상태 확인
 - 개발용 console/log email sender로 인증 token 확인
 - 이메일 인증 완료 후 로그인
+- 로그인 화면 이메일 저장 체크박스
 - refresh cookie 기반 새로고침 세션 복구
 - 보호 API 401 시 refresh retry-once 흐름
 - 비밀번호 재설정 요청/확인
@@ -88,13 +89,17 @@ http://localhost:8080/swagger-ui/index.html
 ### 3. 로그인과 refresh cookie
 
 1. 인증된 이메일/password로 로그인한다.
-2. 앱을 새로고침한다.
+2. 이메일 저장 체크박스를 선택한 뒤 로그인한다.
+3. 앱을 새로고침한다.
+4. 로그아웃 후 로그인 화면에 다시 진입한다.
 
 기대 결과:
 
 - login 응답은 access token을 반환한다.
 - refresh token 값은 JSON body에 없다.
 - 새로고침 후 `POST /api/auth/refresh`로 세션이 복구된다.
+- 로그인 화면에는 저장된 이메일 주소만 복원된다.
+- 비밀번호, access token, refresh token은 브라우저 저장소에 저장되지 않는다.
 - Today, Closet, Preferences, Location, History view를 이동할 수 있다.
 
 ### 4. 세션 만료 UX
@@ -173,6 +178,7 @@ http://localhost:8080/swagger-ui/index.html
 
 - 이메일 인증 전 password login이 차단된다.
 - 이메일 인증 후 login과 refresh session이 동작한다.
+- 로그인 이메일 저장 체크박스가 이메일 주소만 저장하고 비밀번호와 token은 저장하지 않는다.
 - 새로고침 세션 복구가 동작한다.
 - 비밀번호 재설정이 동작하고 기존 refresh session이 revoke된다.
 - Google provider 상태가 표시된다.

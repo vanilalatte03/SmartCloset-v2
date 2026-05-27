@@ -36,6 +36,7 @@
 - Google social login
 - OAuth provider status API
 - 세션 만료 UX 개선: 앱 시작 시 refresh, 401 retry-once, 최종 만료 안내
+- 로그인 화면 이메일 저장 체크박스
 - 계정 삭제와 사용자 데이터 즉시 하드 삭제
 - MVP9 AWS 배포에서 교체할 Email/Image/Cookie/CORS/OAuth URL 어댑터 경계
 - MVP8 phase 문서와 docs-check 규칙 작성
@@ -116,6 +117,7 @@ MVP8 API 변경:
 - 새로고침 또는 앱 시작 시 `POST /api/auth/refresh`로 세션을 복구한다.
 - 보호 API가 401을 반환하면 프론트는 refresh를 한 번 시도하고 원 요청을 한 번만 재시도한다.
 - refresh까지 실패하면 access token을 제거하고 로그인 화면에 세션 만료 안내를 표시한다.
+- 이메일 저장 체크박스는 이메일 주소 문자열만 저장하며 비밀번호와 token 저장 용도로 사용하지 않는다.
 - 미인증 password 계정은 로그인할 수 없다.
 - Google 계정은 Google이 verified email을 반환한 경우 이메일 인증 완료로 취급한다.
 - 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는다.
