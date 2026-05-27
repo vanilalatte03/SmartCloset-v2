@@ -16,8 +16,10 @@ import com.smartcloset.user.domain.User;
 import com.smartcloset.user.dto.CurrentUserResponse;
 import com.smartcloset.user.repository.UserRepository;
 import java.net.URI;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class GoogleOAuthService {
 
     private static final String GOOGLE_LOGIN_PATH = "/api/auth/oauth2/google";
+    private static final int OAUTH_STATE_BYTES = 32;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final GoogleOAuthProperties properties;
     private final GoogleOAuthClient googleOAuthClient;
@@ -77,8 +81,17 @@ public class GoogleOAuthService {
         return OAuthProvidersResponse.google(properties.googleEnabled(), GOOGLE_LOGIN_PATH);
     }
 
-    public URI authorizationUri() {
+    public String createState() {
+        byte[] bytes = new byte[OAUTH_STATE_BYTES];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    public URI authorizationUri(String state) {
         ensureGoogleEnabled();
+        if (state == null || state.isBlank()) {
+            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+        }
         GoogleOAuthProperties.Google google = properties.google();
         String scope = String.join(" ", properties.scopes());
         return UriComponentsBuilder.fromUriString(google.authorizationUri())
@@ -86,7 +99,7 @@ public class GoogleOAuthService {
                 .queryParam("client_id", google.clientId())
                 .queryParam("redirect_uri", google.redirectUri())
                 .queryParam("scope", scope)
-                .queryParam("state", randomState())
+                .queryParam("state", state)
                 .build()
                 .encode()
                 .toUri();
@@ -168,9 +181,5 @@ public class GoogleOAuthService {
         if (!properties.googleEnabled()) {
             throw new SmartClosetException(ErrorCode.OAUTH2_PROVIDER_UNAVAILABLE);
         }
-    }
-
-    private String randomState() {
-        return java.util.UUID.randomUUID().toString();
     }
 }

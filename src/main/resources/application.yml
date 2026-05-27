@@ -45,6 +45,13 @@ smartcloset:
       allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
     oauth2:
       frontend-callback-url: "${FRONTEND_AUTH_CALLBACK_URL:http://localhost:5173/auth/callback}"
+      state-cookie:
+        name: "${OAUTH_STATE_COOKIE_NAME:smartcloset.oauth2State}"
+        secure: ${OAUTH_STATE_COOKIE_SECURE:false}
+        same-site: "${OAUTH_STATE_COOKIE_SAME_SITE:Lax}"
+        domain: "${OAUTH_STATE_COOKIE_DOMAIN:}"
+        path: "${OAUTH_STATE_COOKIE_PATH:/api/auth/oauth2}"
+        max-age: ${OAUTH_STATE_COOKIE_MAX_AGE:5m}
       google:
         client-id: "${GOOGLE_OAUTH_CLIENT_ID:}"
         client-secret: "${GOOGLE_OAUTH_CLIENT_SECRET:}"

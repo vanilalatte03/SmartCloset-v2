@@ -114,6 +114,7 @@ VITE_API_BASE_URL=http://localhost:8080
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
 | `FRONTEND_AUTH_CALLBACK_URL` | OAuth 성공 후 frontend callback URL |
+| `OAUTH_STATE_COOKIE_*` | Google OAuth state cookie name, secure, SameSite, domain, path, max age 설정 |
 | `CORS_ALLOWED_ORIGINS` | credential 요청을 허용할 frontend origin 목록 |
 | `CORS_ALLOW_CREDENTIALS` | refresh cookie 요청을 위한 CORS credentials 허용 여부 |
 | `KMA_SERVICE_KEY` | 공공데이터포털에서 발급받은 인증키. 커밋 금지 |

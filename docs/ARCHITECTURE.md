@@ -177,9 +177,12 @@ GET /api/auth/oauth2/providers
 
 ```text
 GET /api/auth/oauth2/google
-  -> Spring Security OAuth2 authorization redirect
+  -> OAuth state 생성
+  -> HttpOnly state cookie 설정
+  -> Google authorization redirect
 
 GET /api/auth/oauth2/callback/google
+  -> callback state와 state cookie 매칭
   -> Google profile 검증
   -> SocialAccount find/link/create
   -> User create or load
@@ -191,6 +194,7 @@ GET /api/auth/oauth2/callback/google
 
 - Google provider 설정이 없으면 provider status는 disabled다.
 - Google email은 verified email이어야 한다.
+- OAuth callback state가 state cookie와 일치해야 한다.
 - 기존 같은 email user가 있으면 social account를 link한다.
 - 새 Google user는 password login disabled, email verified 상태로 생성한다.
 - OAuth redirect/base URL은 properties/env로 설정한다.
