@@ -5,7 +5,10 @@
     {
       "step": 0,
       "name": "mvp8-scope-docs-archive",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T11:42:40+0900",
+      "summary": "MVP8 문서 전환과 MVP7 archive, agent baseline, docs-check 회귀 신호를 확인했다.",
+      "completed_at": "2026-05-27T11:44:12+0900"
     },
     {
       "step": 1,
@@ -42,5 +45,6 @@
       "name": "compose-docs-qa",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-05-27T11:42:40+0900"
 }
