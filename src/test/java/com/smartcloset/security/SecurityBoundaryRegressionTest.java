@@ -139,6 +139,9 @@ class SecurityBoundaryRegressionTest {
         );
 
         assertRequiresBearerToken(get("/api/users/me"));
+        assertRequiresBearerToken(delete("/api/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("confirmation", "DELETE"))));
         assertRequiresBearerToken(get("/api/locations"));
         assertRequiresBearerToken(get("/api/users/me/location"));
         assertRequiresBearerToken(put("/api/users/me/location")

@@ -2,6 +2,7 @@ package com.smartcloset.security;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.user.domain.UserRole;
+import com.smartcloset.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,10 +21,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final SecurityErrorResponseWriter errorResponseWriter;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, SecurityErrorResponseWriter errorResponseWriter) {
+    public JwtAuthenticationFilter(
+            JwtTokenProvider jwtTokenProvider,
+            SecurityErrorResponseWriter errorResponseWriter,
+            UserRepository userRepository
+    ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.errorResponseWriter = errorResponseWriter;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -41,6 +48,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             CurrentUserPrincipal principal = jwtTokenProvider.parseAccessToken(
                     authorization.substring(BEARER_PREFIX.length()));
+            if (!userRepository.existsById(principal.userId())) {
+                SecurityContextHolder.clearContext();
+                errorResponseWriter.write(response, ErrorCode.USER_NOT_FOUND);
+                return;
+            }
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     principal,
                     null,
