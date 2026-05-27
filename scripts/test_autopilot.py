@@ -551,6 +551,61 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert len(findings) == len(set(findings))
 
 
+def test_forbidden_diff_allows_mvp8_step0_account_scope(tmp_repo):
+    runner = ap.AutopilotRunner("8-smartcloset-account-stability", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,5 @@",
+                "+refresh token을 구현한다.",
+                "+이메일 인증을 구현한다.",
+                "+비밀번호 재설정을 구현한다.",
+                "+Google social login을 구현한다.",
+                "+Redis 캐싱을 구현한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 0, "name": "mvp8-scope-docs-archive"})
+
+    assert not any("refresh token 범위" in finding for finding in findings)
+    assert not any("이메일 인증 범위" in finding for finding in findings)
+    assert not any("비밀번호 재설정 범위" in finding for finding in findings)
+    assert not any("소셜 로그인 범위" in finding for finding in findings)
+    assert any("Redis 범위" in finding for finding in findings)
+
+
+def test_forbidden_diff_keeps_mvp8_future_step_scope_blocked(tmp_repo):
+    runner = ap.AutopilotRunner("8-smartcloset-account-stability", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/API.md b/docs/API.md",
+                "+++ b/docs/API.md",
+                "@@ -1,0 +1,4 @@",
+                "+refresh token을 구현한다.",
+                "+이메일 인증을 구현한다.",
+                "+Google social login을 구현한다.",
+                "+소셜 로그인 기능을 구현한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 1, "name": "refresh-token-session"})
+
+    assert not any("refresh token 범위" in finding for finding in findings)
+    assert any("이메일 인증 범위" in finding for finding in findings)
+    assert any("소셜 로그인 범위" in finding for finding in findings)
+
+
 def test_forbidden_diff_does_not_treat_mvp5_as_safe_context(runner):
     def fake_git(*args, check=True):
         assert args[:2] == ("diff", "--unified=0")
