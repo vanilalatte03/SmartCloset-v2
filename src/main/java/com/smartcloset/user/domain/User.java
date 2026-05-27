@@ -48,6 +48,12 @@ public class User extends BaseTimeEntity {
     @Column(name = "role", nullable = false, length = 30)
     private UserRole role;
 
+    @Column(name = "email_verified", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean emailVerified = true;
+
+    @Column(name = "password_login_enabled", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean passwordLoginEnabled = true;
+
     @Column(name = "location_code", length = 30)
     private String locationCode;
 
@@ -88,28 +94,36 @@ public class User extends BaseTimeEntity {
     protected User() {
     }
 
-    private User(String email, String passwordHash, String name) {
+    private User(String email, String passwordHash, String name, boolean emailVerified, boolean passwordLoginEnabled) {
         this.email = requireEmail(email);
         this.passwordHash = requirePasswordHash(passwordHash);
         this.name = requireName(name);
         this.role = UserRole.USER;
+        this.emailVerified = emailVerified;
+        this.passwordLoginEnabled = passwordLoginEnabled;
         this.preferredColorsJson = EMPTY_JSON_ARRAY;
         this.preferredMaterialsJson = EMPTY_JSON_ARRAY;
         this.styleTagsJson = EMPTY_JSON_ARRAY;
     }
 
     public static User create(String email, String passwordHash, String name) {
-        User user = new User(email, passwordHash, name);
+        User user = new User(email, passwordHash, name, true, true);
+        user.ensureDefaultLocation();
+        return user;
+    }
+
+    public static User createPasswordSignup(String email, String passwordHash, String name) {
+        User user = new User(email, passwordHash, name, false, true);
         user.ensureDefaultLocation();
         return user;
     }
 
     public static User create(String name) {
-        return new User(localAccountEmail("legacy", name), DISABLED_LEGACY_PASSWORD_HASH, name);
+        return new User(localAccountEmail("legacy", name), DISABLED_LEGACY_PASSWORD_HASH, name, true, true);
     }
 
     public static User createSeedUser(String name) {
-        User user = new User(localAccountEmail("seed", name), DISABLED_LEGACY_PASSWORD_HASH, name);
+        User user = new User(localAccountEmail("seed", name), DISABLED_LEGACY_PASSWORD_HASH, name, true, true);
         user.ensureDefaultLocation();
         return user;
     }
@@ -140,6 +154,17 @@ public class User extends BaseTimeEntity {
         this.preferredColorsJson = requireJsonArrayString(preferredColorsJson, "preferredColorsJson");
         this.preferredMaterialsJson = requireJsonArrayString(preferredMaterialsJson, "preferredMaterialsJson");
         this.styleTagsJson = requireJsonArrayString(styleTagsJson, "styleTagsJson");
+    }
+
+    public void markEmailVerified() {
+        this.emailVerified = true;
+    }
+
+    public void changePasswordHash(String passwordHash) {
+        if (!isPasswordLoginEnabled()) {
+            throw new IllegalStateException("password login is disabled");
+        }
+        this.passwordHash = requirePasswordHash(passwordHash);
     }
 
     public void ensureDefaultLocation() {
@@ -178,6 +203,14 @@ public class User extends BaseTimeEntity {
 
     public UserRole getRole() {
         return role;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified == null || emailVerified;
+    }
+
+    public boolean isPasswordLoginEnabled() {
+        return passwordLoginEnabled == null || passwordLoginEnabled;
     }
 
     public String getLocationCode() {

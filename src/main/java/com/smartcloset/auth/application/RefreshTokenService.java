@@ -87,6 +87,12 @@ public class RefreshTokenService {
                 .ifPresent(session -> session.revoke(now()));
     }
 
+    public void revokeAll(User user) {
+        LocalDateTime revokedAt = now();
+        refreshSessionRepository.findByUserIdAndRevokedAtIsNull(user.getId())
+                .forEach(session -> session.revoke(revokedAt));
+    }
+
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTE_LENGTH];
         secureRandom.nextBytes(bytes);

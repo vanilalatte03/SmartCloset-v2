@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "email-verification-password-reset",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T11:56:28+0900",
+      "summary": "이메일 인증과 비밀번호 재설정, ConsoleEmailSender 기반 account action token을 추가했다.",
+      "completed_at": "2026-05-27T12:16:00+0900"
     },
     {
       "step": 3,

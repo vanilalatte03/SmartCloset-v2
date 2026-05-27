@@ -77,8 +77,9 @@ class SecurityBoundaryRegressionTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.user.userId").doesNotExist());
+                .andExpect(jsonPath("$.data.email").value("public-signup@example.com"))
+                .andExpect(jsonPath("$.data.emailVerificationRequired").value(true))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist());
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -97,6 +98,18 @@ class SecurityBoundaryRegressionTest {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.loggedOut").value(true));
+
+        mockMvc.perform(post("/api/auth/email-verification/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "public-signup@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requested").value(true));
+
+        mockMvc.perform(post("/api/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "public-login@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requested").value(true));
     }
 
     @Test
