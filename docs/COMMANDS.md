@@ -2,7 +2,7 @@
 
 이 파일은 프로젝트 실행 명령의 단일 출처입니다.
 
-현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose + React/Vite/TypeScript frontend 기준입니다. MVP7은 MVP6 추천 피드백/개인화 완료 baseline 위에 KMA 위치 catalog 확장, 브라우저 좌표 resolve, 예보 시간대 선택, 위치/날씨 source snapshot 저장을 추가합니다.
+현재는 Java 21 Spring Boot 4.0.6 + Gradle + Docker Compose + React/Vite/TypeScript frontend 기준입니다. MVP8은 MVP7 위치/날씨 신뢰도 완료 baseline 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX, 계정 삭제/데이터 삭제를 추가합니다.
 
 ## 개발 전 준비
 
@@ -30,9 +30,16 @@ git config core.hooksPath .githooks
 | review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
-| autopilot | `python3 scripts/autopilot.py 7-smartcloset-location-weather-trust --base main --max-review-fixes 2 --unsafe` | no | MVP7 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
+| autopilot | `python3 scripts/autopilot.py 8-smartcloset-account-stability --base main --max-review-fixes 2 --unsafe` | no | MVP8 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
 Harness Codex 호출은 전역 Codex 설정을 그대로 상속하지 않고 reasoning effort를 명시한다. `execute.py`의 step 구현 기본값은 `medium`이고, `autopilot.py`의 기본값은 step 구현 `medium`, PR self-review `high`, 자동 fix `medium`이다. `xhigh`는 `--allow-xhigh`와 함께 명시한 경우에만 허용한다.
+
+## 문서 전환 검증 명령
+
+```bash
+git diff --check
+python3 scripts/checks.py --docs-check-config phases/8-smartcloset-account-stability/docs-checks.json --docs-check
+```
 
 ## P0 공유 검증 명령
 
@@ -54,7 +61,7 @@ curl -fsS http://localhost:5173 >/dev/null
 docker compose down
 ```
 
-MVP7 최종 수동 QA에서는 브라우저에서 동네 위치 검색, 현재 위치 후보 찾기, 예보 시간대 선택 추천, 추천 결과와 History의 KMA/fallback/base/forecast 표시, 기존 이미지 업로드/썸네일과 피드백 흐름 유지 여부를 확인한다.
+MVP8 최종 수동 QA에서는 브라우저에서 이메일 인증, refresh 세션 복구, 비밀번호 재설정, Google provider 상태, 세션 만료 UX, 계정 삭제, 기존 위치/날씨 추천과 이미지/피드백 흐름 유지 여부를 확인한다.
 
 ## URLs
 
@@ -73,7 +80,7 @@ MVP 범위나 baseline을 바꿀 때 전체 확인 대상은 `docs/MVP_CHANGE_CH
 ```bash
 python3 scripts/checks.py --stage final
 python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py
-python3 scripts/checks.py --docs-check-config phases/7-smartcloset-location-weather-trust/docs-checks.json --docs-check
+python3 scripts/checks.py --docs-check-config phases/8-smartcloset-account-stability/docs-checks.json --docs-check
 ```
 
 ## 자동 PR 루프
@@ -81,7 +88,7 @@ python3 scripts/checks.py --docs-check-config phases/7-smartcloset-location-weat
 아래 명령은 clean worktree, 유효한 `gh auth status`, `origin` 원격, 최신 `main` 브랜치를 전제로 한다.
 
 ```bash
-python3 scripts/autopilot.py 7-smartcloset-location-weather-trust --base main --max-review-fixes 2 --unsafe
+python3 scripts/autopilot.py 8-smartcloset-account-stability --base main --max-review-fixes 2 --unsafe
 ```
 
 자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다.

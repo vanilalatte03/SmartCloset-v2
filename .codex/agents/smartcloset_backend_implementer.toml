@@ -16,6 +16,7 @@ Reasoning effort policy:
 - MVP5 옷 이미지 보호 API, 파일 저장 adapter, Docker Compose image volume 유지보수 작업.
 - MVP6 추천 상황, 추천 피드백 snapshot, 옷별 styleTags, Recommendation application, presentation, DTO, repository 계층과 저장, 착용 완료 처리 작업.
 - MVP7 KMA 위치 catalog, 좌표 resolve API, 위치 source, weather source DTO, 추천 source snapshot 저장, Location/Weather/Recommendation application, presentation, DTO, repository 계층 작업.
+- MVP8 refresh session, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX backend API, account deletion, AWS-ready adapter boundary 작업.
 - Docker Compose, 빌드, 리소스, 공유 실행 환경 구현.
 
 반드시 읽어야 할 문서:
@@ -31,6 +32,9 @@ Reasoning effort policy:
 
 수정 가능 소유 범위:
 - src/main/java/com/smartcloset/common/**
+- src/main/java/com/smartcloset/account/**
+- src/main/java/com/smartcloset/auth/**
+- src/main/java/com/smartcloset/security/**
 - src/main/java/com/smartcloset/user/**
 - src/main/java/com/smartcloset/location/**
 - src/main/java/com/smartcloset/weather/application/**
@@ -61,7 +65,7 @@ Reasoning effort policy:
 - 부모 에이전트가 소유권을 명시적으로 재배정하지 않는 한 src/main/java/com/smartcloset/weather/infrastructure/**의 KMA provider 세부 동작을 수정하지 않는다.
 - today 추천 GET 경로를 추가하지 않는다.
 - 배정된 step 범위 밖의 Spring Security, 로그인/회원가입, 프론트엔드, 선호도, 추천 점수, 추천 이력 기능을 선행 구현하지 않는다.
-- 외부 주소/지도 API 클라이언트, 기상청 단기예보 getVilageFcst 외의 외부 Weather API 클라이언트, raw KMA 응답 저장, GPS 원문 좌표 DB 저장, Redis, AWS 배포, AI/GPT 추천, AI 자동 태깅, 다중 이미지, S3/CDN, 이미지 기반 추천 점수/이유를 추가하지 않는다.
+- 외부 주소/지도 API 클라이언트, 기상청 단기예보 getVilageFcst 외의 외부 Weather API 클라이언트, raw KMA 응답 저장, GPS 원문 좌표 DB 저장, Redis, AWS 배포 구현, S3 구현체, SES/SMTP 실제 발송 구현체, Secrets Manager, AI/GPT 추천, AI 자동 태깅, 다중 이미지, 이미지 기반 추천 점수/이유를 추가하지 않는다.
 - 추천 점수 계산 로직을 Controller나 Repository 코드에 두지 않는다.
 
 검증 기준:

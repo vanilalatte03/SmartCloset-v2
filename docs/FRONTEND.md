@@ -1,10 +1,10 @@
-# Frontend: SmartCloset MVP7 Location Weather Trust
+# Frontend: SmartCloset MVP8 Account Stability
 
 ## 목표
 
-MVP7 프론트엔드는 MVP6 반응형 웹앱 위에 동네 단위 위치 검색, 브라우저 현재 위치 후보 찾기, 오전/오후/저녁 예보 선택, 추천 결과와 이력의 위치/날씨 source 표시를 추가한다.
+MVP8 프론트엔드는 MVP7 반응형 웹앱 위에 세션 복구, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 안내, 계정 삭제 UI를 추가한다.
 
-사용자는 Today view에서 "이 추천은 어느 동네, 어떤 예보 시각, KMA인지 fallback인지"를 바로 확인할 수 있어야 한다.
+사용자는 access token 만료나 새로고침 상황에서도 가능한 한 자연스럽게 세션을 복구하고, 복구가 불가능하면 명확한 안내를 받아야 한다.
 
 ## 기술 기준
 
@@ -15,40 +15,39 @@ MVP7 프론트엔드는 MVP6 반응형 웹앱 위에 동네 단위 위치 검색
 - 큰 상태 관리 라이브러리 추가 금지
 - API 요청/응답 DTO는 `src/types/api.ts`에 명시
 - API 함수는 `src/api/smartClosetApi.ts`에서 정의
-- access token 저장 위치는 `sessionStorage`
+- Access token은 memory state에 저장
+- Refresh token은 HttpOnly cookie로만 관리
+- refresh cookie를 사용하는 요청은 credentials 포함
 
 ## 인증 상태 기준
 
-위치 검색, 좌표 resolve, 현재 날씨, 추천 생성, 이미지 API는 모두 보호 API다. 모든 보호 API 요청에는 `Authorization: Bearer {accessToken}` header가 필요하다.
-
-`401`은 기존 보호 API와 동일하게 인증 만료로 처리한다.
+- 앱 시작 시 access token이 없으면 `POST /api/auth/refresh`를 호출해 세션 복구를 시도한다.
+- refresh 성공 시 access token과 current user를 memory state에 저장한다.
+- refresh 실패 시 anonymous 상태로 전환한다.
+- 보호 API가 `401`을 반환하면 refresh를 한 번 시도하고 원 요청을 한 번만 재시도한다.
+- retry 이후에도 실패하면 access token을 제거하고 세션 만료 안내를 표시한다.
+- 로그아웃은 `POST /api/auth/logout`을 호출한 뒤 local auth state를 초기화한다.
 
 ## API Client 기준
 
-MVP7에서 추가/변경할 함수:
+MVP8에서 추가/변경할 함수:
 
-- `searchLocations(accessToken, keyword?)`
-- `resolveLocation(accessToken, request)`
-- `getUserLocation(accessToken)`
-- `updateUserLocation(accessToken, request)`
-- `getCurrentWeather(accessToken)`
-- `createRecommendation(accessToken, request?)`
-- 기존 `replaceRecommendationFeedback(accessToken, recommendationId, request)` 유지
-- 기존 `markRecommendationWorn(accessToken, recommendationId)` 유지
+- `signup(body)`
+- `login(body)`
+- `refreshSession()`
+- `logout()`
+- `requestEmailVerification(body)`
+- `confirmEmailVerification(body)`
+- `requestPasswordReset(body)`
+- `confirmPasswordReset(body)`
+- `getOAuthProviders()`
+- `deleteAccount(accessToken, body)`
+- 보호 API 공통 request는 401 retry-once를 지원할 수 있어야 한다.
 
-추천 생성:
+Refresh cookie 요청:
 
-- body 없이 호출 가능해야 한다.
-- 사용자가 상황만 선택하면 `{ situation }` body를 보낸다.
-- 사용자가 시간대만 선택하면 `{ forecastPeriod }` body를 보낸다.
-- situation이 없으면 서버 기본값 `CASUAL`을 신뢰한다.
-- forecastPeriod가 없으면 서버 기본값 `CURRENT`를 신뢰한다.
-
-위치 resolve:
-
-- 브라우저 Geolocation API 성공 후 `{ latitude, longitude }`를 전송한다.
-- resolve 결과는 자동 저장하지 않는다.
-- 사용자가 후보를 선택하면 `PUT /api/users/me/location`을 호출한다.
+- `fetch`에 `credentials: 'include'`를 사용한다.
+- `AuthResponse`에 refresh token string이 없음을 전제로 한다.
 
 이미지 blob fetch:
 
@@ -58,238 +57,130 @@ MVP7에서 추가/변경할 함수:
 ## 타입 기준
 
 ```ts
-export type LocationSource = 'MANUAL_SEARCH' | 'BROWSER_GEOLOCATION';
+export type AuthProvider = 'PASSWORD' | 'GOOGLE';
 
-export type ForecastPeriod = 'CURRENT' | 'MORNING' | 'AFTERNOON' | 'EVENING';
-
-export type LocationOptionResponse = {
-  code: string;
+export type CurrentUserResponse = {
+  email: string;
   name: string;
-  fullName: string;
-  region1: string;
-  region2: string | null;
-  region3: string | null;
-  nx: number;
-  ny: number;
-  latitude: number | null;
-  longitude: number | null;
-};
-
-export type LocationResolveRequest = {
-  latitude: number;
-  longitude: number;
-};
-
-export type LocationGridResponse = {
-  nx: number;
-  ny: number;
-};
-
-export type LocationResolveResponse = {
-  grid: LocationGridResponse;
-  nearest: LocationOptionResponse | null;
-  candidates: LocationOptionResponse[];
-};
-
-export type UserLocationResponse = {
-  code: string;
-  name: string;
-  fullName: string;
-  region1: string;
-  region2: string | null;
-  region3: string | null;
-  nx: number;
-  ny: number;
-  source: LocationSource;
+  role: 'USER';
+  emailVerified: boolean;
+  passwordLoginEnabled: boolean;
+  authProviders: AuthProvider[];
+  createdAt: string;
   updatedAt: string;
 };
 
-export type UpdateUserLocationRequest = {
-  locationCode: string;
-  source?: LocationSource;
+export type SignupResponse = {
+  email: string;
+  emailVerificationRequired: boolean;
+  message: string;
 };
 
-export type WeatherLocationSnapshotResponse = {
-  code: string;
-  name: string;
-  fullName: string;
-  nx: number;
-  ny: number;
-  source: LocationSource;
+export type AuthResponse = {
+  accessToken: string;
+  tokenType: 'Bearer';
+  user: CurrentUserResponse;
 };
 
-export type WeatherProvider = 'KMA_VILAGE_FORECAST' | 'STATIC_FALLBACK';
-
-export type WeatherSourceResponse = {
-  provider: WeatherProvider;
-  kmaUsed: boolean;
-  fallbackUsed: boolean;
-  baseDate: string | null;
-  baseTime: string | null;
-  forecastDate: string | null;
-  forecastTime: string | null;
+export type EmailVerificationRequest = {
+  email: string;
 };
 
-export type WeatherResponse = {
-  temperature: number;
-  weatherType: WeatherType;
-  rainy: boolean;
-  windy: boolean;
-  location: WeatherLocationSnapshotResponse;
-  source: WeatherSourceResponse;
+export type EmailVerificationConfirmRequest = {
+  token: string;
 };
 
-export type RecommendationRequest = {
-  situation?: RecommendationSituation;
-  forecastPeriod?: ForecastPeriod;
+export type PasswordResetRequest = {
+  email: string;
 };
 
-export type RecommendationResponse = {
-  recommendationId: number;
-  situation: RecommendationSituation;
-  forecastPeriod: ForecastPeriod;
-  weather: WeatherResponse;
-  outfit: RecommendationOutfitResponse;
-  score: RecommendationScoreResponse;
-  reasons: string[];
-  worn: boolean;
-  wornAt: string | null;
-  feedback: RecommendationFeedbackStateResponse | null;
-  createdAt: string;
+export type PasswordResetConfirmRequest = {
+  token: string;
+  newPassword: string;
+};
+
+export type OAuthProvidersResponse = {
+  google: {
+    enabled: boolean;
+    loginUrl: string | null;
+  };
+};
+
+export type AccountDeletionRequest = {
+  confirmation: 'DELETE';
+  password?: string;
 };
 ```
 
-MVP6 `ClothingRequest`, `OutfitItemResponse`, feedback types는 유지한다.
+MVP5/MVP6/MVP7 위치, 날씨, 옷, 추천 타입은 유지한다.
 
-## Location View
+## Auth View
 
-Location view에 검색과 현재 위치로 찾기 control을 둔다.
+Auth view에는 아래 flow를 제공한다.
 
-검색 UX:
-
-- 검색 입력 placeholder는 행정구역 예시를 보여준다.
-- 검색 결과는 `fullName`, `nx/ny`를 함께 표시해 동명이인을 구분한다.
-- 후보 선택 시 저장 버튼 또는 후보 row action으로 `PUT /api/users/me/location`을 호출한다.
-- 수동 검색으로 저장하면 `source=MANUAL_SEARCH`다.
-
-현재 위치 UX:
-
-- 브라우저 위치 권한 요청은 "현재 위치로 찾기" 버튼 클릭 뒤에만 수행한다.
-- 권한 대기 중에는 버튼과 후보 UI가 안정적인 높이를 유지한다.
-- 권한 거부 또는 브라우저 미지원이면 수동 검색 안내를 보여준다.
-- 권한 허용 후 `POST /api/locations/resolve` 후보를 표시한다.
-- resolve 후보 선택 저장 시 `source=BROWSER_GEOLOCATION`이다.
-- resolve 결과를 자동 저장하지 않는다.
-
-## Forecast Period UX
-
-Today view에 예보 시간대 선택 control을 둔다.
-
-| ForecastPeriod | Label |
-| --- | --- |
-| `CURRENT` | 현재 |
-| `MORNING` | 오전 |
-| `AFTERNOON` | 오후 |
-| `EVENING` | 저녁 |
+- 로그인
+- 회원가입
+- 이메일 인증 안내와 인증 재요청
+- 인증 token 확인
+- 비밀번호 재설정 요청
+- 비밀번호 재설정 확인
+- Google login button
 
 UX 기준:
 
-- 기본 선택은 `CURRENT`다.
-- 추천 생성 중에는 상황 선택, 시간대 선택, 생성 버튼을 비활성화한다.
-- 추천 결과에는 생성 당시 forecastPeriod label을 표시한다.
-- 모바일에서 한 줄 overflow가 나지 않도록 wrap 또는 segmented layout을 사용한다.
+- 회원가입 성공 후 "이메일 인증 후 로그인할 수 있습니다" 상태를 보여준다.
+- MVP8 local 개발에서는 console/log email sender를 사용한다는 문구는 문서/개발 안내에만 두고, 앱 UI는 사용자 친화적인 인증 안내를 표시한다.
+- 미인증 계정 로그인 실패는 인증 재요청으로 이어질 수 있어야 한다.
+- 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는 중립 성공 메시지를 보여준다.
+- Google provider disabled 상태면 button을 비활성화하고 설정 필요 상태를 작게 표시한다.
 
-## Weather Trust Display
+## Session UX
 
-추천 결과와 History card에 source snapshot을 표시한다.
+상태:
+
+- `restoring`: refresh session 확인 중
+- `anonymous`: 로그인 필요
+- `authenticated`: access token 보유
+- `expired`: refresh 실패 후 세션 만료 안내
+
+규칙:
+
+- `restoring` 화면은 layout shift가 작아야 한다.
+- 보호 API retry는 한 요청당 한 번만 수행한다.
+- refresh가 실패하면 남은 access token state를 제거한다.
+- 로그아웃 후에는 refresh cookie 만료 요청을 보내고 로그인 화면으로 이동한다.
+
+## Account Settings UX
+
+Authenticated shell에 account/settings 진입점을 추가한다.
 
 표시 항목:
 
-- 위치 fullName 또는 name
-- KMA grid `nx`, `ny`
-- 위치 source label: 직접 선택, 현재 위치로 찾음
-- weather provider label: KMA 단기예보, fallback
-- KMA 사용 여부
-- fallback 여부
-- 예보 기준: `baseDate baseTime`
-- 예보 대상: `forecastDate forecastTime`
+- 이메일
+- 이메일 인증 상태
+- 연결된 로그인 제공자: password, Google
+- password login 가능 여부
+- 계정 삭제 control
 
-문구 기준:
+계정 삭제:
 
-- `kmaUsed=true`: "KMA 단기예보 사용"
-- `fallbackUsed=true`: "기본 날씨 fallback 사용"
-- `baseDate/baseTime`이 있으면 "발표 기준 YYYY-MM-DD HH:mm" 형태로 표시한다.
-- `forecastDate/forecastTime`이 있으면 "예보 대상 YYYY-MM-DD HH:mm" 형태로 표시한다.
-- null 값은 빈 칸이 아니라 "확인 불가" 같은 neutral 문구로 표시한다.
+- 삭제 전 확인 문구를 요구한다.
+- Password login enabled 계정은 현재 비밀번호 입력을 요구한다.
+- Google-only 계정은 confirmation만 요구한다.
+- 삭제 성공 후 local auth state를 초기화하고 로그인 화면으로 이동한다.
+- 삭제 실패 시 공통 error banner를 사용한다.
 
-## Today Recommendation View
+## 기존 UX 유지
 
-추천 결과에 아래를 표시한다.
+- Location view의 동네 검색, 현재 위치 후보 찾기, source 표시를 유지한다.
+- Today view의 상황/예보 시간대 선택과 추천 결과 source 표시를 유지한다.
+- History view의 위치/날씨 snapshot 표시를 유지한다.
+- Closet image blob fetch와 object URL cleanup을 유지한다.
+- Feedback UX를 유지한다.
 
-- situation label
-- forecastPeriod label
-- 위치/날씨 source snapshot
-- outfit item thumbnail 또는 fallback
-- outfit item styleTags
-- 추천 이유
-- 착용 완료 control
-- 피드백 control
-- 점수 상세
+## 금지사항
 
-현재 날씨 패널과 추천 결과 weather card는 같은 DTO 구조를 사용한다. 다만 현재 날씨 조회는 추천을 저장하지 않고, 추천 결과는 생성 당시 snapshot을 표시한다.
-
-## History View
-
-추천 이력 카드에 아래를 표시한다.
-
-- 추천 생성 시각
-- situation label
-- forecastPeriod label
-- 위치/날씨 source snapshot
-- 착용 전/착용 완료
-- nullable wornAt
-- nullable feedback
-- outfit item thumbnail 또는 fallback
-- outfit item styleTags
-
-과거 이력의 위치/source는 현재 사용자 위치가 아니라 추천 생성 당시 snapshot임을 UI 구조로 자연스럽게 드러낸다.
-
-## Feedback UX
-
-MVP6 피드백 UX를 유지한다.
-
-- sentiment는 마음에 들어요/별로예요 중 하나만 선택 가능하다.
-- thermal은 추웠어요/더웠어요 중 하나만 선택 가능하다.
-- "피드백 지우기"는 양쪽 `null`로 clear한다.
-- 저장 중에는 해당 추천의 피드백 버튼을 비활성화한다.
-
-## 반응형 기준
-
-- 모바일 375px에서 위치 후보, 현재 위치 버튼, 시간대 선택, 피드백 버튼, source snapshot이 겹치지 않아야 한다.
-- 버튼 그룹은 stable height를 유지한다.
-- 위치 후보 row는 fullName이 길면 wrap을 허용한다.
-- source snapshot은 작은 화면에서 2열 고정 대신 wrap되는 key-value list를 사용한다.
-- 추천 이력 카드의 status row는 wrap을 허용한다.
-- 이미지 thumbnail 영역은 기존 fixed aspect-ratio 기준을 유지한다.
-
-## 접근성 기준
-
-- 현재 위치 버튼은 권한 요청 중 상태를 알 수 있어야 한다.
-- 위치 후보 선택은 button 또는 radio semantics를 사용한다.
-- forecastPeriod 선택은 현재 선택 상태를 `aria-pressed` 또는 radio semantics로 표현한다.
-- source snapshot은 색상만으로 KMA/fallback을 구분하지 않는다.
-- 저장 성공/실패 문구는 status 영역으로 표시한다.
-- 이미지 `alt`는 옷 이름 기반으로 제공한다.
-
-## 제외 범위
-
-- 외부 지도/주소 검색 UI
-- 지도 렌더링
-- 좌표 원문 저장 설정 UI
-- AI 추천 설명 UI
-- 피드백 analytics dashboard
-- drag and drop tag reorder
-- 옷 styleTags 자동 추천
-- 이미지 크롭 UI
-- 다중 이미지 carousel
-- S3/CDN 직접 업로드
+- Access token을 `localStorage`나 `sessionStorage`에 저장하지 마라. 이유: MVP8은 memory state와 refresh cookie 기준이다.
+- Refresh token 값을 JavaScript state나 JSON body에 저장하지 마라. 이유: refresh token은 HttpOnly cookie 전용이다.
+- 큰 state-management library를 추가하지 마라. 이유: 현재 앱은 React state와 작은 hook으로 충분하다.
+- AWS/S3/SES 전용 UI를 추가하지 마라. 이유: AWS 구현은 MVP9 범위다.

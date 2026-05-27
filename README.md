@@ -1,53 +1,60 @@
 # SmartCloset
 
-현재 문서 기준은 **MVP7: 위치/날씨 신뢰도 MVP**입니다. MVP7은 MVP6 추천 피드백/개인화 완료 상태 위에 동네 단위 위치 선택, 브라우저 현재 위치 기반 후보 찾기, KMA 예보 기준 시각 표시, 추천 결과의 위치/날씨 source snapshot 저장을 추가하는 단계입니다.
+현재 문서 기준은 **MVP8: 계정 안정성 MVP**입니다. MVP8은 MVP7 위치/날씨 신뢰도 완료 상태 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google 로그인, 세션 만료 UX, 계정 삭제/데이터 삭제를 추가하는 단계입니다.
 
-현재 코드 출발점은 MVP6 추천 피드백/개인화 구현 완료 상태입니다. MVP7 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서, 그리고 ADR-012입니다.
+현재 코드 출발점은 MVP7 위치/날씨 신뢰도 구현 완료 상태입니다. MVP8 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서, 그리고 ADR-013입니다.
 
 ## 현재 Baseline
 
 - Spring Boot 4.0.6, Java 21, MySQL, React+Vite+TypeScript SPA를 사용한다.
-- 공개 API는 `POST /api/auth/signup`, `POST /api/auth/login`뿐이다.
-- 그 외 API는 `Authorization: Bearer {accessToken}` header를 요구한다.
+- Spring Security + JWT Bearer access token 인증을 유지한다.
+- MVP8은 DB-backed refresh session과 HttpOnly refresh cookie를 추가한다.
+- Access token은 JSON 응답의 bearer token으로 유지하되, 프론트는 memory state에 보관하고 refresh cookie로 세션을 복구한다.
 - 공개 HTTP API는 `userId` query parameter를 받지 않는다.
 - 현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
 - 사용자별 옷장, 위치, 선호도, 추천 이력, 착용 이력, 추천 피드백을 분리한다.
 - 추천 생성은 `POST /api/recommendations`만 사용한다.
 - 추천 이력은 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
 - 현재 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
-- 옷 이미지 업로드/교체/조회/삭제는 MVP5 보호 API 계약을 유지한다.
-- 추천 상황, 옷별 `styleTags`, 추천 피드백, 최근 피드백 기반 `preferenceScore`는 MVP6 계약을 유지한다.
-- Docker Compose 공유 방식을 유지한다.
+- MVP5 이미지 업로드/교체/조회/삭제, MVP6 피드백/개인화, MVP7 위치/날씨 source snapshot 계약을 유지한다.
+- Docker Compose local 공유 방식을 유지한다.
 
-## MVP7 목표
+## MVP8 목표
 
-사용자가 "왜 이 위치와 날씨 기준으로 추천했지?"를 추천 결과와 이력에서 확인할 수 있게 만든다.
+사용자가 로그인 세션을 안정적으로 유지하고, 계정을 회복하고, 본인 데이터를 삭제할 수 있게 만든다.
 
 ### 포함 범위
 
-- KMA 격자 엑셀 기반 내부 읍/면/동 위치 catalog
-- `GET /api/locations?keyword={keyword}`의 동네 단위 검색 확장
-- 브라우저 Geolocation API 좌표를 서버 `POST /api/locations/resolve`로 전달해 KMA 격자와 후보 위치를 찾는 흐름
-- 위경도 -> KMA 격자 변환 로직
-- 위치 저장 source: `MANUAL_SEARCH`, `BROWSER_GEOLOCATION`
-- 추천 요청의 예보 시간대 선택: `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`
-- `WeatherResponse`의 위치 snapshot과 weather source metadata
-- 추천 결과의 위치/날씨 source snapshot 저장과 이력 표시
-- KMA 사용 여부, fallback 여부, KMA base date/time, forecast date/time 표시
-- MVP7 phase 문서와 docs-check 규칙 작성
+- DB-backed refresh token session
+- Refresh token hash 저장과 rotation/revoke
+- Refresh token HttpOnly cookie
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- 이메일 인증 요청/확인
+- 비밀번호 재설정 요청/확인
+- 개발용 `EmailSender` 인터페이스와 `ConsoleEmailSender`
+- Google social login
+- OAuth provider status API
+- 세션 만료 UX 개선: 앱 시작 시 refresh, 401 retry-once, 최종 만료 안내
+- 계정 삭제와 사용자 데이터 즉시 하드 삭제
+- MVP9 AWS 배포에서 교체할 Email/Image/Cookie/CORS/OAuth URL 어댑터 경계
+- MVP8 phase 문서와 docs-check 규칙 작성
 
 ### 제외 범위
 
-- 외부 지도/주소 검색 API
-- raw KMA 응답 JSON 저장
-- KMA `getVilageFcst` 외 weather API
-- GPS 좌표 원문 DB 저장
+- AWS 배포 구현
+- S3 구현체
+- SES/SMTP 실제 발송 구현체
+- Secrets Manager
+- CD 자동화
+- Redis
+- admin 계정 관리
+- soft delete/복구 정책
+- production DB migration 도구 전환
+- native mobile app 또는 PWA 배포
+- 추천 점수/규칙 변경
 - AI/GPT 추천
 - AI 자동 태깅
-- refresh token, social login, email verification, password reset
-- Redis
-- AWS 배포와 CD 자동화
-- S3/CDN 이미지 hosting
 
 ## API 요약
 
@@ -55,10 +62,20 @@
 
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `POST /api/auth/email-verification/request`
+- `POST /api/auth/email-verification/confirm`
+- `POST /api/auth/password-reset/request`
+- `POST /api/auth/password-reset/confirm`
+- `GET /api/auth/oauth2/providers`
+- `GET /api/auth/oauth2/google`
+- `GET /api/auth/oauth2/callback/google`
 
 보호 API:
 
 - `GET /api/users/me`
+- `DELETE /api/users/me`
 - `GET /api/locations?keyword={keyword}`
 - `POST /api/locations/resolve`
 - `GET /api/users/me/location`
@@ -79,26 +96,40 @@
 - `PATCH /api/recommendations/{recommendationId}/worn`
 - `PUT /api/recommendations/{recommendationId}/feedback`
 
-MVP7 API 변경:
+MVP8 API 변경:
 
-- `LocationOptionResponse`는 `fullName`, `region1`, `region2`, `region3`, nullable `latitude`, nullable `longitude`를 포함한다.
-- `POST /api/locations/resolve`는 `{ "latitude": 37.66, "longitude": 126.77 }`를 받아 KMA grid와 가까운 위치 후보를 반환한다.
-- `PUT /api/users/me/location`은 기존 `locationCode`와 optional `source`를 받는다.
-- `POST /api/recommendations`는 optional `forecastPeriod`를 받는다. 누락 시 `CURRENT`다.
-- `WeatherResponse`는 기존 날씨 필드에 `location`과 `source`를 포함한다.
-- `RecommendationResponse.weather`도 추천 생성 당시 저장된 location/source snapshot을 반환한다.
+- `POST /api/auth/signup`는 password 계정을 만들고 이메일 인증 필요 상태를 반환한다. 가입 직후 access token은 발급하지 않는다.
+- `POST /api/auth/login`은 이메일 인증된 password 계정만 access token과 refresh cookie를 발급한다.
+- `POST /api/auth/refresh`는 refresh cookie를 검증하고 rotation 후 새 access token과 새 refresh cookie를 발급한다.
+- `POST /api/auth/logout`은 현재 refresh session을 revoke하고 refresh cookie를 만료한다. 이미 로그아웃된 상태도 성공으로 처리한다.
+- 이메일 인증과 비밀번호 재설정 token 원문은 DB에 저장하지 않고 hash만 저장한다.
+- `CurrentUserResponse`는 `emailVerified`, `passwordLoginEnabled`, `authProviders`를 포함한다.
+- `AuthResponse`는 refresh token 원문을 응답 JSON에 포함하지 않는다.
+- `DELETE /api/users/me`는 본인 계정과 소유 데이터를 즉시 삭제한다.
 
-## 위치/날씨 신뢰 정책
+## 계정 안정성 정책
 
-MVP7의 신뢰 표시는 원본 API 응답을 노출하는 기능이 아니라, 추천에 사용된 핵심 판단 근거를 작고 안정적으로 보여주는 기능이다.
+- Refresh token은 서버가 생성한 충분히 긴 random token을 사용한다.
+- DB에는 refresh token hash, user, issuedAt, expiresAt, revokedAt, replacedBy hash metadata만 저장한다.
+- Refresh token cookie는 HttpOnly이고, cookie name/max age/Secure/SameSite/domain/path는 properties/env로 설정한다.
+- Access token은 bearer JSON 응답으로 유지하되 프론트 저장 위치는 memory state다.
+- 새로고침 또는 앱 시작 시 `POST /api/auth/refresh`로 세션을 복구한다.
+- 보호 API가 401을 반환하면 프론트는 refresh를 한 번 시도하고 원 요청을 한 번만 재시도한다.
+- refresh까지 실패하면 access token을 제거하고 로그인 화면에 세션 만료 안내를 표시한다.
+- 미인증 password 계정은 로그인할 수 없다.
+- Google 계정은 Google이 verified email을 반환한 경우 이메일 인증 완료로 취급한다.
+- 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는다.
+- 계정 삭제는 soft delete가 아니라 즉시 하드 삭제다.
 
-- 위치 검색은 프로젝트 내부 KMA 행정구역 catalog를 사용한다.
-- 외부 주소/지도 API는 사용하지 않는다.
-- 브라우저 좌표는 사용자가 위치 후보를 찾는 데만 쓰고 DB에 원문 좌표를 저장하지 않는다.
-- 사용자가 선택한 catalog 위치 code/name/grid/source만 사용자 위치로 저장한다.
-- KMA weather provider는 `getVilageFcst`만 사용한다.
-- KMA 실패 또는 서비스키 미설정 시 fallback weather를 사용할 수 있다.
-- 추천 결과에는 사용된 위치, grid, location source, KMA/fallback 여부, base/forecast 시각을 snapshot으로 저장한다.
+## AWS-Ready 경계
+
+MVP8은 AWS를 구현하지 않는다. 대신 MVP9 AWS 배포에서 코드를 크게 다시 쓰지 않도록 아래 경계를 문서화하고 구현 단계에서 지킨다.
+
+- 이메일 발송은 `EmailSender` 인터페이스 뒤에 둔다. MVP8 구현체는 `ConsoleEmailSender`이며 MVP9에서 SES/SMTP 구현체를 추가할 수 있어야 한다.
+- 이미지 파일 삭제는 `ClothingImageStorage` 인터페이스만 통해 수행한다. MVP9에서 S3 storage 구현체를 추가해도 계정 삭제 로직은 바꾸지 않는다.
+- refresh cookie, CORS allowed origins, CORS credentials, OAuth redirect/base URL은 properties/env로 분리한다.
+- local profile과 Docker Compose 실행 흐름은 MVP8 이후에도 유지한다.
+- AWS, S3, SES, Secrets Manager, RDS 운영 migration, CD automation은 MVP9 범위로 남긴다.
 
 ## 추천 규칙
 
@@ -107,8 +138,8 @@ MVP7의 신뢰 표시는 원본 API 응답을 노출하는 기능이 아니라, 
 - 총점은 100점이며 기존 score field를 유지한다.
 - `weatherScore=35`, `colorScore=25`, `wearHistoryScore=20`, `recommendationHistoryScore=10`, `preferenceScore=10`이다.
 - MVP6의 상황, styleTags, 최근 피드백 기반 `preferenceScore` 계약은 유지한다.
-- MVP7의 `forecastPeriod`는 어떤 예보 시각의 날씨를 추천 입력으로 사용할지 결정한다.
-- 위치/source snapshot은 추천 점수 항목을 새로 만들지 않고, 추천 근거 표시와 이력 신뢰도를 위해 저장한다.
+- MVP7의 위치/source snapshot과 `forecastPeriod` 계약은 유지한다.
+- MVP8 계정 기능은 추천 점수, 후보 필터링, 추천 이유를 변경하지 않는다.
 - 이미지 존재 여부는 계속 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
 
 상세 기준은 `docs/RECOMMENDATION_RULES.md`를 따른다.
@@ -138,13 +169,22 @@ docker compose up --build
 
 ## 검증 명령
 
+문서 전환 검증:
+
+```bash
+git diff --check
+python3 scripts/checks.py --docs-check-config phases/8-smartcloset-account-stability/docs-checks.json --docs-check
+```
+
+MVP8 구현 phase 최종 검증:
+
 ```bash
 git diff --check
 ./gradlew test
 ./gradlew build
 (cd frontend && npm run build)
 docker compose config --quiet
-python3 scripts/checks.py --docs-check-config phases/7-smartcloset-location-weather-trust/docs-checks.json --docs-check
+python3 scripts/checks.py --docs-check-config phases/8-smartcloset-account-stability/docs-checks.json --docs-check
 ```
 
 Docker Compose smoke:
@@ -180,3 +220,5 @@ docker compose down
 
 - MVP6 archive: `archive/mvp-6/README.md`
 - MVP6 phase 기록: `phases/6-smartcloset-feedback-personalization/README.md`
+- MVP7 archive: `archive/mvp-7/README.md`
+- MVP7 phase 기록: `phases/7-smartcloset-location-weather-trust/README.md`

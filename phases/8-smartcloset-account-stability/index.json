@@ -1,0 +1,46 @@
+{
+  "project": "SmartCloset",
+  "phase": "8-smartcloset-account-stability",
+  "steps": [
+    {
+      "step": 0,
+      "name": "mvp8-scope-docs-archive",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "refresh-token-session",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "email-verification-password-reset",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "google-oauth-login",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "account-hard-delete",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "frontend-account-stability-ux",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "aws-ready-local-profile-boundaries",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "compose-docs-qa",
+      "status": "pending"
+    }
+  ]
+}
