@@ -1,5 +1,6 @@
 package com.smartcloset.security;
 
+import com.smartcloset.user.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,7 +25,8 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider,
             SecurityErrorResponseWriter securityErrorResponseWriter,
             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-            JwtAccessDeniedHandler jwtAccessDeniedHandler
+            JwtAccessDeniedHandler jwtAccessDeniedHandler,
+            UserRepository userRepository
     ) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -67,7 +69,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider, securityErrorResponseWriter),
+                        new JwtAuthenticationFilter(jwtTokenProvider, securityErrorResponseWriter, userRepository),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
