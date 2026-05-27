@@ -36,6 +36,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AccountActionTokenService accountActionTokenService;
     private final EmailSender emailSender;
+    private final AuthProviderService authProviderService;
 
     public AuthService(
             UserRepository userRepository,
@@ -44,7 +45,8 @@ public class AuthService {
             DefaultClothingPresetSeeder defaultClothingPresetSeeder,
             RefreshTokenService refreshTokenService,
             AccountActionTokenService accountActionTokenService,
-            EmailSender emailSender
+            EmailSender emailSender,
+            AuthProviderService authProviderService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -53,6 +55,7 @@ public class AuthService {
         this.refreshTokenService = refreshTokenService;
         this.accountActionTokenService = accountActionTokenService;
         this.emailSender = emailSender;
+        this.authProviderService = authProviderService;
     }
 
     @Transactional
@@ -150,7 +153,7 @@ public class AuthService {
     private AuthResponse authResponse(User user) {
         CurrentUserPrincipal principal = new CurrentUserPrincipal(user.getId(), user.getEmail(), user.getRole());
         String accessToken = jwtTokenProvider.createAccessToken(principal);
-        return AuthResponse.bearer(accessToken, CurrentUserResponse.from(user));
+        return AuthResponse.bearer(accessToken, CurrentUserResponse.from(user, authProviderService.providersFor(user)));
     }
 
     private void issueEmailVerification(User user) {

@@ -110,6 +110,14 @@ class SecurityBoundaryRegressionTest {
                         .content(objectMapper.writeValueAsString(Map.of("email", "public-login@example.com"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.requested").value(true));
+
+        mockMvc.perform(get("/api/auth/oauth2/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.google.enabled").value(false));
+
+        mockMvc.perform(get("/api/auth/oauth2/google"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("OAUTH2_PROVIDER_UNAVAILABLE"));
     }
 
     @Test

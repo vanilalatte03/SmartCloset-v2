@@ -301,6 +301,8 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
 
 - OAuth login start는 `/api/auth/oauth2/google`이다.
 - OAuth callback은 `/api/auth/oauth2/callback/google`이다.
+- OAuth login start는 short-lived HttpOnly state cookie를 설정하고 Google authorization URL의 `state`와 매칭한다.
+- OAuth callback의 `state`가 state cookie와 일치하지 않으면 refresh cookie를 발급하지 않고 `UNAUTHORIZED`로 실패한다.
 - 성공 시 backend는 refresh cookie를 설정하고 frontend callback URL로 redirect한다.
 - Access token은 frontend가 callback 후 `POST /api/auth/refresh`로 받아도 된다.
 - Google profile의 email은 verified email이어야 한다.

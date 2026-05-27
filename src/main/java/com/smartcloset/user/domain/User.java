@@ -118,6 +118,12 @@ public class User extends BaseTimeEntity {
         return user;
     }
 
+    public static User createGoogleUser(String email, String name) {
+        User user = new User(email, DISABLED_LEGACY_PASSWORD_HASH, name, true, false);
+        user.ensureDefaultLocation();
+        return user;
+    }
+
     public static User create(String name) {
         return new User(localAccountEmail("legacy", name), DISABLED_LEGACY_PASSWORD_HASH, name, true, true);
     }
