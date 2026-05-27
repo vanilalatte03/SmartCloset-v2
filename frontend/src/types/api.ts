@@ -20,18 +20,82 @@ export type SignupRequest = LoginRequest & {
   name: string;
 };
 
+export type AuthProvider = 'PASSWORD' | 'GOOGLE';
+
 export type CurrentUserResponse = {
   email: string;
   name: string;
   role: 'USER';
+  emailVerified: boolean;
+  passwordLoginEnabled: boolean;
+  authProviders: AuthProvider[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type SignupResponse = {
+  email: string;
+  emailVerificationRequired: boolean;
+  message: string;
 };
 
 export type AuthResponse = {
   accessToken: string;
   tokenType: 'Bearer';
   user: CurrentUserResponse;
+};
+
+export type LogoutResponse = {
+  loggedOut: boolean;
+};
+
+export type EmailVerificationRequest = {
+  email: string;
+};
+
+export type EmailVerificationConfirmRequest = {
+  token: string;
+};
+
+export type EmailVerificationRequestedResponse = {
+  requested: boolean;
+};
+
+export type EmailVerificationConfirmResponse = {
+  emailVerified: boolean;
+};
+
+export type PasswordResetRequest = {
+  email: string;
+};
+
+export type PasswordResetConfirmRequest = {
+  token: string;
+  newPassword: string;
+};
+
+export type PasswordResetRequestedResponse = {
+  requested: boolean;
+};
+
+export type PasswordResetConfirmResponse = {
+  passwordReset: boolean;
+};
+
+export type OAuthProvidersResponse = {
+  google: {
+    enabled: boolean;
+    loginUrl: string | null;
+  };
+};
+
+export type AccountDeletionRequest = {
+  confirmation: 'DELETE';
+  password?: string;
+};
+
+export type AccountDeletionResponse = {
+  deleted: boolean;
 };
 
 export type ClothingCategory = 'TOP' | 'BOTTOM' | 'OUTER';

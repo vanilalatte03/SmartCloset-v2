@@ -20,7 +20,16 @@ export class ApiClientError extends Error {
 
 type ApiRequestInit = RequestInit & {
   accessToken?: string;
+  retryOnUnauthorized?: boolean;
 };
+
+type RefreshAccessTokenHandler = () => Promise<string | null>;
+
+let refreshAccessTokenHandler: RefreshAccessTokenHandler | null = null;
+
+export function setRefreshAccessTokenHandler(handler: RefreshAccessTokenHandler | null) {
+  refreshAccessTokenHandler = handler;
+}
 
 function isErrorResponse(value: unknown): value is ErrorResponse {
   if (!value || typeof value !== 'object') {
@@ -47,7 +56,7 @@ function toErrorResponse(value: unknown, fallbackMessage: string): ErrorResponse
   };
 }
 
-async function parseJson(response: Response): Promise<unknown> {
+export async function parseJson(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) {
     return undefined;
@@ -61,10 +70,35 @@ async function parseJson(response: Response): Promise<unknown> {
 }
 
 export async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
-  const { accessToken, ...requestInit } = init;
-  const headers = new Headers(init.headers);
+  const { accessToken, retryOnUnauthorized = true, ...requestInit } = init;
+  const response = await send(path, accessToken, requestInit);
+  const payload = await parseJson(response);
+
+  if (
+    response.status === 401 &&
+    accessToken &&
+    retryOnUnauthorized &&
+    refreshAccessTokenHandler
+  ) {
+    const nextAccessToken = await refreshAccessTokenHandler();
+    if (nextAccessToken) {
+      const retryResponse = await send(path, nextAccessToken, requestInit);
+      const retryPayload = await parseJson(retryResponse);
+      return unwrapApiResponse<T>(retryResponse, retryPayload);
+    }
+  }
+
+  return unwrapApiResponse<T>(response, payload);
+}
+
+async function send(
+  path: string,
+  accessToken: string | undefined,
+  requestInit: RequestInit
+): Promise<Response> {
+  const headers = new Headers(requestInit.headers);
   headers.set('Accept', 'application/json');
-  if (init.body !== undefined && !headers.has('Content-Type')) {
+  if (requestInit.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   if (accessToken) {
@@ -75,8 +109,10 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
     ...requestInit,
     headers,
   });
-  const payload = await parseJson(response);
+  return response;
+}
 
+function unwrapApiResponse<T>(response: Response, payload: unknown): T {
   if (!response.ok) {
     throw new ApiClientError(
       response.status,
@@ -93,4 +129,36 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   }
 
   return apiResponse.data;
+}
+
+export async function fetchWithAuthRetry(
+  path: string,
+  accessToken: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const response = await fetchWithAccessToken(path, accessToken, init);
+  if (response.status !== 401 || !refreshAccessTokenHandler) {
+    return response;
+  }
+
+  const nextAccessToken = await refreshAccessTokenHandler();
+  if (!nextAccessToken) {
+    return response;
+  }
+
+  return fetchWithAccessToken(path, nextAccessToken, init);
+}
+
+async function fetchWithAccessToken(
+  path: string,
+  accessToken: string,
+  init: RequestInit
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${accessToken}`);
+
+  return fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers,
+  });
 }

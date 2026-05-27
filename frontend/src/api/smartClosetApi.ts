@@ -1,21 +1,34 @@
-import { ApiClientError, apiBaseUrl, request } from './client';
+import { ApiClientError, apiBaseUrl, fetchWithAuthRetry, request } from './client';
 import type {
+  AccountDeletionRequest,
+  AccountDeletionResponse,
   AuthResponse,
   ClothingArchiveResponse,
   ClothingRequest,
   ClothingResponse,
+  EmailVerificationConfirmRequest,
+  EmailVerificationConfirmResponse,
+  EmailVerificationRequest,
+  EmailVerificationRequestedResponse,
   ErrorResponse,
   CurrentUserResponse,
   LoginRequest,
   LocationResolveRequest,
   LocationResolveResponse,
   LocationOptionResponse,
+  LogoutResponse,
+  OAuthProvidersResponse,
+  PasswordResetConfirmRequest,
+  PasswordResetConfirmResponse,
+  PasswordResetRequest,
+  PasswordResetRequestedResponse,
   RecommendationFeedbackRequest,
   RecommendationFeedbackResponse,
   RecommendationRequest,
   RecommendationResponse,
   RecommendationWornResponse,
   SignupRequest,
+  SignupResponse,
   UpdateUserLocationRequest,
   UpdateUserPreferencesRequest,
   UserPreferencesResponse,
@@ -27,8 +40,8 @@ export function getApiBaseUrl(): string {
   return apiBaseUrl;
 }
 
-export function signup(body: SignupRequest): Promise<AuthResponse> {
-  return request<AuthResponse>('/api/auth/signup', {
+export function signup(body: SignupRequest): Promise<SignupResponse> {
+  return request<SignupResponse>('/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -37,12 +50,80 @@ export function signup(body: SignupRequest): Promise<AuthResponse> {
 export function login(body: LoginRequest): Promise<AuthResponse> {
   return request<AuthResponse>('/api/auth/login', {
     method: 'POST',
+    credentials: 'include',
     body: JSON.stringify(body),
   });
 }
 
+export function refreshSession(): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+    retryOnUnauthorized: false,
+  });
+}
+
+export function logout(): Promise<LogoutResponse> {
+  return request<LogoutResponse>('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+    retryOnUnauthorized: false,
+  });
+}
+
+export function requestEmailVerification(
+  body: EmailVerificationRequest
+): Promise<EmailVerificationRequestedResponse> {
+  return request<EmailVerificationRequestedResponse>('/api/auth/email-verification/request', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmEmailVerification(
+  body: EmailVerificationConfirmRequest
+): Promise<EmailVerificationConfirmResponse> {
+  return request<EmailVerificationConfirmResponse>('/api/auth/email-verification/confirm', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function requestPasswordReset(
+  body: PasswordResetRequest
+): Promise<PasswordResetRequestedResponse> {
+  return request<PasswordResetRequestedResponse>('/api/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmPasswordReset(
+  body: PasswordResetConfirmRequest
+): Promise<PasswordResetConfirmResponse> {
+  return request<PasswordResetConfirmResponse>('/api/auth/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getOAuthProviders(): Promise<OAuthProvidersResponse> {
+  return request<OAuthProvidersResponse>('/api/auth/oauth2/providers');
+}
+
 export function getCurrentUser(accessToken: string): Promise<CurrentUserResponse> {
   return request<CurrentUserResponse>('/api/users/me', { accessToken });
+}
+
+export function deleteAccount(
+  accessToken: string,
+  body: AccountDeletionRequest
+): Promise<AccountDeletionResponse> {
+  return request<AccountDeletionResponse>('/api/users/me', {
+    method: 'DELETE',
+    accessToken,
+    body: JSON.stringify(body),
+  });
 }
 
 export function searchLocations(
@@ -178,11 +259,10 @@ export async function uploadClothingImage(
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await fetch(`${apiBaseUrl}/api/clothes/${clothingId}/image`, {
+  const response = await fetchWithAuthRetry(`/api/clothes/${clothingId}/image`, accessToken, {
     method: 'PUT',
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: formData,
   });
@@ -217,11 +297,7 @@ export async function getClothingImageBlob(
   accessToken: string,
   imageUrl: string
 ): Promise<Blob> {
-  const response = await fetch(`${apiBaseUrl}${imageUrl}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await fetchWithAuthRetry(imageUrl, accessToken);
 
   if (!response.ok) {
     throw new ApiClientError(response.status, await parseImageErrorResponse(response));
