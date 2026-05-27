@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "account-hard-delete",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-27T12:40:10+0900",
+      "summary": "계정 hard delete API와 소유 데이터/이미지 cleanup을 추가했다.",
+      "completed_at": "2026-05-27T12:47:20+0900"
     },
     {
       "step": 5,
