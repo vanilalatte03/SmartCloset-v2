@@ -28,6 +28,18 @@ smartcloset:
   security:
     jwt:
       secret: "${JWT_SECRET:change-me-local-development-only}"
+    refresh-token:
+      ttl-days: ${REFRESH_TOKEN_TTL_DAYS:14}
+      cookie:
+        name: "${REFRESH_TOKEN_COOKIE_NAME:smartcloset.refreshToken}"
+        secure: ${REFRESH_TOKEN_COOKIE_SECURE:false}
+        same-site: "${REFRESH_TOKEN_COOKIE_SAME_SITE:Lax}"
+        domain: "${REFRESH_TOKEN_COOKIE_DOMAIN:}"
+        path: "${REFRESH_TOKEN_COOKIE_PATH:/api/auth}"
+        max-age: ${REFRESH_TOKEN_COOKIE_MAX_AGE:14d}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
   clothing:
     image:
       storage-dir: ${CLOTHING_IMAGE_STORAGE_DIR:./uploads/clothing-images}
