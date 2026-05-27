@@ -39,6 +39,10 @@
       "dir": "7-smartcloset-location-weather-trust",
       "status": "completed",
       "completed_at": "2026-05-27T02:12:10+0900"
+    },
+    {
+      "dir": "8-smartcloset-account-stability",
+      "status": "pending"
     }
   ]
 }

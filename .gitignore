@@ -8,6 +8,8 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
+.DS_Store
+tmp/
 
 # Gradle
 .gradle/

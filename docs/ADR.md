@@ -17,6 +17,8 @@ ADR-011은 MVP6를 추천 피드백/개인화 MVP로 확정하고, 추천 상황
 
 ADR-012는 MVP7을 위치/날씨 신뢰도 MVP로 확정하고, KMA 행정구역 catalog, 브라우저 좌표 resolve, 예보 시간대 선택, 위치/날씨 source snapshot 저장 방식을 정의한다.
 
+ADR-013은 MVP8을 계정 안정성 MVP로 확정하고, refresh token session, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX, 계정/데이터 삭제, MVP9 AWS-ready adapter 경계를 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -29,3 +31,4 @@ ADR-012는 MVP7을 위치/날씨 신뢰도 MVP로 확정하고, KMA 행정구역
 - [ADR-010: Define MVP5 as Clothing Image Upload](adr/010-mvp5-clothing-images.md)
 - [ADR-011: Define MVP6 as Feedback Personalization](adr/011-mvp6-feedback-personalization.md)
 - [ADR-012: Define MVP7 as Location Weather Trust](adr/012-mvp7-location-weather-trust.md)
+- [ADR-013: Define MVP8 as Account Stability](adr/013-mvp8-account-stability.md)

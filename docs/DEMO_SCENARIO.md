@@ -1,40 +1,43 @@
-# Demo Scenario: SmartCloset MVP7
+# Demo Scenario: SmartCloset MVP8
 
 ## 데모 목표
 
-Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 동네 단위 위치 검색, 현재 위치 후보 찾기, 예보 시간대 선택, 추천 결과와 이력의 위치/날씨 source 표시를 확인한다.
+Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 refresh session, 이메일 인증, 비밀번호 재설정, Google provider 상태, 세션 만료 UX, 계정 삭제 흐름을 확인한다.
 
-MVP7 데모의 핵심은 사용자가 추천에 사용된 위치와 날씨 기준을 신뢰할 수 있는지 확인하는 것이다.
+MVP8 데모의 핵심은 사용자가 계정을 안정적으로 유지하고 복구하며 삭제할 수 있는지 확인하는 것이다.
 
-## MVP7 데모 범위
+## MVP8 데모 범위
 
 포함:
 
-- 회원가입 또는 로그인
-- KMA 행정구역 catalog 검색
-- `일산동` 같은 동명이인 후보 확인
-- 브라우저 현재 위치 권한 허용 또는 거부 흐름
-- 좌표 resolve 후보 선택 후 위치 저장
-- Today view 예보 시간대 선택
-- 추천 생성
-- 추천 결과의 위치, KMA/fallback 여부, base/forecast 시각 확인
-- 착용 완료와 추천 피드백 저장/clear 유지
-- History view에서 과거 추천의 위치/날씨 source snapshot 확인
+- 회원가입 후 이메일 인증 필요 상태 확인
+- 개발용 console/log email sender로 인증 token 확인
+- 이메일 인증 완료 후 로그인
+- refresh cookie 기반 새로고침 세션 복구
+- 보호 API 401 시 refresh retry-once 흐름
+- 비밀번호 재설정 요청/확인
+- Google provider enabled/disabled 상태 확인
+- Google login flow 또는 설정 미비 시 disabled UX 확인
+- 계정 삭제와 데이터 삭제
+- MVP5/MVP6/MVP7 핵심 흐름 유지 확인
 
 제외:
 
-- 외부 지도/주소 API
-- 지도 화면 렌더링
-- raw KMA 응답 JSON 저장/표시
-- AI/GPT 추천
-- AI 자동 태깅
 - AWS 배포
+- S3 storage
+- SES/SMTP 실제 발송
+- Secrets Manager
+- CD 자동화
+- Redis
+- admin 계정 관리
+- 추천 규칙 변경
 
 ## 데모 전제
 
 - `.env`는 `.env.example`을 복사해 만든다.
-- `KMA_SERVICE_KEY`가 없어도 `WEATHER_FALLBACK_ENABLED=true`이면 fallback weather로 데모 가능하다.
-- KMA key가 없으면 source 표시에서 fallback 사용 여부를 확인한다.
+- MVP8 이메일은 `ConsoleEmailSender` 기준이며 실제 메일은 발송하지 않는다.
+- Google OAuth 설정이 없으면 provider disabled 상태로 데모한다.
+- KMA key가 없어도 `WEATHER_FALLBACK_ENABLED=true`이면 fallback weather로 기존 추천 데모 가능하다.
 - Docker Compose reset 시 DB와 이미지 volume이 초기화된다.
 
 ## 실행
@@ -57,119 +60,122 @@ Swagger UI:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-## React 앱 MVP7 데모 시나리오
+## React 앱 MVP8 데모 시나리오
 
-### 1. 회원가입 또는 로그인
+### 1. 회원가입과 이메일 인증 안내
 
 1. Frontend에 접속한다.
-2. 새 계정으로 회원가입하거나 기존 계정으로 로그인한다.
-3. 로그인 후 Today view가 보이는지 확인한다.
-4. access token이 `sessionStorage`에 저장되는지 확인한다.
+2. 새 이메일/password/name으로 회원가입한다.
+3. 회원가입 성공 후 이메일 인증 필요 안내를 확인한다.
 
 기대 결과:
 
-- 기본 위치가 표시된다.
-- 기본 옷 프리셋이 준비된다.
+- 가입 직후 자동 로그인되지 않는다.
+- access token이 JSON 응답에 포함되지 않는다.
+- 인증 안내와 재요청 진입점이 표시된다.
+
+### 2. 이메일 인증 확인
+
+1. backend console/log에서 인증 token 또는 인증 링크를 확인한다.
+2. 앱의 이메일 인증 확인 화면에 token을 입력하거나 링크를 연다.
+
+기대 결과:
+
+- 이메일 인증이 성공한다.
+- 같은 token 재사용은 실패한다.
+- 인증 완료 후 login 가능 상태가 된다.
+
+### 3. 로그인과 refresh cookie
+
+1. 인증된 이메일/password로 로그인한다.
+2. 앱을 새로고침한다.
+
+기대 결과:
+
+- login 응답은 access token을 반환한다.
+- refresh token 값은 JSON body에 없다.
+- 새로고침 후 `POST /api/auth/refresh`로 세션이 복구된다.
 - Today, Closet, Preferences, Location, History view를 이동할 수 있다.
 
-### 2. 동네 단위 위치 검색
+### 4. 세션 만료 UX
 
-1. Location view로 이동한다.
-2. 검색창에 `일산동`을 입력한다.
-3. 후보 목록을 확인한다.
-
-기대 결과:
-
-- KMA catalog 후보가 여러 개 표시될 수 있다.
-- 각 후보는 `fullName`, `nx/ny`로 구분된다.
-- 외부 지도나 주소 API 호출 없이 결과가 나온다.
-
-### 3. 위치 저장
-
-1. 후보 중 하나를 선택한다.
-2. 위치 저장을 실행한다.
+1. access token 만료 또는 invalid token 상황을 만든다.
+2. 보호 API 호출을 수행한다.
 
 기대 결과:
 
-- `PUT /api/users/me/location`이 호출된다.
-- 저장된 위치 source는 `MANUAL_SEARCH`다.
-- Today의 위치 표시가 선택한 동네로 갱신된다.
+- 앱은 refresh를 한 번 시도한다.
+- refresh 성공 시 원 요청을 한 번 재시도한다.
+- refresh 실패 시 세션 만료 안내와 로그인 화면을 보여준다.
 
-### 4. 현재 위치로 후보 찾기
+### 5. 비밀번호 재설정
 
-1. Location view에서 현재 위치로 찾기를 누른다.
-2. 브라우저 권한을 허용하거나 거부한다.
-
-기대 결과:
-
-- 허용 시 `POST /api/locations/resolve`가 호출되고 가까운 후보가 표시된다.
-- 후보는 자동 저장되지 않는다.
-- 후보 저장 시 source는 `BROWSER_GEOLOCATION`이다.
-- 거부 시 수동 검색으로 돌아갈 수 있다.
-
-### 5. 예보 시간대 선택 추천
-
-1. Today view로 이동한다.
-2. 상황을 `출근`으로 선택한다.
-3. 예보 시간대를 `오후`로 선택한다.
-4. 추천 만들기를 누른다.
+1. 비밀번호 재설정 요청 화면에서 이메일을 입력한다.
+2. backend console/log에서 reset token을 확인한다.
+3. 새 비밀번호를 입력해 reset confirm을 수행한다.
+4. 새 비밀번호로 로그인한다.
 
 기대 결과:
 
-- `POST /api/recommendations`에 `situation=WORK`, `forecastPeriod=AFTERNOON`이 반영된다.
-- 추천 결과에 출근 상황과 오후 예보 기준이 표시된다.
-- 추천 이유와 점수는 기존 규칙 기반 구조를 유지한다.
+- reset request 응답은 계정 존재 여부를 노출하지 않는다.
+- reset token은 single-use다.
+- reset 성공 후 기존 refresh session은 사용할 수 없다.
 
-### 6. 위치/날씨 source 확인
+### 6. Google provider 상태
 
-1. 추천 결과의 weather/source 영역을 확인한다.
-2. KMA key가 있으면 KMA 사용 표시를 확인한다.
-3. KMA key가 없거나 실패 조건이면 fallback 표시를 확인한다.
-
-기대 결과:
-
-- 위치 fullName 또는 name이 표시된다.
-- KMA grid `nx/ny`가 표시된다.
-- KMA 사용 여부와 fallback 여부가 표시된다.
-- base date/time과 forecast date/time이 표시된다.
-
-### 7. 착용 완료와 피드백 유지
-
-1. 추천 결과에서 착용 완료하기를 누른다.
-2. 마음에 들어요 또는 추웠어요 피드백을 저장한다.
-3. 피드백을 clear한다.
+1. Auth 화면에서 Google login button 상태를 확인한다.
+2. Google OAuth 설정이 없으면 disabled 안내를 확인한다.
+3. 설정이 있으면 Google login flow를 수행한다.
 
 기대 결과:
 
-- MVP6 착용 완료와 피드백 흐름이 유지된다.
-- source snapshot 표시는 피드백 저장/clear와 무관하게 유지된다.
+- `/api/auth/oauth2/providers`가 Google enabled/disabled 상태를 반환한다.
+- disabled 상태에서는 login 시도를 유도하지 않는다.
+- enabled 상태에서는 Google verified email 계정이 인증 완료 상태로 로그인된다.
 
-### 8. 추천 이력 snapshot 확인
+### 7. 기존 MVP 기능 유지
 
-1. History view로 이동한다.
-2. 최근 추천 카드들을 확인한다.
-3. Location view에서 위치를 다른 후보로 바꾼 뒤 History를 다시 확인한다.
+1. Location에서 `일산동` 검색과 현재 위치 후보를 확인한다.
+2. Today에서 상황과 예보 시간대를 선택해 추천을 생성한다.
+3. 추천 결과와 History에서 위치/날씨 source snapshot을 확인한다.
+4. Closet 이미지 업로드/삭제와 추천 피드백 저장/clear를 확인한다.
 
 기대 결과:
 
-- 각 추천에 생성 당시 위치/날씨 source snapshot이 표시된다.
-- 사용자 현재 위치가 바뀌어도 과거 추천 카드의 snapshot은 바뀌지 않는다.
+- MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 신뢰도 흐름이 유지된다.
+
+### 8. 계정 삭제
+
+1. Account settings로 이동한다.
+2. confirmation `DELETE`를 입력한다.
+3. Password login enabled 계정이면 현재 비밀번호를 입력한다.
+4. 삭제를 실행한다.
+
+기대 결과:
+
+- 계정 삭제가 성공한다.
+- 로그인 상태가 초기화된다.
+- 기존 refresh cookie는 더 이상 사용할 수 없다.
+- 삭제된 계정의 옷장, 추천 이력, 이미지 파일이 남아 보호 API에서 조회되지 않는다.
 
 ## API 실패 케이스 확인
 
-- 인증 없이 `POST /api/locations/resolve`: `401 UNAUTHORIZED`
-- 잘못된 latitude/longitude: `400 INVALID_REQUEST`
-- 존재하지 않는 locationCode 저장: `400 INVALID_REQUEST`
-- 잘못된 forecastPeriod enum: `400 INVALID_REQUEST`
-- body 없는 `POST /api/recommendations`: `201 Created`, `situation=CASUAL`, `forecastPeriod=CURRENT`
-- 인증 없이 feedback PUT: `401 UNAUTHORIZED`
-- `{}` feedback PUT: `200 OK`, `feedback=null`
+- 미인증 password 계정 login: `403 EMAIL_VERIFICATION_REQUIRED`
+- 만료/사용 완료 인증 token confirm: `400 ACCOUNT_TOKEN_INVALID`
+- reset token 재사용: `400 ACCOUNT_TOKEN_INVALID`
+- refresh cookie 없음: `401 UNAUTHORIZED`
+- revoked refresh token 사용: `401 INVALID_TOKEN`
+- Google provider 설정 없음: provider status `enabled=false`
+- 계정 삭제 confirmation 누락: `400 INVALID_REQUEST`
+- 계정 삭제 password 불일치: `401 UNAUTHORIZED`
 
 ## 완료 기준
 
-- 동네 단위 위치 검색과 저장이 가능하다.
-- 브라우저 현재 위치로 후보를 찾고 선택 저장할 수 있다.
-- 오전/오후/저녁 예보 기준을 선택해 추천을 만들 수 있다.
-- 추천 결과와 추천 이력에서 위치, KMA/fallback 여부, base/forecast 시각을 확인할 수 있다.
-- MVP6 피드백/개인화와 MVP5 이미지 업로드/썸네일이 유지된다.
-- Docker Compose 환경에서 앱이 정상 실행된다.
+- 이메일 인증 전 password login이 차단된다.
+- 이메일 인증 후 login과 refresh session이 동작한다.
+- 새로고침 세션 복구가 동작한다.
+- 비밀번호 재설정이 동작하고 기존 refresh session이 revoke된다.
+- Google provider 상태가 표시된다.
+- 계정 삭제가 현재 사용자 데이터와 이미지 파일을 삭제한다.
+- MVP5/MVP6/MVP7 핵심 기능이 유지된다.
+- Docker Compose local 환경에서 앱이 정상 실행된다.

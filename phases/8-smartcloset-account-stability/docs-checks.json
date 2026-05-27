@@ -1,0 +1,122 @@
+{
+  "paths": [
+    "README.md",
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/ERD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/FRONTEND.md",
+    "docs/DEMO_SCENARIO.md",
+    "docs/SHARING_GUIDE.md",
+    "docs/COMMANDS.md",
+    "docs/ADR.md",
+    "docs/adr/013-mvp8-account-stability.md",
+    ".codex/agents",
+    "phases/8-smartcloset-account-stability"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "MVP8 current docs marker",
+      "paths": ["README.md", "docs/PRD.md"],
+      "pattern": "MVP8.*계정 안정성"
+    },
+    {
+      "name": "ADR-013 linked",
+      "paths": ["docs/ADR.md"],
+      "pattern": "ADR-013"
+    },
+    {
+      "name": "Refresh API documented",
+      "paths": ["docs/API.md"],
+      "pattern": "POST /api/auth/refresh"
+    },
+    {
+      "name": "Email verification documented",
+      "paths": ["docs/API.md", "docs/PRD.md"],
+      "pattern": "email-verification"
+    },
+    {
+      "name": "Password reset documented",
+      "paths": ["docs/API.md", "docs/PRD.md"],
+      "pattern": "password-reset"
+    },
+    {
+      "name": "Google OAuth documented",
+      "paths": ["docs/API.md", "docs/FRONTEND.md"],
+      "pattern": "Google"
+    },
+    {
+      "name": "Account deletion documented",
+      "paths": ["docs/API.md", "docs/ERD.md"],
+      "pattern": "DELETE /api/users/me|계정 삭제"
+    },
+    {
+      "name": "ConsoleEmailSender boundary",
+      "paths": ["README.md", "docs/ARCHITECTURE.md", "docs/SHARING_GUIDE.md"],
+      "pattern": "ConsoleEmailSender"
+    },
+    {
+      "name": "AWS-ready boundary",
+      "paths": ["README.md", "docs/ADR.md", "docs/adr/013-mvp8-account-stability.md"],
+      "pattern": "AWS-ready|AWS 배포"
+    },
+    {
+      "name": "Phase docs exist",
+      "paths": ["phases/8-smartcloset-account-stability/README.md"],
+      "pattern": "Account Stability"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "refresh token JSON exposure",
+      "paths": ["README.md", "docs/API.md", "docs/FRONTEND.md", "phases/8-smartcloset-account-stability"],
+      "pattern": "refreshToken\"\\s*:"
+    },
+    {
+      "name": "AWS implementation in MVP8",
+      "paths": ["README.md", "docs/PRD.md", "docs/ARCHITECTURE.md", "docs/SHARING_GUIDE.md", "phases/8-smartcloset-account-stability"],
+      "pattern": "S3.*구현한다|SES.*구현한다|Secrets Manager.*구현한다|AWS.*배포.*구현한다"
+    },
+    {
+      "name": "forbidden MVP8 out-of-scope implementation",
+      "pattern": "AI/GPT 추천.*구현한다|AI 자동 태[깅].*구현한다|Redis.*구현한다|soft delete.*구현한다"
+    },
+    {
+      "name": "docker compose config must be quiet",
+      "paths": [
+        "README.md",
+        "docs/PRD.md",
+        "docs/COMMANDS.md",
+        "phases/8-smartcloset-account-stability"
+      ],
+      "pattern": "docker compose config(?! --quiet)"
+    }
+  ]
+}

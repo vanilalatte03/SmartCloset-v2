@@ -1,10 +1,10 @@
-# 아키텍처: SmartCloset MVP7
+# 아키텍처: SmartCloset MVP8
 
 ## 전체 아키텍처 개요
 
-SmartCloset MVP7은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP7의 변경 지점은 KMA 위치 catalog 확장, 브라우저 좌표 resolve, forecast period 기반 weather 조회, 위치/날씨 source snapshot 저장과 표시다.
+SmartCloset MVP8은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP8의 변경 지점은 account/auth 영역이다.
 
-기존 인증, 옷 이미지 저장, 추천 피드백/개인화, 추천 이력 구조는 유지한다.
+기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력 구조는 유지한다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
@@ -17,37 +17,37 @@ Controller -> Application Service -> Domain Service -> Repository / Provider
 ```text
 com.smartcloset
 ├── auth
+│   ├── application
+│   ├── domain
+│   ├── dto
+│   ├── infrastructure
+│   └── presentation
+├── account
+│   ├── application
+│   ├── domain
+│   ├── dto
+│   └── presentation
 ├── common
 ├── security
 ├── user
 ├── location
-│   ├── domain
-│   ├── application
-│   ├── dto
-│   └── presentation
 ├── weather
-│   ├── domain
-│   ├── application
-│   └── infrastructure
 ├── clothing
 └── recommendation
-    ├── domain
-    ├── repository
-    ├── application
-    ├── presentation
-    └── dto
 ```
 
-MVP7 location/weather에는 아래 개념을 둔다.
+MVP8 auth/account에는 아래 개념을 둔다.
 
-- `LocationSource`
-- KMA 행정구역 `LocationCatalog`
-- `KmaGridConverter`
-- `LocationResolveService`
-- `ForecastPeriod`
-- `WeatherSnapshot`
-- `WeatherSource`
-- `WeatherLocationSnapshot`
+- `RefreshSession`
+- `RefreshTokenService`
+- `RefreshTokenCookieProperties`
+- `AccountActionToken`
+- `AccountActionTokenPurpose`: `EMAIL_VERIFICATION`, `PASSWORD_RESET`
+- `EmailSender`
+- `ConsoleEmailSender`
+- `SocialAccount`
+- `OAuthProvider`: `GOOGLE`
+- `AccountDeletionService`
 
 프론트엔드:
 
@@ -57,6 +57,7 @@ frontend/src
 ├── components
 ├── features
 │   ├── auth
+│   ├── account
 │   ├── clothes
 │   ├── location
 │   ├── preferences
@@ -72,202 +73,189 @@ frontend/src
 
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `POST /api/auth/email-verification/request`
+- `POST /api/auth/email-verification/confirm`
+- `POST /api/auth/password-reset/request`
+- `POST /api/auth/password-reset/confirm`
+- `GET /api/auth/oauth2/providers`
+- `GET /api/auth/oauth2/google`
+- `GET /api/auth/oauth2/callback/google`
 
 그 외 `/api/**` endpoint는 보호 API다.
 
-MVP7 신규/변경 보호 API:
-
-- `GET /api/locations?keyword={keyword}` 확장
-- `POST /api/locations/resolve`
-- `PUT /api/users/me/location` optional `source`
-- `GET /api/weather/current` source metadata 포함
-- `POST /api/recommendations` optional `forecastPeriod`
-
 모든 사용자 소유 데이터는 인증 principal의 현재 사용자 id로 제한한다.
 
-## 위치 catalog 흐름
+## Refresh session 흐름
 
 ```text
-GET /api/locations?keyword=일산동
-  -> LocationController
-  -> LocationService.searchLocations(keyword)
-      -> LocationCatalog.search(keyword)
-      -> LocationOptionResponse
+POST /api/auth/login
+  -> AuthController
+  -> AuthService.login
+      -> password 검증
+      -> emailVerified 확인
+      -> JwtTokenProvider.createAccessToken
+      -> RefreshTokenService.issue
+      -> RefreshTokenCookieWriter.write
+```
+
+```text
+POST /api/auth/refresh
+  -> AuthController
+  -> RefreshTokenCookieReader.read
+  -> RefreshTokenService.rotate
+      -> hash 조회
+      -> 만료/revoked 검증
+      -> 기존 session revokedAt 기록
+      -> 새 refresh session 생성
+      -> JwtTokenProvider.createAccessToken
+      -> RefreshTokenCookieWriter.write
 ```
 
 정책:
 
-- KMA 단기예보 격자 위경도 자료를 application resource로 사용한다.
-- DB table로 만들지 않고 read-only catalog로 시작한다.
-- 검색은 code, fullName, region1, region2, region3 기준으로 수행한다.
-- 동명이인은 모두 반환하고 client가 선택하게 한다.
-- 외부 주소/지도 API를 호출하지 않는다.
+- Raw refresh token은 DB에 저장하지 않는다.
+- Refresh token hash는 고정된 서버 secret 또는 secure digest 정책으로 생성한다.
+- Refresh token rotation은 매 refresh 요청마다 수행한다.
+- Reused/revoked token은 `INVALID_TOKEN`으로 실패한다.
+- Logout은 멱등이며 cookie를 만료한다.
+- Cookie 설정은 properties/env에서 읽는다.
 
-## 브라우저 좌표 resolve 흐름
+## Email verification 흐름
 
 ```text
-POST /api/locations/resolve
-  -> LocationController
-  -> LocationResolveService.resolve(latitude, longitude)
-      -> KmaGridConverter.toGrid(latitude, longitude)
-      -> LocationCatalog.findNearest(grid, coordinate)
-      -> LocationResolveResponse
+POST /api/auth/signup
+  -> AuthService.signup
+      -> User.createPasswordUser(emailVerified=false)
+      -> default presets seed
+      -> AccountActionTokenService.issue(EMAIL_VERIFICATION)
+      -> EmailSender.sendEmailVerification
+```
+
+```text
+POST /api/auth/email-verification/confirm
+  -> AccountActionTokenService.consume
+  -> User.markEmailVerified
 ```
 
 정책:
 
-- 브라우저 Geolocation API 호출은 프론트 사용자 클릭 뒤에만 수행한다.
-- 서버는 좌표를 KMA grid로 변환하고 가까운 catalog 후보를 반환한다.
-- 좌표 원문은 DB에 저장하지 않는다.
-- 후보 선택 후 `PUT /api/users/me/location`을 호출해야 사용자 위치가 저장된다.
+- Password signup은 access token을 발급하지 않는다.
+- 미인증 password 계정은 login할 수 없다.
+- Token 원문은 저장하지 않고 hash만 저장한다.
+- Token은 만료와 single-use를 적용한다.
+- MVP8 구현체는 `ConsoleEmailSender`다.
 
-## 사용자 위치 저장 흐름
+## Password reset 흐름
 
 ```text
-PUT /api/users/me/location
-  -> UserLocationController
-  -> UserLocationService.updateUserLocation(userId, request)
-      -> LocationCatalog.findByCode(locationCode)
-      -> User.updateLocation(location, source)
-      -> UserLocationResponse
+POST /api/auth/password-reset/request
+  -> AccountActionTokenService.issue(PASSWORD_RESET)
+  -> EmailSender.sendPasswordReset
+```
+
+```text
+POST /api/auth/password-reset/confirm
+  -> AccountActionTokenService.consume
+  -> User.changePasswordHash
+  -> RefreshSessionService.revokeAll(userId)
 ```
 
 정책:
 
-- `source` 누락 시 `MANUAL_SEARCH`다.
-- 저장 값은 location code/name/fullName/region/grid/source다.
-- 브라우저 좌표 원문이나 catalog latitude/longitude는 사용자 row에 저장하지 않는다.
-- 신규 사용자는 Seoul `SEOUL`, `nx=60`, `ny=127`, `MANUAL_SEARCH`로 시작한다.
+- Reset request 응답은 계정 존재 여부를 노출하지 않는다.
+- Password login disabled 계정은 password reset confirm 대상이 아니다.
+- Reset 성공 시 기존 refresh sessions를 revoke한다.
 
-## WeatherProvider 흐름
+## Google OAuth 흐름
 
 ```text
-WeatherProvider.getWeather(userId, forecastPeriod)
-  -> UserLocationReader.getRequiredLocationSnapshot(userId)
-  -> KmaForecastBaseTimeCalculator.calculate(clock)
-  -> KmaVilageForecastClient.getVilageForecast(baseTime, grid)
-  -> KmaWeatherConditionMapper.map(items, forecastPeriod, now)
-  -> WeatherSnapshot(condition, location, source)
+GET /api/auth/oauth2/providers
+  -> Google client 설정 존재 여부 확인
+```
+
+```text
+GET /api/auth/oauth2/google
+  -> Spring Security OAuth2 authorization redirect
+
+GET /api/auth/oauth2/callback/google
+  -> Google profile 검증
+  -> SocialAccount find/link/create
+  -> User create or load
+  -> refresh cookie 발급
+  -> frontend callback URL redirect
 ```
 
 정책:
 
-- `getVilageFcst` JSON만 외부 weather API로 사용한다.
-- `WeatherSnapshot`은 내부 `WeatherCondition`, `WeatherLocationSnapshot`, `WeatherSource`를 포함한다.
-- KMA 성공 시 `provider=KMA_VILAGE_FORECAST`, `kmaUsed=true`, `fallbackUsed=false`다.
-- 서비스키 미설정, KMA 실패, mapping 실패는 fallback enabled일 때 `StaticWeatherProvider`로 전환한다.
-- fallback 시 `provider=STATIC_FALLBACK`, `kmaUsed=false`, `fallbackUsed=true`다.
-- raw KMA 응답 JSON은 domain, DB, API response에 전달하지 않는다.
+- Google provider 설정이 없으면 provider status는 disabled다.
+- Google email은 verified email이어야 한다.
+- 기존 같은 email user가 있으면 social account를 link한다.
+- 새 Google user는 password login disabled, email verified 상태로 생성한다.
+- OAuth redirect/base URL은 properties/env로 설정한다.
 
-## 추천 생성 흐름
+## Account deletion 흐름
 
 ```text
-POST /api/recommendations
-  -> RecommendationController
-  -> RecommendationService.createRecommendation(userId, situation, forecastPeriod)
-      -> WeatherProvider.getWeather(userId, forecastPeriod)
-      -> UserRepository / ClothingItemRepository
-      -> recent wear/recommendation/feedback snapshots
-      -> WeatherSuitabilityFilter
-      -> OutfitCandidateGenerator
-      -> RecommendationScorer
-      -> RecommendationReasonGenerator
-      -> RecommendationResultRepository
-      -> RecommendationResultItemRepository
+DELETE /api/users/me
+  -> AccountController
+  -> AccountDeletionService.deleteAccount(userId, request)
+      -> password 확인 또는 confirmation 확인
+      -> 삭제할 image stored filename 수집
+      -> recommendation result items / wear histories / recommendations 삭제
+      -> clothing items 삭제
+      -> refresh sessions / action tokens / social accounts 삭제
+      -> user 삭제
+      -> ClothingImageStorage.delete(filename)
 ```
 
 정책:
 
-- request body가 없거나 `situation`이 없으면 `CASUAL`을 사용한다.
-- `forecastPeriod`가 없으면 `CURRENT`를 사용한다.
-- 추천 상황과 forecastPeriod는 `recommendation_results`에 snapshot으로 저장한다.
-- weather condition과 source metadata도 `recommendation_results`에 snapshot으로 저장한다.
-- score snapshot은 기존 field를 유지한다.
-- `preferenceScore` 내부에서 색상, 소재, style tag, 피드백 보정을 계산한다.
-- 추천 생성은 피드백이나 착용 이력을 생성하지 않는다.
+- 삭제는 현재 사용자 소유 데이터만 대상으로 한다.
+- Password login enabled 계정은 현재 password 검증이 필요하다.
+- Google-only 계정은 `confirmation=DELETE`를 요구한다.
+- DB 삭제와 파일 삭제 보상 정책은 구현 단계에서 테스트 가능하게 정한다.
+- 이미지 삭제는 `ClothingImageStorage` 인터페이스만 호출한다.
 
-## 현재 날씨 조회 흐름
+## AWS-ready adapter boundary
 
-```text
-GET /api/weather/current
-  -> CurrentWeatherController
-  -> CurrentWeatherService.getCurrentWeather(userId)
-      -> WeatherProvider.getWeather(userId, CURRENT)
-      -> WeatherResponse
-```
+MVP8은 AWS 배포를 구현하지 않는다.
 
-정책:
+- `EmailSender`는 interface로 두고 MVP8은 `ConsoleEmailSender`만 구현한다.
+- MVP9에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
+- `ClothingImageStorage`는 기존 local file 구현을 유지한다.
+- MVP9에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
+- Cookie, CORS, OAuth URL은 properties/env로 분리한다.
+- local profile과 Docker Compose 경로는 계속 동작해야 한다.
 
-- 현재 사용자 위치와 `CURRENT` 기준 source metadata를 반환한다.
-- 추천 결과, 추천 이력, 착용 이력, 피드백을 생성하거나 변경하지 않는다.
+## 기존 domain 흐름 유지
 
-## 추천 이력 조회 흐름
-
-```text
-GET /api/recommendations?limit=20
-  -> RecommendationService.getRecommendationHistory
-      -> recommendation result ids latest first
-      -> result items with clothing item
-      -> wear history by recommendation id
-      -> RecommendationResponse
-```
-
-MVP7 이력 응답은 아래를 포함한다.
-
-- `situation`
-- `forecastPeriod`
-- `weather.location`
-- `weather.source`
-- `worn`
-- `wornAt`
-- `feedback`
-- outfit item image metadata
-- outfit item styleTags
+- 위치 검색과 좌표 resolve는 MVP7 계약을 유지한다.
+- Weather provider는 KMA `getVilageFcst`와 fallback만 사용한다.
+- 추천 생성은 `POST /api/recommendations`이며 optional `situation`, `forecastPeriod`를 받는다.
+- 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.
+- 옷 이미지 API는 보호 API이며 blob fetch에 Authorization header가 필요하다.
+- 추천 피드백 PUT은 전체 교체이고 누락 필드는 `null`이다.
 
 ## 트랜잭션 경계
 
-- 위치 검색: read-only, transaction 불필요 또는 readOnly
-- 좌표 resolve: read-only, DB write 없음
-- 사용자 위치 저장: write transaction
-- 현재 날씨 조회: 추천 관련 write 없음
-- 추천 생성: weather 조회 후 write transaction으로 추천 결과와 result items 저장
-- 추천 이력 조회: readOnly transaction
-- 추천 피드백 저장/clear: write transaction
-- 착용 완료: write transaction, idempotent
-- 옷 등록/수정: write transaction, styleTags 포함
-- 옷 이미지 업로드/교체/조회/삭제: MVP5 transaction 및 파일 보상 처리 유지
+- Signup: user/default presets/action token 생성 write transaction, email sending은 transaction 이후 또는 실패 보상 가능 구조
+- Login: user read, refresh session issue write transaction
+- Refresh: refresh session rotation write transaction
+- Logout: refresh session revoke write transaction 또는 멱등 no-op
+- Email verification confirm: action token consume + user update write transaction
+- Password reset confirm: action token consume + password update + refresh revoke write transaction
+- OAuth callback: user/social account upsert + refresh issue write transaction
+- Account deletion: current user owned data delete write transaction, image file cleanup은 명시적 보상 정책 필요
+- 기존 위치/날씨/추천/이미지 transaction 정책은 MVP7 기준 유지
 
-## 프론트 구조
+## 금지사항
 
-- `src/types/api.ts`에 MVP7 request/response type을 명시한다.
-- `src/api/smartClosetApi.ts`에 `resolveLocation(accessToken, request)`, `updateUserLocation(accessToken, request)`, `createRecommendation(accessToken, request?)`를 둔다.
-- Location view는 검색과 현재 위치 후보 찾기를 제공한다.
-- Today view는 상황 선택, forecastPeriod 선택, 추천 결과 source 표시를 제공한다.
-- History view는 각 추천의 위치/날씨 source snapshot을 표시한다.
-- 보호 이미지 조회는 계속 Authorization header가 있는 blob fetch와 object URL을 사용한다.
-
-## Storage 정책
-
-옷 이미지 storage 정책은 MVP5를 유지한다.
-
-```yaml
-smartcloset:
-  clothing:
-    image:
-      storage-dir: ${CLOTHING_IMAGE_STORAGE_DIR:./uploads/clothing-images}
-      max-size-bytes: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
-```
-
-KMA location catalog는 application resource로 포함한다. Docker Compose에서 별도 외부 API key나 volume을 요구하지 않는다.
-
-## 금지 사항
-
-- 공개 API를 추가하지 않는다. 이유: 인증 사용자 데이터 경계를 유지해야 한다.
-- 공개 `userId` query parameter를 추가하지 않는다. 이유: 현재 사용자 경계는 JWT principal이다.
-- 외부 주소/지도 API를 추가하지 않는다. 이유: MVP7 P0는 KMA catalog 기반 위치 신뢰도 검증이다.
-- 브라우저 GPS 원문 좌표를 DB에 저장하지 않는다. 이유: 위치 후보 선택에만 필요한 민감한 입력이다.
-- raw KMA 응답 JSON을 저장하지 않는다. 이유: MVP7 source snapshot은 사람이 확인할 신뢰 필드만 다룬다.
-- 기상청 `getVilageFcst` 외 weather API를 추가하지 않는다. 이유: weather provider 외부 의존성을 확장하지 않는다.
-- 추천 점수 계산 로직을 Controller나 Repository에 두지 않는다. 이유: 추천 도메인 규칙을 테스트 가능하게 유지해야 한다.
-- 이미지 metadata를 추천 점수나 이유에 사용하지 않는다. 이유: MVP7 신뢰도 입력은 위치/날씨 source 표시이며 이미지와 무관하다.
-- AI/GPT 추천을 추가하지 않는다. 이유: MVP7은 설명 가능한 규칙 기반 추천이다.
+- AWS 배포 구현을 추가하지 않는다. 이유: MVP8은 account stability이며 AWS는 MVP9 범위다.
+- S3 구현체를 추가하지 않는다. 이유: MVP8은 `ClothingImageStorage` 경계만 보존한다.
+- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: MVP8 이메일은 `ConsoleEmailSender` 기준이다.
+- Redis를 추가하지 않는다. 이유: refresh session은 DB-backed로 검증한다.
+- 추천 점수 계산을 변경하지 않는다. 이유: MVP8은 계정 안정성 범위다.
+- 공개 `userId` query parameter를 추가하지 않는다. 이유: 인증 사용자 API 계약과 충돌한다.
+- Refresh token 원문을 DB 또는 JSON 응답에 저장/노출하지 않는다. 이유: 계정 안정성 핵심 보안 계약이다.
