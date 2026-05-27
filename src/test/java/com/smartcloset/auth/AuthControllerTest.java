@@ -2,13 +2,14 @@ package com.smartcloset.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartcloset.auth.application.AccountActionTokenService;
+import com.smartcloset.auth.domain.AccountActionTokenPurpose;
+import com.smartcloset.auth.repository.AccountActionTokenRepository;
 import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.clothing.domain.ClothingCategory;
 import com.smartcloset.clothing.domain.ClothingColor;
@@ -56,6 +57,12 @@ class AuthControllerTest {
     private RefreshSessionRepository refreshSessionRepository;
 
     @Autowired
+    private AccountActionTokenRepository accountActionTokenRepository;
+
+    @Autowired
+    private AccountActionTokenService accountActionTokenService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
@@ -66,7 +73,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void signupCreatesUserWithDefaultProfileAndReturnsBearerAccessToken() throws Exception {
+    void signupCreatesUnverifiedUserWithDefaultProfileAndDoesNotReturnAccessToken() throws Exception {
         Map<String, Object> request = Map.of(
                 "email", "signup@example.com",
                 "password", "password123!",
@@ -77,63 +84,31 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.data.user.email").value("signup@example.com"))
-                .andExpect(jsonPath("$.data.user.name").value("Signup User"))
-                .andExpect(jsonPath("$.data.user.role").value("USER"))
-                .andExpect(jsonPath("$.data.user.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.email").value("signup@example.com"))
+                .andExpect(jsonPath("$.data.emailVerificationRequired").value(true))
+                .andExpect(jsonPath("$.data.message").value("이메일 인증 후 로그인할 수 있습니다."))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.user").doesNotExist())
                 .andReturn();
 
         User saved = userRepository.findByEmail("signup@example.com").orElseThrow();
         assertThat(passwordEncoder.matches("password123!", saved.getPasswordHash())).isTrue();
+        assertThat(saved.isEmailVerified()).isFalse();
+        assertThat(saved.isPasswordLoginEnabled()).isTrue();
         assertThat(saved.getLocationCode()).isEqualTo("SEOUL");
         assertThat(saved.getPreferredColorsJson()).isEqualTo("[]");
         assertThat(saved.getPreferredMaterialsJson()).isEqualTo("[]");
         assertThat(saved.getStyleTagsJson()).isEqualTo("[]");
 
         assertThat(clothingItemRepository.countByUserId(saved.getId())).isEqualTo(5);
-
-        String accessToken = objectMapper.readTree(signupResult.getResponse().getContentAsString())
-                .path("data")
-                .path("accessToken")
-                .asText();
-        MvcResult clothesResult = mockMvc.perform(get("/api/clothes")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(5))
-                .andExpect(jsonPath("$.data[0].userId").doesNotExist())
-                .andExpect(jsonPath("$.data[0].name").value("화이트 반팔 티셔츠"))
-                .andExpect(jsonPath("$.data[0].category").value("TOP"))
-                .andExpect(jsonPath("$.data[0].color").value("WHITE"))
-                .andExpect(jsonPath("$.data[0].material").value("COTTON"))
-                .andExpect(jsonPath("$.data[0].minTemperature").value(8))
-                .andExpect(jsonPath("$.data[0].maxTemperature").value(30))
-                .andExpect(jsonPath("$.data[0].rainSuitable").value(false))
-                .andExpect(jsonPath("$.data[0].styleTags[0]").value("CASUAL"))
-                .andExpect(jsonPath("$.data[0].styleTags[1]").value("DAILY"))
-                .andExpect(jsonPath("$.data[0].styleTags[2]").value("캐주얼"))
-                .andExpect(jsonPath("$.data[4].styleTags[0]").value("MINIMAL"))
-                .andExpect(jsonPath("$.data[4].styleTags[1]").value("OFFICE"))
-                .andExpect(jsonPath("$.data[4].styleTags[2]").value("미니멀"))
-                .andExpect(jsonPath("$.data[0].image.url").exists())
-                .andExpect(jsonPath("$.data[0].image.contentType").value("image/jpeg"))
-                .andReturn();
-
-        JsonNode firstClothing = objectMapper.readTree(clothesResult.getResponse().getContentAsString())
-                .path("data")
-                .get(0);
-        mockMvc.perform(get("/api/clothes/{clothingId}/image", firstClothing.path("id").asLong())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getContentType()).isEqualTo("image/jpeg"))
-                .andExpect(result -> {
-                    byte[] bytes = result.getResponse().getContentAsByteArray();
-                    assertThat(bytes).hasSizeGreaterThan(3);
-                    assertThat(bytes[0] & 0xff).isEqualTo(0xff);
-                    assertThat(bytes[1] & 0xff).isEqualTo(0xd8);
-                    assertThat(bytes[2] & 0xff).isEqualTo(0xff);
+        assertThat(accountActionTokenRepository.findAll())
+                .singleElement()
+                .satisfies(token -> {
+                    assertThat(token.getUser().getId()).isEqualTo(saved.getId());
+                    assertThat(token.getPurpose()).isEqualTo(AccountActionTokenPurpose.EMAIL_VERIFICATION);
+                    assertThat(token.getTokenHash()).isNotBlank();
+                    assertThat(signupResult.getResponse().getContentAsString()).doesNotContain(token.getTokenHash());
+                    assertThat(token.getUsedAt()).isNull();
                 });
     }
 
@@ -199,6 +174,122 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
         assertThat(clothingItemRepository.countByUserId(user.getId())).isEqualTo(5);
+    }
+
+    @Test
+    void loginRejectsUnverifiedPasswordAccount() throws Exception {
+        userRepository.save(User.createPasswordSignup(
+                "unverified@example.com",
+                passwordEncoder.encode("password123!"),
+                "Unverified User"
+        ));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "unverified@example.com",
+                                "password", "password123!"
+                        ))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("EMAIL_VERIFICATION_REQUIRED"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void emailVerificationRequestAndConfirmUseSingleUseHashedToken() throws Exception {
+        User user = userRepository.save(User.createPasswordSignup(
+                "verify@example.com",
+                passwordEncoder.encode("password123!"),
+                "Verify User"
+        ));
+
+        mockMvc.perform(post("/api/auth/email-verification/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "missing-verify@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requested").value(true));
+
+        AccountActionTokenService.IssuedAccountActionToken token =
+                accountActionTokenService.issue(user, AccountActionTokenPurpose.EMAIL_VERIFICATION);
+        assertThat(accountActionTokenRepository.findAll())
+                .anySatisfy(savedToken -> {
+                    assertThat(savedToken.getTokenHash()).isNotBlank();
+                    assertThat(savedToken.getTokenHash()).isNotEqualTo(token.token());
+                });
+
+        mockMvc.perform(post("/api/auth/email-verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("token", token.token()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.emailVerified").value(true));
+
+        assertThat(userRepository.findByEmail("verify@example.com").orElseThrow().isEmailVerified()).isTrue();
+
+        mockMvc.perform(post("/api/auth/email-verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("token", token.token()))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_TOKEN_INVALID"));
+    }
+
+    @Test
+    void passwordResetRequestDoesNotExposeAccountExistenceAndConfirmRevokesRefreshSessions() throws Exception {
+        User user = userRepository.save(
+                User.create("reset@example.com", passwordEncoder.encode("password123!"), "Reset User"));
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "reset@example.com",
+                                "password", "password123!"
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie refreshCookie = loginResult.getResponse().getCookie("smartcloset.refreshToken");
+
+        mockMvc.perform(post("/api/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "missing-reset@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requested").value(true));
+
+        AccountActionTokenService.IssuedAccountActionToken token =
+                accountActionTokenService.issue(user, AccountActionTokenPurpose.PASSWORD_RESET);
+
+        mockMvc.perform(post("/api/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "token", token.token(),
+                                "newPassword", "newPassword123!"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.passwordReset").value(true));
+
+        User resetUser = userRepository.findByEmail("reset@example.com").orElseThrow();
+        assertThat(passwordEncoder.matches("newPassword123!", resetUser.getPasswordHash())).isTrue();
+        assertThat(refreshSessionRepository.findAll())
+                .singleElement()
+                .satisfies(session -> assertThat(session.getRevokedAt()).isNotNull());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "reset@example.com",
+                                "password", "password123!"
+                        ))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "reset@example.com",
+                                "password", "newPassword123!"
+                        ))))
+                .andExpect(status().isOk());
     }
 
     @Test

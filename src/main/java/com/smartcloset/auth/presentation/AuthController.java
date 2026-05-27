@@ -3,9 +3,18 @@ package com.smartcloset.auth.presentation;
 import com.smartcloset.auth.application.AuthService;
 import com.smartcloset.auth.application.RefreshTokenBundle;
 import com.smartcloset.auth.dto.AuthResponse;
+import com.smartcloset.auth.dto.EmailVerificationConfirmRequest;
+import com.smartcloset.auth.dto.EmailVerificationConfirmResponse;
+import com.smartcloset.auth.dto.EmailVerificationRequest;
+import com.smartcloset.auth.dto.EmailVerificationRequestedResponse;
 import com.smartcloset.auth.dto.LoginRequest;
 import com.smartcloset.auth.dto.LogoutResponse;
+import com.smartcloset.auth.dto.PasswordResetConfirmRequest;
+import com.smartcloset.auth.dto.PasswordResetConfirmResponse;
+import com.smartcloset.auth.dto.PasswordResetRequest;
+import com.smartcloset.auth.dto.PasswordResetRequestedResponse;
 import com.smartcloset.auth.dto.SignupRequest;
+import com.smartcloset.auth.dto.SignupResponse;
 import com.smartcloset.auth.infrastructure.RefreshTokenCookieReader;
 import com.smartcloset.auth.infrastructure.RefreshTokenCookieWriter;
 import com.smartcloset.common.exception.ErrorCode;
@@ -40,7 +49,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
+    public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(authService.signup(request)));
     }
 
@@ -68,5 +77,33 @@ public class AuthController {
         refreshTokenCookieReader.read(request).ifPresent(authService::logout);
         refreshTokenCookieWriter.expire(response);
         return ApiResponse.of(LogoutResponse.success());
+    }
+
+    @PostMapping("/email-verification/request")
+    public ApiResponse<EmailVerificationRequestedResponse> requestEmailVerification(
+            @Valid @RequestBody EmailVerificationRequest request
+    ) {
+        return ApiResponse.of(authService.requestEmailVerification(request));
+    }
+
+    @PostMapping("/email-verification/confirm")
+    public ApiResponse<EmailVerificationConfirmResponse> confirmEmailVerification(
+            @Valid @RequestBody EmailVerificationConfirmRequest request
+    ) {
+        return ApiResponse.of(authService.confirmEmailVerification(request));
+    }
+
+    @PostMapping("/password-reset/request")
+    public ApiResponse<PasswordResetRequestedResponse> requestPasswordReset(
+            @Valid @RequestBody PasswordResetRequest request
+    ) {
+        return ApiResponse.of(authService.requestPasswordReset(request));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ApiResponse<PasswordResetConfirmResponse> confirmPasswordReset(
+            @Valid @RequestBody PasswordResetConfirmRequest request
+    ) {
+        return ApiResponse.of(authService.confirmPasswordReset(request));
     }
 }
