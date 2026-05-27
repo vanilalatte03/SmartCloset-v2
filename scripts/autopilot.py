@@ -182,6 +182,13 @@ class AutopilotRunner:
     FORBIDDEN_SCAN_EXCLUDED_PREFIXES = (
         "issues/",
     )
+    MVP8_ACCOUNT_STABILITY_PHASE = "8-smartcloset-account-stability"
+    MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP = {
+        "refresh token 범위가 추가되었습니다.": frozenset(range(8)),
+        "이메일 인증 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
+        "비밀번호 재설정 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
+        "소셜 로그인 범위가 추가되었습니다.": frozenset((0, 3, 5, 7)),
+    }
     HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
     STEP_OUTPUT_RE = re.compile(r"^phases/[^/]+/step\d+-output\.json$")
 
@@ -508,7 +515,6 @@ class AutopilotRunner:
         return output[:max_chars].rstrip() + "\n... output truncated ..."
 
     def _scan_forbidden_diff(self, step: dict | None = None) -> list[str]:
-        del step  # reserved for step-aware scan exceptions.
         result = self._git("diff", "--unified=0", f"origin/{self.base}...HEAD", check=False)
         if result.returncode != 0:
             return [self._command_failure(["git", "diff", "--unified=0", f"origin/{self.base}...HEAD"], result)]
@@ -561,6 +567,8 @@ class AutopilotRunner:
                 continue
 
             for message in self._forbidden_messages(line):
+                if self._is_allowed_scope_message(message, line, step):
+                    continue
                 key = (current_file, message)
                 if key in finding_keys:
                     continue
@@ -624,6 +632,31 @@ class AutopilotRunner:
         if "외부 주소" in line or "외부 지도" in line or "지도 API" in line or "주소 API" in line:
             messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
         return messages
+
+    def _is_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
+        if self.phase != self.MVP8_ACCOUNT_STABILITY_PHASE:
+            return False
+
+        allowed_steps = self.MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP.get(message)
+        if allowed_steps is None:
+            return False
+
+        step_number = self._step_number_from(step)
+        if step_number is not None and step_number not in allowed_steps:
+            return False
+
+        if message == "소셜 로그인 범위가 추가되었습니다.":
+            lowered = line.lower()
+            return "google" in lowered or "oauth" in lowered
+
+        return True
+
+    @staticmethod
+    def _step_number_from(step: dict | None) -> int | None:
+        if not isinstance(step, dict):
+            return None
+        value = step.get("step")
+        return value if isinstance(value, int) else None
 
     @staticmethod
     def _format_finding(path: str, line_no: int, message: str) -> str:
