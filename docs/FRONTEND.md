@@ -18,6 +18,7 @@ MVP8 프론트엔드는 MVP7 반응형 웹앱 위에 세션 복구, 이메일 �
 - Access token은 memory state에 저장
 - Refresh token은 HttpOnly cookie로만 관리
 - refresh cookie를 사용하는 요청은 credentials 포함
+- 로그인 이메일 저장 체크박스는 이메일 주소 문자열만 브라우저 저장소에 저장할 수 있다.
 
 ## 인증 상태 기준
 
@@ -119,6 +120,7 @@ MVP5/MVP6/MVP7 위치, 날씨, 옷, 추천 타입은 유지한다.
 Auth view에는 아래 flow를 제공한다.
 
 - 로그인
+- 로그인 이메일 저장 체크박스
 - 회원가입
 - 이메일 인증 안내와 인증 재요청
 - 인증 token 확인
@@ -133,6 +135,9 @@ UX 기준:
 - 미인증 계정 로그인 실패는 인증 재요청으로 이어질 수 있어야 한다.
 - 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는 중립 성공 메시지를 보여준다.
 - Google provider disabled 상태면 button을 비활성화하고 설정 필요 상태를 작게 표시한다.
+- 이메일 저장 체크박스를 선택하면 로그인 성공 후 이메일 입력값만 저장하고, 다음 Auth view 진입 시 이메일 input에 복원한다.
+- 이메일 저장 체크박스를 해제한 상태로 로그인하면 저장된 이메일 값을 제거한다.
+- 이메일 저장 storage key는 앱 전용 prefix를 사용한다.
 
 ## Session UX
 
@@ -182,5 +187,6 @@ Authenticated shell에 account/settings 진입점을 추가한다.
 
 - Access token을 `localStorage`나 `sessionStorage`에 저장하지 마라. 이유: MVP8은 memory state와 refresh cookie 기준이다.
 - Refresh token 값을 JavaScript state나 JSON body에 저장하지 마라. 이유: refresh token은 HttpOnly cookie 전용이다.
+- 이메일 저장 기능으로 비밀번호, access token, refresh token, current user object를 저장하지 마라. 이유: 편의 기능은 이메일 주소 문자열에만 한정한다.
 - 큰 state-management library를 추가하지 마라. 이유: 현재 앱은 React state와 작은 hook으로 충분하다.
 - AWS/S3/SES 전용 UI를 추가하지 마라. 이유: AWS 구현은 MVP9 범위다.

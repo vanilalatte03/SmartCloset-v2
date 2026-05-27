@@ -8,7 +8,7 @@ AWS 배포는 구현하지 않는다. MVP9에서 AWS 배포를 진행할 때 S3/
 
 ## 작업 범위
 
-- Must-have / MVP8 P0: MVP7 archive, MVP8 docs/ADR/agent 전환, DB-backed refresh session, HttpOnly refresh cookie, refresh/logout API, 이메일 인증, 비밀번호 재설정, `EmailSender`/`ConsoleEmailSender`, Google OAuth provider status/login/callback, 세션 만료 UX, account settings, 계정 hard delete, AWS-ready adapter boundary, Docker Compose 공유 검증
+- Must-have / MVP8 P0: MVP7 archive, MVP8 docs/ADR/agent 전환, DB-backed refresh session, HttpOnly refresh cookie, refresh/logout API, 이메일 인증, 비밀번호 재설정, `EmailSender`/`ConsoleEmailSender`, Google OAuth provider status/login/callback, 세션 만료 UX, 로그인 이메일 저장 체크박스, account settings, 계정 hard delete, AWS-ready adapter boundary, Docker Compose 공유 검증
 - Should-have / MVP8 P1: 계정 상태 표시 문구 polish, auth form error copy polish, provider disabled 안내 polish
 - MVP8 제외: AWS 배포 구현, S3 구현체, SES/SMTP 실제 발송 구현체, Secrets Manager, CD 자동화, Redis, admin 기능, soft delete/복구 정책, production DB migration 도구 전환, 추천 규칙 변경
 
@@ -32,7 +32,7 @@ AWS 배포는 구현하지 않는다. MVP9에서 AWS 배포를 진행할 때 S3/
 - Step 2는 이메일 인증과 비밀번호 재설정만 다룬다. 실제 SMTP/SES 구현은 추가하지 않는다.
 - Step 3은 Google OAuth provider 상태와 login/callback만 다룬다.
 - Step 4는 계정 hard delete와 소유 데이터/이미지 cleanup만 다룬다.
-- Step 5는 frontend account stability UX만 다룬다.
+- Step 5는 frontend account stability UX와 로그인 이메일 저장 체크박스만 다룬다.
 - Step 6은 local/prod profile 경계, properties/env, AWS-ready adapter boundary 문서/설정 정리만 다룬다. AWS 구현은 하지 않는다.
 - Step 7은 문서 동기화, Docker Compose, QA 기록, 최종 검증을 수행한다.
 
@@ -48,6 +48,7 @@ AWS 배포는 구현하지 않는다. MVP9에서 AWS 배포를 진행할 때 S3/
 - 프론트가 앱 시작 또는 새로고침 시 refresh cookie로 세션을 복구한다.
 - 보호 API 401 발생 시 refresh 후 원 요청을 한 번만 재시도한다.
 - refresh 실패 시 세션 만료 안내가 표시된다.
+- 로그인 이메일 저장 체크박스는 이메일 주소만 저장하고 비밀번호와 token은 저장하지 않는다.
 - `DELETE /api/users/me`가 현재 사용자 데이터와 이미지 파일을 삭제한다.
 - MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 source snapshot 기능이 유지된다.
 - AWS 구현은 포함하지 않지만 Email/Image/Cookie/CORS/OAuth URL adapter 경계가 유지된다.

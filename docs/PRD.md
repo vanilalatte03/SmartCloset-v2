@@ -29,6 +29,7 @@ SmartCloset 사용자가 세션을 안정적으로 유지하고, 이메일/비�
 - 비밀번호 재설정 flow를 제공한다.
 - Google social login을 제공한다.
 - 세션 만료 시 사용자가 무엇을 해야 하는지 명확히 안내한다.
+- 로그인 화면에서 이메일 저장 체크박스로 반복 입력 부담을 줄인다.
 - 계정 삭제 시 사용자 소유 데이터와 이미지 파일을 삭제한다.
 - MVP9 AWS 배포를 위해 email/image/cookie/CORS/OAuth URL 경계를 adapter와 env 중심으로 설계한다.
 
@@ -60,13 +61,14 @@ SmartCloset 사용자가 세션을 안정적으로 유지하고, 이메일/비�
 1. 사용자가 이메일/password로 가입한다.
 2. 앱은 이메일 인증이 필요하다고 안내하고, 개발 환경에서는 console/log로 인증 링크 또는 token을 출력한다.
 3. 사용자가 이메일 인증을 완료한 뒤 로그인한다.
-4. 앱은 access token을 memory state에 저장하고 refresh token은 HttpOnly cookie로 유지한다.
-5. 사용자가 새로고침하면 앱은 refresh API로 세션을 복구한다.
-6. 보호 API가 access token 만료로 401을 반환하면 앱은 refresh 후 원 요청을 한 번 재시도한다.
-7. refresh도 실패하면 앱은 세션 만료 안내와 로그인 화면을 보여준다.
-8. 사용자가 비밀번호를 잊으면 reset 요청 후 console/log token으로 새 비밀번호를 설정한다.
-9. 사용자는 Google login으로 가입 또는 로그인할 수 있다.
-10. 사용자는 계정 설정에서 계정 삭제를 확인하고 본인 데이터 삭제를 수행한다.
+4. 사용자가 이메일 저장 체크박스를 선택하면 앱은 이메일 주소만 저장해 다음 로그인 화면에 복원한다.
+5. 앱은 access token을 memory state에 저장하고 refresh token은 HttpOnly cookie로 유지한다.
+6. 사용자가 새로고침하면 앱은 refresh API로 세션을 복구한다.
+7. 보호 API가 access token 만료로 401을 반환하면 앱은 refresh 후 원 요청을 한 번 재시도한다.
+8. refresh도 실패하면 앱은 세션 만료 안내와 로그인 화면을 보여준다.
+9. 사용자가 비밀번호를 잊으면 reset 요청 후 console/log token으로 새 비밀번호를 설정한다.
+10. 사용자는 Google login으로 가입 또는 로그인할 수 있다.
+11. 사용자는 계정 설정에서 계정 삭제를 확인하고 본인 데이터 삭제를 수행한다.
 
 ## MVP8 우선순위
 
@@ -106,6 +108,7 @@ SmartCloset 사용자가 세션을 안정적으로 유지하고, 이메일/비�
 - 앱 시작 또는 새로고침 시 refresh API로 세션을 복구한다.
 - 보호 API 401은 refresh 후 원 요청 retry-once로 처리한다.
 - refresh 실패 시 명확한 세션 만료 안내를 보여준다.
+- 로그인 이메일 저장 체크박스는 이메일 주소만 저장하고 비밀번호나 token은 저장하지 않는다.
 
 ### P0: 계정 삭제/데이터 삭제
 
@@ -135,7 +138,7 @@ SmartCloset 사용자가 세션을 안정적으로 유지하고, 이메일/비�
 - Google OAuth provider status/login/callback API
 - `CurrentUserResponse` account 상태 필드
 - account deletion API
-- frontend auth/session/account settings UX
+- frontend auth/session/account settings UX와 로그인 이메일 저장 체크박스
 - AWS-ready adapter boundary 문서화
 - MVP8 phase 문서와 docs-check 규칙
 
@@ -167,6 +170,7 @@ SmartCloset 사용자가 세션을 안정적으로 유지하고, 이메일/비�
 - 프론트는 새로고침 후 refresh cookie로 세션을 복구한다.
 - 401 발생 시 refresh 후 원 요청을 한 번만 재시도한다.
 - refresh 실패 시 세션 만료 안내가 표시된다.
+- 이메일 저장 체크박스는 이메일 주소만 저장/삭제하며 비밀번호, access token, refresh token은 저장하지 않는다.
 - 계정 삭제 후 해당 사용자 데이터와 이미지 파일이 삭제된다.
 - MVP5/MVP6/MVP7 핵심 흐름이 유지된다.
 - AWS 구현은 포함하지 않지만 adapter 경계가 문서와 코드 구조에 반영된다.
@@ -194,4 +198,5 @@ MVP8 구현 phase 최종 검증:
 - 계정 삭제: 즉시 하드 삭제
 - Access token 저장: 프론트 memory state
 - Refresh token 전달: HttpOnly cookie
+- 이메일 저장: 프론트에서 이메일 주소 문자열만 저장
 - AWS: MVP8 구현 제외, MVP9 adapter 교체 가능성만 준비
