@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
+import { setRefreshAccessTokenHandler } from './api/client';
 import { isUnauthorizedError, toErrorResponse } from './api/errorHelpers';
-import { getApiBaseUrl, getCurrentUser, getUserLocation } from './api/smartClosetApi';
+import {
+  getApiBaseUrl,
+  getCurrentUser,
+  getUserLocation,
+  logout,
+  refreshSession,
+} from './api/smartClosetApi';
 import { ApiErrorMessage } from './components/ApiErrorMessage';
 import { StatusBadge } from './components/StatusBadge';
+import { AccountSettingsPanel } from './features/account/AccountSettingsPanel';
 import { AuthPanel } from './features/auth/AuthPanel';
 import { ClosetPanel } from './features/clothes/ClosetPanel';
 import { HistoryPanel } from './features/history/HistoryPanel';
@@ -18,11 +26,9 @@ import type {
 } from './types/api';
 import './App.css';
 
-const accessTokenStorageKey = 'smartcloset.accessToken';
-
-type SessionState = 'restoring' | 'anonymous' | 'authenticated';
+type SessionState = 'restoring' | 'anonymous' | 'authenticated' | 'expired';
 type ConnectionState = 'checking' | 'connected' | 'error';
-type AppView = 'today' | 'closet' | 'preferences' | 'location' | 'history';
+type AppView = 'today' | 'closet' | 'preferences' | 'location' | 'history' | 'account';
 type AppNavigationOptions = {
   closetCategory?: ClothingCategory;
 };
@@ -36,6 +42,7 @@ const appViews: Array<{
   { id: 'preferences', label: '선호도' },
   { id: 'location', label: '위치' },
   { id: 'history', label: '이력' },
+  { id: 'account', label: '계정' },
 ];
 
 const connectionLabels: Record<ConnectionState, string> = {
@@ -44,19 +51,11 @@ const connectionLabels: Record<ConnectionState, string> = {
   error: 'API 오류',
 };
 
-function readStoredAccessToken(): string | null {
-  return sessionStorage.getItem(accessTokenStorageKey);
-}
-
 function App() {
-  const [accessToken, setAccessToken] = useState<string | null>(() => readStoredAccessToken());
-  const [sessionState, setSessionState] = useState<SessionState>(
-    accessToken ? 'restoring' : 'anonymous'
-  );
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [sessionState, setSessionState] = useState<SessionState>('restoring');
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>(
-    accessToken ? 'checking' : 'connected'
-  );
+  const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
   const [activeView, setActiveView] = useState<AppView>('today');
   const [closetInitialCategory, setClosetInitialCategory] =
     useState<ClothingCategory | null>(null);
@@ -65,8 +64,7 @@ function App() {
   const [preferencesRevision, setPreferencesRevision] = useState(0);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
-  const clearSession = useCallback(() => {
-    sessionStorage.removeItem(accessTokenStorageKey);
+  const clearSession = useCallback((nextState: SessionState = 'anonymous') => {
     setAccessToken(null);
     setCurrentUser(null);
     setLocation(null);
@@ -74,12 +72,12 @@ function App() {
     setClosetInitialCategory(null);
     setLocationRevision(0);
     setPreferencesRevision(0);
-    setSessionState('anonymous');
+    setSessionState(nextState);
     setConnectionState('connected');
   }, []);
 
   const handleAuthExpired = useCallback(() => {
-    clearSession();
+    clearSession('expired');
     setError({
       code: 'UNAUTHORIZED',
       message: '로그인이 만료되었습니다. 다시 로그인해주세요.',
@@ -87,14 +85,14 @@ function App() {
     });
   }, [clearSession]);
 
-  const loadCurrentSession = useCallback(async (token: string) => {
+  const loadCurrentSession = useCallback(async (token: string, user?: CurrentUserResponse) => {
     setConnectionState('checking');
     setError(null);
 
     try {
-      const user = await getCurrentUser(token);
+      const loadedUser = user ?? (await getCurrentUser(token));
       const userLocation = await getUserLocation(token);
-      setCurrentUser(user);
+      setCurrentUser(loadedUser);
       setLocation(userLocation);
       setSessionState('authenticated');
       setConnectionState('connected');
@@ -109,18 +107,54 @@ function App() {
     }
   }, [handleAuthExpired]);
 
-  useEffect(() => {
-    if (!accessToken) {
-      setSessionState('anonymous');
+  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const response = await refreshSession();
+      setAccessToken(response.accessToken);
+      setCurrentUser(response.user);
+      setSessionState('authenticated');
       setConnectionState('connected');
-      return;
+      setError(null);
+      return response.accessToken;
+    } catch {
+      handleAuthExpired();
+      return null;
     }
+  }, [handleAuthExpired]);
 
-    void loadCurrentSession(accessToken);
-  }, [accessToken, loadCurrentSession]);
+  useEffect(() => {
+    setRefreshAccessTokenHandler(refreshAccessToken);
+
+    return () => {
+      setRefreshAccessTokenHandler(null);
+    };
+  }, [refreshAccessToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    refreshSession()
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        setAccessToken(response.accessToken);
+        void loadCurrentSession(response.accessToken, response.user);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        clearSession('anonymous');
+        setError(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearSession, loadCurrentSession]);
 
   const handleAuthenticated = useCallback((response: AuthResponse) => {
-    sessionStorage.setItem(accessTokenStorageKey, response.accessToken);
     setAccessToken(response.accessToken);
     setCurrentUser(response.user);
     setActiveView('today');
@@ -128,11 +162,26 @@ function App() {
     setSessionState('authenticated');
     setConnectionState('checking');
     setError(null);
-  }, []);
+    void loadCurrentSession(response.accessToken, response.user);
+  }, [loadCurrentSession]);
 
-  const handleLogout = useCallback(() => {
-    clearSession();
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } catch {
+      // Local session cleanup is still correct when the logout request cannot complete.
+    }
+    clearSession('anonymous');
     setError(null);
+  }, [clearSession]);
+
+  const handleAccountDeleted = useCallback(() => {
+    clearSession('anonymous');
+    setError({
+      code: 'ACCOUNT_DELETED',
+      message: '계정이 삭제되었습니다.',
+      details: [],
+    });
   }, [clearSession]);
 
   const handleLocationChange = useCallback((updatedLocation: UserLocationResponse) => {
@@ -168,7 +217,7 @@ function App() {
         {sessionState === 'restoring' ? (
           <section className="panel" aria-label="세션 복구">
             <h2>세션을 확인하고 있어요</h2>
-            <p className="muted">저장된 access token으로 로그인 상태를 복구합니다.</p>
+            <p className="muted">로그인 상태를 복구합니다.</p>
           </section>
         ) : (
           <AuthPanel onAuthenticated={handleAuthenticated} />
@@ -274,6 +323,20 @@ function App() {
               <h2 id="history-view-title">이력</h2>
             </header>
             <HistoryPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
+          </section>
+        );
+      case 'account':
+        return (
+          <section className="view-stack account-view" aria-labelledby="account-view-title">
+            <header className="view-heading">
+              <p className="eyebrow">계정 화면</p>
+              <h2 id="account-view-title">계정</h2>
+            </header>
+            <AccountSettingsPanel
+              accessToken={accessToken}
+              currentUser={currentUser}
+              onAccountDeleted={handleAccountDeleted}
+            />
           </section>
         );
       default:

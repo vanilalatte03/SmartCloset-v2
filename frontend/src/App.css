@@ -976,6 +976,49 @@
   width: 100%;
 }
 
+.auth-checkbox {
+  justify-content: flex-start;
+}
+
+.auth-secondary-actions,
+.oauth-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.auth-secondary-actions .secondary-button {
+  flex: 1 1 142px;
+}
+
+.auth-flow-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.oauth-box {
+  align-items: stretch;
+  display: grid;
+}
+
+.oauth-button {
+  text-decoration: none;
+}
+
+.oauth-button.disabled {
+  background: #d9dee8;
+  border-color: #c9d1dc;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.auth-helper {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1944,6 +1987,34 @@
   color: var(--danger-text);
 }
 
+.account-settings-panel {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+}
+
+.account-summary-card,
+.account-danger-card {
+  min-height: 0;
+}
+
+.account-section-heading {
+  margin-bottom: 12px;
+}
+
+.account-metric-list {
+  gap: 12px;
+}
+
+.account-delete-copy {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.account-delete-form {
+  margin-top: 14px;
+}
+
 .closet-form-heading {
   align-items: flex-start;
 }
@@ -2650,7 +2721,7 @@
     bottom: 0;
     display: grid;
     gap: 4px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     left: 0;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
     position: fixed;
@@ -2720,7 +2791,8 @@
   .recommendation-layout,
   .recommendation-slot-grid,
   .style-tag-suggestion-group,
-  .score-grid {
+  .score-grid,
+  .account-settings-panel {
     grid-template-columns: 1fr;
   }
 
