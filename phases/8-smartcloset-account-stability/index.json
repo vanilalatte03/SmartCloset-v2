@@ -48,7 +48,7 @@
       "status": "completed",
       "started_at": "2026-05-27T13:02:46+0900",
       "summary": "MVP8 auth/session 복구, 이메일 저장, 인증/재설정, Google 상태, 계정 삭제 frontend UX를 추가했다.",
-      "completed_at": "2026-05-27T13:08:04+0900"
+      "completed_at": "2026-05-27T13:09:19+0900"
     },
     {
       "step": 6,
