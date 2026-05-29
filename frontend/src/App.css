@@ -3764,6 +3764,12 @@
     border-color: #2f6c9f;
     color: #1f4f7a;
   }
+
+  .suggestion-chip.active:hover:not(:disabled) {
+    background: #e6f4ec;
+    border-color: #78b994;
+    color: #195f3b;
+  }
 }
 
 @media (max-width: 920px) {
