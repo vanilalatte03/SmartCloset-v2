@@ -32,7 +32,7 @@
 git diff --check
 python3 scripts/checks.py --stage manual
 python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py
-python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
+python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check --include-final-docs
 ```
 
 ## 검증 절차

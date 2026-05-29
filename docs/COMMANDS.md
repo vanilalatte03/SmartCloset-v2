@@ -22,7 +22,7 @@ git config core.hooksPath .githooks
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | harness-test | `python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py` | yes | Harness 운영 스크립트 회귀 테스트 |
-| docs-check | `python3 scripts/checks.py --docs-check` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
+| docs-check | `python3 scripts/checks.py --docs-check --include-final-docs` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
 | compose-config | `docker compose config --quiet` | no | Docker Compose 파일 구문과 서비스 구성 확인 |
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
 | compose-down | `docker compose down` | yes | Docker Compose 중지 |

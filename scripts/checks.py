@@ -51,6 +51,7 @@ class DocsCheckConfig:
     skip_dirs: frozenset[str]
     skip_suffixes: frozenset[str]
     required: tuple[DocsCheckRule, ...]
+    final_required: tuple[DocsCheckRule, ...]
     forbidden: tuple[DocsCheckRule, ...]
 
 
@@ -314,7 +315,7 @@ def _config_rules(config: dict, key: str) -> tuple[DocsCheckRule, ...]:
 def load_docs_check_config(root: Path = ROOT, config_path: str | None = None) -> DocsCheckConfig:
     path = _docs_config_path(root, config_path)
     if path is None or not path.exists():
-        return DocsCheckConfig(None, (), frozenset(), frozenset(), (), ())
+        return DocsCheckConfig(None, (), frozenset(), frozenset(), (), (), ())
 
     try:
         config = json.loads(path.read_text(encoding="utf-8"))
@@ -329,6 +330,7 @@ def load_docs_check_config(root: Path = ROOT, config_path: str | None = None) ->
         skip_dirs=frozenset(_config_strings(config, "skipDirs")),
         skip_suffixes=frozenset(_config_strings(config, "skipSuffixes")),
         required=_config_rules(config, "required"),
+        final_required=_config_rules(config, "finalRequired"),
         forbidden=_config_rules(config, "forbidden"),
     )
 
@@ -387,7 +389,7 @@ def _format_docs_matches(matches: list[DocsMatch], *, limit: int = 10) -> str:
     return "\n".join(f"  {line}" for line in rendered)
 
 
-def run_docs_checks(root: Path = ROOT, config_path: str | None = None) -> int:
+def run_docs_checks(root: Path = ROOT, config_path: str | None = None, include_final_rules: bool = False) -> int:
     failures: list[str] = []
     try:
         config = load_docs_check_config(root, config_path)
@@ -395,14 +397,15 @@ def run_docs_checks(root: Path = ROOT, config_path: str | None = None) -> int:
         print(f"docs-check failed: {exc}", file=sys.stderr)
         return 1
 
-    rules = (*config.required, *config.forbidden)
+    required_rules = config.required + (config.final_required if include_final_rules else ())
+    rules = (*required_rules, *config.forbidden)
     has_paths = bool(config.paths or any(rule.paths for rule in rules))
     if not has_paths or not rules:
         source = config.source or f"phases/*/{DOCS_CHECK_CONFIG_NAME}"
         print(f"docs-check skipped: no rules configured in {source}.")
         return 0
 
-    for rule in config.required:
+    for rule in required_rules:
         if not _find_docs_matches(root, config, rule.pattern, rule.paths):
             failures.append(f"Missing required docs marker: {rule.name}")
 
@@ -455,10 +458,15 @@ def main(argv: list[str] | None = None) -> int:
         "--docs-check-config",
         help=f"Docs-check config path. Defaults to phases/<current-phase>/{DOCS_CHECK_CONFIG_NAME}.",
     )
+    parser.add_argument(
+        "--include-final-docs",
+        action="store_true",
+        help="Include final-only docs-check rules such as browser QA PASS records.",
+    )
     args = parser.parse_args(argv)
 
     if args.docs_check:
-        return run_docs_checks(ROOT, args.docs_check_config)
+        return run_docs_checks(ROOT, args.docs_check_config, args.include_final_docs)
 
     checks = collect_checks(ROOT, args.stage)
     if args.list:
