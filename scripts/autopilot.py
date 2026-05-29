@@ -16,6 +16,7 @@ ALLOWED_CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 DEFAULT_STEP_EFFORT = "medium"
 DEFAULT_REVIEW_EFFORT = "high"
 DEFAULT_FIX_EFFORT = "medium"
+FALLBACK_REVIEW_CHECK_COMMAND = "python3 scripts/checks.py --stage manual"
 
 
 def validate_codex_effort(effort: str, *, allow_xhigh: bool = False) -> str:
@@ -53,7 +54,7 @@ class ReviewResult:
             else "블로커가 있어 merge하지 않습니다."
         )
         rows = [
-            ("로컬 검증", self.checks_passed, "docs/COMMANDS.md 기준 명령"),
+            ("로컬 검증", self.checks_passed, "step 인수 기준 명령"),
             ("diff 검사", self.diff_passed, "git diff --check"),
             ("금지 범위", self.forbidden_passed, "MVP 제외 범위와 금지 API 검색"),
             ("자체 리뷰", self.codex_passed, "Codex read-only review"),
@@ -125,6 +126,9 @@ class AutopilotRunner:
         "제공하지",
         "호출하지",
         "반환하지",
+        "변경하지",
+        "저장하지",
+        "노출하지",
         "넣지",
         "만들지",
         "허용하지",
@@ -183,12 +187,70 @@ class AutopilotRunner:
         "issues/",
     )
     MVP8_ACCOUNT_STABILITY_PHASE = "8-smartcloset-account-stability"
+    MVP9_UI_UX_PHASE = "9-smartcloset-ui-ux-redesign"
     MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP = {
         "refresh token 범위가 추가되었습니다.": frozenset(range(8)),
         "이메일 인증 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
         "비밀번호 재설정 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
         "소셜 로그인 범위가 추가되었습니다.": frozenset((0, 3, 5, 7)),
     }
+    ACCOUNT_STABILITY_SCOPE_MESSAGES = frozenset(
+        (
+            "refresh token 범위가 추가되었습니다.",
+            "이메일 인증 범위가 추가되었습니다.",
+            "비밀번호 재설정 범위가 추가되었습니다.",
+            "소셜 로그인 범위가 추가되었습니다.",
+        )
+    )
+    MVP9_ACCOUNT_MAINTENANCE_STEP_NAMES = frozenset(
+        (
+            "mvp9-docs-archive",
+            "app-shell-auth-redesign",
+            "account-settings",
+            "docs-qa",
+        )
+    )
+    MVP9_ACCOUNT_MAINTENANCE_MARKERS = (
+        "유지",
+        "기존",
+        "상태",
+        "표시",
+        "provider",
+        "제공자",
+        "버튼",
+        "ux",
+        "계약",
+        "흐름",
+        "안내",
+        "확인",
+        "진입",
+        "보여",
+        "keep",
+        "preserve",
+        "status",
+        "display",
+    )
+    MVP9_ACCOUNT_EXPANSION_MARKERS = (
+        "구현",
+        "추가",
+        "도입",
+        "신규",
+        "새로",
+        "발급",
+        "저장",
+        "저장한다",
+        "저장하도록",
+        "생성",
+        "생성한다",
+        "만든다",
+        "implement",
+        "add ",
+        "introduce",
+        "new ",
+        "issue ",
+        "store ",
+        "create ",
+    )
     HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
     STEP_OUTPUT_RE = re.compile(r"^phases/[^/]+/step\d+-output\.json$")
 
@@ -233,6 +295,25 @@ class AutopilotRunner:
         )
         if check and result.returncode != 0:
             raise AutopilotError(self._command_failure(cmd, result))
+        return result
+
+    def _run_shell(
+        self,
+        command: str,
+        *,
+        check: bool = True,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess:
+        result = subprocess.run(
+            command,
+            cwd=self.root,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if check and result.returncode != 0:
+            raise AutopilotError(self._shell_command_failure(command, result))
         return result
 
     def _git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -307,11 +388,20 @@ class AutopilotRunner:
         self._gh("auth", "status")
         self._git("remote", "get-url", "origin")
         self._sync_base()
+        self._ensure_base_checks_pass()
 
     def _sync_base(self):
         self._git("fetch", "origin", self.base)
         self._git("checkout", self.base)
         self._git("pull", "--ff-only", "origin", self.base)
+
+    def _ensure_base_checks_pass(self):
+        result = self._run_shell(FALLBACK_REVIEW_CHECK_COMMAND, check=False, timeout=1800)
+        if result.returncode != 0:
+            raise AutopilotError(
+                f"base 브랜치 `{self.base}`의 manual 검증이 이미 실패해서 자동 PR 루프를 시작하지 않습니다.\n"
+                + self._shell_command_failure(FALLBACK_REVIEW_CHECK_COMMAND, result)
+            )
 
     def _phase_index_path(self) -> Path:
         return self.root / "phases" / self.phase / "index.json"
@@ -376,7 +466,7 @@ class AutopilotRunner:
         if not changed_section:
             changed_section = "- 코드 변경 없음"
 
-        commands = "\n".join(f"- `{command}`" for command in self._review_commands())
+        commands = "\n".join(f"- `{command}`" for command in self._review_commands(step))
         return (
             "## 작업 내용\n"
             f"- `{self.phase}` Step {step['step']} `{step['name']}` 범위를 구현했습니다.\n"
@@ -440,11 +530,55 @@ class AutopilotRunner:
             return []
         return [line for line in result.stdout.splitlines() if line.strip()]
 
-    def _review_commands(self) -> tuple[str, ...]:
+    def _review_commands(self, step: dict | None = None) -> tuple[str, ...]:
         return (
-            "python3 scripts/checks.py --stage manual",
+            *self._review_check_commands(step),
             f"git diff --check origin/{self.base}...HEAD",
         )
+
+    def _review_check_commands(self, step: dict | None = None) -> tuple[str, ...]:
+        return tuple(
+            command
+            for command in self._step_acceptance_commands(step)
+            if not self._is_diff_check_command(command)
+        )
+
+    def _step_acceptance_commands(self, step: dict | None = None) -> tuple[str, ...]:
+        if step is None:
+            return (FALLBACK_REVIEW_CHECK_COMMAND,)
+
+        step_number = self._step_number_from(step)
+        if step_number is None:
+            return (FALLBACK_REVIEW_CHECK_COMMAND,)
+
+        path = self.root / "phases" / self.phase / f"step{step_number}.md"
+        if not path.exists():
+            return (FALLBACK_REVIEW_CHECK_COMMAND,)
+
+        commands: list[str] = []
+        in_acceptance = False
+        in_code_block = False
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if line.startswith("## "):
+                if in_acceptance:
+                    break
+                in_acceptance = line == "## 인수 기준"
+                continue
+            if not in_acceptance:
+                continue
+            if line.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block and line and not line.startswith("#"):
+                commands.append(line)
+
+        return tuple(commands) or (FALLBACK_REVIEW_CHECK_COMMAND,)
+
+    @staticmethod
+    def _is_diff_check_command(command: str) -> bool:
+        normalized = " ".join(command.split())
+        return normalized == "git diff --check" or normalized.startswith("git diff --check ")
 
     def _run_final_gate(self):
         checks_path = self.root / "scripts" / "checks.py"
@@ -469,13 +603,14 @@ class AutopilotRunner:
 
     def _run_review_gate(self, step: dict) -> ReviewResult:
         findings: list[str] = []
-        commands = self._review_commands()
+        commands = self._review_commands(step)
 
-        checks_cmd = ["python3", "scripts/checks.py", "--stage", "manual"]
-        checks_result = self._run(checks_cmd, check=False)
-        checks_passed = checks_result.returncode == 0
-        if not checks_passed:
-            findings.append(self._command_failure(checks_cmd, checks_result))
+        checks_passed = True
+        for command in self._review_check_commands(step):
+            checks_result = self._run_shell(command, check=False, timeout=1800)
+            if checks_result.returncode != 0:
+                checks_passed = False
+                findings.append(self._shell_command_failure(command, checks_result))
 
         diff_cmd = ["git", "diff", "--check", f"origin/{self.base}...HEAD"]
         diff_result = self._run(diff_cmd, check=False)
@@ -507,6 +642,10 @@ class AutopilotRunner:
     def _command_failure(self, cmd: list[str], result: subprocess.CompletedProcess) -> str:
         output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
         return f"`{' '.join(cmd)}` 실패: {self._compact_output(output) or f'exit {result.returncode}'}"
+
+    def _shell_command_failure(self, command: str, result: subprocess.CompletedProcess) -> str:
+        output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
+        return f"`{command}` 실패: {self._compact_output(output) or f'exit {result.returncode}'}"
 
     @staticmethod
     def _compact_output(output: str, *, max_chars: int = 1200) -> str:
@@ -634,6 +773,9 @@ class AutopilotRunner:
         return messages
 
     def _is_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
+        if self.phase == self.MVP9_UI_UX_PHASE:
+            return self._is_allowed_mvp9_account_maintenance_message(message, line, step)
+
         if self.phase != self.MVP8_ACCOUNT_STABILITY_PHASE:
             return False
 
@@ -650,6 +792,27 @@ class AutopilotRunner:
             return "google" in lowered or "oauth" in lowered
 
         return True
+
+    def _is_allowed_mvp9_account_maintenance_message(
+        self, message: str, line: str, step: dict | None
+    ) -> bool:
+        if message not in self.ACCOUNT_STABILITY_SCOPE_MESSAGES:
+            return False
+
+        if not self._is_mvp9_account_maintenance_step(step):
+            return False
+
+        lowered = line.lower()
+        if any(marker in lowered for marker in self.MVP9_ACCOUNT_EXPANSION_MARKERS):
+            return False
+
+        return any(marker in lowered for marker in self.MVP9_ACCOUNT_MAINTENANCE_MARKERS)
+
+    def _is_mvp9_account_maintenance_step(self, step: dict | None) -> bool:
+        if not isinstance(step, dict):
+            return False
+        name = step.get("name")
+        return isinstance(name, str) and name in self.MVP9_ACCOUNT_MAINTENANCE_STEP_NAMES
 
     @staticmethod
     def _step_number_from(step: dict | None) -> int | None:
@@ -910,7 +1073,7 @@ class AutopilotRunner:
         return max(numbers, default=0) + 1
 
     def _issue_body(self, pr_url: str, review: ReviewResult, step: dict) -> str:
-        commands = "\n".join(self._review_commands())
+        commands = "\n".join(self._review_commands(step))
         return (
             "## 발생 위치\n"
             f"- Phase: {self.phase}\n"
