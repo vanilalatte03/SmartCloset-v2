@@ -1,10 +1,10 @@
-# 아키텍처: SmartCloset MVP8
+# 아키텍처: SmartCloset MVP9
 
 ## 전체 아키텍처 개요
 
-SmartCloset MVP8은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP8의 변경 지점은 account/auth 영역이다.
+SmartCloset MVP9는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP9의 변경 지점은 프론트 UI/UX다.
 
-기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력 구조는 유지한다.
+기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조는 유지한다. 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break는 MVP9에서 변경하지 않는다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
@@ -36,7 +36,7 @@ com.smartcloset
 └── recommendation
 ```
 
-MVP8 auth/account에는 아래 개념을 둔다.
+MVP8에서 추가한 auth/account 개념은 MVP9에서도 유지한다.
 
 - `RefreshSession`
 - `RefreshTokenService`
@@ -222,14 +222,14 @@ DELETE /api/users/me
 - DB 삭제와 파일 삭제 보상 정책은 구현 단계에서 테스트 가능하게 정한다.
 - 이미지 삭제는 `ClothingImageStorage` 인터페이스만 호출한다.
 
-## AWS-ready adapter boundary
+## 후속 배포 adapter boundary
 
-MVP8은 AWS 배포를 구현하지 않는다.
+MVP9는 AWS 배포를 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포는 후속 MVP로 연기한다.
 
-- `EmailSender`는 interface로 두고 MVP8은 `ConsoleEmailSender`만 구현한다.
-- MVP9에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
+- `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다.
+- 후속 MVP에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
 - `ClothingImageStorage`는 기존 local file 구현을 유지한다.
-- MVP9에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
+- 후속 MVP에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
 - Cookie, CORS, OAuth URL은 properties/env로 분리한다.
 - `local` profile은 Docker Compose 기본 실행 경로로 유지하고, future `prod` profile은 별도 properties/env와 adapter bean으로 추가한다.
 - local profile과 Docker Compose 경로는 계속 동작해야 한다.
@@ -257,10 +257,10 @@ MVP8은 AWS 배포를 구현하지 않는다.
 
 ## 금지사항
 
-- AWS 배포 구현을 추가하지 않는다. 이유: MVP8은 account stability이며 AWS는 MVP9 범위다.
-- S3 구현체를 추가하지 않는다. 이유: MVP8은 `ClothingImageStorage` 경계만 보존한다.
-- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: MVP8 이메일은 `ConsoleEmailSender` 기준이다.
+- AWS 배포 구현을 추가하지 않는다. 이유: MVP9는 프론트 UI/UX 리디자인이며 AWS는 후속 MVP 범위다.
+- S3 구현체를 추가하지 않는다. 이유: MVP9는 `ClothingImageStorage` 경계만 보존한다.
+- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 `ConsoleEmailSender` 기준이다.
 - Redis를 추가하지 않는다. 이유: refresh session은 DB-backed로 검증한다.
-- 추천 점수 계산을 변경하지 않는다. 이유: MVP8은 계정 안정성 범위다.
+- 추천 점수 계산을 변경하지 않는다. 이유: MVP9는 UI/UX 리디자인 범위다.
 - 공개 `userId` query parameter를 추가하지 않는다. 이유: 인증 사용자 API 계약과 충돌한다.
 - Refresh token 원문을 DB 또는 JSON 응답에 저장/노출하지 않는다. 이유: 계정 안정성 핵심 보안 계약이다.

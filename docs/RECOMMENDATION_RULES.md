@@ -1,12 +1,12 @@
-# 추천 규칙: SmartCloset MVP8
+# 추천 규칙: SmartCloset MVP9
 
 ## 문서 목적
 
-SmartCloset MVP8의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset MVP9의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-MVP8은 계정 안정성 MVP이며 추천 점수, 후보 생성, tie-break, 추천 이유를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`와 MVP7의 `forecastPeriod`, 위치/날씨 source snapshot 계약을 그대로 유지한다.
+MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie-break, 추천 이유를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약을 그대로 유지한다.
 
-## MVP8 결정
+## MVP9 결정
 
 - 총점은 100점이며 기존 score response field를 유지한다.
 - `weatherScore` 최대값은 35점이다.
@@ -18,7 +18,7 @@ MVP8은 계정 안정성 MVP이며 추천 점수, 후보 생성, tie-break, 추�
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - `forecastPeriod`는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
 - 위치/source snapshot은 추천 근거 표시와 이력 신뢰도에만 사용한다.
-- MVP8 계정 기능은 추천 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
+- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
 - Image metadata는 추천 점수, 후보 필터링, tie-break, 추천 이유에 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 
@@ -122,9 +122,9 @@ Style tag 비교:
 
 ## 테스트 기준
 
-MVP8 구현 후 추천 규칙 테스트는 아래를 증명해야 한다.
+MVP9 구현 후 추천 규칙 검증은 아래를 증명해야 한다.
 
-- MVP8 계정 기능 추가 후에도 추천 생성 기본값 `CASUAL`, `CURRENT`가 유지된다.
+- MVP8 계정 기능과 MVP9 UI/UX 변경 후에도 추천 생성 기본값 `CASUAL`, `CURRENT`가 유지된다.
 - 총점 100점 체계와 세부 score field가 유지된다.
 - 위치/source snapshot은 점수 field를 추가하지 않는다.
 - 사용자 위치 변경 후 과거 추천 snapshot은 바뀌지 않는다.

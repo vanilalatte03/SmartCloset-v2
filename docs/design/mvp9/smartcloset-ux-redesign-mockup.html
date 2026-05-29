@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SmartCloset UX Redesign Concept</title>
+    <style>
+      :root {
+        --ink: #202225;
+        --muted: #70757f;
+        --soft: #f5f6f1;
+        --surface: #ffffff;
+        --line: #ddded6;
+        --green: #4f7f62;
+        --green-soft: #e7efe8;
+        --blue: #466f9f;
+        --blue-soft: #e8f0f7;
+        --coral: #c96b55;
+        --yellow: #f4c964;
+        --shadow: 0 22px 70px rgba(35, 38, 28, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 14% 10%, rgba(79, 127, 98, 0.16), transparent 28%),
+          linear-gradient(135deg, #f8f7f0 0%, #eef4f7 52%, #f7f2ee 100%);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        letter-spacing: 0;
+        word-break: keep-all;
+      }
+
+      .canvas {
+        display: grid;
+        gap: 22px;
+        margin: 0 auto;
+        max-width: 1440px;
+        min-height: 960px;
+        padding: 30px;
+      }
+
+      .title-strip {
+        align-items: end;
+        display: flex;
+        justify-content: space-between;
+        gap: 28px;
+      }
+
+      .title-strip p {
+        color: var(--muted);
+        font-size: 15px;
+        margin: 8px 0 0;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 36px;
+        line-height: 1.08;
+      }
+
+      .concept-pill {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(32, 34, 37, 0.1);
+        border-radius: 999px;
+        color: #415064;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 800;
+        min-height: 36px;
+        padding: 0 15px;
+      }
+
+      .showcase {
+        align-items: start;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1fr) 360px;
+      }
+
+      .desktop-frame,
+      .phone-frame {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(32, 34, 37, 0.1);
+        box-shadow: var(--shadow);
+      }
+
+      .desktop-frame {
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .app {
+        background: var(--soft);
+        min-height: 806px;
+      }
+
+      .app-bar {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.78);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 18px;
+        min-height: 72px;
+        padding: 0 24px;
+      }
+
+      .brand {
+        display: grid;
+        gap: 2px;
+        min-width: 164px;
+      }
+
+      .brand strong {
+        font-size: 21px;
+      }
+
+      .brand span,
+      .mini-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .tabs {
+        align-items: center;
+        display: flex;
+        flex: 1;
+        gap: 8px;
+      }
+
+      .tab {
+        align-items: center;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        color: #555d68;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 800;
+        min-height: 38px;
+        padding: 0 16px;
+      }
+
+      .tab.active {
+        background: var(--ink);
+        color: white;
+      }
+
+      .profile {
+        align-items: center;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        display: inline-flex;
+        gap: 10px;
+        min-height: 42px;
+        padding: 0 14px 0 6px;
+      }
+
+      .avatar {
+        align-items: center;
+        background: var(--blue);
+        border-radius: 50%;
+        color: white;
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: 900;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+      }
+
+      .content {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+        padding: 22px;
+      }
+
+      .hero {
+        background:
+          linear-gradient(135deg, rgba(32, 34, 37, 0.82), rgba(32, 34, 37, 0.48)),
+          url("file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-cardigan.jpg");
+        background-position: center;
+        background-size: cover;
+        border-radius: 8px;
+        color: white;
+        display: grid;
+        min-height: 222px;
+        padding: 26px;
+      }
+
+      .hero h2 {
+        font-size: 38px;
+        line-height: 1.12;
+        max-width: 560px;
+      }
+
+      .hero-meta {
+        align-items: end;
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .weather-line {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .weather-chip {
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 800;
+        min-height: 34px;
+        padding: 7px 13px;
+      }
+
+      .hero-action {
+        background: white;
+        border-radius: 8px;
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 900;
+        min-width: 142px;
+        padding: 13px 16px;
+        text-align: center;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+      }
+
+      .rec-panel {
+        display: grid;
+        gap: 16px;
+      }
+
+      .panel-head {
+        align-items: start;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .panel-head h3 {
+        font-size: 23px;
+        line-height: 1.18;
+      }
+
+      .panel-head p,
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .button {
+        align-items: center;
+        border-radius: 8px;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 900;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 15px;
+        white-space: nowrap;
+      }
+
+      .button.primary {
+        background: var(--green);
+        color: white;
+      }
+
+      .button.ghost {
+        background: #f5f6f1;
+        border: 1px solid var(--line);
+        color: var(--ink);
+      }
+
+      .outfit-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .outfit-card {
+        background: #fbfbf8;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: grid;
+        gap: 10px;
+        min-height: 250px;
+        overflow: hidden;
+      }
+
+      .outfit-card img {
+        aspect-ratio: 1.12;
+        display: block;
+        object-fit: cover;
+        width: 100%;
+      }
+
+      .outfit-copy {
+        display: grid;
+        gap: 4px;
+        padding: 0 13px 13px;
+      }
+
+      .outfit-copy strong {
+        font-size: 16px;
+      }
+
+      .outfit-copy span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .reason-strip {
+        background: var(--blue-soft);
+        border: 1px solid #c7d8ea;
+        border-radius: 8px;
+        color: #294866;
+        display: grid;
+        gap: 4px;
+        padding: 14px 16px;
+      }
+
+      .reason-strip strong {
+        font-size: 15px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .side-stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .weather-card {
+        background: linear-gradient(135deg, #ffffff, #ecf4f0);
+      }
+
+      .temp {
+        align-items: baseline;
+        display: flex;
+        gap: 10px;
+        margin: 14px 0 8px;
+      }
+
+      .temp strong {
+        font-size: 46px;
+        line-height: 1;
+      }
+
+      .metrics {
+        display: grid;
+        gap: 9px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 16px;
+      }
+
+      .metric {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(32, 34, 37, 0.08);
+        border-radius: 8px;
+        display: grid;
+        gap: 3px;
+        padding: 12px;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .metric strong {
+        font-size: 15px;
+      }
+
+      .trust {
+        color: #4c5967;
+        font-size: 13px;
+        line-height: 1.45;
+        margin-top: 14px;
+      }
+
+      .steps {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .step {
+        align-items: center;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 26px minmax(0, 1fr) auto;
+      }
+
+      .dot {
+        align-items: center;
+        background: var(--green-soft);
+        border: 1px solid #bfd5c4;
+        border-radius: 50%;
+        color: var(--green);
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: 900;
+        height: 26px;
+        justify-content: center;
+        width: 26px;
+      }
+
+      .step strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .step span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .done {
+        color: var(--green);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 11px;
+        margin-top: 14px;
+      }
+
+      .history {
+        align-items: center;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .history img {
+        border-radius: 8px;
+        height: 52px;
+        object-fit: cover;
+        width: 52px;
+      }
+
+      .history strong,
+      .history span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .history span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .phone-frame {
+        border-radius: 32px;
+        padding: 12px;
+      }
+
+      .phone-screen {
+        background: var(--soft);
+        border: 1px solid rgba(32, 34, 37, 0.12);
+        border-radius: 24px;
+        min-height: 780px;
+        overflow: hidden;
+      }
+
+      .phone-top {
+        background: white;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 5px;
+        padding: 20px 18px 14px;
+      }
+
+      .phone-top h2 {
+        font-size: 25px;
+      }
+
+      .phone-content {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .phone-hero {
+        background: var(--ink);
+        border-radius: 8px;
+        color: white;
+        display: grid;
+        gap: 12px;
+        padding: 17px;
+      }
+
+      .phone-hero h3 {
+        font-size: 25px;
+        line-height: 1.12;
+      }
+
+      .phone-weather {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+      }
+
+      .sun {
+        background: var(--yellow);
+        border-radius: 50%;
+        height: 38px;
+        width: 38px;
+      }
+
+      .phone-outfit {
+        display: grid;
+        gap: 10px;
+      }
+
+      .phone-item {
+        align-items: center;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 72px minmax(0, 1fr);
+        padding: 9px;
+      }
+
+      .phone-item img {
+        border-radius: 8px;
+        height: 72px;
+        object-fit: cover;
+        width: 72px;
+      }
+
+      .phone-item strong,
+      .phone-item span {
+        display: block;
+      }
+
+      .phone-item span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .phone-cta {
+        background: var(--green);
+        border-radius: 8px;
+        color: white;
+        font-size: 15px;
+        font-weight: 900;
+        min-height: 46px;
+        padding-top: 12px;
+        text-align: center;
+      }
+
+      .bottom-nav {
+        background: white;
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin-top: 8px;
+      }
+
+      .bottom-nav span {
+        color: #66707c;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 13px 0;
+        text-align: center;
+      }
+
+      .bottom-nav .active {
+        color: var(--green);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas">
+      <section class="title-strip" aria-label="시안 설명">
+        <div>
+          <h1>SmartCloset 사용자 친화 UX 리디자인 시안</h1>
+          <p>기능 패널 중심에서 벗어나, 오늘의 날씨와 코디 결정을 첫 화면의 중심으로 둔 콘셉트입니다.</p>
+        </div>
+        <span class="concept-pill">Concept mockup</span>
+      </section>
+
+      <section class="showcase">
+        <div class="desktop-frame">
+          <div class="app">
+            <header class="app-bar">
+              <div class="brand">
+                <span>오늘의 옷차림</span>
+                <strong>SmartCloset</strong>
+              </div>
+              <nav class="tabs" aria-label="주요 화면">
+                <span class="tab active">오늘</span>
+                <span class="tab">옷장</span>
+                <span class="tab">내 취향</span>
+                <span class="tab">위치</span>
+                <span class="tab">기록</span>
+              </nav>
+              <div class="profile">
+                <span class="avatar">J</span>
+                <strong>Jiho</strong>
+              </div>
+            </header>
+
+            <section class="content">
+              <div class="main-stack">
+                <article class="hero">
+                  <div class="hero-meta">
+                    <div>
+                      <span class="mini-label">5월 27일 수요일</span>
+                      <h2>오늘은 가벼운 상의에 가디건을 챙겨요</h2>
+                      <div class="weather-line">
+                        <span class="weather-chip">일산동 기준</span>
+                        <span class="weather-chip">12도</span>
+                        <span class="weather-chip">바람 잔잔</span>
+                        <span class="weather-chip">오후 예보</span>
+                      </div>
+                    </div>
+                    <div class="hero-action">추천 다시 받기</div>
+                  </div>
+                </article>
+
+                <article class="panel rec-panel" style="margin-top: 18px;">
+                  <div class="panel-head">
+                    <div>
+                      <span class="mini-label">오늘 추천</span>
+                      <h3>깔끔한 캐주얼 조합</h3>
+                      <p>기온과 최근 착용 기록을 반영했어요.</p>
+                    </div>
+                    <span class="button primary">입었어요</span>
+                  </div>
+
+                  <div class="outfit-grid">
+                    <div class="outfit-card">
+                      <img
+                        alt="화이트 반팔 티셔츠"
+                        src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/white-short-sleeve-tshirt.jpg"
+                      />
+                      <div class="outfit-copy">
+                        <strong>화이트 반팔 티셔츠</strong>
+                        <span>상의 · 밝은 색 · 면</span>
+                      </div>
+                    </div>
+                    <div class="outfit-card">
+                      <img
+                        alt="블랙 데님 팬츠"
+                        src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-denim-jeans.jpg"
+                      />
+                      <div class="outfit-copy">
+                        <strong>블랙 데님 팬츠</strong>
+                        <span>하의 · 어두운 색 · 데님</span>
+                      </div>
+                    </div>
+                    <div class="outfit-card">
+                      <img
+                        alt="블랙 가디건"
+                        src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-cardigan.jpg"
+                      />
+                      <div class="outfit-copy">
+                        <strong>블랙 가디건</strong>
+                        <span>아우터 · 바람 대비</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="reason-strip">
+                    <strong>왜 이 조합인가요?</strong>
+                    <span>12도 안팎이라 얇은 상의만으로는 쌀쌀할 수 있어요. 어두운 하의와 가디건으로 색 조합도 안정적입니다.</span>
+                  </div>
+
+                  <div class="actions">
+                    <span class="button ghost">조금 추웠어요</span>
+                    <span class="button ghost">조금 더웠어요</span>
+                    <span class="button ghost">마음에 들어요</span>
+                  </div>
+                </article>
+              </div>
+
+              <aside class="side-stack">
+                <article class="panel weather-card">
+                  <span class="mini-label">날씨</span>
+                  <div class="temp">
+                    <strong>12도</strong>
+                    <span class="muted">흐림 · 비 없음</span>
+                  </div>
+                  <div class="metrics">
+                    <div class="metric">
+                      <span>위치</span>
+                      <strong>경기 고양시 일산동</strong>
+                    </div>
+                    <div class="metric">
+                      <span>예보</span>
+                      <strong>오후</strong>
+                    </div>
+                    <div class="metric">
+                      <span>바람</span>
+                      <strong>잔잔</strong>
+                    </div>
+                    <div class="metric">
+                      <span>출처</span>
+                      <strong>KMA</strong>
+                    </div>
+                  </div>
+                  <p class="trust">KMA 단기예보를 사용했어요. 자세한 기준 시각은 기록 화면에서 확인할 수 있습니다.</p>
+                </article>
+
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <span class="mini-label">준비 상태</span>
+                      <h3>추천 준비 완료</h3>
+                    </div>
+                  </div>
+                  <div class="steps">
+                    <div class="step">
+                      <span class="dot">1</span>
+                      <div>
+                        <strong>위치</strong>
+                        <span>일산동 기준</span>
+                      </div>
+                      <span class="done">완료</span>
+                    </div>
+                    <div class="step">
+                      <span class="dot">2</span>
+                      <div>
+                        <strong>옷장</strong>
+                        <span>상의 8 · 하의 6 · 아우터 3</span>
+                      </div>
+                      <span class="done">완료</span>
+                    </div>
+                    <div class="step">
+                      <span class="dot">3</span>
+                      <div>
+                        <strong>취향</strong>
+                        <span>캐주얼, 무채색 선호</span>
+                      </div>
+                      <span class="done">완료</span>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="panel">
+                  <span class="mini-label">최근 기록</span>
+                  <div class="history-list">
+                    <div class="history">
+                      <img
+                        alt="최근 추천"
+                        src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/dark-blue-denim-jeans.jpg"
+                      />
+                      <div>
+                        <strong>어제 입은 조합</strong>
+                        <span>화이트 티셔츠 · 데님 · 가디건</span>
+                      </div>
+                    </div>
+                    <div class="history">
+                      <img
+                        alt="최근 추천"
+                        src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-short-sleeve-tshirt.jpg"
+                      />
+                      <div>
+                        <strong>지난 추천</strong>
+                        <span>블랙 티셔츠 · 블랙 데님</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </aside>
+            </section>
+          </div>
+        </div>
+
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <header class="phone-top">
+              <span class="mini-label">SmartCloset</span>
+              <h2>오늘 뭐 입지?</h2>
+              <p class="muted">일산동 · 12도 · 오후 예보</p>
+            </header>
+            <section class="phone-content">
+              <article class="phone-hero">
+                <div class="phone-weather">
+                  <span class="sun"></span>
+                  <div>
+                    <strong>가디건 챙기기 좋은 날</strong>
+                    <p>바람은 약하지만 체감 온도가 낮아요.</p>
+                  </div>
+                </div>
+                <h3>화이트 티셔츠와 블랙 가디건</h3>
+              </article>
+
+              <div class="phone-outfit">
+                <div class="phone-item">
+                  <img
+                    alt="상의"
+                    src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/white-short-sleeve-tshirt.jpg"
+                  />
+                  <div>
+                    <strong>화이트 반팔 티셔츠</strong>
+                    <span>상의 · 면</span>
+                  </div>
+                </div>
+                <div class="phone-item">
+                  <img
+                    alt="하의"
+                    src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-denim-jeans.jpg"
+                  />
+                  <div>
+                    <strong>블랙 데님 팬츠</strong>
+                    <span>하의 · 데님</span>
+                  </div>
+                </div>
+                <div class="phone-item">
+                  <img
+                    alt="아우터"
+                    src="file:///Users/jiho/Documents/Codex/SmartCloset-v2/src/main/resources/default-clothing-presets/black-cardigan.jpg"
+                  />
+                  <div>
+                    <strong>블랙 가디건</strong>
+                    <span>아우터 · 보온</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="phone-cta">입었어요</div>
+              <article class="panel">
+                <span class="mini-label">간단 피드백</span>
+                <p class="muted" style="margin-top: 8px;">조금 추웠어요 · 마음에 들어요</p>
+              </article>
+            </section>
+            <nav class="bottom-nav">
+              <span class="active">오늘</span>
+              <span>옷장</span>
+              <span>위치</span>
+              <span>기록</span>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

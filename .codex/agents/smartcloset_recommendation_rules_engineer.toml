@@ -36,9 +36,9 @@ Reasoning effort policy:
 - 동일 인증 사용자 입력과 테스트 데이터에 대해 추천 로직이 항상 결정적으로 동작하게 한다.
 - 100점 세부 점수 구조를 보존한다: weather 35, color 25, wear history 20, recommendation history 10, preference 10.
 - 강제 필터링, OUTER 필수/선택 규칙, 후보 생성 순서, 실패 우선순위, 점수 상/하한 보정, 동점 처리 순서를 docs/RECOMMENDATION_RULES.md 기준 그대로 구현한다.
-- 현재 baseline은 MVP8이며 추천 규칙은 MVP7 `preferenceScore`와 forecastPeriod 계약을 유지한다.
-- `styleTags`와 최근 피드백은 docs/RECOMMENDATION_RULES.md의 MVP8 기준에 따라 `preferenceScore`와 추천 이유에 사용한다.
-- MVP8 계정 기능은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
+- 현재 baseline은 MVP9이며 추천 규칙은 MVP7 `preferenceScore`와 forecastPeriod 계약, MVP8 계정 안정성 계약을 유지한다.
+- `styleTags`와 최근 피드백은 docs/RECOMMENDATION_RULES.md의 MVP9 기준에 따라 `preferenceScore`와 추천 이유에 사용한다.
+- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
 - forecastPeriod는 weather input 선택에만 사용하고 새 score field를 만들지 않는다.
 - feedbackAdjustment는 최근 14일 snapshot만 사용하고 부정 signal 충돌 우선순위를 지킨다.
 - 이미지 metadata는 점수, 필터링, 동점 처리, 추천 이유에 사용하지 않는다.

@@ -1,8 +1,10 @@
-# API: SmartCloset MVP8 Contract
+# API: SmartCloset MVP9 Contract
 
-이 문서는 SmartCloset MVP8 API 계약을 설명한다. MVP8은 기존 인증 사용자 API, MVP5 이미지 API, MVP6 피드백/개인화 API, MVP7 위치/날씨 신뢰도 API 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google login, 계정 삭제 API를 추가한다.
+이 문서는 SmartCloset MVP9 API 계약을 설명한다. MVP9는 프론트 UI/UX 리디자인 MVP이며 백엔드 HTTP API, request/response DTO, 인증/에러 계약을 변경하지 않는다.
 
-## MVP8 API 결정
+현재 API surface는 MVP8 계정 안정성 완료 계약을 유지한다. MVP8은 기존 인증 사용자 API, MVP5 이미지 API, MVP6 피드백/개인화 API, MVP7 위치/날씨 신뢰도 API 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google login, 계정 삭제 API를 추가했다.
+
+## MVP9 API 결정
 
 - 공개 `userId` query parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
@@ -14,6 +16,7 @@
 - Google verified email은 이메일 인증 완료로 취급한다.
 - Account deletion은 보호 API이며 현재 사용자 데이터만 삭제한다.
 - 추천/날씨/위치/이미지 API 계약은 MVP7 기준을 유지한다.
+- MVP9 UI/UX 변경은 API path, method, DTO field, error code를 변경하지 않는다.
 
 ## 1. 공통 규칙
 
@@ -110,7 +113,7 @@
 }
 ```
 
-회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다. MVP8 password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
+회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다. MVP8에서 확정된 password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
 
 ### SignupResponse
 
@@ -383,7 +386,7 @@ Google-only 계정:
 
 ## 10. Error Codes
 
-MVP8에서 추가 또는 명시하는 error code:
+MVP8에서 추가했고 MVP9에서도 유지하는 error code:
 
 | Code | Status | Meaning |
 | --- | --- | --- |

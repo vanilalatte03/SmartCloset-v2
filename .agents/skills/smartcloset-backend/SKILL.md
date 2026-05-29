@@ -37,19 +37,19 @@ Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical
 
 ## Current Execution Baseline
 
-SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spring Boot 4.0.6 서비스다. MVP8 계약은 `docs/PRD.md`와 ADR-013을 따른다. 현재 코드 출발점은 MVP7 위치/날씨 신뢰도 완료 상태이며, MVP8 구현은 `phases/8-smartcloset-account-stability` step 문서를 따른다.
+SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Spring Boot 4.0.6 서비스다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따른다. 현재 코드 출발점은 MVP8 계정 안정성 완료 상태이며, MVP9 구현은 `phases/9-smartcloset-ui-ux-redesign` step 문서를 따른다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
 - Spring Security + JWT Bearer access token 인증을 유지한다.
-- MVP8은 DB-backed refresh session과 HttpOnly refresh cookie를 추가한다.
+- MVP8에서 추가한 DB-backed refresh session과 HttpOnly refresh cookie를 유지한다.
 - Refresh token 원문은 DB나 JSON response에 저장하거나 노출하지 않는다.
 - Access token은 JSON 응답의 bearer token으로 유지한다.
 - Frontend는 access token을 memory state에 저장하고 refresh cookie로 세션을 복구한다.
 - Password signup은 이메일 인증 필요 상태를 반환하고 access token을 발급하지 않는다.
 - 미인증 password 계정은 login할 수 없다.
 - 이메일 인증과 비밀번호 재설정 token 원문은 DB에 저장하지 않고 hash만 저장한다.
-- MVP8 이메일 발송 구현은 `EmailSender` interface와 `ConsoleEmailSender` 기준이다.
+- 현재 이메일 발송 구현은 `EmailSender` interface와 `ConsoleEmailSender` 기준이다.
 - Google social login을 추가하고, 설정이 없으면 provider disabled 상태를 반환한다.
 - Google verified email은 이메일 인증 완료로 취급한다.
 - 계정 삭제는 현재 사용자 소유 데이터와 이미지 파일을 즉시 hard delete한다.
@@ -67,7 +67,9 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 - 이미지 업로드/교체/조회/삭제 API는 모두 보호 API다.
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
 - Docker Compose local 공유 흐름은 유지한다.
-- MVP8은 AWS 배포를 구현하지 않고 MVP9에서 교체할 adapter boundary만 준비한다.
+- MVP9는 AWS 배포를 구현하지 않고 프론트 UI/UX 리디자인에 집중한다. AWS 배포와 운영 adapter 구현은 후속 MVP로 연기한다.
+- MVP9는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다.
+- MVP9 primary navigation은 `추천`, `옷장`, `내 취향`, `위치`, `기록`이며, `계정 설정`은 우측 상단 profile pill/menu에서 진입한다.
 
 ## Historical Context
 
@@ -92,7 +94,7 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 
 ## Strict Out of Scope
 
-아래 항목은 MVP8 범위에 추가하지 않는다.
+아래 항목은 MVP9 범위에 추가하지 않는다.
 
 - AWS deployment implementation
 - S3 storage implementation
@@ -125,7 +127,7 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 ## API Rules
 
 - 공개 API와 보호 API 표/계약을 분리해서 유지한다.
-- MVP8 공개 API는 auth bootstrap endpoint로 제한한다: signup, login, refresh, logout, email verification, password reset, OAuth provider/login/callback.
+- MVP9 공개 API는 MVP8 auth bootstrap endpoint를 유지한다: signup, login, refresh, logout, email verification, password reset, OAuth provider/login/callback.
 - 보호 API는 `Authorization: Bearer {accessToken}`이 필요하다.
 - 공개 `userId` request parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
@@ -165,10 +167,10 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 ## AWS-Ready Boundary Rules
 
 - AWS 배포를 구현하지 않는다.
-- `EmailSender` interface 뒤에 MVP8 `ConsoleEmailSender`를 둔다.
-- MVP9에서 SES/SMTP sender를 추가해도 auth application service가 바뀌지 않게 한다.
+- `EmailSender` interface 뒤에 현재 local `ConsoleEmailSender`를 둔다.
+- 후속 MVP에서 SES/SMTP sender를 추가해도 auth application service가 바뀌지 않게 한다.
 - `ClothingImageStorage` interface를 통해 이미지 파일을 다룬다.
-- MVP9에서 S3 구현체를 추가해도 account deletion service가 storage interface만 사용하게 한다.
+- 후속 MVP에서 S3 구현체를 추가해도 account deletion service가 storage interface만 사용하게 한다.
 - CORS allowed origins와 credentials 설정은 properties/env로 분리한다.
 - OAuth redirect/base URL은 properties/env로 분리한다.
 - local profile과 Docker Compose 실행 흐름을 유지한다.
@@ -262,7 +264,7 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 - 추천 상황은 `WORK`, `CASUAL`, `WORKOUT`, `DATE`, `FORMAL`이다.
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - forecastPeriod는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
-- MVP8 계정 기능은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
+- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
 - scoring, filtering, tie-break, recommendation reason에 image metadata를 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 - Tie-break rule은 deterministic해야 한다.
@@ -300,9 +302,10 @@ SmartCloset의 현재 기준은 MVP8 계정 안정성 문서 전환 baseline Spr
 - 현재 사용자 전용 response DTO 예시와 frontend type에서 `userId`를 제거한다.
 - Recommendation creation은 `POST /api/recommendations`로만 문서화한다.
 - Today recommendation GET path가 현재 API 계약으로 나타나면 제거한다.
-- MVP8 계정 안정성 API는 refresh token 원문을 JSON response에 넣지 않는다고 문서화한다.
-- MVP8 이메일은 `ConsoleEmailSender` 기준이며 SES/SMTP는 제외 범위로 문서화한다.
-- MVP8 AWS-ready boundary는 구현 범위가 아니라 adapter 경계로만 문서화한다.
+- MVP8 계정 안정성 API는 MVP9에서도 유지하며 refresh token 원문을 JSON response에 넣지 않는다고 문서화한다.
+- 현재 이메일은 `ConsoleEmailSender` 기준이며 SES/SMTP는 제외 범위로 문서화한다.
+- MVP9는 AWS 배포를 후속 MVP로 연기하고 현재 local adapter 경계만 유지한다고 문서화한다.
+- MVP9 frontend UX는 `docs/FRONTEND.md`와 `docs/design/mvp9/README.md` 기준으로 문서화한다.
 - MVP7 위치 검색은 내부 KMA catalog 기준으로 유지하고 외부 지도/주소 API를 사용하지 않는다.
 - MVP7 브라우저 현재 위치는 좌표 resolve 후보 찾기로만 유지하고 GPS 원문 DB 저장을 추가하지 않는다.
 - MVP7 weather source snapshot은 raw KMA 응답 JSON 없이 provider, KMA/fallback 여부, base/forecast 시각만 문서화한다.
