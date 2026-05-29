@@ -505,7 +505,7 @@
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr);
 }
 
 .today-history-preview {
@@ -701,6 +701,100 @@
   min-width: 136px;
 }
 
+.recommendation-dashboard-hero {
+  background:
+    linear-gradient(135deg, rgba(23, 59, 45, 0.94), rgba(31, 79, 122, 0.84)),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.32), transparent 34%);
+  border-radius: 8px;
+  color: #ffffff;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.74fr) auto;
+  min-width: 0;
+  padding: 18px;
+}
+
+.recommendation-dashboard-hero .eyebrow,
+.recommendation-dashboard-hero .muted {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.recommendation-hero-copy {
+  align-content: center;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.recommendation-hero-copy h3 {
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1.1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.recommendation-hero-meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.recommendation-hero-meta > div {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.recommendation-hero-meta span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.recommendation-hero-meta strong {
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.recommendation-hero-meta .weather-badge {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: var(--text);
+  justify-content: flex-start;
+}
+
+.recommendation-dashboard-hero .recommendation-action-bar {
+  align-items: end;
+}
+
+.recommendation-controls-panel {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.compact-title-row {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.compact-title-row h3 {
+  font-size: 15px;
+}
+
 .situation-selector,
 .forecast-selector {
   align-items: center;
@@ -715,8 +809,14 @@
   margin-top: 8px;
 }
 
+.recommendation-controls-panel .situation-selector,
+.recommendation-controls-panel .forecast-selector {
+  margin-top: 0;
+}
+
 .situation-button,
-.feedback-button {
+.feedback-button,
+.situation-card-button {
   background: #ffffff;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -729,21 +829,51 @@
   padding: 0 12px;
 }
 
+.situation-card-button {
+  align-items: flex-start;
+  display: grid;
+  flex: 1 1 132px;
+  gap: 4px;
+  min-height: 72px;
+  padding: 12px;
+  text-align: left;
+}
+
+.situation-card-button strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.situation-card-button span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .situation-button.active,
-.feedback-button.active {
+.feedback-button.active,
+.situation-card-button.active {
   background: #e9f2ec;
   border-color: #6fa17c;
   color: #14532d;
 }
 
+.situation-card-button.active strong,
+.situation-card-button.active span {
+  color: #14532d;
+}
+
 .situation-button:disabled,
-.feedback-button:disabled {
+.feedback-button:disabled,
+.situation-card-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
 }
 
 .situation-button:focus-visible,
-.feedback-button:focus-visible {
+.feedback-button:focus-visible,
+.situation-card-button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
@@ -776,6 +906,30 @@
   display: grid;
   gap: 16px;
   margin-top: 16px;
+}
+
+.recommendation-outfit-section {
+  background: #fffaf0;
+  border: 1px solid #ead9b8;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.recommendation-result-heading {
+  align-items: flex-start;
+}
+
+.recommendation-result-heading h3 {
+  font-size: 22px;
+}
+
+.recommendation-result-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .recommendation-weather-snapshot {
@@ -843,7 +997,7 @@
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  min-height: 160px;
+  min-height: 180px;
   min-width: 0;
   padding: 12px;
 }
@@ -912,6 +1066,13 @@
 
 .recommendation-reason-list {
   margin-top: 10px;
+}
+
+.recommendation-reason-section {
+  background: #f6fbf8;
+  border: 1px solid #d6e9dc;
+  border-radius: 8px;
+  padding: 14px;
 }
 
 .recommendation-worn-section {
@@ -1004,6 +1165,18 @@
   color: var(--text-heading);
   cursor: pointer;
   font-size: 14px;
+  font-weight: 800;
+}
+
+.recommendation-score-grid dd {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.recommendation-score-grid dd span {
+  color: var(--text-muted);
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -3076,6 +3249,31 @@
     z-index: 9;
   }
 
+  .recommendation-dashboard-hero {
+    gap: 14px;
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .recommendation-hero-copy h3 {
+    font-size: 23px;
+    line-height: 1.18;
+  }
+
+  .recommendation-hero-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .recommendation-dashboard-hero .recommendation-action-bar {
+    background: transparent;
+    border-top: 0;
+    bottom: auto;
+    margin: 0;
+    padding: 0;
+    position: static;
+    width: 100%;
+  }
+
   .recommendation-heading {
     align-items: stretch;
     flex-direction: column;
@@ -3089,10 +3287,23 @@
   .recommendation-weather-snapshot,
   .recommendation-worn-section,
   .recommendation-feedback-section,
+  .recommendation-result-heading,
   .history-summary-panel,
   .history-card-summary {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .recommendation-result-meta,
+  .feedback-control-stack,
+  .feedback-button-group {
+    justify-content: flex-start;
+    justify-items: stretch;
+  }
+
+  .situation-card-button {
+    flex-basis: 100%;
+    min-height: 64px;
   }
 
   .today-checklist-item {

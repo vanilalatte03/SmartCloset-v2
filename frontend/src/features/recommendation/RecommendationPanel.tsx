@@ -70,14 +70,23 @@ const outfitSlots: Array<{
 const scoreItems: Array<{
   key: keyof RecommendationResponse['score'];
   label: string;
+  max: number;
 }> = [
-  { key: 'totalScore', label: '총점' },
-  { key: 'weatherScore', label: '날씨 적합도' },
-  { key: 'colorScore', label: '색상 조합' },
-  { key: 'wearHistoryScore', label: '착용 이력' },
-  { key: 'recommendationHistoryScore', label: '추천 이력' },
-  { key: 'preferenceScore', label: '선호 반영' },
+  { key: 'totalScore', label: '총점', max: 100 },
+  { key: 'weatherScore', label: '날씨 적합도', max: 35 },
+  { key: 'colorScore', label: '색상 조합', max: 25 },
+  { key: 'wearHistoryScore', label: '착용 이력', max: 20 },
+  { key: 'recommendationHistoryScore', label: '추천 이력', max: 10 },
+  { key: 'preferenceScore', label: '선호 반영', max: 10 },
 ];
+
+const situationDescriptions: Record<RecommendationSituation, string> = {
+  WORK: '단정한 출근 조합',
+  CASUAL: '편안한 데일리 조합',
+  WORKOUT: '움직임이 편한 조합',
+  DATE: '깔끔한 포인트 조합',
+  FORMAL: '격식 있는 조합',
+};
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -106,6 +115,11 @@ function getOutfitItemByCategory(
   }
 
   return recommendation.outfit.outer;
+}
+
+function getOutfitSummary(recommendation: RecommendationResponse): string {
+  const outerName = recommendation.outfit.outer ? ` + ${recommendation.outfit.outer.name}` : '';
+  return `${recommendation.outfit.top.name} + ${recommendation.outfit.bottom.name}${outerName}`;
 }
 
 function renderOutfitSlotCard(
@@ -197,6 +211,13 @@ export function RecommendationPanel({
   const currentSentiment = recommendation?.feedback?.sentiment ?? null;
   const currentThermal = recommendation?.feedback?.thermal ?? null;
   const controlsDisabled = loading || markingWorn || feedbackSaving;
+  const displayWeather = recommendation?.weather ?? currentWeather;
+  const displayLocation =
+    recommendation?.weather.location.fullName ||
+    recommendation?.weather.location.name ||
+    location?.fullName ||
+    location?.name ||
+    '위치 확인 필요';
 
   return (
     <article
@@ -204,14 +225,38 @@ export function RecommendationPanel({
       id="today-recommendation"
       aria-label="오늘 추천 생성"
     >
-      <div className="section-title-row recommendation-heading">
-        <div>
-          <p className="eyebrow">오늘 추천</p>
-          <h3>오늘 추천</h3>
+      <section className="recommendation-dashboard-hero" aria-label="추천 대시보드 요약">
+        <div className="recommendation-hero-copy">
+          <p className="eyebrow">오늘의 코디 추천</p>
+          <h3>
+            {recommendation
+              ? getOutfitSummary(recommendation)
+              : '날씨와 일정에 맞는 조합을 준비하세요'}
+          </h3>
           <p className="muted recommendation-heading-copy">
-            현재 위치, 예보 시간대, 옷장 기준으로 조합을 만듭니다.
+            현재 위치, 예보 시간대, 옷장 준비 상태를 바탕으로 조합합니다.
           </p>
         </div>
+
+        <div className="recommendation-hero-meta" aria-label="추천 기준">
+          <div>
+            <span>위치</span>
+            <strong>{displayLocation}</strong>
+          </div>
+          <div>
+            <span>상황</span>
+            <strong>{recommendationSituationLabels[selectedSituation]}</strong>
+          </div>
+          <div>
+            <span>예보</span>
+            <strong>{forecastPeriodLabels[selectedForecastPeriod]}</strong>
+          </div>
+          <div>
+            <span>날씨</span>
+            {displayWeather ? <WeatherBadge weather={displayWeather} /> : <strong>확인 중</strong>}
+          </div>
+        </div>
+
         <div className="recommendation-action-bar">
           <button
             className="primary-button recommendation-create-button"
@@ -222,48 +267,65 @@ export function RecommendationPanel({
             {loading ? '추천 생성 중' : '추천 만들기'}
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="situation-selector" role="group" aria-label="추천 상황 선택">
-        {recommendationSituationOptions.map((situation) => (
-          <button
-            className={
-              selectedSituation === situation ? 'situation-button active' : 'situation-button'
-            }
-            type="button"
-            key={situation}
-            aria-pressed={selectedSituation === situation}
-            onClick={() => onSituationChange(situation)}
-            disabled={controlsDisabled}
-          >
-            {recommendationSituationLabels[situation]}
-          </button>
-        ))}
-      </div>
+      <section className="recommendation-controls-panel" aria-label="추천 조건 선택">
+        <div>
+          <div className="section-title-row compact-title-row">
+            <h3>상황</h3>
+            <span className="item-meta">오늘 일정에 맞춰 선택</span>
+          </div>
+          <div className="situation-selector" role="group" aria-label="추천 상황 선택">
+            {recommendationSituationOptions.map((situation) => (
+              <button
+                className={
+                  selectedSituation === situation
+                    ? 'situation-card-button active'
+                    : 'situation-card-button'
+                }
+                type="button"
+                key={situation}
+                aria-pressed={selectedSituation === situation}
+                onClick={() => onSituationChange(situation)}
+                disabled={controlsDisabled}
+              >
+                <strong>{recommendationSituationLabels[situation]}</strong>
+                <span>{situationDescriptions[situation]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <div className="forecast-selector" role="group" aria-label="예보 시간대 선택">
-        {forecastPeriodOptions.map((forecastPeriod) => (
-          <button
-            className={
-              selectedForecastPeriod === forecastPeriod
-                ? 'situation-button active'
-                : 'situation-button'
-            }
-            type="button"
-            key={forecastPeriod}
-            aria-pressed={selectedForecastPeriod === forecastPeriod}
-            onClick={() => onForecastPeriodChange(forecastPeriod)}
-            disabled={controlsDisabled}
-          >
-            {forecastPeriodLabels[forecastPeriod]}
-          </button>
-        ))}
-      </div>
+        <div>
+          <div className="section-title-row compact-title-row">
+            <h3>예보 시간대</h3>
+            <span className="item-meta">언제 입을지 선택</span>
+          </div>
+          <div className="forecast-selector" role="group" aria-label="예보 시간대 선택">
+            {forecastPeriodOptions.map((forecastPeriod) => (
+              <button
+                className={
+                  selectedForecastPeriod === forecastPeriod
+                    ? 'situation-button active'
+                    : 'situation-button'
+                }
+                type="button"
+                key={forecastPeriod}
+                aria-pressed={selectedForecastPeriod === forecastPeriod}
+                onClick={() => onForecastPeriodChange(forecastPeriod)}
+                disabled={controlsDisabled}
+              >
+                {forecastPeriodLabels[forecastPeriod]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {failureCta ? (
         <div className="recommendation-failure-card" role="status">
           <div>
-            <strong>추천을 만들기 전에 해결할 항목이 있어요</strong>
+            <strong>추천을 완성하려면 옷장 준비가 더 필요해요</strong>
             <p>{failureCta.message}</p>
           </div>
           <button
@@ -285,10 +347,21 @@ export function RecommendationPanel({
 
       {recommendation ? (
         <div className="recommendation-result-stack">
-          <section className="panel-section" aria-label="추천 옷 조합">
-            <div className="section-title-row">
-              <h3>추천 옷 조합</h3>
-              <span className="item-meta">{formatDateTime(recommendation.createdAt)}</span>
+          <section className="panel-section recommendation-outfit-section" aria-label="추천 옷 조합">
+            <div className="section-title-row recommendation-result-heading">
+              <div>
+                <p className="eyebrow">추천 결과</p>
+                <h3>오늘 입기 좋은 조합</h3>
+              </div>
+              <div className="recommendation-result-meta">
+                <span className="item-meta">{formatDateTime(recommendation.createdAt)}</span>
+                <span className="situation-pill">
+                  {recommendationSituationLabels[recommendation.situation]}
+                </span>
+                <span className="situation-pill">
+                  {forecastPeriodLabels[recommendation.forecastPeriod]}
+                </span>
+              </div>
             </div>
             <div className="recommendation-weather-snapshot">
               <span>
@@ -322,7 +395,7 @@ export function RecommendationPanel({
             </div>
           </section>
 
-          <section className="panel-section" aria-label="오늘 입기 좋은 이유">
+          <section className="panel-section recommendation-reason-section" aria-label="오늘 입기 좋은 이유">
             <h3>오늘 입기 좋은 이유</h3>
             <ul className="reason-list recommendation-reason-list">
               {recommendation.reasons.map((reason) => (
@@ -423,7 +496,10 @@ export function RecommendationPanel({
               {scoreItems.map((item) => (
                 <div key={item.key}>
                   <dt>{item.label}</dt>
-                  <dd>{recommendation.score[item.key]}</dd>
+                  <dd>
+                    {recommendation.score[item.key]}
+                    <span>/{item.max}</span>
+                  </dd>
                 </div>
               ))}
             </dl>
