@@ -1387,8 +1387,103 @@
   min-width: 0;
 }
 
+.location-hero {
+  align-items: end;
+  background: #202228;
+  border: 1px solid #202228;
+  border-radius: 8px;
+  color: #ffffff;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.3fr);
+  min-width: 0;
+  padding: 24px;
+}
+
+.location-hero .eyebrow {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.location-hero h2 {
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1.16;
+  margin: 8px 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.location-hero p {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.location-hero-tags {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.location-hero-tags span,
+.location-hero-grid div {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #ffffff;
+}
+
+.location-hero-tags span {
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 32px;
+  padding: 0 12px;
+  align-items: center;
+}
+
+.location-hero-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.location-hero-grid div {
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.location-hero-grid dt {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.location-hero-grid dd {
+  font-weight: 900;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .location-panel .section-title-row {
   margin-bottom: 0;
+}
+
+.location-status-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  min-width: 0;
+}
+
+.location-status-grid > .panel {
+  margin: 0;
 }
 
 .location-panel-copy {
@@ -1434,7 +1529,7 @@
 }
 
 .location-current-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 16px;
 }
 
@@ -1500,6 +1595,26 @@
   margin-top: 14px;
   min-width: 0;
   padding: 12px;
+}
+
+.location-coordinate-note {
+  background: #eef4f8;
+  border: 1px solid #cbd8e6;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.location-coordinate-note strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.location-coordinate-note span {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .location-resolve-status {
@@ -1867,6 +1982,53 @@
   margin-top: 0;
 }
 
+.preferences-hero {
+  align-items: end;
+  background: #202228;
+  border: 1px solid #202228;
+  border-radius: 8px;
+  color: #ffffff;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 24px;
+}
+
+.preferences-hero .eyebrow {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.preferences-hero h3 {
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1.18;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.preferences-hero p {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+.preferences-hero-count {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 .preferences-layout {
   align-items: start;
   display: grid;
@@ -1887,6 +2049,7 @@
 }
 
 .preference-card,
+.preference-impact-card,
 .preferences-save-bar,
 .preference-summary {
   background: var(--surface);
@@ -1902,6 +2065,30 @@
 
 .preference-card .section-title-row {
   margin-bottom: 12px;
+}
+
+.preference-impact-card {
+  background: #202228;
+  border-color: #202228;
+  color: #ffffff;
+  display: grid;
+  gap: 8px;
+}
+
+.preference-impact-card .eyebrow {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.preference-impact-card h3 {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.preference-impact-card p {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .preference-count-pill {
@@ -3277,6 +3464,9 @@
   .history-weather-snapshot,
   .history-outfit-summary .history-outfit-list,
   .location-weather-metrics,
+  .location-hero,
+  .location-hero-grid,
+  .location-status-grid,
   .recommendation-layout,
   .recommendation-slot-grid,
   .style-tag-suggestion-group,
@@ -3300,6 +3490,16 @@
 
   .location-current-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .location-hero {
+    align-items: stretch;
+    padding: 18px;
+  }
+
+  .location-hero h2 {
+    font-size: 24px;
+    line-height: 1.22;
   }
 
   .location-search-actions {
@@ -3534,7 +3734,9 @@
   .closet-card-section,
   .closet-quick-panel,
   .preferences-panel > .section-title-row,
+  .preferences-hero,
   .preference-card,
+  .preference-impact-card,
   .preferences-save-bar,
   .preference-summary {
     padding: 16px;
@@ -3572,6 +3774,20 @@
 
   .material-preference-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preferences-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preferences-hero h3 {
+    font-size: 23px;
+    line-height: 1.22;
+  }
+
+  .preferences-hero-count {
+    width: fit-content;
   }
 
   .preferences-save-bar {

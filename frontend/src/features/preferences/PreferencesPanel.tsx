@@ -11,7 +11,9 @@ import type {
 } from '../../types/api';
 import {
   clothingColorOptions,
+  clothingColorMetadata,
   clothingMaterialOptions,
+  clothingMaterialLabels,
   formatStyleTagLabel,
   recommendationSituationLabels,
   styleTagLabels,
@@ -81,6 +83,20 @@ export function PreferencesPanel({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
+  const selectedColorLabel =
+    preferences.preferredColors[0]
+      ? clothingColorMetadata[preferences.preferredColors[0]].label
+      : '색상';
+  const selectedMaterialLabel =
+    preferences.preferredMaterials[0]
+      ? clothingMaterialLabels[preferences.preferredMaterials[0]]
+      : '소재';
+  const selectedTagLabel =
+    preferences.styleTags[0] ? formatStyleTagLabel(preferences.styleTags[0]) : '태그';
+  const totalPreferenceCount =
+    preferences.preferredColors.length +
+    preferences.preferredMaterials.length +
+    preferences.styleTags.length;
 
   const loadPreferences = useCallback(async () => {
     setLoading(true);
@@ -205,6 +221,7 @@ export function PreferencesPanel({
     <article className="panel preferences-panel">
       <div className="section-title-row">
         <div>
+          <p className="eyebrow">취향 프로필</p>
           <h2>선호도</h2>
           <p className="muted preference-guidance">
             색상, 소재, 스타일 태그를 저장해 추천 개인화에 반영합니다.
@@ -224,6 +241,20 @@ export function PreferencesPanel({
         <p className="muted">선호도를 불러오고 있어요.</p>
       ) : (
         <form className="panel-form compact-form preferences-form" onSubmit={handleSave}>
+          <section className="preferences-hero" aria-label="저장할 취향 요약">
+            <div>
+              <p className="eyebrow">취향 프로필</p>
+              <h3>
+                {selectedColorLabel}, {selectedMaterialLabel}, {selectedTagLabel} 취향을
+                선호해요
+              </h3>
+              <p>
+                저장한 취향은 추천 후보가 맞을 때 preferenceScore에 반영됩니다.
+              </p>
+            </div>
+            <span className="preferences-hero-count">{totalPreferenceCount}개 항목</span>
+          </section>
+
           <dl className="metric-list preference-summary" aria-label="저장할 선호도 요약">
             <div>
               <dt>색상</dt>
@@ -244,6 +275,7 @@ export function PreferencesPanel({
               <section className="preference-card color-preference-card" aria-label="선호 색상">
                 <div className="section-title-row">
                   <div>
+                    <p className="eyebrow">색상</p>
                     <h3>선호 색상</h3>
                     <p className="muted preference-helper">
                       원형 swatch를 눌러 여러 색상을 함께 선택하세요.
@@ -282,6 +314,7 @@ export function PreferencesPanel({
               >
                 <div className="section-title-row">
                   <div>
+                    <p className="eyebrow">소재</p>
                     <h3>선호 소재</h3>
                     <p className="muted preference-helper">
                       자주 손이 가는 소재를 chip으로 골라두세요.
@@ -319,6 +352,7 @@ export function PreferencesPanel({
               <section className="preference-card style-tag-card" aria-label="스타일 태그">
                 <div className="section-title-row">
                   <div>
+                    <p className="eyebrow">태그</p>
                     <h3>{styleTagLabels.title}</h3>
                     <p className="muted preference-helper">
                       추천 취향으로 함께 저장됩니다.
@@ -404,6 +438,14 @@ export function PreferencesPanel({
                     <span className="muted">{styleTagLabels.empty}</span>
                   )}
                 </div>
+              </section>
+
+              <section className="preference-impact-card" aria-label="추천 영향">
+                <p className="eyebrow">추천 영향</p>
+                <h3>선호 반영 +10점</h3>
+                <p>
+                  색상, 소재, 스타일 태그가 후보 옷과 맞으면 취향 점수에 더해집니다.
+                </p>
               </section>
 
               <div className="preferences-save-bar">
