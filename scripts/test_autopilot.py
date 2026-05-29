@@ -81,6 +81,46 @@ def test_preconditions_stop_on_gh_auth_failure(runner):
     assert "gh auth failed" in str(exc_info.value)
 
 
+def test_preconditions_run_base_manual_checks_after_sync(runner):
+    git_calls = []
+    shell_calls = []
+
+    def fake_git(*args, check=True):
+        git_calls.append(args)
+        return cp()
+
+    def fake_run_shell(command, check=True, timeout=None):
+        shell_calls.append((command, check, timeout))
+        return cp()
+
+    runner._git = fake_git
+    runner._gh = lambda *args, check=True: cp()
+    runner._run_shell = fake_run_shell
+
+    runner._ensure_preconditions()
+
+    assert ("fetch", "origin", "main") in git_calls
+    assert ("checkout", "main") in git_calls
+    assert ("pull", "--ff-only", "origin", "main") in git_calls
+    assert shell_calls == [(ap.FALLBACK_REVIEW_CHECK_COMMAND, False, 1800)]
+
+
+def test_preconditions_stop_when_base_manual_checks_fail(runner):
+    runner._git = lambda *args, check=True: cp()
+    runner._gh = lambda *args, check=True: cp()
+    runner._run_shell = lambda command, check=True, timeout=None: cp(
+        returncode=1,
+        stderr="backend test failed",
+    )
+
+    with pytest.raises(ap.AutopilotError) as exc_info:
+        runner._ensure_preconditions()
+
+    message = str(exc_info.value)
+    assert "base 브랜치 `main`의 manual 검증이 이미 실패" in message
+    assert "backend test failed" in message
+
+
 def test_runner_rejects_xhigh_without_allow_flag(tmp_repo):
     with pytest.raises(ValueError, match="--allow-xhigh"):
         ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo, step_effort="xhigh")
@@ -429,11 +469,13 @@ def test_review_gate_passes_current_step_to_review_components(runner):
     seen = {}
 
     def fake_run(cmd, check=True, timeout=None):
-        if cmd == ["python3", "scripts/checks.py", "--stage", "manual"]:
-            return cp()
         if cmd == ["git", "diff", "--check", "origin/main...HEAD"]:
             return cp()
         raise AssertionError(cmd)
+
+    def fake_run_shell(command, check=True, timeout=None):
+        assert command == ap.FALLBACK_REVIEW_CHECK_COMMAND
+        return cp()
 
     def fake_scan(current_step):
         seen["scan"] = current_step
@@ -444,6 +486,7 @@ def test_review_gate_passes_current_step_to_review_components(runner):
         return ap.ReviewResult(True, [], "ok")
 
     runner._run = fake_run
+    runner._run_shell = fake_run_shell
     runner._scan_forbidden_diff = fake_scan
     runner._run_codex_review = fake_codex
 
@@ -451,6 +494,138 @@ def test_review_gate_passes_current_step_to_review_components(runner):
 
     assert review.passed is True
     assert seen == {"scan": step, "codex": step}
+    assert review.commands == (
+        ap.FALLBACK_REVIEW_CHECK_COMMAND,
+        "git diff --check origin/main...HEAD",
+    )
+
+
+def test_step_acceptance_commands_read_step_fenced_block(tmp_repo):
+    step_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "step1.md"
+    step_path.write_text(
+        "\n".join([
+            "# 단계 1",
+            "",
+            "## 작업",
+            "Clothing P0 API를 만든다.",
+            "",
+            "## 인수 기준",
+            "",
+            "```bash",
+            "(cd frontend && npm run build)",
+            "python3 scripts/checks.py --docs-check",
+            "```",
+            "",
+            "## 검증 절차",
+            "1. 인수 기준을 실행한다.",
+        ]),
+        encoding="utf-8",
+    )
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+
+    commands = runner._step_acceptance_commands({"step": 1, "name": "clothing-p0-api"})
+
+    assert commands == (
+        "(cd frontend && npm run build)",
+        "python3 scripts/checks.py --docs-check",
+    )
+    assert runner._review_commands({"step": 1, "name": "clothing-p0-api"}) == (
+        "(cd frontend && npm run build)",
+        "python3 scripts/checks.py --docs-check",
+        "git diff --check origin/main...HEAD",
+    )
+
+
+def test_review_gate_runs_step_acceptance_commands_for_step_review(tmp_repo):
+    step_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "step1.md"
+    step_path.write_text(
+        "\n".join([
+            "# 단계 1",
+            "",
+            "## 작업",
+            "Clothing P0 API를 만든다.",
+            "",
+            "## 인수 기준",
+            "",
+            "```bash",
+            "(cd frontend && npm run build)",
+            "```",
+        ]),
+        encoding="utf-8",
+    )
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+    step = {"step": 1, "name": "clothing-p0-api"}
+    shell_calls = []
+
+    def fake_run_shell(command, check=True, timeout=None):
+        shell_calls.append(command)
+        return cp()
+
+    def fake_run(cmd, check=True, timeout=None):
+        if cmd == ["git", "diff", "--check", "origin/main...HEAD"]:
+            return cp()
+        raise AssertionError(cmd)
+
+    runner._run_shell = fake_run_shell
+    runner._run = fake_run
+    runner._scan_forbidden_diff = lambda current_step: []
+    runner._run_codex_review = lambda current_step: ap.ReviewResult(True, [], "ok")
+
+    review = runner._run_review_gate(step)
+
+    assert review.passed is True
+    assert shell_calls == ["(cd frontend && npm run build)"]
+    assert review.commands == (
+        "(cd frontend && npm run build)",
+        "git diff --check origin/main...HEAD",
+    )
+
+
+def test_review_gate_falls_back_to_manual_when_step_ac_missing(runner):
+    step = {"step": 1, "name": "clothing-p0-api"}
+    shell_calls = []
+
+    def fake_run_shell(command, check=True, timeout=None):
+        shell_calls.append(command)
+        return cp()
+
+    def fake_run(cmd, check=True, timeout=None):
+        if cmd == ["git", "diff", "--check", "origin/main...HEAD"]:
+            return cp()
+        raise AssertionError(cmd)
+
+    runner._run_shell = fake_run_shell
+    runner._run = fake_run
+    runner._scan_forbidden_diff = lambda current_step: []
+    runner._run_codex_review = lambda current_step: ap.ReviewResult(True, [], "ok")
+
+    review = runner._run_review_gate(step)
+
+    assert review.passed is True
+    assert shell_calls == [ap.FALLBACK_REVIEW_CHECK_COMMAND]
+
+
+def test_review_commands_replace_step_diff_check_with_branch_diff(tmp_repo):
+    step_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "step1.md"
+    step_path.write_text(
+        "\n".join([
+            "# 단계 1",
+            "",
+            "## 인수 기준",
+            "",
+            "```bash",
+            "git diff --check",
+            "python3 scripts/checks.py --docs-check",
+            "```",
+        ]),
+        encoding="utf-8",
+    )
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+
+    assert runner._review_commands({"step": 1, "name": "docs"}) == (
+        "python3 scripts/checks.py --docs-check",
+        "git diff --check origin/main...HEAD",
+    )
 
 
 def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
@@ -603,6 +778,82 @@ def test_forbidden_diff_keeps_mvp8_future_step_scope_blocked(tmp_repo):
 
     assert not any("refresh token 범위" in finding for finding in findings)
     assert any("이메일 인증 범위" in finding for finding in findings)
+    assert any("소셜 로그인 범위" in finding for finding in findings)
+
+
+def test_forbidden_diff_allows_mvp9_account_maintenance_context(tmp_repo):
+    runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/phases/9-smartcloset-ui-ux-redesign/step1.md b/phases/9-smartcloset-ui-ux-redesign/step1.md",
+                "+++ b/phases/9-smartcloset-ui-ux-redesign/step1.md",
+                "@@ -1,0 +1,4 @@",
+                "+Auth 기능은 MVP8 계약을 유지한다: 로그인, 이메일 인증, 비밀번호 재설정, Google social login provider 상태.",
+                "+비밀번호 재설정 버튼과 기존 UX를 유지한다.",
+                "+refresh token 원문은 JSON에 노출하지 않는다.",
+                "+이메일 인증 상태와 로그인 제공자를 표시한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 1, "name": "app-shell-auth-redesign"})
+
+    assert findings == []
+
+
+def test_forbidden_diff_blocks_mvp9_account_maintenance_context_outside_account_steps(tmp_repo):
+    runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/phases/9-smartcloset-ui-ux-redesign/step3.md b/phases/9-smartcloset-ui-ux-redesign/step3.md",
+                "+++ b/phases/9-smartcloset-ui-ux-redesign/step3.md",
+                "@@ -1,0 +1,3 @@",
+                "+이메일 인증 상태를 표시한다.",
+                "+비밀번호 재설정 버튼 UX를 유지한다.",
+                "+Google social login provider 상태를 표시한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 3, "name": "closet-list-form-images"})
+
+    assert any("이메일 인증 범위" in finding for finding in findings)
+    assert any("비밀번호 재설정 범위" in finding for finding in findings)
+    assert any("소셜 로그인 범위" in finding for finding in findings)
+
+
+def test_forbidden_diff_blocks_mvp9_account_scope_expansion(tmp_repo):
+    runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,4 @@",
+                "+refresh token을 발급한다.",
+                "+이메일 인증을 구현한다.",
+                "+비밀번호 재설정을 새로 도입한다.",
+                "+Google social login을 추가한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 1, "name": "app-shell-auth-redesign"})
+
+    assert any("refresh token 범위" in finding for finding in findings)
+    assert any("이메일 인증 범위" in finding for finding in findings)
+    assert any("비밀번호 재설정 범위" in finding for finding in findings)
     assert any("소셜 로그인 범위" in finding for finding in findings)
 
 

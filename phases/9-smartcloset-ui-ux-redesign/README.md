@@ -60,7 +60,7 @@ git diff --check
 python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
 ```
 
-각 step의 검증은 step 파일의 `## 인수 기준`을 기준으로 수행한다. Step 1-7 frontend 화면/공통 UI step은 `frontend-build` 중심으로 검증하고, backend test/build를 포함한 full local safety 검증은 docs-qa/final 단계에서 수행한다.
+Autopilot 자체 리뷰 gate는 각 step 파일의 `## 인수 기준` fenced command를 실행한다. Step 1-7 frontend 화면/공통 UI step은 `frontend-build` 중심으로 검증하고, backend test/build를 포함한 full local safety 검증은 docs-qa/final 단계에서 수행한다.
 
 최종 step에서는 가능한 경우 브라우저에서 아래를 확인한다.
 
