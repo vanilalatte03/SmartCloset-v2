@@ -205,98 +205,130 @@ export function LocationPanel({
 
   return (
     <article className="location-panel">
-      <section className="panel location-current-card" aria-label="현재 위치">
-        <div className="section-title-row location-current-heading">
-          <div>
-            <p className="eyebrow">현재 위치</p>
-            <h2>{location ? location.name : '위치 확인 중'}</h2>
-            <p className="muted location-panel-copy">
-              저장된 행정구역과 KMA 격자를 기준으로 오늘 날씨와 추천에 사용할 위치를 정합니다.
-            </p>
-          </div>
-          {location ? <span className="location-code-pill">{location.code}</span> : null}
+      <section className="location-hero" aria-label="저장된 위치 요약">
+        <div>
+          <p className="eyebrow">현재 저장된 위치</p>
+          <h2>{location ? location.fullName || location.name : '위치 확인 중'}</h2>
+          <p>
+            추천과 기록은 저장한 동네의 날씨 기준으로 계산됩니다.
+          </p>
+          {location ? (
+            <div className="location-hero-tags" aria-label="위치 기준">
+              <span>{locationSourceLabels[location.source]}</span>
+              <span>추천에 반영</span>
+            </div>
+          ) : null}
         </div>
-
-        {loading ? (
-          <p className="muted">현재 위치를 불러오고 있어요.</p>
-        ) : location ? (
-          <dl className="metric-list compact location-current-metrics">
+        {location ? (
+          <dl className="location-hero-grid" aria-label="KMA 위치 기준">
             <div>
-              <dt>catalog code</dt>
+              <dt>catalog</dt>
               <dd>{location.code}</dd>
             </div>
             <div>
-              <dt>KMA 격자</dt>
+              <dt>KMA grid</dt>
               <dd>
-                nx={location.nx}, ny={location.ny}
+                {location.nx}/{location.ny}
               </dd>
             </div>
-            <div>
-              <dt>선택 방식</dt>
-              <dd>{locationSourceLabels[location.source]}</dd>
-            </div>
-            <div>
-              <dt>갱신</dt>
-              <dd>{formatUpdatedAt(location.updatedAt)}</dd>
-            </div>
           </dl>
-        ) : (
-          <p className="muted">불러온 위치 정보가 없어요. catalog에서 위치를 선택해주세요.</p>
-        )}
+        ) : null}
       </section>
 
-      <section
-        className="panel location-weather-card"
-        aria-label="현재 날씨 요약"
-        data-api-path={locationWeatherApiPath}
-      >
-        <div className="section-title-row">
-          <div>
-            <p className="eyebrow">현재 날씨 요약</p>
-            <h3>{location ? `${location.name} 기준` : '저장 위치 기준'}</h3>
+      <div className="location-status-grid">
+        <section className="panel location-current-card" aria-label="현재 위치">
+          <div className="section-title-row location-current-heading">
+            <div>
+              <p className="eyebrow">현재 위치</p>
+              <h2>{location ? location.name : '위치 확인 중'}</h2>
+              <p className="muted location-panel-copy">
+                저장된 행정구역과 KMA 격자를 기준으로 오늘 날씨와 추천에 사용할 위치를 정합니다.
+              </p>
+            </div>
+            {location ? <span className="location-code-pill">{location.code}</span> : null}
           </div>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void loadCurrentWeather()}
-            disabled={weatherLoading}
-          >
-            새로고침
-          </button>
-        </div>
 
-        {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
-        {!weatherLoading && weather ? (
-          <div className="location-weather-summary">
-            <WeatherBadge weather={weather} />
-            <dl className="metric-list compact location-weather-metrics">
+          {loading ? (
+            <p className="muted">현재 위치를 불러오고 있어요.</p>
+          ) : location ? (
+            <dl className="metric-list compact location-current-metrics">
               <div>
-                <dt>날씨</dt>
+                <dt>catalog code</dt>
+                <dd>{location.code}</dd>
+              </div>
+              <div>
+                <dt>KMA 격자</dt>
                 <dd>
-                  <WeatherLabel weatherType={weather.weatherType} />
+                  nx={location.nx}, ny={location.ny}
                 </dd>
               </div>
               <div>
-                <dt>강수</dt>
-                <dd>{weather.rainy ? '비 가능' : '비 없음'}</dd>
+                <dt>선택 방식</dt>
+                <dd>{locationSourceLabels[location.source]}</dd>
               </div>
               <div>
-                <dt>바람</dt>
-                <dd>{weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
+                <dt>갱신</dt>
+                <dd>{formatUpdatedAt(location.updatedAt)}</dd>
               </div>
             </dl>
-            <WeatherTrustSnapshot weather={weather} />
+          ) : (
+            <p className="muted">불러온 위치 정보가 없어요. catalog에서 위치를 선택해주세요.</p>
+          )}
+        </section>
+
+        <section
+          className="panel location-weather-card"
+          aria-label="현재 날씨 요약"
+          data-api-path={locationWeatherApiPath}
+        >
+          <div className="section-title-row">
+            <div>
+              <p className="eyebrow">현재 날씨 요약</p>
+              <h3>{location ? `${location.name} 기준` : '저장 위치 기준'}</h3>
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void loadCurrentWeather()}
+              disabled={weatherLoading}
+            >
+              새로고침
+            </button>
           </div>
-        ) : null}
-        {!weatherLoading && weatherError ? (
-          <div className="location-weather-fallback">
-            <ApiErrorMessage error={weatherError} />
-            <p className="muted">
-              날씨 요약이 없어도 위치 검색과 선택은 계속 사용할 수 있어요.
-            </p>
-          </div>
-        ) : null}
-      </section>
+
+          {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
+          {!weatherLoading && weather ? (
+            <div className="location-weather-summary">
+              <WeatherBadge weather={weather} />
+              <dl className="metric-list compact location-weather-metrics">
+                <div>
+                  <dt>날씨</dt>
+                  <dd>
+                    <WeatherLabel weatherType={weather.weatherType} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>강수</dt>
+                  <dd>{weather.rainy ? '비 가능' : '비 없음'}</dd>
+                </div>
+                <div>
+                  <dt>바람</dt>
+                  <dd>{weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
+                </div>
+              </dl>
+              <WeatherTrustSnapshot weather={weather} />
+            </div>
+          ) : null}
+          {!weatherLoading && weatherError ? (
+            <div className="location-weather-fallback">
+              <ApiErrorMessage error={weatherError} />
+              <p className="muted">
+                날씨 요약이 없어도 위치 검색과 선택은 계속 사용할 수 있어요.
+              </p>
+            </div>
+          ) : null}
+        </section>
+      </div>
 
       <section
         className="panel location-search-card"
@@ -322,7 +354,7 @@ export function LocationPanel({
               type="search"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="서울특별시, 부산광역시, SEOUL"
+              placeholder="예: 일산동, 역삼동, SEOUL"
             />
           </label>
           <div className="location-search-actions">
@@ -365,6 +397,11 @@ export function LocationPanel({
             </p>
           ) : null}
           {resolveError ? <ApiErrorMessage error={resolveError} /> : null}
+
+          <div className="location-coordinate-note" role="note">
+            <strong>좌표는 저장하지 않아요</strong>
+            <span>브라우저 좌표는 가까운 행정구역 후보를 찾는 데만 사용됩니다.</span>
+          </div>
 
           {resolveOptions.length > 0 ? (
             <div className="location-option-list" aria-label="현재 위치 후보 목록">

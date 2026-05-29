@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "preferences-location",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-30T03:18:27+0900",
+      "summary": "Preferences와 Location 화면을 MVP9 디자인 기준으로 리디자인했다.",
+      "completed_at": "2026-05-30T03:26:51+0900"
     },
     {
       "step": 5,
