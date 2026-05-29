@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { setRefreshAccessTokenHandler } from './api/client';
 import { isUnauthorizedError, toErrorResponse } from './api/errorHelpers';
 import {
@@ -24,6 +25,7 @@ import type {
   ErrorResponse,
   UserLocationResponse,
 } from './types/api';
+import authEditorialUrl from '../../docs/design/mvp9/auth-london-editorial.png';
 import './App.css';
 
 type SessionState = 'restoring' | 'anonymous' | 'authenticated' | 'expired';
@@ -37,13 +39,21 @@ const appViews: Array<{
   id: AppView;
   label: string;
 }> = [
-  { id: 'today', label: '오늘' },
+  { id: 'today', label: '추천' },
   { id: 'closet', label: '옷장' },
-  { id: 'preferences', label: '선호도' },
+  { id: 'preferences', label: '내 취향' },
   { id: 'location', label: '위치' },
-  { id: 'history', label: '이력' },
-  { id: 'account', label: '계정' },
+  { id: 'history', label: '기록' },
 ];
+
+const appViewLabels: Record<AppView, string> = {
+  today: '추천',
+  closet: '옷장',
+  preferences: '내 취향',
+  location: '위치',
+  history: '기록',
+  account: '계정 설정',
+};
 
 const connectionLabels: Record<ConnectionState, string> = {
   checking: '확인 중',
@@ -206,7 +216,10 @@ function App() {
 
   if (sessionState !== 'authenticated' || !accessToken || !currentUser) {
     return (
-      <main className="auth-shell">
+      <main
+        className="auth-shell"
+        style={{ '--auth-editorial-image': `url(${authEditorialUrl})` } as CSSProperties}
+      >
         <header className="auth-header">
           <p className="eyebrow">오늘의 옷차림</p>
           <h1>SmartCloset</h1>
@@ -226,8 +239,9 @@ function App() {
     );
   }
 
-  const currentView = appViews.find((view) => view.id === activeView) ?? appViews[0];
+  const currentViewLabel = appViewLabels[activeView];
   const locationLabel = location ? location.name : '위치 확인 중';
+  const profileInitial = currentUser.name.trim().charAt(0) || currentUser.email.charAt(0);
 
   const renderViewNavigation = (className: string, ariaLabel: string) => (
     <nav className={className} aria-label={ariaLabel}>
@@ -249,14 +263,36 @@ function App() {
     </nav>
   );
 
+  const renderProfileMenu = () => (
+    <details className="profile-menu">
+      <summary className="profile-pill" aria-label="프로필 메뉴">
+        <span className="profile-avatar" aria-hidden="true">
+          {profileInitial.toUpperCase()}
+        </span>
+        <span className="profile-copy">
+          <strong>{currentUser.name}</strong>
+          <span>{currentUser.email}</span>
+        </span>
+      </summary>
+      <div className="profile-menu-panel">
+        <button type="button" className="profile-menu-action" onClick={() => handleNavigate('account')}>
+          계정 설정
+        </button>
+        <button type="button" className="profile-menu-action" onClick={handleLogout}>
+          로그아웃
+        </button>
+      </div>
+    </details>
+  );
+
   const renderActiveView = () => {
     switch (activeView) {
       case 'today':
         return (
           <section className="view-stack today-view" aria-labelledby="today-view-title">
             <header className="view-heading">
-              <p className="eyebrow">오늘 화면</p>
-              <h2 id="today-view-title">오늘</h2>
+              <p className="eyebrow">추천 화면</p>
+              <h2 id="today-view-title">추천</h2>
             </header>
             <TodayPanel
               accessToken={accessToken}
@@ -289,8 +325,8 @@ function App() {
             aria-labelledby="preferences-view-title"
           >
             <header className="view-heading">
-              <p className="eyebrow">선호도 화면</p>
-              <h2 id="preferences-view-title">선호도</h2>
+              <p className="eyebrow">내 취향 화면</p>
+              <h2 id="preferences-view-title">내 취향</h2>
             </header>
             <PreferencesPanel
               accessToken={accessToken}
@@ -319,8 +355,8 @@ function App() {
         return (
           <section className="view-stack history-view" aria-labelledby="history-view-title">
             <header className="view-heading">
-              <p className="eyebrow">이력 화면</p>
-              <h2 id="history-view-title">이력</h2>
+              <p className="eyebrow">기록 화면</p>
+              <h2 id="history-view-title">기록</h2>
             </header>
             <HistoryPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           </section>
@@ -346,32 +382,26 @@ function App() {
 
   return (
     <main className="app-shell authenticated-shell">
-      <aside className="desktop-sidebar">
+      <header className="desktop-sidebar">
         <div className="sidebar-brand">
           <p className="eyebrow">오늘의 옷차림</p>
           <h1>SmartCloset</h1>
         </div>
         {renderViewNavigation('desktop-view-nav', '주요 화면')}
-      </aside>
+        {renderProfileMenu()}
+      </header>
 
       <section className="workspace-shell" aria-label="SmartCloset workspace">
         <header className="mobile-app-bar">
           <div>
             <p className="eyebrow">SmartCloset</p>
-            <h1>{currentView.label}</h1>
+            <h1>{currentViewLabel}</h1>
             <span className="mobile-app-meta">{locationLabel}</span>
           </div>
-          <button className="secondary-button" type="button" onClick={handleLogout}>
-            로그아웃
-          </button>
+          {renderProfileMenu()}
         </header>
 
         <header className="top-status-bar" aria-label="현재 상태">
-          <div className="status-cluster">
-            <span className="label">사용자</span>
-            <strong>{currentUser.name}</strong>
-            <span className="status-detail">{currentUser.email}</span>
-          </div>
           <div className="status-cluster">
             <span className="label">현재 위치</span>
             <strong>{locationLabel}</strong>
@@ -392,9 +422,6 @@ function App() {
             disabled={connectionState === 'checking'}
           >
             새로고침
-          </button>
-          <button className="secondary-button" type="button" onClick={handleLogout}>
-            로그아웃
           </button>
         </header>
 
