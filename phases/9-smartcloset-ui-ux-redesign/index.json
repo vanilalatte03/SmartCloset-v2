@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "app-shell-auth-redesign",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-30T02:51:52+0900",
+      "summary": "app shell navigation과 Auth view를 MVP9 디자인 기준으로 리디자인했다.",
+      "completed_at": "2026-05-30T03:00:37+0900"
     },
     {
       "step": 2,
