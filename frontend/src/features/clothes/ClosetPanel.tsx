@@ -14,8 +14,6 @@ import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import { ColorSwatch, MaterialChip } from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
-  ClothingColor,
-  ClothingMaterial,
   ClothingRequest,
   ClothingResponse,
   ErrorResponse,
@@ -23,7 +21,6 @@ import type {
 import {
   clothingCategoryLabels,
   clothingCategoryOptions,
-  clothingColorMetadata,
   clothingColorOptions,
   clothingMaterialLabels,
   clothingMaterialOptions,
@@ -40,7 +37,7 @@ import {
   removeStyleTag,
 } from '../../utils/styleTags';
 
-type CategoryFilter = 'ALL' | ClothingCategory;
+type CategoryFilter = 'ALL' | ClothingCategory | 'HAS_IMAGE' | 'HAS_TAG';
 
 type TemperaturePreset = {
   id: string;
@@ -69,6 +66,8 @@ const categoryFilterOptions: Array<{
   { value: 'TOP', label: clothingCategoryLabels.TOP },
   { value: 'BOTTOM', label: clothingCategoryLabels.BOTTOM },
   { value: 'OUTER', label: clothingCategoryLabels.OUTER },
+  { value: 'HAS_IMAGE', label: '이미지 있음' },
+  { value: 'HAS_TAG', label: '태그 있음' },
 ];
 
 const categoryVisualLabels: Record<ClothingCategory, string> = {
@@ -355,6 +354,12 @@ export function ClosetPanel({
     if (categoryFilter === 'ALL') {
       return activeClothes;
     }
+    if (categoryFilter === 'HAS_IMAGE') {
+      return activeClothes.filter((item) => item.image !== null);
+    }
+    if (categoryFilter === 'HAS_TAG') {
+      return activeClothes.filter((item) => item.styleTags.length > 0);
+    }
 
     return activeClothes.filter((item) => item.category === categoryFilter);
   }, [activeClothes, categoryFilter]);
@@ -593,13 +598,17 @@ export function ClosetPanel({
     }));
   };
 
+  const imageCount = activeClothes.filter((item) => item.image !== null).length;
+  const taggedCount = activeClothes.filter((item) => item.styleTags.length > 0).length;
+
   return (
     <article className="panel closet-panel">
-      <div className="closet-panel-header">
-        <div>
-          <h2>옷장</h2>
-          <p className="muted closet-panel-copy">
-            추천 후보로 쓰이는 활성 옷을 카드로 확인하고 바로 등록합니다.
+      <div className="closet-panel-header closet-wardrobe-hero">
+        <div className="closet-hero-copy">
+          <p className="eyebrow">옷장 상태</p>
+          <h2>추천에 쓸 수 있는 옷 {activeClothes.length}개</h2>
+          <p className="closet-panel-copy">
+            이미지, 온도 범위, 태그까지 정리해 오늘 추천 후보를 더 빠르게 준비합니다.
           </p>
         </div>
         <dl className="metric-list closet-counts" aria-label="활성 옷 수">
@@ -609,6 +618,14 @@ export function ClosetPanel({
               <dd>{activeCategoryCounts[category]}개</dd>
             </div>
           ))}
+          <div>
+            <dt>이미지</dt>
+            <dd>{imageCount}개</dd>
+          </div>
+          <div>
+            <dt>태그</dt>
+            <dd>{taggedCount}개</dd>
+          </div>
         </dl>
       </div>
 
@@ -616,7 +633,8 @@ export function ClosetPanel({
         <section className="closet-card-section" aria-label="활성 옷 카드">
           <div className="section-title-row">
             <div>
-              <h3>활성 옷</h3>
+              <p className="eyebrow">내 옷 리스트</p>
+              <h3>최근 추가한 옷</h3>
               <p className="muted closet-form-note">보관하지 않은 옷만 추천 후보가 됩니다.</p>
             </div>
             <button
@@ -666,6 +684,10 @@ export function ClosetPanel({
                     />
                     <div className="closet-card-body">
                       <strong className="closet-item-name">{item.name}</strong>
+                      <span className="closet-item-detail">
+                        {clothingCategoryLabels[item.category]} · {clothingMaterialLabels[item.material]} ·{' '}
+                        {item.minTemperature}°C-{item.maxTemperature}°C
+                      </span>
                       <span className="token-row closet-token-row">
                         <ColorSwatch color={item.color} />
                         <MaterialChip material={item.material} />
@@ -731,7 +753,8 @@ export function ClosetPanel({
         <form className="panel-form closet-form closet-quick-panel" onSubmit={handleSubmit}>
           <div className="section-title-row closet-form-heading">
             <div>
-              <h3>{editingItem ? '옷 수정' : '빠른 등록'}</h3>
+              <p className="eyebrow">상세 정보</p>
+              <h3>{editingItem ? `${editingItem.name} 수정` : `${form.name.trim() || '새 옷'} 등록`}</h3>
               <p className="muted closet-form-note">
                 {editingItem
                   ? `${editingItem.name} 정보를 전체 수정합니다.`
@@ -750,72 +773,99 @@ export function ClosetPanel({
             ) : null}
           </div>
 
-          <section className="closet-image-editor" aria-label="옷 이미지 관리">
-            <div className="closet-image-preview">
-              {previewUrl ? (
-                <img src={previewUrl} alt="선택한 옷 이미지 미리보기" />
-              ) : editingItem?.image && !deleteImageRequested ? (
-                <ClothingThumbnail
-                  accessToken={accessToken}
-                  item={editingItem}
-                  onAuthExpired={onAuthExpired}
-                />
-              ) : (
-                <div className={`closet-thumbnail-frame fallback ${form.category.toLowerCase()}`}>
-                  <span
-                    className={`closet-category-visual ${form.category.toLowerCase()}`}
-                    aria-hidden="true"
-                  >
-                    {categoryVisualLabels[form.category]}
-                  </span>
-                  <ColorSwatch color={form.color} />
-                </div>
-              )}
-            </div>
-            <div className="closet-image-controls">
-              <label className="field image-file-field" htmlFor="clothing-image-file">
-                <span>{editingItem ? '이미지 교체' : '이미지 추가'}</span>
-                <input
-                  key={fileInputKey}
-                  id="clothing-image-file"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) =>
-                    handleImageFileChange(event.target.files?.item(0) ?? null)
-                  }
-                />
-              </label>
-              <p className="muted closet-image-help">jpg, png, webp / 최대 5MB</p>
-              {selectedImageFile ? (
-                <div className="closet-image-selection" role="status">
-                  <span>{selectedImageFile.name}</span>
+          <div className="closet-form-overview">
+            <section className="closet-image-editor" aria-label="옷 이미지 관리">
+              <div className="closet-image-preview">
+                {previewUrl ? (
+                  <img src={previewUrl} alt="선택한 옷 이미지 미리보기" />
+                ) : editingItem?.image && !deleteImageRequested ? (
+                  <ClothingThumbnail
+                    accessToken={accessToken}
+                    item={editingItem}
+                    onAuthExpired={onAuthExpired}
+                  />
+                ) : (
+                  <div className={`closet-thumbnail-frame fallback ${form.category.toLowerCase()}`}>
+                    <span
+                      className={`closet-category-visual ${form.category.toLowerCase()}`}
+                      aria-hidden="true"
+                    >
+                      {categoryVisualLabels[form.category]}
+                    </span>
+                    <ColorSwatch color={form.color} />
+                  </div>
+                )}
+              </div>
+              <div className="closet-image-controls">
+                <label className="field image-file-field" htmlFor="clothing-image-file">
+                  <span>{editingItem ? '이미지 교체' : '이미지 추가'}</span>
+                  <input
+                    key={fileInputKey}
+                    id="clothing-image-file"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) =>
+                      handleImageFileChange(event.target.files?.item(0) ?? null)
+                    }
+                  />
+                </label>
+                <p className="muted closet-image-help">jpg, png, webp / 최대 5MB</p>
+                {selectedImageFile ? (
+                  <div className="closet-image-selection" role="status">
+                    <span>{selectedImageFile.name}</span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={clearImageSelection}
+                      disabled={submitting}
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                ) : null}
+                {editingItem?.image || deleteImageRequested ? (
                   <button
-                    className="secondary-button"
+                    className="secondary-button danger-button"
                     type="button"
-                    onClick={clearImageSelection}
-                    disabled={submitting}
+                    onClick={handleRequestImageDelete}
+                    disabled={submitting || deleteImageRequested}
                   >
-                    선택 해제
+                    {deleteImageRequested ? '삭제 예정' : '이미지 삭제'}
                   </button>
-                </div>
-              ) : null}
-              {editingItem?.image || deleteImageRequested ? (
-                <button
-                  className="secondary-button danger-button"
-                  type="button"
-                  onClick={handleRequestImageDelete}
-                  disabled={submitting || deleteImageRequested}
-                >
-                  {deleteImageRequested ? '삭제 예정' : '이미지 삭제'}
-                </button>
-              ) : null}
-              {deleteImageRequested ? (
-                <p className="muted closet-image-help" role="status">
-                  저장하면 이 옷의 이미지가 삭제됩니다.
-                </p>
-              ) : null}
-            </div>
-          </section>
+                ) : null}
+                {deleteImageRequested ? (
+                  <p className="muted closet-image-help" role="status">
+                    저장하면 이 옷의 이미지가 삭제됩니다.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <aside className="closet-live-preview" aria-label="등록 미리보기">
+              <span className="eyebrow">등록 미리보기</span>
+              <strong>{form.name.trim() || '이름을 입력하세요'}</strong>
+              <span>
+                {clothingCategoryLabels[form.category]} · {clothingMaterialLabels[form.material]} ·{' '}
+                {form.minTemperature}°C-{form.maxTemperature}°C
+                {form.rainSuitable ? ' · 비 오는 날 가능' : ''}
+              </span>
+              <div className="token-row closet-token-row">
+                <ColorSwatch color={form.color} />
+                <MaterialChip material={form.material} />
+              </div>
+              <div className="tag-list closet-card-tags">
+                {form.styleTags.length > 0 ? (
+                  form.styleTags.slice(0, 5).map((tag) => (
+                    <span className="tag-chip readonly" key={tag}>
+                      {formatStyleTagLabel(tag)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="muted">태그를 추가하면 추천 개인화에 반영됩니다.</span>
+                )}
+              </div>
+            </aside>
+          </div>
 
           <label className="field wide">
             <span>옷 이름</span>
@@ -846,51 +896,58 @@ export function ClosetPanel({
           </div>
 
           <div className="field-grid closet-form-grid">
-            <label className="field">
-              <span>카테고리</span>
-              <select
-                value={form.category}
-                onChange={(event) =>
-                  setForm({ ...form, category: event.target.value as ClothingCategory })
-                }
-              >
+            <section className="closet-control-card">
+              <span className="label">카테고리</span>
+              <div className="closet-option-grid compact" role="group" aria-label="카테고리">
                 {clothingCategoryOptions.map((option) => (
-                  <option key={option} value={option}>
+                  <button
+                    className={
+                      form.category === option ? 'closet-category-button active' : 'closet-category-button'
+                    }
+                    type="button"
+                    key={option}
+                    aria-pressed={form.category === option}
+                    onClick={() => setForm({ ...form, category: option })}
+                  >
                     {clothingCategoryLabels[option]}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>색상</span>
-              <select
-                value={form.color}
-                onChange={(event) =>
-                  setForm({ ...form, color: event.target.value as ClothingColor })
-                }
-              >
+              </div>
+            </section>
+            <section className="closet-control-card color-control-card">
+              <span className="label">색상</span>
+              <div className="closet-option-grid color-grid" role="group" aria-label="색상">
                 {clothingColorOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {clothingColorMetadata[option].label}
-                  </option>
+                  <button
+                    className={form.color === option ? 'closet-color-button active' : 'closet-color-button'}
+                    type="button"
+                    key={option}
+                    aria-pressed={form.color === option}
+                    onClick={() => setForm({ ...form, color: option })}
+                  >
+                    <ColorSwatch color={option} />
+                  </button>
                 ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>소재</span>
-              <select
-                value={form.material}
-                onChange={(event) =>
-                  setForm({ ...form, material: event.target.value as ClothingMaterial })
-                }
-              >
+              </div>
+            </section>
+            <section className="closet-control-card material-control-card">
+              <span className="label">소재</span>
+              <div className="closet-option-grid material-grid" role="group" aria-label="소재">
                 {clothingMaterialOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {clothingMaterialLabels[option]}
-                  </option>
+                  <button
+                    className={
+                      form.material === option ? 'closet-material-button active' : 'closet-material-button'
+                    }
+                    type="button"
+                    key={option}
+                    aria-pressed={form.material === option}
+                    onClick={() => setForm({ ...form, material: option })}
+                  >
+                    <MaterialChip material={option} />
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </section>
             <label className="field">
               <span>최저 기온</span>
               <input

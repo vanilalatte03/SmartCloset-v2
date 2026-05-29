@@ -2213,19 +2213,28 @@
 
 .closet-counts {
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 4px;
 }
 
 .closet-counts div {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  min-width: 0;
+  padding: 10px;
+}
+
+.closet-counts dt {
+  color: rgba(255, 255, 255, 0.72);
+  overflow-wrap: anywhere;
 }
 
 .closet-counts dd {
-  color: var(--text-heading);
+  color: #ffffff;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .category-filter,
@@ -2389,7 +2398,7 @@
 }
 
 .closet-form-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .closet-form-actions {
@@ -2409,24 +2418,37 @@
 
 .closet-panel-header {
   align-items: stretch;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(24, 25, 31, 0.98), rgba(31, 79, 122, 0.84)),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 34%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
+  color: #ffffff;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.44fr);
+  grid-template-columns: minmax(0, 0.78fr) minmax(360px, 1fr);
   margin-bottom: 16px;
   min-width: 0;
   padding: 18px;
 }
 
 .closet-panel-header h2 {
+  color: #ffffff;
   margin-bottom: 6px;
 }
 
+.closet-panel-header .eyebrow,
 .closet-panel-copy {
+  color: rgba(255, 255, 255, 0.78);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.closet-hero-copy {
+  align-content: center;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .closet-layout {
@@ -2470,7 +2492,8 @@
   display: grid;
   gap: 12px;
   min-width: 0;
-  padding: 14px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .closet-thumbnail-frame {
@@ -2592,6 +2615,7 @@
   display: grid;
   gap: 8px;
   min-width: 0;
+  padding: 0 14px;
 }
 
 .closet-card .closet-item-name {
@@ -2635,11 +2659,18 @@
   border-top: 1px solid var(--border);
   flex: 0 1 auto;
   justify-content: stretch;
-  padding-top: 12px;
+  padding: 12px 14px 14px;
 }
 
 .closet-card-actions .secondary-button {
   flex: 1 1 96px;
+}
+
+.closet-form-overview {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .closet-image-editor {
@@ -2647,8 +2678,43 @@
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(120px, 0.38fr) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 0.46fr) minmax(0, 1fr);
+  min-width: 0;
   padding: 12px;
+}
+
+.closet-live-preview {
+  background: #20242c;
+  border-radius: 8px;
+  color: #ffffff;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.closet-live-preview .eyebrow,
+.closet-live-preview .muted {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.closet-live-preview strong {
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.closet-live-preview > span:not(.eyebrow) {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.closet-live-preview .material-chip,
+.closet-live-preview .tag-chip,
+.closet-live-preview .color-token {
+  color: var(--text);
 }
 
 .closet-style-tag-editor {
@@ -2706,6 +2772,78 @@
   font-size: 13px;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.closet-control-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.color-control-card,
+.material-control-card {
+  grid-column: 1 / -1;
+}
+
+.closet-option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.closet-option-grid.compact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.closet-category-button,
+.closet-color-button,
+.closet-material-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 38px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0 10px;
+  text-align: center;
+}
+
+.closet-color-button {
+  justify-content: flex-start;
+  min-height: 40px;
+}
+
+.closet-material-button {
+  padding: 0 8px;
+}
+
+.closet-category-button.active,
+.closet-color-button.active,
+.closet-material-button.active {
+  background: #e9f2ec;
+  border-color: #6fa17c;
+  color: #14532d;
+}
+
+.closet-category-button:focus-visible,
+.closet-color-button:focus-visible,
+.closet-material-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .panel-error,
