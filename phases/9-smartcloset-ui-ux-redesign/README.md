@@ -60,9 +60,9 @@ git diff --check
 python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
 ```
 
-Autopilot 자체 리뷰 gate는 각 step 파일의 `## 인수 기준` fenced command를 실행한다. Step 1-7 frontend 화면/공통 UI step은 `frontend-build` 중심으로 검증하고, backend test/build를 포함한 full local safety 검증은 docs-qa/final 단계에서 수행한다.
+Autopilot 자체 리뷰 gate는 각 step 파일의 `## 인수 기준` fenced command를 실행한다. Step 1-7 frontend 화면/공통 UI step은 `frontend-build` 중심으로 검증하고, backend test/build를 포함한 full local safety 검증은 docs-qa/final 단계에서 수행한다. `execute.py --step` 또는 `--next-step-only`가 마지막 pending step을 완료하면 phase 완료 metadata를 기록하기 전에 `python3 scripts/checks.py --stage final`을 실행하므로, 마지막 step PR은 merge 전에 final gate를 통과해야 한다.
 
-최종 step에서는 가능한 경우 브라우저에서 아래를 확인한다.
+최종 Step 8에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 아래 화면을 확인한다. 결과는 `docs/qa/mvp9-ui-ux-redesign-qa.md`에 viewport, 화면명, 결과 `PASS`, 확인 도구, 확인 메모가 있는 14개 행으로 기록한다. Final docs-check는 이 QA 기록이 없으면 실패한다.
 
 ```text
 desktop 1440px: Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정

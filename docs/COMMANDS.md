@@ -69,7 +69,7 @@ docker compose down
 
 Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. 후속 MVP에서 `prod` profile을 추가하더라도 local Compose 명령과 local env 기본값은 유지한다.
 
-MVP9 최종 수동 QA에서는 브라우저에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제, 기존 위치/날씨 추천과 이미지/피드백 흐름 유지 여부도 함께 확인한다.
+MVP9 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp9-ui-ux-redesign-qa.md`에 viewport, 화면명, 결과 `PASS`, 확인 도구, 확인 메모가 있는 14개 행으로 기록한다. Final docs-check는 이 기록이 없으면 실패한다. MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제, 기존 위치/날씨 추천과 이미지/피드백 흐름 유지 여부도 함께 확인한다.
 
 ## URLs
 
@@ -99,4 +99,4 @@ python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesig
 python3 scripts/autopilot.py 9-smartcloset-ui-ux-redesign --base main --max-review-fixes 2 --unsafe
 ```
 
-자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 자체 리뷰 gate는 해당 step 문서의 `## 인수 기준` fenced command와 `git diff --check`를 실행한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다.
+자동 루프는 다음 pending step만 `codex/{phase}-step{N}-{name}` 브랜치에서 실행하고 Draft PR을 생성한다. 자체 리뷰 gate는 해당 step 문서의 `## 인수 기준` fenced command와 `git diff --check`를 실행한다. `execute.py --step` 또는 `--next-step-only`가 마지막 pending step을 완료하면 phase 완료 metadata를 기록하기 전에 `python3 scripts/checks.py --stage final`을 실행하므로 마지막 step PR은 merge 전에 final gate를 통과해야 한다. 로컬 검증과 자체 리뷰가 통과하면 PR을 ready로 전환한 뒤 squash merge하고 다음 step으로 진행한다. 실패하면 같은 PR에 자체 리뷰 코멘트, GitHub Issue, `issues/{phase}/issue-N.md`를 남긴 뒤 같은 브랜치에서 최대 2회 자동 수정과 재리뷰를 진행한다.

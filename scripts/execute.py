@@ -127,6 +127,7 @@ class StepExecutor:
                 self._push_current_branch()
                 print(f"\n  Step-only run completed for '{self._phase_name}'.")
                 return
+            self._run_final_checks()
         else:
             self._execute_all_steps(guardrails, command_context)
             self._run_final_checks()
