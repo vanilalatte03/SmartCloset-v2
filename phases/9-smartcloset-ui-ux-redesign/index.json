@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "account-settings",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-30T03:34:08+0900",
+      "summary": "계정 설정 화면을 MVP9 디자인 기준으로 리디자인했다.",
+      "completed_at": "2026-05-30T03:37:36+0900"
     },
     {
       "step": 7,
