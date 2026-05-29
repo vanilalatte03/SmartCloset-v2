@@ -560,7 +560,7 @@ class TestRunFlow:
             ("finalize",),
         ]
 
-    def test_step_only_last_step_skips_final_checks(self, executor):
+    def test_step_only_last_step_runs_final_checks_before_finalize(self, executor):
         calls = []
         executor._step_number = 2
 
@@ -580,7 +580,32 @@ class TestRunFlow:
 
         assert calls == [
             ("one", "guardrails", "commands"),
+            ("final-checks",),
             ("finalize",),
+        ]
+
+    def test_step_only_with_pending_steps_skips_final_checks_and_finalize(self, executor):
+        calls = []
+        executor._step_number = 1
+
+        executor._print_header = lambda: None
+        executor._check_blockers = lambda: None
+        executor._ensure_clean_worktree = lambda: None
+        executor._checkout_branch = lambda: None
+        executor._load_guardrails = lambda: "guardrails"
+        executor._load_command_context = lambda: "commands"
+        executor._ensure_created_at = lambda: None
+        executor._execute_one_step = lambda guardrails, commands: calls.append(("one", guardrails, commands)) or True
+        executor._has_pending_steps = lambda: True
+        executor._push_current_branch = lambda: calls.append(("push",))
+        executor._run_final_checks = lambda: calls.append(("final-checks",))
+        executor._finalize = lambda: calls.append(("finalize",))
+
+        executor.run()
+
+        assert calls == [
+            ("one", "guardrails", "commands"),
+            ("push",),
         ]
 
 

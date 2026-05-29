@@ -11,6 +11,7 @@
     "docs/DEMO_SCENARIO.md",
     "docs/SHARING_GUIDE.md",
     "docs/COMMANDS.md",
+    "docs/qa/mvp9-ui-ux-redesign-qa.md",
     "docs/ADR.md",
     "docs/adr/014-mvp9-ui-ux-redesign.md",
     "docs/design/mvp9/README.md",
@@ -74,6 +75,76 @@
       "name": "Phase docs exist",
       "paths": ["phases/9-smartcloset-ui-ux-redesign/README.md"],
       "pattern": "UI/UX Redesign"
+    },
+    {
+      "name": "MVP9 QA desktop Auth PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*Auth\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop recommendation PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*추천\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop closet PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*옷장\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop preferences PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*내 취향\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop location PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*위치\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop history PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*기록\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA desktop account settings PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*계정 설정\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile Auth PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*Auth\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile recommendation PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*추천\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile closet PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*옷장\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile preferences PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*내 취향\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile location PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*위치\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile history PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*기록\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP9 QA mobile account settings PASS",
+      "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*계정 설정\\s*\\|\\s*PASS\\s*\\|"
     }
   ],
   "forbidden": [
