@@ -31,8 +31,8 @@ const rememberedEmailStorageKey = 'smartcloset.auth.rememberedEmail';
 const authModeTitles: Record<AuthMode, string> = {
   login: '로그인',
   signup: '회원가입',
-  verify: '이메일 인증',
-  reset: '비밀번호 재설정',
+  verify: '인증하기',
+  reset: '비밀번호 찾기',
 };
 
 const defaultLoginForm: LoginRequest = {

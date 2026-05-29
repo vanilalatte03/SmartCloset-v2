@@ -25,7 +25,7 @@ import type {
   ErrorResponse,
   UserLocationResponse,
 } from './types/api';
-import authEditorialUrl from '../../docs/design/mvp9/auth-london-editorial.png';
+import authEditorialUrl from './assets/auth-london-editorial.png';
 import './App.css';
 
 type SessionState = 'restoring' | 'anonymous' | 'authenticated' | 'expired';
