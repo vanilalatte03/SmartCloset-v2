@@ -60,7 +60,7 @@ export function AccountSettingsPanel({
   const profileInitial = currentUser.name.trim().charAt(0) || currentUser.email.charAt(0);
   const joinedAt = formatDateTime(currentUser.createdAt);
   const updatedAt = formatDateTime(currentUser.updatedAt);
-  const accountStateText = currentUser.emailVerified ? '이메일 인증 완료' : '이메일 인증 필요';
+  const accountStateText = currentUser.emailVerified ? '이메일 확인 완료' : '이메일 확인 필요';
   const accountStateDetail = [
     currentUser.passwordLoginEnabled ? '이메일 로그인 사용 가능' : '이메일 로그인 사용 안 함',
     providerSet.has('GOOGLE') ? 'Google 연결됨' : 'Google 연결 안 됨',
@@ -81,7 +81,7 @@ export function AccountSettingsPanel({
             </div>
           </div>
           <div className="account-status-chip-row" aria-label="계정 상태 요약">
-            <span>{currentUser.emailVerified ? '이메일 인증됨' : '인증 필요'}</span>
+            <span>{currentUser.emailVerified ? '이메일 확인됨' : '확인 필요'}</span>
             <span>{currentUser.passwordLoginEnabled ? '이메일 로그인' : 'Password 비활성'}</span>
             <span>{providerSet.has('GOOGLE') ? 'Google 연결' : 'Google 미연결'}</span>
           </div>
@@ -155,7 +155,7 @@ export function AccountSettingsPanel({
             </div>
             {currentUser.passwordLoginEnabled ? (
               <p className="muted account-panel-copy">
-                비밀번호 재설정은 로그아웃 후 인증 화면의 비밀번호 재설정에서 진행할 수 있습니다.
+                비밀번호 관리는 로그아웃 후 인증 화면에서 진행할 수 있습니다.
               </p>
             ) : null}
           </article>
