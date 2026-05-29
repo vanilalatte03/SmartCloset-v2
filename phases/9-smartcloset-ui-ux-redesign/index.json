@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "history",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-30T03:29:38+0900",
+      "summary": "History 화면을 MVP9 디자인 기준으로 리디자인했다.",
+      "completed_at": "2026-05-30T03:31:44+0900"
     },
     {
       "step": 6,

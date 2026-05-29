@@ -46,6 +46,37 @@ const scoreItems: Array<{
   { key: 'preferenceScore', label: '선호 반영' },
 ];
 
+function formatDateParts(value: string): {
+  dayLabel: string;
+  timeLabel: string;
+  monthLabel: string;
+} {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return {
+      dayLabel: value,
+      timeLabel: '시간 확인 불가',
+      monthLabel: '추천 기록',
+    };
+  }
+
+  return {
+    dayLabel: new Intl.DateTimeFormat('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(date),
+    timeLabel: new Intl.DateTimeFormat('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date),
+    monthLabel: new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+    }).format(date),
+  };
+}
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -59,6 +90,34 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function getPrimaryReason(item: RecommendationResponse): string {
+  return item.reasons[0] ?? '추천 당시의 날씨와 선호도를 기준으로 만든 조합입니다.';
+}
+
+function getOutfitItems(item: RecommendationResponse): Array<{
+  label: string;
+  item: OutfitItemResponse | null;
+  emptyMessage: string;
+}> {
+  return [
+    {
+      label: clothingCategoryLabels.TOP,
+      item: item.outfit.top,
+      emptyMessage: '상의 없음',
+    },
+    {
+      label: clothingCategoryLabels.BOTTOM,
+      item: item.outfit.bottom,
+      emptyMessage: '하의 없음',
+    },
+    {
+      label: clothingCategoryLabels.OUTER,
+      item: item.outfit.outer,
+      emptyMessage: '선택된 아우터 없음',
+    },
+  ];
 }
 
 function renderOutfitItem(
@@ -107,6 +166,41 @@ function renderOutfitItem(
           <strong>{label}</strong>
           <span className="muted">{emptyMessage}</span>
         </div>
+      )}
+    </div>
+  );
+}
+
+function renderOutfitPreview(
+  label: string,
+  item: OutfitItemResponse | null,
+  emptyMessage: string,
+  accessToken: string,
+  onAuthExpired: () => void
+) {
+  return (
+    <div className={item ? 'history-outfit-preview-card' : 'history-outfit-preview-card empty'}>
+      {item ? (
+        <>
+          <AuthenticatedClothingThumbnail
+            accessToken={accessToken}
+            image={item.image}
+            alt={`${item.name} 이미지`}
+            fallbackLabel={label.slice(0, 1)}
+            category={item.category}
+            color={item.color}
+            className="history-outfit-preview-thumbnail"
+            onAuthExpired={onAuthExpired}
+          />
+          <span>{label}</span>
+        </>
+      ) : (
+        <>
+          <div className="history-outfit-preview-empty" aria-hidden="true">
+            {label.slice(0, 1)}
+          </div>
+          <span>{emptyMessage}</span>
+        </>
       )}
     </div>
   );
@@ -252,6 +346,8 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
           {history.map((item) => {
             const wornAt = wornAtById[item.recommendationId] ?? item.wornAt;
             const markingThisItem = markingWornId === item.recommendationId;
+            const dateParts = formatDateParts(item.createdAt);
+            const outfitItems = getOutfitItems(item);
             const feedbackLabels = item.feedback
               ? [
                   item.feedback.sentiment
@@ -267,8 +363,11 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
               <article className="panel history-card" key={item.recommendationId}>
                 <header className="history-card-summary">
                   <div className="history-card-summary-main">
-                    <p className="eyebrow">추천 #{item.recommendationId}</p>
-                    <h3 className="history-card-date">{formatDateTime(item.createdAt)}</h3>
+                    <p className="eyebrow">추천 #{item.recommendationId} · {dateParts.monthLabel}</p>
+                    <h3 className="history-card-date">{dateParts.dayLabel}</h3>
+                    <p className="muted history-card-time">
+                      {dateParts.timeLabel} 기록 · {item.weather.location.name}
+                    </p>
                     <div className="history-summary-badge-row">
                       <span
                         className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}
@@ -301,30 +400,57 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                   </div>
                 </header>
 
+                <section className="history-timeline-entry" aria-label="기록 요약">
+                  <div className="history-timeline-marker" aria-hidden="true" />
+                  <div className="history-timeline-card">
+                    <div className="history-outfit-preview-grid">
+                      {outfitItems.map((outfitItem) => (
+                        <div className="history-outfit-preview-cell" key={outfitItem.label}>
+                          {renderOutfitPreview(
+                            outfitItem.label,
+                            outfitItem.item,
+                            outfitItem.emptyMessage,
+                            accessToken,
+                            onAuthExpired
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="history-timeline-copy">
+                      <div className="history-weather-line">
+                        <WeatherBadge weather={item.weather} />
+                        <span>{item.weather.location.fullName || item.weather.location.name}</span>
+                      </div>
+                      <p>{getPrimaryReason(item)}</p>
+                      <div className="history-feedback-tags" aria-label="피드백 상태">
+                        {feedbackLabels.length > 0 ? (
+                          feedbackLabels.map((label) => (
+                            <span className="feedback-state-pill" key={label}>
+                              {label}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="feedback-state-pill">피드백 없음</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 <section className="history-outfit-summary" aria-label="추천 옷 조합">
-                  <h3>추천 옷 조합</h3>
+                  <h3>옷 상세</h3>
                   <div className="history-outfit-list">
-                    {renderOutfitItem(
-                      clothingCategoryLabels.TOP,
-                      item.outfit.top,
-                      '상의 없음',
-                      accessToken,
-                      onAuthExpired
-                    )}
-                    {renderOutfitItem(
-                      clothingCategoryLabels.BOTTOM,
-                      item.outfit.bottom,
-                      '하의 없음',
-                      accessToken,
-                      onAuthExpired
-                    )}
-                    {renderOutfitItem(
-                      clothingCategoryLabels.OUTER,
-                      item.outfit.outer,
-                      '선택된 아우터 없음',
-                      accessToken,
-                      onAuthExpired
-                    )}
+                    {outfitItems.map((outfitItem) => (
+                      <div className="history-outfit-list-cell" key={outfitItem.label}>
+                        {renderOutfitItem(
+                          outfitItem.label,
+                          outfitItem.item,
+                          outfitItem.emptyMessage,
+                          accessToken,
+                          onAuthExpired
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </section>
 
