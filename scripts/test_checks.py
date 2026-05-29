@@ -255,6 +255,36 @@ def test_docs_check_required_rule_paths_are_scoped(tmp_path, capsys):
     assert checks.run_docs_checks(tmp_path, str(config)) == 0
 
 
+def test_docs_check_final_required_rules_are_opt_in(tmp_path, capsys):
+    config = tmp_path / "docs-checks.json"
+    config.write_text(
+        json.dumps(
+            {
+                "paths": ["docs"],
+                "required": [],
+                "finalRequired": [
+                    {
+                        "name": "final QA marker",
+                        "paths": ["docs/qa.md"],
+                        "pattern": "FINAL_QA_PASS",
+                    }
+                ],
+                "forbidden": [],
+            }
+        )
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+
+    assert checks.run_docs_checks(tmp_path, str(config)) == 0
+    assert checks.run_docs_checks(tmp_path, str(config), include_final_rules=True) == 1
+    captured = capsys.readouterr()
+    assert "final QA marker" in captured.err
+
+    (docs / "qa.md").write_text("FINAL_QA_PASS")
+    assert checks.run_docs_checks(tmp_path, str(config), include_final_rules=True) == 0
+
+
 def test_docs_check_forbidden_rule_paths_are_scoped(tmp_path, capsys):
     config = tmp_path / "docs-checks.json"
     config.write_text(

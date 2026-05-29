@@ -75,7 +75,9 @@
       "name": "Phase docs exist",
       "paths": ["phases/9-smartcloset-ui-ux-redesign/README.md"],
       "pattern": "UI/UX Redesign"
-    },
+    }
+  ],
+  "finalRequired": [
     {
       "name": "MVP9 QA desktop Auth PASS",
       "paths": ["docs/qa/mvp9-ui-ux-redesign-qa.md"],

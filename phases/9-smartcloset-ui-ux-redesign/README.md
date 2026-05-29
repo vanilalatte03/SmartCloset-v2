@@ -57,7 +57,7 @@ AWS 배포는 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포, S3, S
 ```bash
 git diff --check
 (cd frontend && npm run build)
-python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
+python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check --include-final-docs
 ```
 
 Autopilot 자체 리뷰 gate는 각 step 파일의 `## 인수 기준` fenced command를 실행한다. Step 1-7 frontend 화면/공통 UI step은 `frontend-build` 중심으로 검증하고, backend test/build를 포함한 full local safety 검증은 docs-qa/final 단계에서 수행한다. `execute.py --step` 또는 `--next-step-only`가 마지막 pending step을 완료하면 phase 완료 metadata를 기록하기 전에 `python3 scripts/checks.py --stage final`을 실행하므로, 마지막 step PR은 merge 전에 final gate를 통과해야 한다.
