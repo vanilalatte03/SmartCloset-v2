@@ -28,6 +28,13 @@ type AuthMode = 'login' | 'signup' | 'verify' | 'reset';
 
 const rememberedEmailStorageKey = 'smartcloset.auth.rememberedEmail';
 
+const authModeTitles: Record<AuthMode, string> = {
+  login: '로그인',
+  signup: '회원가입',
+  verify: '인증하기',
+  reset: '비밀번호 찾기',
+};
+
 const defaultLoginForm: LoginRequest = {
   email: '',
   password: '',
@@ -230,7 +237,8 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
     <section className="auth-layout" aria-label="인증">
       <article className="panel auth-panel">
         <header className="auth-panel-heading">
-          <h2>{authMode === 'login' ? '로그인' : '회원가입'}</h2>
+          <p className="eyebrow">SmartCloset</p>
+          <h2>{authModeTitles[authMode]}</h2>
           <div className="auth-tabs" role="tablist" aria-label="인증 방식">
             <button
               className="auth-tab"
