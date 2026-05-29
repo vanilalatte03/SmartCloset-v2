@@ -1,18 +1,19 @@
-# ERD: SmartCloset MVP8
+# ERD: SmartCloset MVP9
 
 ## 0. DB Baseline
 
-MVP8 DB baseline은 MVP7 위치/날씨 신뢰도 schema에 계정 안정성 schema를 추가한다.
+MVP9 DB baseline은 MVP8 계정 안정성 완료 schema를 유지한다. MVP9는 프론트 UI/UX 리디자인 MVP이며 DB schema를 변경하지 않는다.
 
-## MVP8 DB 결정
+## MVP9 DB 결정
 
-- `users`에 이메일 인증과 password login 상태를 추가한다.
+- MVP8에서 `users`에 이메일 인증과 password login 상태를 추가했다.
 - Refresh token은 `refresh_sessions`에 hash만 저장한다.
 - 이메일 인증과 비밀번호 재설정 token은 `account_action_tokens`에 hash만 저장한다.
 - Google social account 연결은 `social_accounts`에 저장한다.
 - 계정 삭제는 soft delete가 아니라 관련 row hard delete다.
 - 옷 이미지 파일 bytes는 계속 DB에 저장하지 않는다.
-- AWS/RDS 운영 migration 도구 전환은 MVP8 범위가 아니다.
+- AWS/RDS 운영 migration 도구 전환은 MVP9 범위가 아니다.
+- MVP9 UI/UX 변경은 table, column, relation, index를 추가하지 않는다.
 
 ## 1. 공통 DB 정책
 
@@ -21,7 +22,7 @@ MVP8 DB baseline은 MVP7 위치/날씨 신뢰도 schema에 계정 안정성 sche
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
 - JSON 값은 구현 단순성을 위해 Entity에서 `String`으로 보관한다.
-- 운영 DB migration 전략은 MVP8에서 기존처럼 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
+- 운영 DB migration 전략은 현재 기존처럼 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
 
 ## 2. Mermaid ERD
 

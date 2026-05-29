@@ -16,7 +16,7 @@ Reasoning effort policy:
 - MVP5 옷 이미지 보호 API, 파일 저장 adapter, Docker Compose image volume 유지보수 작업.
 - MVP6 추천 상황, 추천 피드백 snapshot, 옷별 styleTags, Recommendation application, presentation, DTO, repository 계층과 저장, 착용 완료 처리 작업.
 - MVP7 KMA 위치 catalog, 좌표 resolve API, 위치 source, weather source DTO, 추천 source snapshot 저장, Location/Weather/Recommendation application, presentation, DTO, repository 계층 작업.
-- MVP8 refresh session, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX backend API, account deletion, AWS-ready adapter boundary 작업.
+- MVP8 refresh session, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX backend API, account deletion, local adapter boundary 유지보수 작업.
 - Docker Compose, 빌드, 리소스, 공유 실행 환경 구현.
 
 반드시 읽어야 할 문서:

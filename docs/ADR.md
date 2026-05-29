@@ -19,6 +19,8 @@ ADR-012는 MVP7을 위치/날씨 신뢰도 MVP로 확정하고, KMA 행정구역
 
 ADR-013은 MVP8을 계정 안정성 MVP로 확정하고, refresh token session, 이메일 인증, 비밀번호 재설정, Google login, 세션 만료 UX, 계정/데이터 삭제, MVP9 AWS-ready adapter 경계를 정의한다.
 
+ADR-014는 원래 MVP9 후보였던 AWS 배포를 후속 MVP로 연기하고, MVP9를 프론트 UI/UX 리디자인 MVP로 확정한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -32,3 +34,4 @@ ADR-013은 MVP8을 계정 안정성 MVP로 확정하고, refresh token session, 
 - [ADR-011: Define MVP6 as Feedback Personalization](adr/011-mvp6-feedback-personalization.md)
 - [ADR-012: Define MVP7 as Location Weather Trust](adr/012-mvp7-location-weather-trust.md)
 - [ADR-013: Define MVP8 as Account Stability](adr/013-mvp8-account-stability.md)
+- [ADR-014: Define MVP9 as UI/UX Redesign](adr/014-mvp9-ui-ux-redesign.md)

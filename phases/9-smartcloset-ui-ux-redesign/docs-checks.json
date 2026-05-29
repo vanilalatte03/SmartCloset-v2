@@ -1,0 +1,108 @@
+{
+  "paths": [
+    "README.md",
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/ERD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/FRONTEND.md",
+    "docs/DEMO_SCENARIO.md",
+    "docs/SHARING_GUIDE.md",
+    "docs/COMMANDS.md",
+    "docs/ADR.md",
+    "docs/adr/014-mvp9-ui-ux-redesign.md",
+    "docs/design/mvp9/README.md",
+    ".codex/agents",
+    "phases/9-smartcloset-ui-ux-redesign"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "MVP9 current docs marker",
+      "paths": ["README.md", "docs/PRD.md"],
+      "pattern": "MVP9.*UI/UX|MVP9.*프론트"
+    },
+    {
+      "name": "ADR-014 linked",
+      "paths": ["docs/ADR.md"],
+      "pattern": "ADR-014"
+    },
+    {
+      "name": "MVP8 archive linked",
+      "paths": ["README.md"],
+      "pattern": "archive/mvp-8/README.md"
+    },
+    {
+      "name": "MVP9 design reference",
+      "paths": ["docs/FRONTEND.md", "docs/design/mvp9/README.md"],
+      "pattern": "tmp/design-preview|docs/design/mvp9"
+    },
+    {
+      "name": "Primary navigation contract",
+      "paths": ["docs/FRONTEND.md", "docs/PRD.md"],
+      "pattern": "추천.*옷장.*내 취향.*위치.*기록"
+    },
+    {
+      "name": "Profile account entry",
+      "paths": ["docs/FRONTEND.md", "docs/PRD.md"],
+      "pattern": "profile pill|프로필.*계정 설정|우측 상단.*계정 설정"
+    },
+    {
+      "name": "No backend contract changes",
+      "paths": ["docs/PRD.md", "docs/API.md", "docs/ARCHITECTURE.md", "docs/ERD.md", "docs/RECOMMENDATION_RULES.md"],
+      "pattern": "백엔드 HTTP API.*변경하지 않는다|MVP8.*계약.*유지|DB schema.*변경하지 않는다|추천.*변경하지 않는다"
+    },
+    {
+      "name": "Phase docs exist",
+      "paths": ["phases/9-smartcloset-ui-ux-redesign/README.md"],
+      "pattern": "UI/UX Redesign"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "refresh token JSON exposure",
+      "paths": ["README.md", "docs/API.md", "docs/FRONTEND.md", "phases/9-smartcloset-ui-ux-redesign"],
+      "pattern": "refreshToken\"\\s*:"
+    },
+    {
+      "name": "AWS implementation in MVP9",
+      "paths": ["README.md", "docs/PRD.md", "docs/ARCHITECTURE.md", "docs/SHARING_GUIDE.md", "phases/9-smartcloset-ui-ux-redesign"],
+      "pattern": "S3.*구현한다|SES.*구현한다|Secrets Manager.*구현한다|AWS.*배포.*구현한다"
+    },
+    {
+      "name": "forbidden MVP9 out-of-scope implementation",
+      "pattern": "AI/GPT 추천.*구현한다|AI 자동 태[깅].*구현한다|Redis.*구현한다|DB schema.*변경한다|추천 점수.*변경한다"
+    },
+    {
+      "name": "account settings as primary nav",
+      "paths": ["docs/FRONTEND.md", "docs/PRD.md", "phases/9-smartcloset-ui-ux-redesign"],
+      "pattern": "primary nav.*계정|주 navigation.*계정 탭"
+    }
+  ]
+}

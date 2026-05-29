@@ -1,0 +1,51 @@
+{
+  "project": "SmartCloset",
+  "phase": "9-smartcloset-ui-ux-redesign",
+  "steps": [
+    {
+      "step": 0,
+      "name": "mvp9-docs-archive",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "app-shell-auth-redesign",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "recommendation-dashboard",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "closet-list-form-images",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "preferences-location",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "history",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "account-settings",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "global-focus-hover-polish",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "docs-qa",
+      "status": "pending"
+    }
+  ]
+}
