@@ -95,19 +95,16 @@
   white-space: nowrap;
 }
 
-.view-nav-button:hover {
-  background: #eef4f8;
-}
-
 .view-nav-button[aria-current='page'] {
   background: #e9f2ec;
-  border-color: #bed6c7;
+  border-color: #6fa17c;
+  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.35);
   color: #14532d;
 }
 
 .view-nav-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .workspace-shell {
@@ -182,6 +179,12 @@
   width: fit-content;
 }
 
+.api-details summary:focus-visible {
+  border-radius: 6px;
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
 .api-details code {
   display: block;
   font-size: 12px;
@@ -215,9 +218,14 @@
   padding: 4px 12px 4px 5px;
 }
 
+.profile-menu[open] .profile-pill {
+  border-color: #6fa17c;
+  box-shadow: 0 0 0 1px rgba(111, 161, 124, 0.2);
+}
+
 .profile-pill:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .profile-avatar {
@@ -290,13 +298,9 @@
   text-align: left;
 }
 
-.profile-menu-action:hover {
-  background: #eef4f8;
-}
-
 .profile-menu-action:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .view-content,
@@ -459,6 +463,7 @@
 .secondary-button:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
+  opacity: 1;
 }
 
 .primary-button:disabled {
@@ -466,10 +471,19 @@
   border-color: #c9d1dc;
 }
 
+.secondary-button:disabled {
+  background: #f1f3f7;
+  border-color: #d4dae4;
+}
+
 .primary-button:focus-visible,
 .secondary-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+
+.top-status-bar .secondary-button {
+  min-width: 86px;
 }
 
 .error-banner {
@@ -856,6 +870,7 @@
 .situation-card-button.active {
   background: #e9f2ec;
   border-color: #6fa17c;
+  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.35);
   color: #14532d;
 }
 
@@ -867,15 +882,17 @@
 .situation-button:disabled,
 .feedback-button:disabled,
 .situation-card-button:disabled {
+  background: #f1f3f7;
+  border-color: #d4dae4;
+  color: var(--text-muted);
   cursor: not-allowed;
-  opacity: 0.62;
 }
 
 .situation-button:focus-visible,
 .feedback-button:focus-visible,
 .situation-card-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .recommendation-failure-card {
@@ -1255,10 +1272,6 @@
   white-space: normal;
 }
 
-.auth-tab:hover {
-  color: var(--text);
-}
-
 .auth-tab[aria-selected='true'] {
   background: var(--surface);
   border-color: var(--border);
@@ -1268,7 +1281,7 @@
 
 .auth-tab:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .auth-message-slot {
@@ -1730,7 +1743,12 @@
 .field input:focus,
 .field select:focus {
   outline: 3px solid var(--focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+
+.checkbox-field input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 .checkbox-field {
@@ -1825,13 +1843,13 @@
 .preference-option-button.active {
   background: #e9f2ec;
   border-color: #6fa17c;
-  box-shadow: inset 0 0 0 1px #6fa17c;
+  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.55);
   color: #14532d;
 }
 
 .preference-option-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .preference-option-button .color-token,
@@ -1898,11 +1916,6 @@
   padding: 0 10px;
 }
 
-.suggestion-chip:hover:not(:disabled) {
-  border-color: #2f6c9f;
-  color: #1f4f7a;
-}
-
 .suggestion-chip.active {
   background: #e6f4ec;
   border-color: #78b994;
@@ -1910,9 +1923,16 @@
   cursor: pointer;
 }
 
+.suggestion-chip:disabled {
+  background: #f1f3f7;
+  border-color: #d4dae4;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .suggestion-chip:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .tag-list {
@@ -1955,7 +1975,7 @@
 
 .tag-chip button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 1px;
+  outline-offset: 3px;
 }
 
 .preferences-panel {
@@ -2458,7 +2478,8 @@
 .filter-chip.active,
 .preset-button.active {
   background: #e9f2ec;
-  border-color: #bed6c7;
+  border-color: #6fa17c;
+  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.35);
   color: #14532d;
 }
 
@@ -2466,7 +2487,7 @@
 .preset-button:focus-visible,
 .danger-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .closet-list {
@@ -3252,6 +3273,7 @@
 .closet-material-button.active {
   background: #e9f2ec;
   border-color: #6fa17c;
+  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.35);
   color: #14532d;
 }
 
@@ -3259,7 +3281,7 @@
 .closet-color-button:focus-visible,
 .closet-material-button:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .panel-error,
@@ -3695,6 +3717,53 @@
 .history-detail-details[open] {
   display: grid;
   gap: 14px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .view-nav-button:hover,
+  .profile-pill:hover,
+  .profile-menu-action:hover,
+  .secondary-button:hover:not(:disabled),
+  .auth-tab:hover,
+  .situation-button:hover:not(:disabled),
+  .feedback-button:hover:not(:disabled),
+  .situation-card-button:hover:not(:disabled),
+  .preference-option-button:hover,
+  .suggestion-chip:hover:not(:disabled),
+  .filter-chip:hover,
+  .preset-button:hover,
+  .closet-category-button:hover,
+  .closet-color-button:hover,
+  .closet-material-button:hover {
+    background: #eef4f8;
+  }
+
+  .primary-button:hover:not(:disabled) {
+    background: #183f63;
+    border-color: #183f63;
+  }
+
+  .view-nav-button[aria-current='page']:hover,
+  .situation-button.active:hover:not(:disabled),
+  .feedback-button.active:hover:not(:disabled),
+  .situation-card-button.active:hover:not(:disabled),
+  .preference-option-button.active:hover,
+  .filter-chip.active:hover,
+  .preset-button.active:hover,
+  .closet-category-button.active:hover,
+  .closet-color-button.active:hover,
+  .closet-material-button.active:hover {
+    background: #e1eee6;
+  }
+
+  .auth-tab:hover {
+    color: var(--text);
+  }
+
+  .suggestion-chip:hover:not(:disabled) {
+    border-color: #2f6c9f;
+    color: #1f4f7a;
+  }
 }
 
 @media (max-width: 920px) {
