@@ -15,7 +15,9 @@
 }
 
 .authenticated-shell {
-  background: #f6f7f4;
+  background:
+    radial-gradient(circle at top left, rgba(226, 235, 229, 0.9), transparent 360px),
+    linear-gradient(135deg, #f2f3ef 0%, #eef3f4 100%);
   display: block;
 }
 
@@ -43,6 +45,7 @@
   align-items: center;
   background: rgba(255, 255, 255, 0.92);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(170px, 0.32fr) minmax(360px, 1fr) minmax(220px, 0.32fr);
@@ -65,7 +68,7 @@
 
 .desktop-view-nav {
   align-items: center;
-  background: #eef2ed;
+  background: rgba(255, 255, 255, 0.74);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
@@ -96,10 +99,10 @@
 }
 
 .view-nav-button[aria-current='page'] {
-  background: #e9f2ec;
-  border-color: #6fa17c;
-  box-shadow: inset 0 0 0 1px rgba(111, 161, 124, 0.35);
-  color: #14532d;
+  background: #202228;
+  border-color: #202228;
+  box-shadow: none;
+  color: #ffffff;
 }
 
 .view-nav-button:focus-visible {
@@ -109,11 +112,11 @@
 
 .workspace-shell {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   margin: 0 auto;
   max-width: 1380px;
   min-width: 0;
-  padding: 24px;
+  padding: 28px 24px 34px;
 }
 
 .mobile-app-bar,
@@ -123,17 +126,17 @@
 
 .top-status-bar {
   align-items: center;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.68);
   border: 1px solid var(--border);
   border-radius: 8px;
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   gap: 10px 14px;
-  justify-content: flex-end;
-  justify-self: end;
+  justify-content: flex-start;
+  justify-self: stretch;
   min-width: 0;
-  padding: 10px 12px;
-  width: fit-content;
+  padding: 8px 12px;
+  width: 100%;
 }
 
 .status-cluster {
@@ -314,14 +317,22 @@
 }
 
 .view-heading {
-  align-items: flex-end;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: start;
+  display: grid;
+  gap: 5px;
+  justify-content: start;
 }
 
 .view-heading h2 {
   font-size: 28px;
+  line-height: 1.14;
+}
+
+.view-heading p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 760px;
 }
 
 .view-placeholder {
@@ -440,8 +451,8 @@
 
 .primary-button {
   align-items: center;
-  background: #1f4f7a;
-  border: 1px solid #1f4f7a;
+  background: #5d8b69;
+  border: 1px solid #5d8b69;
   border-radius: 6px;
   color: #ffffff;
   cursor: pointer;
@@ -519,23 +530,23 @@
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.36fr);
 }
 
 .today-history-preview {
-  grid-column: 1 / -1;
+  grid-column: 2;
 }
 
 .today-layout > .recommendation-panel {
   align-self: start;
-  grid-column: 2;
-  grid-row: 1 / span 3;
+  grid-column: 1;
+  grid-row: 1 / span 4;
 }
 
 .today-weather-panel,
 .today-checklist-panel,
 .today-hero-panel {
-  grid-column: 1;
+  grid-column: 2;
 }
 
 .today-hero-panel {
@@ -717,15 +728,15 @@
 
 .recommendation-dashboard-hero {
   background:
-    linear-gradient(135deg, rgba(23, 59, 45, 0.94), rgba(31, 79, 122, 0.84)),
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.32), transparent 34%);
+    linear-gradient(135deg, rgba(32, 34, 37, 0.96), rgba(23, 59, 45, 0.88)),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.22), transparent 34%);
   border-radius: 8px;
   color: #ffffff;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.74fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.7fr);
   min-width: 0;
-  padding: 18px;
+  padding: 24px;
 }
 
 .recommendation-dashboard-hero .eyebrow,
@@ -740,9 +751,9 @@
   min-width: 0;
 }
 
-.recommendation-hero-copy h3 {
+.recommendation-dashboard-hero .recommendation-hero-copy h3 {
   color: #ffffff;
-  font-size: 28px;
+  font-size: 32px;
   line-height: 1.1;
   margin: 0;
   overflow-wrap: anywhere;
@@ -785,8 +796,15 @@
   justify-content: flex-start;
 }
 
+.recommendation-hero-meta .weather-badge span,
+.recommendation-hero-meta .weather-badge .weather-token {
+  color: var(--text);
+}
+
 .recommendation-dashboard-hero .recommendation-action-bar {
   align-items: end;
+  grid-column: 1 / -1;
+  justify-content: flex-start;
 }
 
 .recommendation-controls-panel {
@@ -926,8 +944,8 @@
 }
 
 .recommendation-outfit-section {
-  background: #fffaf0;
-  border: 1px solid #ead9b8;
+  background: #fbfcfa;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 14px;
 }
@@ -3739,11 +3757,14 @@
   }
 
   .primary-button:hover:not(:disabled) {
-    background: #183f63;
-    border-color: #183f63;
+    background: #4f7c5d;
+    border-color: #4f7c5d;
   }
 
-  .view-nav-button[aria-current='page']:hover,
+  .view-nav-button[aria-current='page']:hover {
+    background: #1a1c22;
+  }
+
   .situation-button.active:hover:not(:disabled),
   .feedback-button.active:hover:not(:disabled),
   .situation-card-button.active:hover:not(:disabled),
@@ -3971,6 +3992,14 @@
   .today-history-preview {
     grid-column: auto;
     grid-row: auto;
+  }
+
+  .today-layout > .recommendation-panel {
+    order: -4;
+  }
+
+  .today-weather-panel {
+    order: -3;
   }
 
   .location-current-metrics {
