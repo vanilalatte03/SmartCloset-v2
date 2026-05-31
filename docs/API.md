@@ -16,7 +16,8 @@
 - Google verified email은 이메일 인증 완료로 취급한다.
 - Account deletion은 보호 API이며 현재 사용자 데이터만 삭제한다.
 - 추천/날씨/위치/이미지 API 계약은 MVP7 기준을 유지한다.
-- MVP9 UI/UX 변경은 API path, method, DTO field, error code를 변경하지 않는다.
+- 계정 설정 이름 수정은 현재 사용자 범위의 `PATCH /api/users/me`로 처리한다.
+- MVP9 UI/UX 변경은 추천, 날씨, 위치, 이미지 API path, method, DTO field, error code를 변경하지 않는다.
 
 ## 1. 공통 규칙
 
@@ -80,6 +81,7 @@
 | Method | Path | Description | Success |
 | --- | --- | --- | --- |
 | `GET` | `/api/users/me` | 현재 사용자 조회 | `200 OK` |
+| `PATCH` | `/api/users/me` | 현재 사용자 이름 수정 | `200 OK` |
 | `DELETE` | `/api/users/me` | 현재 사용자 계정과 데이터 삭제 | `200 OK` |
 | `GET` | `/api/locations?keyword={keyword}` | KMA 행정구역 catalog 검색 | `200 OK` |
 | `POST` | `/api/locations/resolve` | 브라우저 좌표를 KMA grid와 위치 후보로 변환 | `200 OK` |
@@ -330,6 +332,20 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
   }
 }
 ```
+
+`PATCH /api/users/me`
+
+### UpdateCurrentUserRequest
+
+```json
+{
+  "name": "Jiho"
+}
+```
+
+- `name`은 공백일 수 없고 최대 50자다.
+- 응답은 `CurrentUserResponse`와 동일하다.
+- 현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
 
 ## 8. Account Deletion API
 

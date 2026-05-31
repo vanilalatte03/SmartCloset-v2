@@ -95,6 +95,7 @@
 보호 API:
 
 - `GET /api/users/me`
+- `PATCH /api/users/me`
 - `DELETE /api/users/me`
 - `GET /api/locations?keyword={keyword}`
 - `POST /api/locations/resolve`

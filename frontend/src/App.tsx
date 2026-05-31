@@ -387,6 +387,7 @@ function App() {
               accessToken={accessToken}
               currentUser={currentUser}
               onAccountDeleted={handleAccountDeleted}
+              onCurrentUserUpdated={setCurrentUser}
             />
           </section>
         );

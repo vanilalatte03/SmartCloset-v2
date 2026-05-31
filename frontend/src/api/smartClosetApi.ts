@@ -29,6 +29,7 @@ import type {
   RecommendationWornResponse,
   SignupRequest,
   SignupResponse,
+  UpdateCurrentUserRequest,
   UpdateUserLocationRequest,
   UpdateUserPreferencesRequest,
   UserPreferencesResponse,
@@ -113,6 +114,17 @@ export function getOAuthProviders(): Promise<OAuthProvidersResponse> {
 
 export function getCurrentUser(accessToken: string): Promise<CurrentUserResponse> {
   return request<CurrentUserResponse>('/api/users/me', { accessToken });
+}
+
+export function updateCurrentUser(
+  accessToken: string,
+  body: UpdateCurrentUserRequest
+): Promise<CurrentUserResponse> {
+  return request<CurrentUserResponse>('/api/users/me', {
+    method: 'PATCH',
+    accessToken,
+    body: JSON.stringify(body),
+  });
 }
 
 export function deleteAccount(

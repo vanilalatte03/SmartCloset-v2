@@ -33,6 +33,10 @@ export type CurrentUserResponse = {
   updatedAt: string;
 };
 
+export type UpdateCurrentUserRequest = {
+  name: string;
+};
+
 export type SignupResponse = {
   email: string;
   emailVerificationRequired: boolean;
