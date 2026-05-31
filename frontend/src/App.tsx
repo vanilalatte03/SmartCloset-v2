@@ -411,7 +411,6 @@ function App() {
           <div>
             <p className="eyebrow">SmartCloset</p>
             <h1>{currentViewLabel}</h1>
-            <span className="mobile-app-meta">{locationLabel}</span>
           </div>
           {renderProfileMenu()}
         </header>

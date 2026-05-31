@@ -8,7 +8,7 @@ import {
   updateUserLocation,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { WeatherBadge, WeatherLabel } from '../../components/DisplayTokens';
+import { WeatherBadge } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
   LocationOptionResponse,
@@ -17,11 +17,15 @@ import type {
   WeatherResponse,
 } from '../../types/api';
 import { locationSourceLabels } from '../../utils/displayMappings';
-import { getRoParticle } from '../../utils/koreanParticles';
 
 const locationCatalogApiPath = '/api/locations?keyword={keyword}';
 const locationResolveApiPath = '/api/locations/resolve';
 const locationWeatherApiPath = '/api/weather/current';
+const locationOptionsPageSize = 3;
+const locationNameCollator = new Intl.Collator('ko-KR', {
+  numeric: true,
+  sensitivity: 'base',
+});
 
 type LocationPanelProps = {
   accessToken: string;
@@ -30,6 +34,11 @@ type LocationPanelProps = {
   onAuthExpired: () => void;
   onLocationChange: (location: UserLocationResponse) => void;
 };
+
+type LocationDisplaySource = Pick<
+  LocationOptionResponse,
+  'name' | 'fullName' | 'region1' | 'region2' | 'region3'
+>;
 
 export function LocationPanel({
   accessToken,
@@ -41,6 +50,7 @@ export function LocationPanel({
   const [keyword, setKeyword] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');
   const [options, setOptions] = useState<LocationOptionResponse[]>([]);
+  const [locationPage, setLocationPage] = useState(1);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
@@ -50,12 +60,19 @@ export function LocationPanel({
   const [resolveLoading, setResolveLoading] = useState(false);
   const [resolveStatus, setResolveStatus] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<ErrorResponse | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
   const searchSummary = submittedKeyword
     ? `"${submittedKeyword}" 검색 결과`
     : '전체 대표 위치';
+  const locationPageCount = Math.max(1, Math.ceil(options.length / locationOptionsPageSize));
+  const activeLocationPage = Math.min(locationPage, locationPageCount);
+  const locationPageStartIndex = (activeLocationPage - 1) * locationOptionsPageSize;
+  const visibleLocationOptions = options.slice(
+    locationPageStartIndex,
+    locationPageStartIndex + locationOptionsPageSize
+  );
+  const locationPaginationLabel = `${activeLocationPage}/${locationPageCount}`;
 
   const loadCurrentWeather = useCallback(async () => {
     setWeatherLoading(true);
@@ -82,7 +99,7 @@ export function LocationPanel({
 
     try {
       const nextOptions = await searchLocations(accessToken, submittedKeyword);
-      setOptions(nextOptions);
+      setOptions(sortLocationOptionsForKeyword(nextOptions, submittedKeyword));
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -103,16 +120,24 @@ export function LocationPanel({
     void loadLocations();
   }, [loadLocations]);
 
+  useEffect(() => {
+    setLocationPage(1);
+  }, [submittedKeyword]);
+
+  useEffect(() => {
+    setLocationPage((currentPage) => Math.min(currentPage, locationPageCount));
+  }, [locationPageCount]);
+
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmittedKeyword(keyword.trim());
-    setStatus(null);
+    setLocationPage(1);
   };
 
   const handleShowAll = () => {
     setKeyword('');
     setSubmittedKeyword('');
-    setStatus(null);
+    setLocationPage(1);
   };
 
   const handleSelect = async (
@@ -121,7 +146,6 @@ export function LocationPanel({
   ) => {
     setSavingCode(option.code);
     setError(null);
-    setStatus(null);
 
     try {
       const updatedLocation = await updateUserLocation(accessToken, {
@@ -129,9 +153,6 @@ export function LocationPanel({
         source,
       });
       onLocationChange(updatedLocation);
-      setStatus(
-        `현재 위치를 ${updatedLocation.name}${getRoParticle(updatedLocation.name)} 저장했습니다.`
-      );
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -169,8 +190,8 @@ export function LocationPanel({
             setResolveOptions(response.candidates);
             setResolveStatus(
               response.nearest
-                ? `KMA 격자 nx=${response.grid.nx}, ny=${response.grid.ny} 기준 후보를 찾았습니다.`
-                : `KMA 격자 nx=${response.grid.nx}, ny=${response.grid.ny} 기준 후보가 없습니다.`
+                ? '가까운 동네 후보를 찾았습니다. 원하는 동네를 선택해 저장해주세요.'
+                : '가까운 동네 후보를 찾지 못했습니다. 동네 검색으로 선택해주세요.'
             );
           })
           .catch((caught) => {
@@ -203,91 +224,38 @@ export function LocationPanel({
     );
   };
 
+  const locationDisplayName = location ? formatLocationFullName(location) : '위치 확인 중';
+  const locationUpdatedLabel = location ? formatUpdatedAt(location.updatedAt) : null;
+
   return (
     <article className="location-panel">
       <section className="location-hero" aria-label="저장된 위치 요약">
-        <div>
-          <p className="eyebrow">현재 저장된 위치</p>
-          <h2>{location ? location.fullName || location.name : '위치 확인 중'}</h2>
-          <p>
-            추천과 기록은 저장한 동네의 날씨 기준으로 계산됩니다.
-          </p>
+        <div className="location-hero-copy">
+          <p className="eyebrow">추천 기준 동네</p>
+          <h2>{locationDisplayName}</h2>
+          <p>오늘 추천과 기록은 저장된 동네의 날씨를 기준으로 계산됩니다.</p>
+          {loading ? <p className="location-hero-loading">위치를 확인하고 있어요.</p> : null}
           {location ? (
             <div className="location-hero-tags" aria-label="위치 기준">
               <span>{locationSourceLabels[location.source]}</span>
-              <span>추천에 반영</span>
+              {locationUpdatedLabel ? <span>{locationUpdatedLabel} 업데이트</span> : null}
+              <span>추천에 반영 중</span>
             </div>
           ) : null}
         </div>
-        {location ? (
-          <dl className="location-hero-grid" aria-label="KMA 위치 기준">
-            <div>
-              <dt>catalog</dt>
-              <dd>{location.code}</dd>
-            </div>
-            <div>
-              <dt>KMA grid</dt>
-              <dd>
-                {location.nx}/{location.ny}
-              </dd>
-            </div>
-          </dl>
-        ) : null}
-      </section>
 
-      <div className="location-status-grid">
-        <section className="panel location-current-card" aria-label="현재 위치">
-          <div className="section-title-row location-current-heading">
-            <div>
-              <p className="eyebrow">현재 위치</p>
-              <h2>{location ? location.name : '위치 확인 중'}</h2>
-              <p className="muted location-panel-copy">
-                저장된 행정구역과 KMA 격자를 기준으로 오늘 날씨와 추천에 사용할 위치를 정합니다.
-              </p>
-            </div>
-            {location ? <span className="location-code-pill">{location.code}</span> : null}
-          </div>
-
-          {loading ? (
-            <p className="muted">현재 위치를 불러오고 있어요.</p>
-          ) : location ? (
-            <dl className="metric-list compact location-current-metrics">
-              <div>
-                <dt>catalog code</dt>
-                <dd>{location.code}</dd>
-              </div>
-              <div>
-                <dt>KMA 격자</dt>
-                <dd>
-                  nx={location.nx}, ny={location.ny}
-                </dd>
-              </div>
-              <div>
-                <dt>선택 방식</dt>
-                <dd>{locationSourceLabels[location.source]}</dd>
-              </div>
-              <div>
-                <dt>갱신</dt>
-                <dd>{formatUpdatedAt(location.updatedAt)}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="muted">불러온 위치 정보가 없어요. catalog에서 위치를 선택해주세요.</p>
-          )}
-        </section>
-
-        <section
-          className="panel location-weather-card"
+        <div
+          className="location-weather-glance"
           aria-label="현재 날씨 요약"
           data-api-path={locationWeatherApiPath}
         >
-          <div className="section-title-row">
+          <div className="location-weather-heading">
             <div>
-              <p className="eyebrow">현재 날씨 요약</p>
+              <p className="eyebrow">오늘 날씨</p>
               <h3>{location ? `${location.name} 기준` : '저장 위치 기준'}</h3>
             </div>
             <button
-              className="secondary-button"
+              className="secondary-button location-weather-refresh"
               type="button"
               onClick={() => void loadCurrentWeather()}
               disabled={weatherLoading}
@@ -296,92 +264,154 @@ export function LocationPanel({
             </button>
           </div>
 
-          {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
+          {weatherLoading ? <p>현재 날씨를 확인하고 있어요.</p> : null}
           {!weatherLoading && weather ? (
             <div className="location-weather-summary">
               <WeatherBadge weather={weather} />
-              <dl className="metric-list compact location-weather-metrics">
-                <div>
-                  <dt>날씨</dt>
-                  <dd>
-                    <WeatherLabel weatherType={weather.weatherType} />
-                  </dd>
-                </div>
-                <div>
-                  <dt>강수</dt>
-                  <dd>{weather.rainy ? '비 가능' : '비 없음'}</dd>
-                </div>
-                <div>
-                  <dt>바람</dt>
-                  <dd>{weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
-                </div>
-              </dl>
+              <p>겉옷과 비 대비 여부를 고를 때 이 날씨를 함께 봅니다.</p>
             </div>
           ) : null}
           {!weatherLoading && weatherError ? (
             <div className="location-weather-fallback">
               <ApiErrorMessage error={weatherError} />
-              <p className="muted">
-                날씨 요약이 없어도 위치 검색과 선택은 계속 사용할 수 있어요.
-              </p>
+              <p>날씨 요약이 없어도 위치 검색과 선택은 계속 사용할 수 있어요.</p>
             </div>
           ) : null}
-        </section>
-      </div>
-
-      <section
-        className="panel location-search-card"
-        aria-label="위치 catalog"
-        data-api-path={locationCatalogApiPath}
-      >
-        <div className="section-title-row">
-          <div>
-            <h2>위치</h2>
-            <p className="muted location-panel-copy">
-              행정구역 catalog에서 직접 검색하거나 현재 위치 후보를 확인한 뒤 저장합니다.
-            </p>
-          </div>
-          <span className="location-result-count">
-            {optionsLoading ? '검색 중' : `${options.length}개`}
-          </span>
         </div>
+      </section>
 
-        <form className="inline-form location-search-form" onSubmit={handleSearch}>
-          <label className="field">
-            <span>검색어</span>
-            <input
-              type="search"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="예: 일산동, 역삼동, SEOUL"
-            />
-          </label>
-          <div className="location-search-actions">
-            <button className="secondary-button" type="submit" disabled={optionsLoading}>
-              검색
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={handleShowAll}
-              disabled={optionsLoading || (!submittedKeyword && !keyword.trim())}
-            >
-              전체 보기
-            </button>
+      {error ? <ApiErrorMessage error={error} /> : null}
+      <div className="location-action-grid">
+        <section
+          className="panel location-search-card"
+          aria-label="동네 검색"
+          data-api-path={locationCatalogApiPath}
+        >
+          <div className="section-title-row">
+            <div>
+              <p className="eyebrow">동네 검색</p>
+              <h2>저장할 동네 선택</h2>
+              <p className="muted location-panel-copy">
+                동네 이름으로 검색하고 추천 기준으로 사용할 위치를 저장합니다.
+              </p>
+            </div>
           </div>
-        </form>
 
-        <section className="location-resolve-box" data-api-path={locationResolveApiPath}>
+          <form className="inline-form location-search-form" onSubmit={handleSearch}>
+            <label className="field">
+              <span>검색어</span>
+              <input
+                type="search"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="예: 일산동, 역삼동, 서초구"
+              />
+            </label>
+            <div className="location-search-actions">
+              <button className="secondary-button" type="submit" disabled={optionsLoading}>
+                검색
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={handleShowAll}
+                disabled={optionsLoading || (!submittedKeyword && !keyword.trim())}
+              >
+                전체 보기
+              </button>
+            </div>
+          </form>
+
+          <div className="location-catalog-heading">
+            <div>
+              <p className="eyebrow">검색 결과</p>
+              <h3>{searchSummary}</h3>
+            </div>
+            {!optionsLoading && options.length > 0 ? (
+              <div className="location-pagination" aria-label="위치 목록 페이지 이동">
+                <span className="location-page-range" aria-live="polite">
+                  {locationPaginationLabel}
+                </span>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setLocationPage((currentPage) => Math.max(1, currentPage - 1))}
+                  disabled={activeLocationPage === 1}
+                >
+                  이전
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() =>
+                    setLocationPage((currentPage) =>
+                      Math.min(locationPageCount, currentPage + 1)
+                    )
+                  }
+                  disabled={activeLocationPage === locationPageCount}
+                >
+                  다음
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="location-option-list" aria-label="위치 목록">
+            {optionsLoading ? (
+              <p className="muted">위치 목록을 불러오고 있어요.</p>
+            ) : options.length > 0 ? (
+              visibleLocationOptions.map((option) => {
+                const selected = location?.code === option.code;
+                const saving = savingCode === option.code;
+
+                return (
+                  <article
+                    className={selected ? 'location-option-card selected' : 'location-option-card'}
+                    key={option.code}
+                  >
+                    <div className="location-option-main">
+                      <strong>{option.name}</strong>
+                      <span>{formatLocationFullName(option)}</span>
+                      <span>
+                        {selected
+                          ? '지금 추천 기준으로 쓰는 동네입니다.'
+                          : '선택하면 추천과 날씨 기준이 이 동네로 바뀝니다.'}
+                      </span>
+                    </div>
+                    <button
+                      className={selected ? 'primary-button' : 'secondary-button'}
+                      type="button"
+                      onClick={() => void handleSelect(option, 'MANUAL_SEARCH')}
+                      disabled={selected || savingCode !== null}
+                    >
+                      {selected ? '현재 위치' : saving ? '저장 중' : '이 위치 선택'}
+                    </button>
+                  </article>
+                );
+              })
+            ) : (
+              <p className="muted">
+                검색어와 일치하는 위치가 없어요. 도시명이나 동네명으로 다시 검색해주세요.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section
+          className="panel location-resolve-card"
+          aria-label="현재 위치 후보"
+          data-api-path={locationResolveApiPath}
+        >
           <div className="section-title-row">
             <div>
               <p className="eyebrow">현재 위치 후보</p>
-              <h3>브라우저 현재 위치로 찾기</h3>
+              <h2>가까운 동네 찾기</h2>
               <p className="muted location-panel-copy">
-                좌표는 후보 찾기에만 사용하며, 후보를 선택해야 내 위치로 저장됩니다.
+                브라우저 위치로 가까운 행정구역 후보를 찾고, 선택한 동네만 저장합니다.
               </p>
             </div>
             <button
-              className="secondary-button"
+              className="primary-button"
               type="button"
               onClick={handleResolveCurrentLocation}
               disabled={resolveLoading || savingCode !== null}
@@ -390,17 +420,17 @@ export function LocationPanel({
             </button>
           </div>
 
+          <div className="location-coordinate-note" role="note">
+            <strong>좌표는 저장하지 않아요</strong>
+            <span>브라우저 좌표는 후보를 찾을 때만 쓰고, 계정에는 선택한 동네만 남습니다.</span>
+          </div>
+
           {resolveStatus ? (
             <p className="panel-success location-resolve-status" role="status">
               {resolveStatus}
             </p>
           ) : null}
           {resolveError ? <ApiErrorMessage error={resolveError} /> : null}
-
-          <div className="location-coordinate-note" role="note">
-            <strong>좌표는 저장하지 않아요</strong>
-            <span>브라우저 좌표는 가까운 행정구역 후보를 찾는 데만 사용됩니다.</span>
-          </div>
 
           {resolveOptions.length > 0 ? (
             <div className="location-option-list" aria-label="현재 위치 후보 목록">
@@ -415,9 +445,11 @@ export function LocationPanel({
                   >
                     <div className="location-option-main">
                       <strong>{option.name}</strong>
-                      <span>{option.fullName}</span>
+                      <span>{formatLocationFullName(option)}</span>
                       <span>
-                        KMA 격자 nx={option.nx}, ny={option.ny}
+                        {selected
+                          ? '지금 추천 기준으로 쓰는 동네입니다.'
+                          : '현재 위치에서 가까운 후보입니다.'}
                       </span>
                     </div>
                     <button
@@ -432,62 +464,13 @@ export function LocationPanel({
                 );
               })}
             </div>
-          ) : null}
-        </section>
-
-        {error ? <ApiErrorMessage error={error} /> : null}
-        {status ? (
-          <p className="panel-success" role="status">
-            {status}
-          </p>
-        ) : null}
-
-        <div className="location-catalog-heading">
-          <div>
-            <p className="eyebrow">Catalog</p>
-            <h3>{searchSummary}</h3>
-          </div>
-        </div>
-
-        <div className="location-option-list" aria-label="위치 목록">
-          {optionsLoading ? (
-            <p className="muted">위치 목록을 불러오고 있어요.</p>
-          ) : options.length > 0 ? (
-            options.map((option) => {
-              const selected = location?.code === option.code;
-              const saving = savingCode === option.code;
-
-              return (
-                <article
-                  className={selected ? 'location-option-card selected' : 'location-option-card'}
-                  key={option.code}
-                >
-                  <div className="location-option-main">
-                    <strong>{option.name}</strong>
-                    <span>{option.fullName}</span>
-                    <span>catalog code {option.code}</span>
-                    <span>
-                      KMA 격자 nx={option.nx}, ny={option.ny}
-                    </span>
-                  </div>
-                  <button
-                    className={selected ? 'primary-button' : 'secondary-button'}
-                    type="button"
-                    onClick={() => void handleSelect(option, 'MANUAL_SEARCH')}
-                    disabled={selected || savingCode !== null}
-                  >
-                    {selected ? '현재 위치' : saving ? '저장 중' : '이 위치 선택'}
-                  </button>
-                </article>
-              );
-            })
           ) : (
-            <p className="muted">
-              검색어와 일치하는 위치가 없어요. 도시명이나 code로 다시 검색해주세요.
+            <p className="muted location-resolve-empty">
+              버튼을 누르면 가까운 동네 후보가 여기에 표시됩니다.
             </p>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
     </article>
   );
 }
@@ -504,4 +487,146 @@ function formatUpdatedAt(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatLocationFullName(location: LocationDisplaySource): string {
+  const parts = [
+    location.region1,
+    formatCityDistrict(location.region2),
+    location.region3,
+  ].filter((part): part is string => Boolean(part));
+
+  if (parts.length > 0) {
+    return parts.join(' ');
+  }
+
+  return addCityDistrictSpacing(location.fullName || location.name);
+}
+
+function formatCityDistrict(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return addCityDistrictSpacing(value);
+}
+
+function addCityDistrictSpacing(value: string): string {
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  const cityDistrictMatch = trimmed.match(/^(.+시)(.+[구군])$/);
+  if (!cityDistrictMatch) {
+    return trimmed;
+  }
+
+  return `${cityDistrictMatch[1]} ${cityDistrictMatch[2]}`;
+}
+
+function sortLocationOptionsForKeyword(
+  options: LocationOptionResponse[],
+  keyword: string
+): LocationOptionResponse[] {
+  const normalizedKeyword = normalizeLocationSearchText(keyword);
+  if (!normalizedKeyword) {
+    return options;
+  }
+
+  return options
+    .map((option, index) => ({
+      option,
+      index,
+      rank: getLocationSearchRank(option, normalizedKeyword),
+    }))
+    .sort((left, right) => {
+      if (left.rank !== right.rank) {
+        return left.rank - right.rank;
+      }
+
+      const nameCompare = locationNameCollator.compare(left.option.name, right.option.name);
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+
+      const fullNameCompare = locationNameCollator.compare(
+        left.option.fullName,
+        right.option.fullName
+      );
+      if (fullNameCompare !== 0) {
+        return fullNameCompare;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ option }) => option);
+}
+
+function getLocationSearchRank(option: LocationOptionResponse, keyword: string): number {
+  const isNeighborhoodSearch = keyword.endsWith('동') && !keyword.endsWith('동구');
+  const neighborhoodName = option.region3
+    ? normalizeLocationSearchText(option.region3)
+    : isNeighborhoodSearch
+      ? ''
+      : normalizeLocationSearchText(option.name);
+  const neighborhoodRank = rankLocationText(neighborhoodName, keyword);
+  if (neighborhoodRank < 99) {
+    return neighborhoodRank;
+  }
+
+  const nameRank = rankLocationText(normalizeLocationSearchText(option.name), keyword);
+  if (nameRank < 99) {
+    return 10 + nameRank;
+  }
+
+  const region2Rank = rankLocationText(normalizeLocationSearchText(option.region2), keyword);
+  if (region2Rank < 99) {
+    return 20 + region2Rank;
+  }
+
+  const fullNameRank = rankLocationText(normalizeLocationSearchText(option.fullName), keyword);
+  if (fullNameRank < 99) {
+    return 30 + fullNameRank;
+  }
+
+  return 99;
+}
+
+function rankLocationText(value: string, keyword: string): number {
+  if (!value) {
+    return 99;
+  }
+
+  if (value === keyword) {
+    return 0;
+  }
+
+  const compactValue = removeLocationSearchDigits(value);
+  const compactKeyword = removeLocationSearchDigits(keyword);
+  if (compactKeyword && compactValue === compactKeyword) {
+    return 1;
+  }
+
+  if (value.startsWith(keyword)) {
+    return 2;
+  }
+
+  if (compactKeyword && compactValue.startsWith(compactKeyword)) {
+    return 3;
+  }
+
+  if (value.includes(keyword)) {
+    return 4;
+  }
+
+  if (compactKeyword && compactValue.includes(compactKeyword)) {
+    return 5;
+  }
+
+  return 99;
+}
+
+function normalizeLocationSearchText(value: string | null): string {
+  return (value ?? '').trim().replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
+}
+
+function removeLocationSearchDigits(value: string): string {
+  return value.replace(/\d+/g, '');
 }
