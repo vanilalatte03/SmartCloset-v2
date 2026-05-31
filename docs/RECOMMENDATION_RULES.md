@@ -4,7 +4,7 @@
 
 SmartCloset MVP9의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie-break, 추천 이유를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약을 그대로 유지한다.
+MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie-break를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약을 그대로 유지한다. 추천 이유는 기존 template 기반 원칙을 유지하되 사용자 화면에서 반복을 줄이기 위해 날씨 문구를 온도대/비/아우터 상태에 맞게 세분화한다.
 
 ## MVP9 결정
 
@@ -18,7 +18,7 @@ MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - `forecastPeriod`는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
 - 위치/source snapshot은 추천 근거 표시와 이력 신뢰도에만 사용한다.
-- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
+- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break에 영향을 주지 않는다.
 - Image metadata는 추천 점수, 후보 필터링, tie-break, 추천 이유에 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 
