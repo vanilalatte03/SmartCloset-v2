@@ -219,24 +219,6 @@ export function PreferencesPanel({
 
   return (
     <article className="panel preferences-panel">
-      <div className="section-title-row">
-        <div>
-          <p className="eyebrow">취향 프로필</p>
-          <h2>선호도</h2>
-          <p className="muted preference-guidance">
-            색상, 소재, 스타일 태그를 저장해 추천 개인화에 반영합니다.
-          </p>
-        </div>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => void loadPreferences()}
-          disabled={loading || saving}
-        >
-          새로고침
-        </button>
-      </div>
-
       {loading ? (
         <p className="muted">선호도를 불러오고 있어요.</p>
       ) : (

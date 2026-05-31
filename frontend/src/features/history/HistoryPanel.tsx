@@ -11,7 +11,6 @@ import {
   MaterialChip,
   WeatherBadge,
   WeatherLabel,
-  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
@@ -469,7 +468,6 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
                     <section className="history-card-section" aria-label="추천 날씨 스냅샷">
                       <h3>날씨 스냅샷</h3>
                       {renderWeatherSnapshot(item)}
-                      <WeatherTrustSnapshot weather={item.weather} />
                     </section>
                   </div>
 

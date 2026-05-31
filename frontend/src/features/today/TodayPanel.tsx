@@ -17,9 +17,7 @@ import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import {
   ColorSwatch,
   MaterialChip,
-  WeatherBadge,
   WeatherLabel,
-  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import { RecommendationPanel } from '../recommendation/RecommendationPanel';
 import type {
@@ -41,6 +39,7 @@ import {
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
   recommendationThermalFeedbackLabels,
+  weatherTypeLabels,
   type RecommendationFailureCta,
 } from '../../utils/displayMappings';
 
@@ -104,21 +103,54 @@ function formatDateTime(value: string): string {
   }).format(date);
 }
 
-function renderWeatherState(weather: WeatherResponse) {
+function formatWeatherTime(value: string | null): string {
+  if (!value) {
+    return '--:--';
+  }
+
+  const digits = value.replace(/\D/g, '');
+  if (digits.length >= 4) {
+    return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+  }
+
+  return value;
+}
+
+function renderWeatherState(weather: WeatherResponse, forecastPeriod: ForecastPeriod) {
   const rainLabel = weather.rainy ? '비 가능' : '비 없음';
   const windLabel = weather.windy ? '바람 강함' : '바람 잔잔';
+  const updateTime = formatWeatherTime(weather.source.baseTime);
+  const forecastTime = formatWeatherTime(weather.source.forecastTime);
 
   return (
     <div className="today-weather-state">
-      <WeatherBadge weather={weather} />
-      <dl className="metric-list today-weather-metrics">
+      <div className="today-weather-main">
         <div>
-          <dt>강수</dt>
-          <dd>{rainLabel}</dd>
+          <p className="eyebrow">날씨</p>
+          <strong>{weather.temperature}도</strong>
+          <span>
+            {weatherTypeLabels[weather.weatherType]} · {rainLabel}
+          </span>
+        </div>
+        <span className="today-weather-period">{forecastPeriodLabels[forecastPeriod]}</span>
+      </div>
+
+      <dl className="today-weather-metrics">
+        <div>
+          <dt>위치</dt>
+          <dd>{weather.location.name}</dd>
         </div>
         <div>
           <dt>바람</dt>
           <dd>{windLabel}</dd>
+        </div>
+        <div>
+          <dt>업데이트</dt>
+          <dd>{updateTime}</dd>
+        </div>
+        <div>
+          <dt>예보 시간</dt>
+          <dd>{forecastTime}</dd>
         </div>
       </dl>
     </div>
@@ -408,27 +440,15 @@ export function TodayPanel({
   return (
     <div className="today-layout">
       <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
-        <div className="section-title-row">
-          <div>
-            <p className="eyebrow">현재 날씨</p>
-            <h3>{location ? location.name : '위치 확인 중'}</h3>
+        {weatherLoading ? (
+          <div className="today-weather-loading">
+            <p className="eyebrow">날씨</p>
+            <strong>{location ? location.name : '위치 확인 중'}</strong>
+            <span>현재 날씨를 확인하고 있어요.</span>
           </div>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void loadWeather()}
-            disabled={weatherLoading}
-          >
-            새로고침
-          </button>
-        </div>
-
-        {weatherLoading ? <p className="muted">현재 날씨를 확인하고 있어요.</p> : null}
+        ) : null}
         {!weatherLoading && weather ? (
-          <>
-            {renderWeatherState(weather)}
-            <WeatherTrustSnapshot weather={weather} />
-          </>
+          renderWeatherState(weather, selectedForecastPeriod)
         ) : null}
         {!weatherLoading && weatherError ? (
           <div className="today-soft-error">

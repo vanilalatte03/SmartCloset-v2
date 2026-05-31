@@ -55,6 +55,15 @@ const appViewLabels: Record<AppView, string> = {
   account: '계정 설정',
 };
 
+const appViewEyebrows: Record<AppView, string> = {
+  today: '오늘의 옷차림',
+  closet: '내 옷장',
+  preferences: '개인화',
+  location: '동네 날씨',
+  history: '기록',
+  account: '계정',
+};
+
 const viewHeadings: Record<AppView, { title: string; subtitle: string }> = {
   today: {
     title: '코디 추천',
@@ -251,11 +260,6 @@ function App() {
         className="auth-shell"
         style={{ '--auth-editorial-image': `url(${authEditorialUrl})` } as CSSProperties}
       >
-        <header className="auth-header">
-          <p className="eyebrow">오늘의 옷차림</p>
-          <h1>SmartCloset</h1>
-        </header>
-
         {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
 
         {sessionState === 'restoring' ? (
@@ -324,11 +328,7 @@ function App() {
     switch (activeView) {
       case 'today':
         return (
-          <section className="view-stack today-view" aria-labelledby="today-view-title">
-            <header className="view-heading">
-              <h2 id="today-view-title">{viewHeadings.today.title}</h2>
-              <p>{viewHeadings.today.subtitle}</p>
-            </header>
+          <section className="view-stack today-view" aria-label={viewHeadings.today.title}>
             <TodayPanel
               accessToken={accessToken}
               location={location}
@@ -341,11 +341,7 @@ function App() {
         );
       case 'closet':
         return (
-          <section className="view-stack closet-view" aria-labelledby="closet-view-title">
-            <header className="view-heading">
-              <h2 id="closet-view-title">{viewHeadings.closet.title}</h2>
-              <p>{viewHeadings.closet.subtitle}</p>
-            </header>
+          <section className="view-stack closet-view" aria-label={viewHeadings.closet.title}>
             <ClosetPanel
               accessToken={accessToken}
               initialCategory={closetInitialCategory}
@@ -357,12 +353,8 @@ function App() {
         return (
           <section
             className="view-stack preferences-view"
-            aria-labelledby="preferences-view-title"
+            aria-label={viewHeadings.preferences.title}
           >
-            <header className="view-heading">
-              <h2 id="preferences-view-title">{viewHeadings.preferences.title}</h2>
-              <p>{viewHeadings.preferences.subtitle}</p>
-            </header>
             <PreferencesPanel
               accessToken={accessToken}
               onAuthExpired={handleAuthExpired}
@@ -372,11 +364,7 @@ function App() {
         );
       case 'location':
         return (
-          <section className="view-stack location-view" aria-labelledby="location-view-title">
-            <header className="view-heading">
-              <h2 id="location-view-title">{viewHeadings.location.title}</h2>
-              <p>{viewHeadings.location.subtitle}</p>
-            </header>
+          <section className="view-stack location-view" aria-label={viewHeadings.location.title}>
             <LocationPanel
               accessToken={accessToken}
               location={location}
@@ -388,21 +376,13 @@ function App() {
         );
       case 'history':
         return (
-          <section className="view-stack history-view" aria-labelledby="history-view-title">
-            <header className="view-heading">
-              <h2 id="history-view-title">{viewHeadings.history.title}</h2>
-              <p>{viewHeadings.history.subtitle}</p>
-            </header>
+          <section className="view-stack history-view" aria-label={viewHeadings.history.title}>
             <HistoryPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           </section>
         );
       case 'account':
         return (
-          <section className="view-stack account-view" aria-labelledby="account-view-title">
-            <header className="view-heading">
-              <h2 id="account-view-title">{viewHeadings.account.title}</h2>
-              <p>{viewHeadings.account.subtitle}</p>
-            </header>
+          <section className="view-stack account-view" aria-label={viewHeadings.account.title}>
             <AccountSettingsPanel
               accessToken={accessToken}
               currentUser={currentUser}
@@ -419,7 +399,7 @@ function App() {
     <main className="app-shell authenticated-shell">
       <header className="desktop-sidebar">
         <div className="sidebar-brand">
-          <p className="eyebrow">오늘의 옷차림</p>
+          <p className="eyebrow">{appViewEyebrows[activeView]}</p>
           <h1>SmartCloset</h1>
         </div>
         {renderViewNavigation('desktop-view-nav', '주요 화면')}

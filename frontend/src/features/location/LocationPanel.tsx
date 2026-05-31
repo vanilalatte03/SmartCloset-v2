@@ -8,7 +8,7 @@ import {
   updateUserLocation,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import { WeatherBadge, WeatherLabel, WeatherTrustSnapshot } from '../../components/DisplayTokens';
+import { WeatherBadge, WeatherLabel } from '../../components/DisplayTokens';
 import type {
   ErrorResponse,
   LocationOptionResponse,
@@ -316,7 +316,6 @@ export function LocationPanel({
                   <dd>{weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
                 </div>
               </dl>
-              <WeatherTrustSnapshot weather={weather} />
             </div>
           ) : null}
           {!weatherLoading && weatherError ? (

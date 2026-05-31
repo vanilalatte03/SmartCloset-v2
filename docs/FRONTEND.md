@@ -169,7 +169,7 @@ Reference:
 - 로그인 이메일 저장 체크박스
 - 회원가입
 - 이메일 인증 안내와 인증 재요청
-- 인증 token 확인
+- 인증번호 확인
 - 비밀번호 재설정 요청
 - 비밀번호 재설정 확인
 - Google login button 또는 disabled 상태
@@ -199,6 +199,7 @@ UX 기준:
 - Hero band는 오늘의 핵심 추천 메시지와 현재 위치/날씨/예보 시간대를 보여준다.
 - 상황과 예보 시간대 선택은 segmented/card control로 제공한다.
 - 추천 결과는 옷 이미지와 조합 이름, "오늘 입기 좋은 이유"를 먼저 보여준다.
+- KMA 격자, provider, fallback, base/forecast time 같은 내부 날씨 source 상세는 일반 화면에 노출하지 않는다.
 - 점수 상세는 보조 panel로 제공한다.
 - 착용 완료와 피드백 저장/clear UX를 유지한다.
 - 추천 실패는 내부 failure code보다 한국어 안내와 해결 CTA를 우선 표시한다.
@@ -293,9 +294,9 @@ Reference:
 ## 기존 UX 유지
 
 - MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제 UX를 유지한다.
-- Location view의 동네 검색, 현재 위치 후보 찾기, source 표시를 유지한다.
-- Recommendation view의 상황/예보 시간대 선택과 추천 결과 source 표시를 유지한다.
-- History view의 위치/날씨 snapshot 표시를 유지한다.
+- Location view의 동네 검색, 현재 위치 후보 찾기, 사용자용 위치 요약 표시를 유지한다.
+- Recommendation view의 상황/예보 시간대 선택과 추천 결과 날씨 요약 표시를 유지한다.
+- History view의 위치/날씨 snapshot은 사용자용 요약으로 표시한다.
 - Closet image blob fetch와 object URL cleanup을 유지한다.
 - Feedback UX를 유지한다.
 

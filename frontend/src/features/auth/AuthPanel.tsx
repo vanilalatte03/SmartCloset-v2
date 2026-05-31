@@ -31,7 +31,7 @@ const rememberedEmailStorageKey = 'smartcloset.auth.rememberedEmail';
 const authModeTitles: Record<AuthMode, string> = {
   login: '로그인',
   signup: '회원가입',
-  verify: '인증하기',
+  verify: '이메일 인증',
   reset: '비밀번호 찾기',
 };
 
@@ -47,17 +47,12 @@ const defaultSignupForm: SignupRequest = {
 };
 
 export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
-  const rememberedEmail = readRememberedEmail();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [loginForm, setLoginForm] = useState<LoginRequest>({
-    ...defaultLoginForm,
-    email: rememberedEmail,
-  });
+  const [loginForm, setLoginForm] = useState<LoginRequest>(defaultLoginForm);
   const [signupForm, setSignupForm] = useState<SignupRequest>(defaultSignupForm);
-  const [rememberEmail, setRememberEmail] = useState(rememberedEmail.length > 0);
-  const [verificationEmail, setVerificationEmail] = useState(rememberedEmail);
+  const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationToken, setVerificationToken] = useState('');
-  const [resetEmail, setResetEmail] = useState(rememberedEmail);
+  const [resetEmail, setResetEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState<
@@ -104,11 +99,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
         email: loginForm.email.trim(),
         password: loginForm.password,
       });
-      if (rememberEmail) {
-        saveRememberedEmail(loginForm.email.trim());
-      } else {
-        clearRememberedEmail();
-      }
+      clearRememberedEmail();
       onAuthenticated(response);
       setLoginForm(defaultLoginForm);
     } catch (caught) {
@@ -158,7 +149,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
 
     try {
       await requestEmailVerification({ email: verificationEmail.trim() });
-      setSuccessMessage('인증 메일을 다시 보냈습니다. 받은 링크나 token으로 인증을 완료해주세요.');
+      setSuccessMessage('인증 메일을 다시 보냈습니다. 받은 링크나 인증번호로 인증을 완료해주세요.');
     } catch (caught) {
       setError(toErrorResponse(caught, '인증 메일을 요청할 수 없습니다.'));
     } finally {
@@ -193,7 +184,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
 
     try {
       await requestPasswordReset({ email: resetEmail.trim() });
-      setSuccessMessage('비밀번호 재설정 안내를 보냈습니다. 받은 token으로 새 비밀번호를 설정해주세요.');
+      setSuccessMessage('비밀번호 변경 인증번호를 보냈습니다. 받은 인증번호로 새 비밀번호를 설정해주세요.');
     } catch (caught) {
       setError(toErrorResponse(caught, '비밀번호 재설정을 요청할 수 없습니다.'));
     } finally {
@@ -235,56 +226,10 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
 
   return (
     <section className="auth-layout" aria-label="인증">
-      <article className="panel auth-panel">
+      <article className={`panel auth-panel auth-panel-${authMode}`}>
         <header className="auth-panel-heading">
-          <p className="eyebrow">SmartCloset</p>
+          <p className="eyebrow">SMARTCLOSET</p>
           <h2>{authModeTitles[authMode]}</h2>
-          <div className="auth-tabs" role="tablist" aria-label="인증 방식">
-            <button
-              className="auth-tab"
-              id="login-tab"
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'login'}
-              aria-controls="login-panel"
-              onClick={() => handleAuthModeChange('login')}
-            >
-              로그인
-            </button>
-            <button
-              className="auth-tab"
-              id="signup-tab"
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'signup'}
-              aria-controls="signup-panel"
-              onClick={() => handleAuthModeChange('signup')}
-            >
-              회원가입
-            </button>
-            <button
-              className="auth-tab"
-              id="verify-tab"
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'verify'}
-              aria-controls="verify-panel"
-              onClick={() => handleAuthModeChange('verify')}
-            >
-              이메일 인증
-            </button>
-            <button
-              className="auth-tab"
-              id="reset-tab"
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'reset'}
-              aria-controls="reset-panel"
-              onClick={() => handleAuthModeChange('reset')}
-            >
-              비밀번호 재설정
-            </button>
-          </div>
         </header>
 
         <div className="auth-message-slot" aria-live="polite">
@@ -296,16 +241,15 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
           <div
             className="auth-tab-panel"
             id="login-panel"
-            role="tabpanel"
-            aria-labelledby="login-tab"
+            aria-label="로그인"
           >
-            <form className="panel-form compact-form" onSubmit={handleLogin}>
+            <form className="panel-form compact-form auth-login-form" onSubmit={handleLogin} autoComplete="off">
               <label className="field">
                 <span>이메일</span>
                 <input
                   type="email"
                   value={loginForm.email}
-                  autoComplete="email"
+                  autoComplete="off"
                   onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })}
                   required
                 />
@@ -315,32 +259,28 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                 <input
                   type="password"
                   value={loginForm.password}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   onChange={(event) =>
                     setLoginForm({ ...loginForm, password: event.target.value })
                   }
                   required
                 />
               </label>
-              <label className="checkbox-field auth-checkbox">
-                <input
-                  type="checkbox"
-                  checked={rememberEmail}
-                  onChange={(event) => setRememberEmail(event.target.checked)}
-                />
-                <span>이메일 저장</span>
-              </label>
+              <div className="auth-login-meta">
+                <button
+                  className="auth-text-button auth-forgot-button"
+                  type="button"
+                  onClick={() => handleAuthModeChange('reset')}
+                >
+                  비밀번호를 잊었어요?
+                </button>
+              </div>
               <button className="primary-button" type="submit" disabled={submitting !== null}>
                 {submitting === 'login' ? '로그인 중' : '로그인'}
               </button>
             </form>
-            <div className="auth-secondary-actions">
-              <button className="secondary-button" type="button" onClick={() => handleAuthModeChange('verify')}>
-                인증하기
-              </button>
-              <button className="secondary-button" type="button" onClick={() => handleAuthModeChange('reset')}>
-                비밀번호 재설정
-              </button>
+            <div className="auth-divider" aria-hidden="true">
+              <span>또는</span>
             </div>
             <div className="oauth-box">
               <a
@@ -353,19 +293,25 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                   }
                 }}
               >
-                Google로 계속
+                Google로 계속하기
               </a>
-              {!googleEnabled ? (
-                <p className="muted auth-helper">Google 로그인은 현재 사용할 수 없습니다.</p>
-              ) : null}
             </div>
+            <p className="auth-mode-switch">
+              <span>계정이 없나요?</span>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={() => handleAuthModeChange('signup')}
+              >
+                회원가입
+              </button>
+            </p>
           </div>
         ) : authMode === 'signup' ? (
           <div
             className="auth-tab-panel"
             id="signup-panel"
-            role="tabpanel"
-            aria-labelledby="signup-tab"
+            aria-label="회원가입"
           >
             <form className="panel-form compact-form" onSubmit={handleSignup}>
               <label className="field">
@@ -405,13 +351,22 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                 {submitting === 'signup' ? '가입 중' : '회원가입'}
               </button>
             </form>
+            <p className="auth-mode-switch">
+              <span>계정이 있나요?</span>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={() => handleAuthModeChange('login')}
+              >
+                로그인
+              </button>
+            </p>
           </div>
         ) : authMode === 'verify' ? (
           <div
             className="auth-tab-panel auth-flow-panel"
             id="verify-panel"
-            role="tabpanel"
-            aria-labelledby="verify-tab"
+            aria-label="이메일 인증"
           >
             <form className="panel-form compact-form" onSubmit={handleVerificationRequest}>
               <label className="field">
@@ -430,7 +385,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
             </form>
             <form className="panel-form compact-form" onSubmit={handleVerificationConfirm}>
               <label className="field">
-                <span>인증 token</span>
+                <span>인증번호</span>
                 <input
                   value={verificationToken}
                   autoComplete="one-time-code"
@@ -442,13 +397,22 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                 {submitting === 'verification-confirm' ? '확인 중' : '인증 완료'}
               </button>
             </form>
+            <p className="auth-mode-switch">
+              <span>인증을 마쳤나요?</span>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={() => handleAuthModeChange('login')}
+              >
+                로그인
+              </button>
+            </p>
           </div>
         ) : (
           <div
             className="auth-tab-panel auth-flow-panel"
             id="reset-panel"
-            role="tabpanel"
-            aria-labelledby="reset-tab"
+            aria-label="비밀번호 찾기"
           >
             <form className="panel-form compact-form" onSubmit={handlePasswordResetRequest}>
               <label className="field">
@@ -462,12 +426,12 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                 />
               </label>
               <button className="secondary-button" type="submit" disabled={submitting !== null}>
-                {submitting === 'reset-request' ? '요청 중' : '재설정 안내 받기'}
+                {submitting === 'reset-request' ? '발송 중' : '인증번호 받기'}
               </button>
             </form>
             <form className="panel-form compact-form" onSubmit={handlePasswordResetConfirm}>
               <label className="field">
-                <span>재설정 token</span>
+                <span>인증번호</span>
                 <input
                   value={resetToken}
                   autoComplete="one-time-code"
@@ -490,27 +454,21 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
                 {submitting === 'reset-confirm' ? '변경 중' : '비밀번호 변경'}
               </button>
             </form>
+            <p className="auth-mode-switch">
+              <span>다시 로그인할까요?</span>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={() => handleAuthModeChange('login')}
+              >
+                로그인
+              </button>
+            </p>
           </div>
         )}
       </article>
     </section>
   );
-}
-
-function readRememberedEmail(): string {
-  try {
-    return localStorage.getItem(rememberedEmailStorageKey) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function saveRememberedEmail(email: string) {
-  try {
-    localStorage.setItem(rememberedEmailStorageKey, email);
-  } catch {
-    // Remembering the email is a convenience feature only.
-  }
 }
 
 function clearRememberedEmail() {
