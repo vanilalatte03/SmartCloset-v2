@@ -337,7 +337,6 @@ export function TodayPanel({
           : current
       );
       setRecommendationWornAt(response.wornAt);
-      setRecommendationStatus('착용 완료로 기록했습니다.');
       await loadHistoryPreview();
     } catch (caught) {
       if (isUnauthorizedError(caught)) {

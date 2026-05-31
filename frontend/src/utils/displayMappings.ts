@@ -261,6 +261,24 @@ export const recommendationThermalFeedbackLabels: Record<
   TOO_HOT: '더웠어요',
 };
 
+const styleTagDisplayLabels: Record<string, string> = {
+  ACTIVE: '활동적',
+  CASUAL: '캐주얼',
+  COMFORT: '편안함',
+  DAILY: '데일리',
+  DATE: '데이트',
+  FORMAL: '격식',
+  MINIMAL: '미니멀',
+  NEAT: '깔끔',
+  OFFICE: '오피스',
+  OFFICIAL: '포멀',
+  POINT: '포인트',
+  SMART: '단정',
+  SPORTY: '스포티',
+  WORK: '출근',
+  WORKOUT: '운동',
+};
+
 export function getClothingCategoryLabel(category: ClothingCategory): string {
   return clothingCategoryLabels[category];
 }
@@ -290,5 +308,43 @@ export function getRecommendationFailureCta(
 }
 
 export function formatStyleTagLabel(tag: string): string {
-  return tag.trim();
+  const trimmed = tag.trim();
+  return styleTagDisplayLabels[trimmed.toUpperCase()] ?? trimmed;
+}
+
+export type DisplayStyleTagEntry = {
+  label: string;
+  sourceTags: string[];
+};
+
+function getDisplayStyleTagKey(label: string): string {
+  return /^[\x00-\x7F]+$/.test(label) ? label.toLowerCase() : label;
+}
+
+export function getDisplayStyleTagEntries(tags: string[]): DisplayStyleTagEntry[] {
+  const entries: DisplayStyleTagEntry[] = [];
+  const entryIndexes = new Map<string, number>();
+
+  tags.forEach((tag) => {
+    const label = formatStyleTagLabel(tag);
+    if (!label) {
+      return;
+    }
+
+    const key = getDisplayStyleTagKey(label);
+    const existingIndex = entryIndexes.get(key);
+    if (existingIndex !== undefined) {
+      entries[existingIndex].sourceTags.push(tag);
+      return;
+    }
+
+    entryIndexes.set(key, entries.length);
+    entries.push({ label, sourceTags: [tag] });
+  });
+
+  return entries;
+}
+
+export function getDisplayStyleTags(tags: string[]): string[] {
+  return getDisplayStyleTagEntries(tags).map((entry) => entry.label);
 }

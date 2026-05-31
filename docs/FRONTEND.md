@@ -262,8 +262,10 @@ Reference:
 UX 기준:
 
 - 추천 이력은 최신순을 유지한다.
-- calendar/timeline 느낌의 grouping을 사용할 수 있다.
-- outfit image grouping이 먼저 보이고, 날씨/위치 snapshot과 피드백은 보조 정보로 표시한다.
+- 상단은 calendar strip, 본문은 날짜 흐름 timeline grouping으로 구성할 수 있다.
+- outfit image grouping이 먼저 보이고, 날씨/위치 요약과 피드백은 보조 정보로 표시한다.
+- 첫 화면은 outfit, 착용/피드백 상태, 핵심 이유 중심으로 미니멀하게 유지하고 점수/옷 상세는 상세보기 안에 둘 수 있다.
+- provider, fallback, base/forecast time 같은 내부 날씨 source 상세는 History 상세보기에서도 노출하지 않는다.
 - 삭제된 이미지 또는 이미지 없는 옷은 fallback visual로 표시한다.
 - 현재 위치 변경 후에도 과거 이력 snapshot이 독립적으로 보인다는 점을 유지한다.
 

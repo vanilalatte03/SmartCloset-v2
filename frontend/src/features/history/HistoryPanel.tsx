@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   getRecommendationHistory,
@@ -9,7 +9,6 @@ import {
   AuthenticatedClothingThumbnail,
   ColorSwatch,
   MaterialChip,
-  WeatherBadge,
   WeatherLabel,
 } from '../../components/DisplayTokens';
 import type {
@@ -19,9 +18,8 @@ import type {
 } from '../../types/api';
 import {
   clothingCategoryLabels,
-  forecastPeriodLabels,
+  getDisplayStyleTags,
   recommendationFeedbackSentimentLabels,
-  recommendationSituationLabels,
   recommendationThermalFeedbackLabels,
 } from '../../utils/displayMappings';
 
@@ -36,35 +34,111 @@ const historyApiPath = '/api/recommendations?limit=20';
 const scoreItems: Array<{
   key: keyof RecommendationResponse['score'];
   label: string;
+  max: number;
 }> = [
-  { key: 'totalScore', label: '총점' },
-  { key: 'weatherScore', label: '날씨 적합도' },
-  { key: 'colorScore', label: '색상 조합' },
-  { key: 'wearHistoryScore', label: '착용 이력' },
-  { key: 'recommendationHistoryScore', label: '추천 이력' },
-  { key: 'preferenceScore', label: '선호 반영' },
+  { key: 'weatherScore', label: '날씨', max: 35 },
+  { key: 'colorScore', label: '색상', max: 25 },
+  { key: 'wearHistoryScore', label: '착용', max: 20 },
+  { key: 'recommendationHistoryScore', label: '추천 이력', max: 10 },
+  { key: 'preferenceScore', label: '취향', max: 10 },
 ];
 
+const calendarWeekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+function getValidDate(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromKey(dateKey: string): Date {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function shiftDate(date: Date, days: number): Date {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function startOfCalendarWeek(date: Date): Date {
+  const weekStart = new Date(date);
+  const day = weekStart.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function formatCalendarMonthLabel(date: Date): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+  }).format(date);
+}
+
+function getRelativeDateLabel(date: Date): string {
+  const dateKey = toDateKey(date);
+  const today = new Date();
+  const yesterday = shiftDate(today, -1);
+
+  if (dateKey === toDateKey(today)) {
+    return '오늘';
+  }
+
+  if (dateKey === toDateKey(yesterday)) {
+    return '어제';
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    weekday: 'short',
+  }).format(date);
+}
+
 function formatDateParts(value: string): {
+  dateKey: string;
   dayLabel: string;
+  flowDateLabel: string;
+  relativeLabel: string;
   timeLabel: string;
   monthLabel: string;
 } {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return {
+      dateKey: value,
       dayLabel: value,
+      flowDateLabel: value,
+      relativeLabel: '추천일',
       timeLabel: '시간 확인 불가',
       monthLabel: '추천 기록',
     };
   }
 
   return {
+    dateKey: toDateKey(date),
     dayLabel: new Intl.DateTimeFormat('ko-KR', {
       month: 'long',
       day: 'numeric',
       weekday: 'short',
     }).format(date),
+    flowDateLabel: new Intl.DateTimeFormat('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+    }).format(date),
+    relativeLabel: getRelativeDateLabel(date),
     timeLabel: new Intl.DateTimeFormat('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
@@ -95,6 +169,16 @@ function getPrimaryReason(item: RecommendationResponse): string {
   return item.reasons[0] ?? '추천 당시의 날씨와 선호도를 기준으로 만든 조합입니다.';
 }
 
+function getOutfitStyleTags(item: RecommendationResponse): string[] {
+  const tags = [
+    ...(item.outfit.outer?.styleTags ?? []),
+    ...item.outfit.top.styleTags,
+    ...item.outfit.bottom.styleTags,
+  ];
+
+  return getDisplayStyleTags(tags).slice(0, 2);
+}
+
 function getOutfitItems(item: RecommendationResponse): Array<{
   label: string;
   item: OutfitItemResponse | null;
@@ -114,9 +198,13 @@ function getOutfitItems(item: RecommendationResponse): Array<{
     {
       label: clothingCategoryLabels.OUTER,
       item: item.outfit.outer,
-      emptyMessage: '선택된 아우터 없음',
+      emptyMessage: '아우터 없음',
     },
   ];
+}
+
+function getOutfitPreviewItems(item: RecommendationResponse) {
+  return getOutfitItems(item);
 }
 
 function renderOutfitItem(
@@ -126,6 +214,8 @@ function renderOutfitItem(
   accessToken: string,
   onAuthExpired: () => void
 ) {
+  const displayStyleTags = item ? getDisplayStyleTags(item.styleTags) : [];
+
   return (
     <div className="history-outfit-item">
       {item ? (
@@ -148,8 +238,8 @@ function renderOutfitItem(
               <MaterialChip material={item.material} />
             </span>
             <span className="tag-list history-outfit-tags">
-              {item.styleTags.length > 0 ? (
-                item.styleTags.map((tag) => (
+              {displayStyleTags.length > 0 ? (
+                displayStyleTags.map((tag) => (
                   <span className="tag-chip readonly" key={tag}>
                     {tag}
                   </span>
@@ -177,8 +267,13 @@ function renderOutfitPreview(
   accessToken: string,
   onAuthExpired: () => void
 ) {
+  const previewLabel = item ? item.name : emptyMessage;
+
   return (
-    <div className={item ? 'history-outfit-preview-card' : 'history-outfit-preview-card empty'}>
+    <div
+      className={item ? 'history-outfit-preview-card' : 'history-outfit-preview-card empty'}
+      aria-label={`${label}: ${previewLabel}`}
+    >
       {item ? (
         <>
           <AuthenticatedClothingThumbnail
@@ -191,50 +286,17 @@ function renderOutfitPreview(
             className="history-outfit-preview-thumbnail"
             onAuthExpired={onAuthExpired}
           />
-          <span>{label}</span>
+          <span title={previewLabel}>{previewLabel}</span>
         </>
       ) : (
         <>
           <div className="history-outfit-preview-empty" aria-hidden="true">
             {label.slice(0, 1)}
           </div>
-          <span>{emptyMessage}</span>
+          <span>{previewLabel}</span>
         </>
       )}
     </div>
-  );
-}
-
-function renderWeatherSnapshot(item: RecommendationResponse) {
-  return (
-    <dl className="metric-list history-weather-snapshot">
-      <div>
-        <dt>위치</dt>
-        <dd>{item.weather.location.fullName || item.weather.location.name}</dd>
-      </div>
-      <div>
-        <dt>예보 시간대</dt>
-        <dd>{forecastPeriodLabels[item.forecastPeriod]}</dd>
-      </div>
-      <div>
-        <dt>기온</dt>
-        <dd>{item.weather.temperature}°C</dd>
-      </div>
-      <div>
-        <dt>날씨</dt>
-        <dd>
-          <WeatherLabel weatherType={item.weather.weatherType} />
-        </dd>
-      </div>
-      <div>
-        <dt>비</dt>
-        <dd>{item.weather.rainy ? '비 가능' : '비 없음'}</dd>
-      </div>
-      <div>
-        <dt>바람</dt>
-        <dd>{item.weather.windy ? '바람 강함' : '바람 잔잔'}</dd>
-      </div>
-    </dl>
   );
 }
 
@@ -242,9 +304,12 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
   const [history, setHistory] = useState<RecommendationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorResponse | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [markingWornId, setMarkingWornId] = useState<number | null>(null);
   const [wornAtById, setWornAtById] = useState<Record<number, string>>({});
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [calendarWeekStartKey, setCalendarWeekStartKey] = useState(() =>
+    toDateKey(startOfCalendarWeek(new Date()))
+  );
 
   const loadHistory = useCallback(async () => {
     setLoading(true);
@@ -269,10 +334,81 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
     void loadHistory();
   }, [loadHistory]);
 
+  useEffect(() => {
+    const latestHistoryDate = getValidDate(history[0]?.createdAt);
+
+    if (!latestHistoryDate || selectedDateKey !== null) {
+      return;
+    }
+
+    setSelectedDateKey(toDateKey(latestHistoryDate));
+    setCalendarWeekStartKey(toDateKey(startOfCalendarWeek(latestHistoryDate)));
+  }, [history, selectedDateKey]);
+
+  const calendarWeekStart = useMemo(
+    () => dateFromKey(calendarWeekStartKey),
+    [calendarWeekStartKey]
+  );
+  const calendarDays = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, index) => {
+        const date = shiftDate(calendarWeekStart, index);
+
+        return {
+          date,
+          dateKey: toDateKey(date),
+          dayNumber: date.getDate(),
+          weekdayLabel: calendarWeekdayLabels[index],
+        };
+      }),
+    [calendarWeekStart]
+  );
+  const calendarMonthLabel = formatCalendarMonthLabel(calendarWeekStart);
+  const historyDateCounts = useMemo(
+    () =>
+      history.reduce<Record<string, number>>((counts, item) => {
+        const dateKey = formatDateParts(item.createdAt).dateKey;
+        counts[dateKey] = (counts[dateKey] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [history]
+  );
+  const groupedHistory = useMemo(
+    () =>
+      history.reduce<
+        Array<{
+          dateKey: string;
+          dateParts: ReturnType<typeof formatDateParts>;
+          items: RecommendationResponse[];
+        }>
+      >((groups, item) => {
+        const dateParts = formatDateParts(item.createdAt);
+        const lastGroup = groups[groups.length - 1];
+
+        if (lastGroup?.dateKey === dateParts.dateKey) {
+          lastGroup.items.push(item);
+          return groups;
+        }
+
+        groups.push({
+          dateKey: dateParts.dateKey,
+          dateParts,
+          items: [item],
+        });
+        return groups;
+      }, []),
+    [history]
+  );
+
+  const handleCalendarWeekShift = (days: number) => {
+    const nextWeekStart = shiftDate(calendarWeekStart, days);
+    setCalendarWeekStartKey(toDateKey(nextWeekStart));
+    setSelectedDateKey(toDateKey(nextWeekStart));
+  };
+
   const handleMarkWorn = async (recommendationId: number) => {
     setMarkingWornId(recommendationId);
     setError(null);
-    setStatus(null);
 
     try {
       const response = await markRecommendationWorn(accessToken, recommendationId);
@@ -287,7 +423,6 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
         ...current,
         [response.recommendationId]: response.wornAt,
       }));
-      setStatus('착용 완료로 기록했습니다.');
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -301,34 +436,62 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
 
   return (
     <div className="history-panel" data-api-path={historyApiPath}>
-      <article className="panel history-summary-panel" aria-label="추천 이력 요약">
-        <div>
-          <p className="eyebrow">추천 이력</p>
-          <h3>최근 추천을 최신순으로 확인하세요</h3>
-          <p className="muted history-summary-copy">
-            기본 20개 이력을 불러오고, 각 항목에서 착용 완료를 기록할 수 있어요.
-          </p>
+      <article className="panel history-calendar-panel" aria-label="추천 이력 달력">
+        <div className="history-calendar-heading">
+          <div>
+            <p className="eyebrow">기록</p>
+            <h3>{calendarMonthLabel}</h3>
+          </div>
+          <div className="history-calendar-actions">
+            <button
+              aria-label="이전 주"
+              className="history-calendar-nav-button"
+              type="button"
+              onClick={() => handleCalendarWeekShift(-7)}
+            >
+              ‹
+            </button>
+            <button
+              aria-label="다음 주"
+              className="history-calendar-nav-button"
+              type="button"
+              onClick={() => handleCalendarWeekShift(7)}
+            >
+              ›
+            </button>
+          </div>
         </div>
-        <div className="history-summary-actions">
-          <span className="history-count-pill">
-            {loading ? '불러오는 중' : `${history.length}개 · 최신순`}
-          </span>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void loadHistory()}
-            disabled={loading || markingWornId !== null}
-          >
-            새로고침
-          </button>
+
+        <div className="history-calendar-week" aria-label={`${calendarMonthLabel} 주간 달력`}>
+          {calendarDays.map((day) => {
+            const dateCount = historyDateCounts[day.dateKey] ?? 0;
+            const selected = selectedDateKey === day.dateKey;
+
+            return (
+              <button
+                aria-label={`${day.weekdayLabel}요일 ${day.dayNumber}일, 기록 ${dateCount}개`}
+                aria-pressed={selected}
+                className={selected ? 'history-calendar-day selected' : 'history-calendar-day'}
+                key={day.dateKey}
+                type="button"
+                onClick={() => setSelectedDateKey(day.dateKey)}
+              >
+                <span className="history-calendar-weekday">{day.weekdayLabel}</span>
+                <span className="history-calendar-day-number">{day.dayNumber}</span>
+                <span
+                  className={
+                    dateCount > 0
+                      ? 'history-calendar-event-dot active'
+                      : 'history-calendar-event-dot'
+                  }
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
         </div>
       </article>
 
-      {status ? (
-        <p className="panel-success history-status" role="status">
-          {status}
-        </p>
-      ) : null}
       {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
 
       {loading ? <article className="panel">추천 이력을 확인하고 있어요.</article> : null}
@@ -341,151 +504,170 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
       ) : null}
 
       {!loading && history.length > 0 ? (
-        <div className="history-card-list" aria-label="추천 이력 목록">
-          {history.map((item) => {
-            const wornAt = wornAtById[item.recommendationId] ?? item.wornAt;
-            const markingThisItem = markingWornId === item.recommendationId;
-            const dateParts = formatDateParts(item.createdAt);
-            const outfitItems = getOutfitItems(item);
-            const feedbackLabels = item.feedback
-              ? [
-                  item.feedback.sentiment
-                    ? recommendationFeedbackSentimentLabels[item.feedback.sentiment]
-                    : null,
-                  item.feedback.thermal
-                    ? recommendationThermalFeedbackLabels[item.feedback.thermal]
-                    : null,
-                ].filter(Boolean)
-              : [];
+        <div className="history-flow-list" aria-label="추천 이력 날짜 흐름">
+          {groupedHistory.map((group) => (
+            <section
+              className={
+                selectedDateKey === group.dateKey
+                  ? 'history-flow-day selected'
+                  : 'history-flow-day'
+              }
+              key={group.dateKey}
+            >
+              <header className="history-flow-date">
+                <span className="history-flow-marker" aria-hidden="true" />
+                <div>
+                  <h3>
+                    {group.dateParts.relativeLabel}, {group.dateParts.flowDateLabel}
+                  </h3>
+                  <span>
+                    {group.items.length > 1
+                      ? `${group.items.length}개 기록`
+                      : `${group.dateParts.timeLabel} 기록`}
+                  </span>
+                </div>
+              </header>
 
-            return (
-              <article className="panel history-card" key={item.recommendationId}>
-                <header className="history-card-summary">
-                  <div className="history-card-summary-main">
-                    <p className="eyebrow">추천 #{item.recommendationId} · {dateParts.monthLabel}</p>
-                    <h3 className="history-card-date">{dateParts.dayLabel}</h3>
-                    <p className="muted history-card-time">
-                      {dateParts.timeLabel} 기록 · {item.weather.location.name}
-                    </p>
-                    <div className="history-summary-badge-row">
-                      <span
-                        className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}
-                      >
-                        {item.worn
-                          ? `착용 완료${wornAt ? ` · ${formatDateTime(wornAt)}` : ''}`
-                          : '착용 전'}
-                      </span>
-                      <span className="situation-pill">
-                        {recommendationSituationLabels[item.situation]}
-                      </span>
-                      <span className="situation-pill">
-                        {forecastPeriodLabels[item.forecastPeriod]}
-                      </span>
-                      <span className="feedback-state-pill">
-                        {feedbackLabels.length > 0 ? feedbackLabels.join(' · ') : '피드백 없음'}
-                      </span>
-                      <WeatherBadge weather={item.weather} />
-                    </div>
-                  </div>
-                  <div className="history-card-actions">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => void handleMarkWorn(item.recommendationId)}
-                      disabled={item.worn || markingWornId !== null}
-                    >
-                      {item.worn ? '착용 완료' : markingThisItem ? '저장 중' : '착용 완료하기'}
-                    </button>
-                  </div>
-                </header>
+              <div className="history-flow-items">
+                {group.items.map((item) => {
+                  const wornAt = wornAtById[item.recommendationId] ?? item.wornAt;
+                  const markingThisItem = markingWornId === item.recommendationId;
+                  const dateParts = formatDateParts(item.createdAt);
+                  const outfitItems = getOutfitItems(item);
+                  const outfitPreviewItems = getOutfitPreviewItems(item);
+                  const outfitStyleTags = getOutfitStyleTags(item);
+                  const feedbackLabels = item.feedback
+                    ? [
+                        item.feedback.sentiment
+                          ? recommendationFeedbackSentimentLabels[item.feedback.sentiment]
+                          : null,
+                        item.feedback.thermal
+                          ? recommendationThermalFeedbackLabels[item.feedback.thermal]
+                          : null,
+                      ].filter(Boolean)
+                    : [];
 
-                <section className="history-timeline-entry" aria-label="기록 요약">
-                  <div className="history-timeline-marker" aria-hidden="true" />
-                  <div className="history-timeline-card">
-                    <div className="history-outfit-preview-grid">
-                      {outfitItems.map((outfitItem) => (
-                        <div className="history-outfit-preview-cell" key={outfitItem.label}>
-                          {renderOutfitPreview(
-                            outfitItem.label,
-                            outfitItem.item,
-                            outfitItem.emptyMessage,
-                            accessToken,
-                            onAuthExpired
-                          )}
+                  return (
+                    <article className="panel history-card" key={item.recommendationId}>
+                      <section className="history-timeline-card" aria-label="기록 요약">
+                        <div className="history-outfit-preview-grid">
+                          {outfitPreviewItems.map((outfitItem) => (
+                            <div className="history-outfit-preview-cell" key={outfitItem.label}>
+                              {renderOutfitPreview(
+                                outfitItem.label,
+                                outfitItem.item,
+                                outfitItem.emptyMessage,
+                                accessToken,
+                                onAuthExpired
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <div className="history-timeline-copy">
-                      <div className="history-weather-line">
-                        <WeatherBadge weather={item.weather} />
-                        <span>{item.weather.location.fullName || item.weather.location.name}</span>
-                      </div>
-                      <p>{getPrimaryReason(item)}</p>
-                      <div className="history-feedback-tags" aria-label="피드백 상태">
-                        {feedbackLabels.length > 0 ? (
-                          feedbackLabels.map((label) => (
-                            <span className="feedback-state-pill" key={label}>
-                              {label}
+
+                        <div className="history-timeline-copy">
+                          <div className="history-card-kicker">
+                            <span>추천 #{item.recommendationId}</span>
+                            <span>{dateParts.timeLabel}</span>
+                          </div>
+                          <div className="history-weather-line">
+                            <span className="history-weather-chip">
+                              <strong>{item.weather.temperature}°C</strong>
+                              <WeatherLabel weatherType={item.weather.weatherType} />
                             </span>
-                          ))
-                        ) : (
-                          <span className="feedback-state-pill">피드백 없음</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="history-outfit-summary" aria-label="추천 옷 조합">
-                  <h3>옷 상세</h3>
-                  <div className="history-outfit-list">
-                    {outfitItems.map((outfitItem) => (
-                      <div className="history-outfit-list-cell" key={outfitItem.label}>
-                        {renderOutfitItem(
-                          outfitItem.label,
-                          outfitItem.item,
-                          outfitItem.emptyMessage,
-                          accessToken,
-                          onAuthExpired
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <details className="history-detail-details">
-                  <summary>이유 · 날씨 · 점수 자세히 보기</summary>
-                  <div className="history-detail-grid">
-                    <section className="history-card-section" aria-label="오늘 입기 좋은 이유">
-                      <h3>오늘 입기 좋은 이유</h3>
-                      <ul className="reason-list history-reason-list">
-                        {item.reasons.map((reason) => (
-                          <li key={reason}>{reason}</li>
-                        ))}
-                      </ul>
-                    </section>
-
-                    <section className="history-card-section" aria-label="추천 날씨 스냅샷">
-                      <h3>날씨 스냅샷</h3>
-                      {renderWeatherSnapshot(item)}
-                    </section>
-                  </div>
-
-                  <section className="history-card-section" aria-label="추천 점수 상세">
-                    <h3>점수 상세</h3>
-                    <dl className="score-grid history-score-grid">
-                      {scoreItems.map((scoreItem) => (
-                        <div key={scoreItem.key}>
-                          <dt>{scoreItem.label}</dt>
-                          <dd>{item.score[scoreItem.key]}</dd>
+                            <span className="history-location-chip">
+                              {item.weather.location.name}
+                            </span>
+                          </div>
+                          <p>{getPrimaryReason(item)}</p>
+                          <div className="history-feedback-tags" aria-label="착용과 피드백 상태">
+                            <span
+                              className={
+                                item.worn ? 'history-worn-pill complete' : 'history-worn-pill'
+                              }
+                            >
+                              {item.worn
+                                ? `착용 완료${wornAt ? ` · ${formatDateTime(wornAt)}` : ''}`
+                                : '착용 전'}
+                            </span>
+                            <span className="feedback-state-pill">
+                              {feedbackLabels.length > 0 ? feedbackLabels.join(' · ') : '피드백 없음'}
+                            </span>
+                            {outfitStyleTags.map((tag) => (
+                              <span className="tag-chip readonly" key={tag}>
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="history-card-actions">
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => void handleMarkWorn(item.recommendationId)}
+                              disabled={item.worn || markingWornId !== null}
+                            >
+                              {item.worn ? '착용 완료' : markingThisItem ? '저장 중' : '착용 완료하기'}
+                            </button>
+                          </div>
                         </div>
-                      ))}
-                    </dl>
-                  </section>
-                </details>
-              </article>
-            );
-          })}
+                      </section>
+
+                      <details className="history-detail-details">
+                        <summary>상세보기</summary>
+                        <div className="history-detail-content">
+                          <div className="history-detail-main">
+                            <section className="history-outfit-summary" aria-label="추천 옷 조합">
+                              <div className="history-detail-section-heading">
+                                <h3>옷 상세</h3>
+                              </div>
+                              <div className="history-outfit-list">
+                                {outfitItems.map((outfitItem) => (
+                                  <div className="history-outfit-list-cell" key={outfitItem.label}>
+                                    {renderOutfitItem(
+                                      outfitItem.label,
+                                      outfitItem.item,
+                                      outfitItem.emptyMessage,
+                                      accessToken,
+                                      onAuthExpired
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+
+                            <section
+                              className="history-card-section history-score-summary-card"
+                              aria-label="추천 점수"
+                            >
+                              <div className="history-score-summary-heading">
+                                <div>
+                                  <h3>추천 점수</h3>
+                                </div>
+                                <strong>
+                                  {item.score.totalScore}
+                                  <span>/100</span>
+                                </strong>
+                              </div>
+                              <dl className="history-score-pill-grid">
+                                {scoreItems.map((scoreItem) => (
+                                  <div key={scoreItem.key}>
+                                    <dt>{scoreItem.label}</dt>
+                                    <dd>
+                                      {item.score[scoreItem.key]}
+                                      <span>/{scoreItem.max}</span>
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </section>
+                          </div>
+                        </div>
+                      </details>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       ) : null}
     </div>

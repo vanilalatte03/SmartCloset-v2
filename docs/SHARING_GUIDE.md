@@ -164,7 +164,7 @@ VITE_API_BASE_URL=http://localhost:8080
 - 계정 삭제가 현재 사용자 데이터와 이미지 파일을 삭제한다.
 - Location에서 동네 단위 KMA catalog 검색을 사용할 수 있다.
 - Today/Recommendation에서 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING` 중 하나를 선택할 수 있다.
-- 추천 결과와 History에서 위치/날씨 source snapshot을 확인할 수 있다.
+- 추천 결과와 History에서 위치/날씨 요약을 확인할 수 있고 내부 weather source 필드는 일반 화면에 노출하지 않는다.
 - Closet에서 옷별 styleTags를 저장하고 확인할 수 있다.
 - 추천 결과에서 착용 완료와 피드백 저장/clear를 사용할 수 있다.
 - 옷 이미지 업로드/조회/삭제가 보호 API로 동작한다.

@@ -14,7 +14,8 @@ import {
   clothingColorMetadata,
   clothingMaterialOptions,
   clothingMaterialLabels,
-  formatStyleTagLabel,
+  getDisplayStyleTagEntries,
+  getDisplayStyleTags,
   recommendationSituationLabels,
   styleTagLabels,
   styleTagSuggestionGroups,
@@ -91,12 +92,14 @@ export function PreferencesPanel({
     preferences.preferredMaterials[0]
       ? clothingMaterialLabels[preferences.preferredMaterials[0]]
       : '소재';
+  const displayPreferenceStyleTags = getDisplayStyleTags(preferences.styleTags);
+  const displayPreferenceStyleTagEntries = getDisplayStyleTagEntries(preferences.styleTags);
   const selectedTagLabel =
-    preferences.styleTags[0] ? formatStyleTagLabel(preferences.styleTags[0]) : '태그';
+    displayPreferenceStyleTags[0] ?? '태그';
   const totalPreferenceCount =
     preferences.preferredColors.length +
     preferences.preferredMaterials.length +
-    preferences.styleTags.length;
+    displayPreferenceStyleTags.length;
 
   const loadPreferences = useCallback(async () => {
     setLoading(true);
@@ -181,12 +184,15 @@ export function PreferencesPanel({
     });
   };
 
-  const handleRemoveTag = (tag: string) => {
+  const handleRemoveDisplayedTags = (sourceTags: string[]) => {
     setError(null);
     setStatus(null);
     setPreferences({
       ...preferences,
-      styleTags: removeStyleTag(preferences.styleTags, tag),
+      styleTags: sourceTags.reduce(
+        (remainingTags, tag) => removeStyleTag(remainingTags, tag),
+        preferences.styleTags
+      ),
     });
   };
 
@@ -341,7 +347,7 @@ export function PreferencesPanel({
                     </p>
                   </div>
                   <span className="preference-count-pill">
-                    {preferences.styleTags.length}개 태그
+                    {displayPreferenceStyleTags.length}개 태그
                   </span>
                 </div>
                 <div className="style-tag-suggestions" aria-label="추천 스타일 태그">
@@ -403,14 +409,14 @@ export function PreferencesPanel({
                   </button>
                 </div>
                 <div className="tag-list" aria-label="저장된 스타일 태그">
-                  {preferences.styleTags.length > 0 ? (
-                    preferences.styleTags.map((tag) => (
-                      <span className="tag-chip" key={tag}>
-                        {formatStyleTagLabel(tag)}
+                  {displayPreferenceStyleTagEntries.length > 0 ? (
+                    displayPreferenceStyleTagEntries.map((entry) => (
+                      <span className="tag-chip" key={entry.label}>
+                        {entry.label}
                         <button
                           type="button"
-                          aria-label={`${tag} 삭제`}
-                          onClick={() => handleRemoveTag(tag)}
+                          aria-label={`${entry.label} 삭제`}
+                          onClick={() => handleRemoveDisplayedTags(entry.sourceTags)}
                         >
                           x
                         </button>

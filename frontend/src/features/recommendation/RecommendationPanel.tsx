@@ -23,6 +23,7 @@ import {
   clothingCategoryLabels,
   forecastPeriodLabels,
   forecastPeriodOptions,
+  getDisplayStyleTags,
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
   recommendationSituationOptions,
@@ -170,6 +171,7 @@ function renderOutfitSlotCard(
   onAuthExpired: () => void
 ) {
   const label = clothingCategoryLabels[category];
+  const displayStyleTags = item ? getDisplayStyleTags(item.styleTags) : [];
 
   return (
     <article className={item ? 'outfit-slot-card' : 'outfit-slot-card empty'}>
@@ -203,8 +205,8 @@ function renderOutfitSlotCard(
 
       {item ? (
         <div className="tag-list outfit-slot-tags" aria-label={`${item.name} 스타일 태그`}>
-          {item.styleTags.length > 0 ? (
-            item.styleTags.map((tag) => (
+          {displayStyleTags.length > 0 ? (
+            displayStyleTags.map((tag) => (
               <span className="tag-chip readonly" key={tag}>
                 {tag}
               </span>

@@ -83,7 +83,7 @@ const viewHeadings: Record<AppView, { title: string; subtitle: string }> = {
   },
   history: {
     title: '기록',
-    subtitle: '최근 추천과 착용 여부, 날씨 스냅샷, 피드백을 시간순으로 확인합니다.',
+    subtitle: '최근 추천과 착용 여부, 핵심 이유, 피드백을 시간순으로 확인합니다.',
   },
   account: {
     title: '계정 설정',
