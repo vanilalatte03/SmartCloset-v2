@@ -4,6 +4,7 @@ import com.smartcloset.auth.application.AuthProviderService;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.user.dto.CurrentUserResponse;
+import com.smartcloset.user.dto.UpdateCurrentUserRequest;
 import com.smartcloset.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,16 @@ public class CurrentUserService {
     public CurrentUserResponse getCurrentUser(Long userId) {
         return userRepository.findById(userId)
                 .map(user -> CurrentUserResponse.from(user, authProviderService.providersFor(user)))
+                .orElseThrow(() -> new SmartClosetException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Transactional
+    public CurrentUserResponse updateCurrentUser(Long userId, UpdateCurrentUserRequest request) {
+        return userRepository.findById(userId)
+                .map(user -> {
+                    user.rename(request.name().trim());
+                    return CurrentUserResponse.from(user, authProviderService.providersFor(user));
+                })
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.USER_NOT_FOUND));
     }
 }

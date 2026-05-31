@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toErrorResponse } from '../../api/errorHelpers';
-import { deleteAccount } from '../../api/smartClosetApi';
+import { deleteAccount, updateCurrentUser } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import type {
   AuthProvider,
@@ -14,17 +14,41 @@ type AccountSettingsPanelProps = {
   accessToken: string;
   currentUser: CurrentUserResponse;
   onAccountDeleted: () => void;
+  onCurrentUserUpdated: (currentUser: CurrentUserResponse) => void;
 };
 
 export function AccountSettingsPanel({
   accessToken,
   currentUser,
   onAccountDeleted,
+  onCurrentUserUpdated,
 }: AccountSettingsPanelProps) {
   const [confirmation, setConfirmation] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ErrorResponse | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(currentUser.name);
+  const [nameSubmitting, setNameSubmitting] = useState(false);
+  const [nameError, setNameError] = useState<ErrorResponse | null>(null);
+
+  useEffect(() => {
+    if (!editingName) {
+      setDraftName(currentUser.name);
+    }
+  }, [currentUser.name, editingName]);
+
+  const closeDeleteDialog = () => {
+    if (submitting) {
+      return;
+    }
+
+    setDeleteDialogOpen(false);
+    setConfirmation('');
+    setPassword('');
+    setError(null);
+  };
 
   const handleDeleteAccount = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,6 +76,49 @@ export function AccountSettingsPanel({
     }
   };
 
+  const openNameEditor = () => {
+    setDraftName(currentUser.name);
+    setNameError(null);
+    setEditingName(true);
+  };
+
+  const closeNameEditor = () => {
+    if (nameSubmitting) {
+      return;
+    }
+
+    setDraftName(currentUser.name);
+    setNameError(null);
+    setEditingName(false);
+  };
+
+  const handleUpdateName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextName = draftName.trim();
+
+    if (!nextName) {
+      setNameError({
+        code: 'INVALID_REQUEST',
+        message: '이름을 입력해주세요.',
+        details: [],
+      });
+      return;
+    }
+
+    setNameSubmitting(true);
+    setNameError(null);
+
+    try {
+      const updatedUser = await updateCurrentUser(accessToken, { name: nextName });
+      onCurrentUserUpdated(updatedUser);
+      setEditingName(false);
+    } catch (caught) {
+      setNameError(toErrorResponse(caught, '이름을 수정할 수 없습니다.'));
+    } finally {
+      setNameSubmitting(false);
+    }
+  };
+
   const providerLabels: Record<AuthProvider, string> = {
     PASSWORD: '이메일 로그인',
     GOOGLE: 'Google 로그인',
@@ -60,33 +127,22 @@ export function AccountSettingsPanel({
   const profileInitial = currentUser.name.trim().charAt(0) || currentUser.email.charAt(0);
   const joinedAt = formatDateTime(currentUser.createdAt);
   const updatedAt = formatDateTime(currentUser.updatedAt);
-  const accountStateText = currentUser.emailVerified ? '이메일 확인 완료' : '이메일 확인 필요';
-  const accountStateDetail = [
-    currentUser.passwordLoginEnabled ? '이메일 로그인 사용 가능' : '이메일 로그인 사용 안 함',
-    providerSet.has('GOOGLE') ? 'Google 연결됨' : 'Google 연결 안 됨',
-  ].join(' · ');
 
   return (
     <div className="account-settings-panel">
       <article className="account-hero-card">
-        <div className="account-hero-copy">
-          <p className="eyebrow">프로필에서 열린 계정 설정</p>
-          <div className="account-hero-title">
-            <span className="account-hero-avatar" aria-hidden="true">
-              {profileInitial.toUpperCase()}
-            </span>
-            <div>
-              <h2>{currentUser.email}</h2>
-              <p>{accountStateText} · {accountStateDetail}</p>
-            </div>
-          </div>
-          <div className="account-status-chip-row" aria-label="계정 상태 요약">
-            <span>{currentUser.emailVerified ? '이메일 확인됨' : '확인 필요'}</span>
-            <span>{currentUser.passwordLoginEnabled ? '이메일 로그인' : 'Password 비활성'}</span>
-            <span>{providerSet.has('GOOGLE') ? 'Google 연결' : 'Google 미연결'}</span>
-          </div>
+        <p className="account-hero-eyebrow">계정 상태</p>
+        <div className="account-hero-title">
+          <span className="account-hero-avatar" aria-hidden="true">
+            {profileInitial.toUpperCase()}
+          </span>
+          <h2>{currentUser.email}</h2>
         </div>
-        <span className="account-context-pill">계정 설정</span>
+        <div className="account-status-chip-row" aria-label="계정 상태 요약">
+          <span>{currentUser.emailVerified ? '이메일 확인됨' : '확인 필요'}</span>
+          <span>{currentUser.passwordLoginEnabled ? '이메일 로그인' : 'Password 비활성'}</span>
+          <span>{providerSet.has('GOOGLE') ? 'Google 연결' : 'Google 미연결'}</span>
+        </div>
       </article>
 
       <div className="account-settings-grid">
@@ -108,8 +164,46 @@ export function AccountSettingsPanel({
             <div>
               <dt>이름</dt>
               <dd>
-                <span>{currentUser.name}</span>
-                <strong>{currentUser.role}</strong>
+                {editingName ? (
+                  <form className="account-name-edit-form" onSubmit={handleUpdateName}>
+                    <input
+                      aria-label="이름"
+                      value={draftName}
+                      maxLength={50}
+                      onChange={(event) => setDraftName(event.target.value)}
+                      disabled={nameSubmitting}
+                      required
+                    />
+                    <div className="account-name-edit-actions">
+                      <button
+                        className="account-inline-action account-inline-action-muted"
+                        type="button"
+                        onClick={closeNameEditor}
+                        disabled={nameSubmitting}
+                      >
+                        취소
+                      </button>
+                      <button
+                        className="account-inline-action"
+                        type="submit"
+                        disabled={nameSubmitting || draftName.trim() === currentUser.name}
+                      >
+                        {nameSubmitting ? '저장 중' : '저장'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <span>{currentUser.name}</span>
+                    <button
+                      className="account-inline-action"
+                      type="button"
+                      onClick={openNameEditor}
+                    >
+                      이름 수정
+                    </button>
+                  </>
+                )}
               </dd>
             </div>
             <div>
@@ -120,6 +214,17 @@ export function AccountSettingsPanel({
               </dd>
             </div>
           </dl>
+          {nameError ? <ApiErrorMessage error={nameError} className="error-banner" /> : null}
+
+          <div className="account-summary-actions" aria-label="계정 관리">
+            <button
+              className="account-danger-trigger"
+              type="button"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              계정 삭제
+            </button>
+          </div>
         </article>
 
         <aside className="account-side-stack" aria-label="계정 상태">
@@ -129,7 +234,7 @@ export function AccountSettingsPanel({
               <h2>안전하게 유지 중</h2>
             </header>
             <p className="muted account-panel-copy">
-              이 기기에서 로그인 중입니다. 새로고침 후에도 refresh cookie로 세션을 복구할 수 있습니다.
+              새로고침 후에도 로그인 상태를 복구할 수 있습니다.
             </p>
           </article>
 
@@ -148,7 +253,7 @@ export function AccountSettingsPanel({
                 return (
                   <div className="account-provider-tile" data-connected={connected} key={provider}>
                     <strong>{providerLabels[provider]}</strong>
-                    <span>{connected ? '사용 가능' : '연결 안 됨'}</span>
+                    <span>{connected ? '연결됨' : '연결 안 됨'}</span>
                   </div>
                 );
               })}
@@ -162,51 +267,78 @@ export function AccountSettingsPanel({
         </aside>
       </div>
 
-      <article className="panel account-danger-card">
-        <header className="section-title-row account-section-heading">
-          <div>
-            <p className="eyebrow">계정 삭제</p>
-            <h2>내 데이터 삭제</h2>
-          </div>
-        </header>
-        <p className="muted account-delete-copy">
-          계정과 옷장, 위치, 취향, 추천 이력, 이미지 파일이 함께 삭제됩니다.
-          {currentUser.passwordLoginEnabled
-            ? ' Password 계정은 현재 비밀번호 확인이 필요합니다.'
-            : ' Google-only 계정은 확인 문구만 필요합니다.'}
-        </p>
-        {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
-        <form className="panel-form account-delete-form" onSubmit={handleDeleteAccount}>
-          <label className="field">
-            <span>확인 문구</span>
-            <input
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              placeholder="DELETE"
-              required
-            />
-          </label>
-          {currentUser.passwordLoginEnabled ? (
-            <label className="field">
-              <span>현재 비밀번호</span>
-              <input
-                type="password"
-                value={password}
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </label>
-          ) : null}
-          <button
-            className="secondary-button danger-button"
-            type="submit"
-            disabled={submitting || confirmation !== 'DELETE'}
+      {deleteDialogOpen ? (
+        <div
+          className="account-delete-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeDeleteDialog();
+            }
+          }}
+        >
+          <section
+            className="account-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-delete-title"
           >
-            {submitting ? '삭제 중' : '계정 삭제'}
-          </button>
-        </form>
-      </article>
+            <header className="account-delete-modal-heading">
+              <div>
+                <p className="eyebrow">계정 삭제</p>
+                <h2 id="account-delete-title">내 데이터 삭제</h2>
+              </div>
+            </header>
+            <p className="muted account-delete-copy">
+              계정과 옷장, 위치, 취향, 추천 이력, 이미지 파일이 함께 삭제됩니다.
+              {currentUser.passwordLoginEnabled
+                ? ' Password 계정은 현재 비밀번호 확인이 필요합니다.'
+                : ' Google-only 계정은 확인 문구만 필요합니다.'}
+            </p>
+            {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
+            <form className="panel-form account-delete-form" onSubmit={handleDeleteAccount}>
+              <label className="field">
+                <span>확인 문구</span>
+                <input
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  placeholder="DELETE"
+                  required
+                />
+              </label>
+              {currentUser.passwordLoginEnabled ? (
+                <label className="field">
+                  <span>현재 비밀번호</span>
+                  <input
+                    type="password"
+                    value={password}
+                    autoComplete="current-password"
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                  />
+                </label>
+              ) : null}
+              <div className="account-delete-modal-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={closeDeleteDialog}
+                  disabled={submitting}
+                >
+                  취소
+                </button>
+                <button
+                  className="secondary-button danger-button"
+                  type="submit"
+                  disabled={submitting || confirmation !== 'DELETE'}
+                >
+                  {submitting ? '삭제 중' : '계정 삭제'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

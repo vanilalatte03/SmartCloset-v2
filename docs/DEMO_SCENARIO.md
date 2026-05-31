@@ -155,13 +155,14 @@ http://localhost:8080/swagger-ui/index.html
 
 1. Profile pill/menu에서 계정 설정으로 이동한다.
 2. 이메일 인증 상태, 로그인 제공자, 세션 상태를 확인한다.
-3. confirmation `DELETE`를 입력한다.
-4. Password login enabled 계정이면 현재 비밀번호를 입력한다.
-5. 삭제를 실행한다.
+3. 계정 정보 카드 오른쪽 아래의 작은 `계정 삭제` 버튼으로 삭제 팝업을 연다.
+4. confirmation `DELETE`를 입력한다.
+5. Password login enabled 계정이면 현재 비밀번호를 입력한다.
+6. 삭제를 실행한다.
 
 기대 결과:
 
-- 계정 삭제 위험 영역이 다른 설정과 분리되어 보인다.
+- 계정 삭제는 기본 화면에서 크게 노출되지 않고, 작은 팝업으로 다른 설정과 분리되어 보인다.
 - 계정 삭제가 성공한다.
 - 로그인 상태가 초기화된다.
 - 기존 refresh cookie는 더 이상 사용할 수 없다.

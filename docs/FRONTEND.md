@@ -136,6 +136,10 @@ export type CurrentUserResponse = {
   updatedAt: string;
 };
 
+export type UpdateCurrentUserRequest = {
+  name: string;
+};
+
 export type SignupResponse = {
   email: string;
   emailVerificationRequired: boolean;
@@ -276,20 +280,22 @@ Reference:
 표시 항목:
 
 - 이메일
+- 이름과 이름 수정 진입
 - 이메일 인증 상태
 - 연결된 로그인 제공자: password, Google
 - password login 가능 여부
 - 세션 상태
-- 계정 삭제 control
+- 계정 정보 카드 오른쪽 아래의 작은 진입 버튼으로 여는 계정 삭제 팝업
 
 계정 삭제:
 
+- 기본 화면에서는 큰 위험 영역을 바로 노출하지 않고 계정 정보 카드 오른쪽 아래 작은 계정 삭제 버튼으로 팝업을 연다.
 - 삭제 전 확인 문구를 요구한다.
 - Password login enabled 계정은 현재 비밀번호 입력을 요구한다.
 - Google-only 계정은 confirmation만 요구한다.
 - 삭제 성공 후 local auth state를 초기화하고 로그인 화면으로 이동한다.
 - 삭제 실패 시 공통 error banner를 사용한다.
-- 위험 영역은 시각적으로 분리한다.
+- 계정 삭제 팝업은 다른 설정 화면 위에 시각적으로 분리해서 표시한다.
 
 ## 기존 UX 유지
 

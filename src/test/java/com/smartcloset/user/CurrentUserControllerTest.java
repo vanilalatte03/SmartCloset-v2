@@ -3,6 +3,7 @@ package com.smartcloset.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -125,6 +126,61 @@ class CurrentUserControllerTest {
                 .andExpect(jsonPath("$.data.createdAt").exists())
                 .andExpect(jsonPath("$.data.updatedAt").exists())
                 .andExpect(jsonPath("$.data.userId").doesNotExist());
+    }
+
+    @Test
+    void updatesCurrentUserNameForValidBearerToken() throws Exception {
+        User user = userRepository.save(User.createSeedUser("before-name"));
+        String token = accessToken(user);
+
+        mockMvc.perform(patch("/api/users/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "  지호  "))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value(user.getEmail()))
+                .andExpect(jsonPath("$.data.name").value("지호"))
+                .andExpect(jsonPath("$.data.role").value("USER"))
+                .andExpect(jsonPath("$.data.userId").doesNotExist());
+
+        Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getName()).isEqualTo("지호");
+    }
+
+    @Test
+    void updatesGoogleOnlyCurrentUserNameForValidBearerToken() throws Exception {
+        User user = userRepository.save(User.createGoogleUser("google-name@example.com", "Google Name"));
+        socialAccountRepository.save(SocialAccount.link(
+                user,
+                OAuthProvider.GOOGLE,
+                "google-name-profile",
+                user.getEmail(),
+                LocalDateTime.now()
+        ));
+
+        mockMvc.perform(patch("/api/users/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Google Jiho"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Google Jiho"))
+                .andExpect(jsonPath("$.data.passwordLoginEnabled").value(false))
+                .andExpect(jsonPath("$.data.authProviders[0]").value("GOOGLE"));
+
+        Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getName()).isEqualTo("Google Jiho");
+    }
+
+    @Test
+    void updateCurrentUserNameRejectsBlankName() throws Exception {
+        User user = userRepository.save(User.createSeedUser("blank-name"));
+
+        mockMvc.perform(patch("/api/users/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", " "))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getName()).isEqualTo("blank-name");
     }
 
     @Test
