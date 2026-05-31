@@ -70,7 +70,8 @@ public class RecommendationReasonGenerator {
     }
 
     private String weatherReason(OutfitCandidate candidate, WeatherCondition weather) {
-        if (weather.temperature() <= 12 && candidate.hasOuter()) {
+        int temperature = weather.temperature();
+        if (temperature <= 12 && candidate.hasOuter()) {
             return "현재 기온이 낮아 아우터를 포함한 조합을 추천했습니다.";
         }
         if (weather.rainy()) {
@@ -80,7 +81,25 @@ public class RecommendationReasonGenerator {
             }
             return "비에 적합하지 않은 옷이 포함되어 날씨 점수가 일부 낮아졌습니다.";
         }
-        return "선택된 옷들이 현재 기온에 맞는 온도 범위에 있습니다.";
+        if (temperature >= 25 && !candidate.hasOuter()) {
+            return temperature + "°C 기준으로 아우터 없이 가볍게 입기 좋은 조합입니다.";
+        }
+        if (temperature >= 25) {
+            return temperature + "°C에도 각 옷의 권장 온도 범위 안에 있어 실내외 이동에 맞췄습니다.";
+        }
+        if (temperature >= 17 && !candidate.hasOuter()) {
+            return temperature + "°C의 온화한 날씨에 상하의만으로 부담이 적은 조합입니다.";
+        }
+        if (temperature >= 17) {
+            return temperature + "°C 날씨에 가볍게 걸칠 수 있는 범위의 옷을 골랐습니다.";
+        }
+        if (temperature >= 13 && candidate.hasOuter()) {
+            return temperature + "°C의 선선한 기온이라 아우터로 체온 조절하기 좋습니다.";
+        }
+        if (temperature >= 13) {
+            return temperature + "°C 기준으로 상의와 하의가 모두 권장 온도 안에 있어 무리가 적습니다.";
+        }
+        return temperature + "°C 기준으로 선택된 옷들이 모두 낮은 기온 범위에 맞습니다.";
     }
 
     private String colorReason(OutfitCandidate candidate) {

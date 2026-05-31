@@ -58,6 +58,53 @@ class RecommendationReasonGeneratorTest {
     }
 
     @Test
+    void generatesHotWeatherReasonWithoutGenericTemperatureText() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 20, 32, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 18, 30, false)
+        );
+        WeatherCondition weather = WeatherCondition.of(26, WeatherType.SUNNY, false, false);
+        RecommendationScore score = scorer.score(candidate, weather, List.of(), List.of(), requestedAt);
+
+        List<String> reasons = generator.generate(candidate, score, weather, List.of(), List.of(), requestedAt);
+
+        assertThat(reasons.get(0)).isEqualTo("26°C 기준으로 아우터 없이 가볍게 입기 좋은 조합입니다.");
+        assertThat(reasons).doesNotContain("선택된 옷들이 현재 기온에 맞는 온도 범위에 있습니다.");
+    }
+
+    @Test
+    void generatesMildWeatherReasonForOuterLayer() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 10, 24, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 10, 24, false),
+                clothing(3, user, ClothingCategory.OUTER, ClothingColor.NAVY, ClothingMaterial.POLYESTER, 10, 24, false)
+        );
+        WeatherCondition weather = WeatherCondition.of(20, WeatherType.CLOUDY, false, false);
+        RecommendationScore score = scorer.score(candidate, weather, List.of(), List.of(), requestedAt);
+
+        List<String> reasons = generator.generate(candidate, score, weather, List.of(), List.of(), requestedAt);
+
+        assertThat(reasons.get(0)).isEqualTo("20°C 날씨에 가볍게 걸칠 수 있는 범위의 옷을 골랐습니다.");
+    }
+
+    @Test
+    void generatesCoolWeatherReasonWithoutOuterLayer() {
+        User user = user(1);
+        OutfitCandidate candidate = candidate(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 10, 18, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 10, 18, false)
+        );
+        WeatherCondition weather = WeatherCondition.of(15, WeatherType.CLOUDY, false, false);
+        RecommendationScore score = scorer.score(candidate, weather, List.of(), List.of(), requestedAt);
+
+        List<String> reasons = generator.generate(candidate, score, weather, List.of(), List.of(), requestedAt);
+
+        assertThat(reasons.get(0)).isEqualTo("15°C 기준으로 상의와 하의가 모두 권장 온도 안에 있어 무리가 적습니다.");
+    }
+
+    @Test
     void generatesPreferenceAndStyleTagReasonsWhenScoreIsPositive() {
         User user = user(1);
         OutfitCandidate candidate = candidate(

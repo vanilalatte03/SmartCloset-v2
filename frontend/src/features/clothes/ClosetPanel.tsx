@@ -24,7 +24,8 @@ import {
   clothingColorOptions,
   clothingMaterialLabels,
   clothingMaterialOptions,
-  formatStyleTagLabel,
+  getDisplayStyleTagEntries,
+  getDisplayStyleTags,
   recommendationSituationLabels,
   styleTagSuggestionGroups,
 } from '../../utils/displayMappings';
@@ -589,17 +590,22 @@ export function ClosetPanel({
     setTagInput('');
   };
 
-  const handleRemoveTag = (tag: string) => {
+  const handleRemoveDisplayedTags = (sourceTags: string[]) => {
     setError(null);
     setStatus(null);
     setForm((current) => ({
       ...current,
-      styleTags: removeStyleTag(current.styleTags, tag),
+      styleTags: sourceTags.reduce(
+        (remainingTags, tag) => removeStyleTag(remainingTags, tag),
+        current.styleTags
+      ),
     }));
   };
 
   const imageCount = activeClothes.filter((item) => item.image !== null).length;
   const taggedCount = activeClothes.filter((item) => item.styleTags.length > 0).length;
+  const formDisplayStyleTags = getDisplayStyleTags(form.styleTags);
+  const formDisplayStyleTagEntries = getDisplayStyleTagEntries(form.styleTags);
 
   return (
     <article className="panel closet-panel">
@@ -666,81 +672,85 @@ export function ClosetPanel({
           ) : activeClothes.length > 0 ? (
             filteredClothes.length > 0 ? (
               <div className="closet-card-grid">
-                {filteredClothes.map((item) => (
-                  <article className="closet-card" key={item.id}>
-                    <div className="closet-card-visual-row">
-                      <span
-                        className={`closet-category-visual ${item.category.toLowerCase()}`}
-                        aria-hidden="true"
-                      >
-                        {categoryVisualLabels[item.category]}
-                      </span>
-                      <span className="category-pill">{clothingCategoryLabels[item.category]}</span>
-                    </div>
-                    <ClothingThumbnail
-                      accessToken={accessToken}
-                      item={item}
-                      onAuthExpired={onAuthExpired}
-                    />
-                    <div className="closet-card-body">
-                      <strong className="closet-item-name">{item.name}</strong>
-                      <span className="closet-item-detail">
-                        {clothingCategoryLabels[item.category]} · {clothingMaterialLabels[item.material]} ·{' '}
-                        {item.minTemperature}°C-{item.maxTemperature}°C
-                      </span>
-                      <span className="token-row closet-token-row">
-                        <ColorSwatch color={item.color} />
-                        <MaterialChip material={item.material} />
-                      </span>
-                      <span className="closet-weather-row">
-                        <span className="weather-fit-badge">
+                {filteredClothes.map((item) => {
+                  const displayStyleTags = getDisplayStyleTags(item.styleTags);
+
+                  return (
+                    <article className="closet-card" key={item.id}>
+                      <div className="closet-card-visual-row">
+                        <span
+                          className={`closet-category-visual ${item.category.toLowerCase()}`}
+                          aria-hidden="true"
+                        >
+                          {categoryVisualLabels[item.category]}
+                        </span>
+                        <span className="category-pill">{clothingCategoryLabels[item.category]}</span>
+                      </div>
+                      <ClothingThumbnail
+                        accessToken={accessToken}
+                        item={item}
+                        onAuthExpired={onAuthExpired}
+                      />
+                      <div className="closet-card-body">
+                        <strong className="closet-item-name">{item.name}</strong>
+                        <span className="closet-item-detail">
+                          {clothingCategoryLabels[item.category]} · {clothingMaterialLabels[item.material]} ·{' '}
                           {item.minTemperature}°C-{item.maxTemperature}°C
                         </span>
-                        <span
-                          className={
-                            item.rainSuitable
-                              ? 'weather-fit-badge rain-ready'
-                              : 'weather-fit-badge'
-                          }
-                        >
-                          {item.rainSuitable ? '비 오는 날 적합' : '맑은 날 중심'}
+                        <span className="token-row closet-token-row">
+                          <ColorSwatch color={item.color} />
+                          <MaterialChip material={item.material} />
                         </span>
-                      </span>
-                      <span
-                        className="tag-list closet-card-tags"
-                        aria-label={`${item.name} 스타일 태그`}
-                      >
-                        {item.styleTags.length > 0 ? (
-                          item.styleTags.map((tag) => (
-                            <span className="tag-chip readonly" key={tag}>
-                              {tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="muted">스타일 태그 없음</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="closet-item-actions closet-card-actions">
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={() => handleEdit(item)}
-                        disabled={submitting || archivingId !== null}
-                      >
-                        수정
-                      </button>
-                      <button
-                        className="secondary-button danger-button"
-                        type="button"
-                        onClick={() => void handleArchive(item)}
-                        disabled={submitting || archivingId !== null}
-                      >
-                        {archivingId === item.id ? '보관 중' : '보관'}
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                        <span className="closet-weather-row">
+                          <span className="weather-fit-badge">
+                            {item.minTemperature}°C-{item.maxTemperature}°C
+                          </span>
+                          <span
+                            className={
+                              item.rainSuitable
+                                ? 'weather-fit-badge rain-ready'
+                                : 'weather-fit-badge'
+                            }
+                          >
+                            {item.rainSuitable ? '비 오는 날 적합' : '맑은 날 중심'}
+                          </span>
+                        </span>
+                        <span
+                          className="tag-list closet-card-tags"
+                          aria-label={`${item.name} 스타일 태그`}
+                        >
+                          {displayStyleTags.length > 0 ? (
+                            displayStyleTags.map((tag) => (
+                              <span className="tag-chip readonly" key={tag}>
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="muted">스타일 태그 없음</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="closet-item-actions closet-card-actions">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => handleEdit(item)}
+                          disabled={submitting || archivingId !== null}
+                        >
+                          수정
+                        </button>
+                        <button
+                          className="secondary-button danger-button"
+                          type="button"
+                          onClick={() => void handleArchive(item)}
+                          disabled={submitting || archivingId !== null}
+                        >
+                          {archivingId === item.id ? '보관 중' : '보관'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className="muted">선택한 카테고리에 활성 옷이 없어요.</p>
@@ -854,10 +864,10 @@ export function ClosetPanel({
                 <MaterialChip material={form.material} />
               </div>
               <div className="tag-list closet-card-tags">
-                {form.styleTags.length > 0 ? (
-                  form.styleTags.slice(0, 5).map((tag) => (
+                {formDisplayStyleTags.length > 0 ? (
+                  formDisplayStyleTags.slice(0, 5).map((tag) => (
                     <span className="tag-chip readonly" key={tag}>
-                      {formatStyleTagLabel(tag)}
+                      {tag}
                     </span>
                   ))
                 ) : (
@@ -985,7 +995,7 @@ export function ClosetPanel({
               <div>
                 <h3>스타일 태그</h3>
                 <p className="muted closet-form-note">
-                  저장 전 {form.styleTags.length}개 태그가 추천 개인화에 사용됩니다.
+                  저장 전 {formDisplayStyleTags.length}개 태그가 추천 개인화에 사용됩니다.
                 </p>
               </div>
             </div>
@@ -1048,14 +1058,14 @@ export function ClosetPanel({
               </button>
             </div>
             <div className="tag-list" aria-label="옷 스타일 태그 목록">
-              {form.styleTags.length > 0 ? (
-                form.styleTags.map((tag) => (
-                  <span className="tag-chip" key={tag}>
-                    {formatStyleTagLabel(tag)}
+              {formDisplayStyleTagEntries.length > 0 ? (
+                formDisplayStyleTagEntries.map((entry) => (
+                  <span className="tag-chip" key={entry.label}>
+                    {entry.label}
                     <button
                       type="button"
-                      aria-label={`${tag} 삭제`}
-                      onClick={() => handleRemoveTag(tag)}
+                      aria-label={`${entry.label} 삭제`}
+                      onClick={() => handleRemoveDisplayedTags(entry.sourceTags)}
                       disabled={submitting}
                     >
                       x
