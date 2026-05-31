@@ -2156,21 +2156,6 @@
   margin: 12px 0 0;
 }
 
-.preferences-hero-count {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  color: #ffffff;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 900;
-  min-height: 34px;
-  padding: 0 12px;
-  white-space: nowrap;
-}
-
 .preferences-layout {
   align-items: start;
   display: grid;
@@ -2191,9 +2176,8 @@
 }
 
 .preference-card,
-.preference-impact-card,
 .preferences-save-bar,
-.preference-summary {
+.preference-summary-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -2201,36 +2185,32 @@
   padding: 18px;
 }
 
+.preference-summary-card {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .preference-summary {
   margin: 0;
 }
 
+.preferences-summary-save {
+  align-items: stretch;
+  background: transparent;
+  border: 0;
+  justify-content: center;
+  justify-self: end;
+  padding: 0;
+}
+
+.preferences-summary-save .primary-button {
+  min-width: 180px;
+}
+
 .preference-card .section-title-row {
   margin-bottom: 12px;
-}
-
-.preference-impact-card {
-  background: #202228;
-  border-color: #202228;
-  color: #ffffff;
-  display: grid;
-  gap: 8px;
-}
-
-.preference-impact-card .eyebrow {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.preference-impact-card h3 {
-  color: #ffffff;
-  font-size: 18px;
-}
-
-.preference-impact-card p {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 0;
 }
 
 .preference-count-pill {
@@ -2331,6 +2311,10 @@
 
 .preferences-save-bar .primary-button {
   min-width: 160px;
+}
+
+.preferences-mobile-only {
+  display: none;
 }
 
 .token-row {
@@ -4923,10 +4907,24 @@
   .preferences-panel > .section-title-row,
   .preferences-hero,
   .preference-card,
-  .preference-impact-card,
   .preferences-save-bar,
-  .preference-summary {
+  .preference-summary-card {
     padding: 16px;
+  }
+
+  .preference-summary-card {
+    grid-template-columns: 1fr;
+  }
+
+  .preference-summary-card .preference-summary {
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .preference-summary-card .preference-summary dd {
+    font-size: 15px;
+    line-height: 1.25;
+    white-space: nowrap;
   }
 
   .closet-quick-panel {
@@ -4973,10 +4971,6 @@
     line-height: 1.22;
   }
 
-  .preferences-hero-count {
-    width: fit-content;
-  }
-
   .preferences-save-bar {
     align-items: stretch;
     background: var(--surface);
@@ -4986,6 +4980,14 @@
     margin: 0;
     position: sticky;
     z-index: 8;
+  }
+
+  .preferences-mobile-only.preferences-save-bar {
+    display: flex;
+  }
+
+  .preferences-summary-save {
+    display: none;
   }
 
   .preferences-save-bar .primary-button {
