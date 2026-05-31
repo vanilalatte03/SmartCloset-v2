@@ -67,6 +67,14 @@ function toggleValue<T extends string>(values: T[], value: T): T[] {
     : [...values, value];
 }
 
+function areArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function getSaveStatusLabel(saved: boolean): string {
+  return saved ? '저장 완료' : '저장 예정';
+}
+
 type PreferencesPanelProps = {
   accessToken: string;
   onAuthExpired: () => void;
@@ -79,10 +87,11 @@ export function PreferencesPanel({
   onPreferencesConfirmed,
 }: PreferencesPanelProps) {
   const [preferences, setPreferences] = useState<UserPreferencesResponse>(emptyPreferences);
+  const [savedPreferences, setSavedPreferences] =
+    useState<UserPreferencesResponse>(emptyPreferences);
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
   const selectedColorLabel =
     preferences.preferredColors[0]
@@ -96,10 +105,30 @@ export function PreferencesPanel({
   const displayPreferenceStyleTagEntries = getDisplayStyleTagEntries(preferences.styleTags);
   const selectedTagLabel =
     displayPreferenceStyleTags[0] ?? '태그';
-  const totalPreferenceCount =
-    preferences.preferredColors.length +
-    preferences.preferredMaterials.length +
-    displayPreferenceStyleTags.length;
+  const colorSummaryStatusLabel = getSaveStatusLabel(
+    areArraysEqual(preferences.preferredColors, savedPreferences.preferredColors)
+  );
+  const materialSummaryStatusLabel = getSaveStatusLabel(
+    areArraysEqual(preferences.preferredMaterials, savedPreferences.preferredMaterials)
+  );
+  const tagSummaryStatusLabel = getSaveStatusLabel(
+    areArraysEqual(
+      normalizeStyleTags(preferences.styleTags),
+      normalizeStyleTags(savedPreferences.styleTags)
+    )
+  );
+  const renderPreferencesSaveBar = (className = '', showDescription = true) => (
+    <div
+      className={className ? `preferences-save-bar ${className}` : 'preferences-save-bar'}
+    >
+      {showDescription ? (
+        <span className="muted">저장하면 오늘 체크리스트에 확인 상태가 반영됩니다.</span>
+      ) : null}
+      <button className="primary-button" type="submit" disabled={saving}>
+        {saving ? '저장 중' : '선호도 저장'}
+      </button>
+    </div>
+  );
 
   const loadPreferences = useCallback(async () => {
     setLoading(true);
@@ -108,6 +137,7 @@ export function PreferencesPanel({
     try {
       const loaded = await getUserPreferences(accessToken);
       setPreferences(loaded);
+      setSavedPreferences(loaded);
       onPreferencesConfirmed();
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -115,6 +145,7 @@ export function PreferencesPanel({
         return;
       }
       setPreferences(emptyPreferences);
+      setSavedPreferences(emptyPreferences);
       setError(toErrorResponse(caught, '선호도를 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
@@ -128,7 +159,6 @@ export function PreferencesPanel({
   const addStyleTagsToPreferences = (nextTags: string[], reportEmpty: boolean): boolean => {
     const normalizedNextTags = normalizeStyleTags(nextTags);
     setError(null);
-    setStatus(null);
 
     if (normalizedNextTags.length === 0) {
       if (reportEmpty) {
@@ -156,7 +186,6 @@ export function PreferencesPanel({
 
   const handleToggleSuggestedTag = (tag: string) => {
     setError(null);
-    setStatus(null);
     setPreferences((current) => ({
       ...current,
       styleTags: hasStyleTag(current.styleTags, tag)
@@ -168,7 +197,6 @@ export function PreferencesPanel({
 
   const handleToggleColor = (color: ClothingColor) => {
     setError(null);
-    setStatus(null);
     setPreferences({
       ...preferences,
       preferredColors: toggleValue(preferences.preferredColors, color),
@@ -177,7 +205,6 @@ export function PreferencesPanel({
 
   const handleToggleMaterial = (material: ClothingMaterial) => {
     setError(null);
-    setStatus(null);
     setPreferences({
       ...preferences,
       preferredMaterials: toggleValue(preferences.preferredMaterials, material),
@@ -186,7 +213,6 @@ export function PreferencesPanel({
 
   const handleRemoveDisplayedTags = (sourceTags: string[]) => {
     setError(null);
-    setStatus(null);
     setPreferences({
       ...preferences,
       styleTags: sourceTags.reduce(
@@ -200,7 +226,6 @@ export function PreferencesPanel({
     event.preventDefault();
     setSaving(true);
     setError(null);
-    setStatus(null);
 
     try {
       const requestBody: UserPreferencesResponse = {
@@ -210,8 +235,8 @@ export function PreferencesPanel({
       };
       const saved = await updateUserPreferences(accessToken, requestBody);
       setPreferences(saved);
+      setSavedPreferences(saved);
       onPreferencesConfirmed();
-      setStatus('선호도를 저장했습니다. 오늘 체크리스트에도 반영됩니다.');
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
@@ -237,26 +262,34 @@ export function PreferencesPanel({
                 선호해요
               </h3>
               <p>
-                저장한 취향은 추천 후보가 맞을 때 preferenceScore에 반영됩니다.
+                저장한 색상, 소재, 분위기와 잘 맞는 옷을 추천에서 더 우선해 보여줘요.
               </p>
             </div>
-            <span className="preferences-hero-count">{totalPreferenceCount}개 항목</span>
           </section>
 
-          <dl className="metric-list preference-summary" aria-label="저장할 선호도 요약">
-            <div>
-              <dt>색상</dt>
-              <dd>{preferences.preferredColors.length}개 선택</dd>
-            </div>
-            <div>
-              <dt>소재</dt>
-              <dd>{preferences.preferredMaterials.length}개 선택</dd>
-            </div>
-            <div>
-              <dt>태그</dt>
-              <dd>{preferences.styleTags.length}개 저장 예정</dd>
-            </div>
-          </dl>
+          <section className="preference-summary-card" aria-label="선호도 저장 및 요약">
+            <dl className="metric-list preference-summary" aria-label="저장할 선호도 요약">
+              <div>
+                <dt>색상</dt>
+                <dd>
+                  {preferences.preferredColors.length}개 {colorSummaryStatusLabel}
+                </dd>
+              </div>
+              <div>
+                <dt>소재</dt>
+                <dd>
+                  {preferences.preferredMaterials.length}개 {materialSummaryStatusLabel}
+                </dd>
+              </div>
+              <div>
+                <dt>태그</dt>
+                <dd>
+                  {preferences.styleTags.length}개 {tagSummaryStatusLabel}
+                </dd>
+              </div>
+            </dl>
+            {renderPreferencesSaveBar('preferences-summary-save', false)}
+          </section>
 
           <div className="preferences-layout">
             <div className="preference-choice-stack">
@@ -266,7 +299,7 @@ export function PreferencesPanel({
                     <p className="eyebrow">색상</p>
                     <h3>선호 색상</h3>
                     <p className="muted preference-helper">
-                      원형 swatch를 눌러 여러 색상을 함께 선택하세요.
+                      원하는 색상 버튼을 눌러 여러 색상을 함께 선택하세요.
                     </p>
                   </div>
                   <span className="preference-count-pill">
@@ -305,7 +338,7 @@ export function PreferencesPanel({
                     <p className="eyebrow">소재</p>
                     <h3>선호 소재</h3>
                     <p className="muted preference-helper">
-                      자주 손이 가는 소재를 chip으로 골라두세요.
+                      손이 자주 가는 소재를 골라주세요.
                     </p>
                   </div>
                   <span className="preference-count-pill">
@@ -428,31 +461,13 @@ export function PreferencesPanel({
                 </div>
               </section>
 
-              <section className="preference-impact-card" aria-label="추천 영향">
-                <p className="eyebrow">추천 영향</p>
-                <h3>선호 반영 +10점</h3>
-                <p>
-                  색상, 소재, 스타일 태그가 후보 옷과 맞으면 취향 점수에 더해집니다.
-                </p>
-              </section>
-
-              <div className="preferences-save-bar">
-                <span className="muted">저장하면 Today 체크리스트에 확인 상태가 반영됩니다.</span>
-                <button className="primary-button" type="submit" disabled={saving}>
-                  {saving ? '저장 중' : '선호도 저장'}
-                </button>
-              </div>
+              {renderPreferencesSaveBar('preferences-mobile-only')}
             </div>
           </div>
         </form>
       )}
 
       {error ? <PreferenceErrorMessage error={error} /> : null}
-      {status ? (
-        <p className="panel-success" role="status">
-          {status}
-        </p>
-      ) : null}
     </article>
   );
 }
