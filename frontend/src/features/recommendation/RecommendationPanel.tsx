@@ -6,7 +6,6 @@ import {
   MaterialChip,
   MaterialChipPlaceholder,
   WeatherBadge,
-  WeatherTrustSnapshot,
 } from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
@@ -28,6 +27,7 @@ import {
   recommendationSituationLabels,
   recommendationSituationOptions,
   recommendationThermalFeedbackLabels,
+  weatherTypeLabels,
   type RecommendationFailureCta,
 } from '../../utils/displayMappings';
 
@@ -117,9 +117,47 @@ function getOutfitItemByCategory(
   return recommendation.outfit.outer;
 }
 
-function getOutfitSummary(recommendation: RecommendationResponse): string {
-  const outerName = recommendation.outfit.outer ? ` + ${recommendation.outfit.outer.name}` : '';
-  return `${recommendation.outfit.top.name} + ${recommendation.outfit.bottom.name}${outerName}`;
+function formatHeroDate(): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }).format(new Date());
+}
+
+function getHeroMessage(
+  recommendation: RecommendationResponse | null,
+  weather: WeatherResponse | null
+): string {
+  if (recommendation) {
+    if (recommendation.outfit.outer) {
+      return `오늘은 ${recommendation.outfit.top.name}에 ${recommendation.outfit.outer.name}을 챙겨요`;
+    }
+
+    return `오늘은 ${recommendation.outfit.top.name}과 ${recommendation.outfit.bottom.name} 조합이 좋아요`;
+  }
+
+  if (!weather) {
+    return '날씨와 일정에 맞는 조합을 준비하세요';
+  }
+
+  if (weather.rainy) {
+    return '오늘은 비에 강한 옷차림을 준비해요';
+  }
+
+  if (weather.temperature >= 28) {
+    return '오늘은 가벼운 상의로 시원하게 입어요';
+  }
+
+  if (weather.temperature <= 8) {
+    return '오늘은 따뜻한 아우터를 꼭 챙겨요';
+  }
+
+  if (weather.temperature <= 18 || weather.windy) {
+    return '오늘은 가벼운 상의에 가디건을 챙겨요';
+  }
+
+  return '오늘은 가벼운 상의로 산뜻하게 입어요';
 }
 
 function renderOutfitSlotCard(
@@ -218,6 +256,15 @@ export function RecommendationPanel({
     location?.fullName ||
     location?.name ||
     '위치 확인 필요';
+  const heroMessage = getHeroMessage(recommendation, displayWeather);
+  const heroLocationLabel =
+    displayLocation === '위치 확인 필요' ? displayLocation : `${displayLocation} 기준`;
+  const heroWeatherLabels = displayWeather
+    ? [
+        `${displayWeather.temperature}도`,
+        displayWeather.rainy ? '비 가능' : displayWeather.windy ? '바람 강함' : '바람 잔잔',
+      ]
+    : ['날씨 확인 중'];
 
   return (
     <article
@@ -227,34 +274,17 @@ export function RecommendationPanel({
     >
       <section className="recommendation-dashboard-hero" aria-label="추천 대시보드 요약">
         <div className="recommendation-hero-copy">
-          <p className="eyebrow">오늘의 코디 추천</p>
-          <h3>
-            {recommendation
-              ? getOutfitSummary(recommendation)
-              : '날씨와 일정에 맞는 조합을 준비하세요'}
-          </h3>
-          <p className="muted recommendation-heading-copy">
-            현재 위치, 예보 시간대, 옷장 준비 상태를 바탕으로 조합합니다.
-          </p>
+          <p className="eyebrow">{formatHeroDate()} 추천</p>
+          <h3>{heroMessage}</h3>
         </div>
 
         <div className="recommendation-hero-meta" aria-label="추천 기준">
-          <div>
-            <span>위치</span>
-            <strong>{displayLocation}</strong>
-          </div>
-          <div>
-            <span>상황</span>
-            <strong>{recommendationSituationLabels[selectedSituation]}</strong>
-          </div>
-          <div>
-            <span>예보</span>
-            <strong>{forecastPeriodLabels[selectedForecastPeriod]}</strong>
-          </div>
-          <div>
-            <span>날씨</span>
-            {displayWeather ? <WeatherBadge weather={displayWeather} /> : <strong>확인 중</strong>}
-          </div>
+          <span>{heroLocationLabel}</span>
+          {heroWeatherLabels.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+          <span>{forecastPeriodLabels[selectedForecastPeriod]} 예보</span>
+          {displayWeather ? <span>{weatherTypeLabels[displayWeather.weatherType]}</span> : null}
         </div>
 
         <div className="recommendation-action-bar">
@@ -379,7 +409,6 @@ export function RecommendationPanel({
               </span>
               <WeatherBadge weather={recommendation.weather} />
             </div>
-            <WeatherTrustSnapshot weather={recommendation.weather} />
             <div className="recommendation-slot-grid" aria-label="추천 슬롯">
               {outfitSlots.map((slot) =>
                 renderOutfitSlotCard(

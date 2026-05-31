@@ -55,6 +55,42 @@ const appViewLabels: Record<AppView, string> = {
   account: '계정 설정',
 };
 
+const appViewEyebrows: Record<AppView, string> = {
+  today: '오늘의 옷차림',
+  closet: '내 옷장',
+  preferences: '개인화',
+  location: '동네 날씨',
+  history: '기록',
+  account: '계정',
+};
+
+const viewHeadings: Record<AppView, { title: string; subtitle: string }> = {
+  today: {
+    title: '코디 추천',
+    subtitle: '날씨, 예보 시간대, 옷장 준비 상태, 최근 기록을 한 화면에서 스캔합니다.',
+  },
+  closet: {
+    title: '옷장',
+    subtitle: '내 옷 목록을 먼저 보고, 필요할 때 상세 등록 화면으로 들어갑니다.',
+  },
+  preferences: {
+    title: '내 취향',
+    subtitle: '선호 색상, 소재, 스타일 태그를 저장하고 추천 미리보기와 연결합니다.',
+  },
+  location: {
+    title: '위치',
+    subtitle: '지도 없이 동네 검색과 현재 위치 후보 선택으로 날씨 기준을 정합니다.',
+  },
+  history: {
+    title: '기록',
+    subtitle: '최근 추천과 착용 여부, 날씨 스냅샷, 피드백을 시간순으로 확인합니다.',
+  },
+  account: {
+    title: '계정 설정',
+    subtitle: '프로필, 로그인 방법, 세션 상태, 계정 삭제 조건을 확인합니다.',
+  },
+};
+
 const connectionLabels: Record<ConnectionState, string> = {
   checking: '확인 중',
   connected: 'API 연결됨',
@@ -73,12 +109,14 @@ function App() {
   const [locationRevision, setLocationRevision] = useState(0);
   const [preferencesRevision, setPreferencesRevision] = useState(0);
   const [error, setError] = useState<ErrorResponse | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const clearSession = useCallback((nextState: SessionState = 'anonymous') => {
     setAccessToken(null);
     setCurrentUser(null);
     setLocation(null);
     setActiveView('today');
+    setProfileMenuOpen(false);
     setClosetInitialCategory(null);
     setLocationRevision(0);
     setPreferencesRevision(0);
@@ -181,6 +219,7 @@ function App() {
     } catch {
       // Local session cleanup is still correct when the logout request cannot complete.
     }
+    setProfileMenuOpen(false);
     clearSession('anonymous');
     setError(null);
   }, [clearSession]);
@@ -211,6 +250,7 @@ function App() {
     } else {
       setClosetInitialCategory(null);
     }
+    setProfileMenuOpen(false);
     setActiveView(view);
   }, []);
 
@@ -220,11 +260,6 @@ function App() {
         className="auth-shell"
         style={{ '--auth-editorial-image': `url(${authEditorialUrl})` } as CSSProperties}
       >
-        <header className="auth-header">
-          <p className="eyebrow">오늘의 옷차림</p>
-          <h1>SmartCloset</h1>
-        </header>
-
         {error ? <ApiErrorMessage error={error} className="error-banner" /> : null}
 
         {sessionState === 'restoring' ? (
@@ -264,7 +299,11 @@ function App() {
   );
 
   const renderProfileMenu = () => (
-    <details className="profile-menu">
+    <details
+      className="profile-menu"
+      open={profileMenuOpen}
+      onToggle={(event) => setProfileMenuOpen(event.currentTarget.open)}
+    >
       <summary className="profile-pill" aria-label="프로필 메뉴">
         <span className="profile-avatar" aria-hidden="true">
           {profileInitial.toUpperCase()}
@@ -289,11 +328,7 @@ function App() {
     switch (activeView) {
       case 'today':
         return (
-          <section className="view-stack today-view" aria-labelledby="today-view-title">
-            <header className="view-heading">
-              <p className="eyebrow">추천 화면</p>
-              <h2 id="today-view-title">추천</h2>
-            </header>
+          <section className="view-stack today-view" aria-label={viewHeadings.today.title}>
             <TodayPanel
               accessToken={accessToken}
               location={location}
@@ -306,11 +341,7 @@ function App() {
         );
       case 'closet':
         return (
-          <section className="view-stack closet-view" aria-labelledby="closet-view-title">
-            <header className="view-heading">
-              <p className="eyebrow">옷장 화면</p>
-              <h2 id="closet-view-title">옷장</h2>
-            </header>
+          <section className="view-stack closet-view" aria-label={viewHeadings.closet.title}>
             <ClosetPanel
               accessToken={accessToken}
               initialCategory={closetInitialCategory}
@@ -322,12 +353,8 @@ function App() {
         return (
           <section
             className="view-stack preferences-view"
-            aria-labelledby="preferences-view-title"
+            aria-label={viewHeadings.preferences.title}
           >
-            <header className="view-heading">
-              <p className="eyebrow">내 취향 화면</p>
-              <h2 id="preferences-view-title">내 취향</h2>
-            </header>
             <PreferencesPanel
               accessToken={accessToken}
               onAuthExpired={handleAuthExpired}
@@ -337,11 +364,7 @@ function App() {
         );
       case 'location':
         return (
-          <section className="view-stack location-view" aria-labelledby="location-view-title">
-            <header className="view-heading">
-              <p className="eyebrow">위치 화면</p>
-              <h2 id="location-view-title">위치</h2>
-            </header>
+          <section className="view-stack location-view" aria-label={viewHeadings.location.title}>
             <LocationPanel
               accessToken={accessToken}
               location={location}
@@ -353,21 +376,13 @@ function App() {
         );
       case 'history':
         return (
-          <section className="view-stack history-view" aria-labelledby="history-view-title">
-            <header className="view-heading">
-              <p className="eyebrow">기록 화면</p>
-              <h2 id="history-view-title">기록</h2>
-            </header>
+          <section className="view-stack history-view" aria-label={viewHeadings.history.title}>
             <HistoryPanel accessToken={accessToken} onAuthExpired={handleAuthExpired} />
           </section>
         );
       case 'account':
         return (
-          <section className="view-stack account-view" aria-labelledby="account-view-title">
-            <header className="view-heading">
-              <p className="eyebrow">계정 화면</p>
-              <h2 id="account-view-title">계정</h2>
-            </header>
+          <section className="view-stack account-view" aria-label={viewHeadings.account.title}>
             <AccountSettingsPanel
               accessToken={accessToken}
               currentUser={currentUser}
@@ -384,7 +399,7 @@ function App() {
     <main className="app-shell authenticated-shell">
       <header className="desktop-sidebar">
         <div className="sidebar-brand">
-          <p className="eyebrow">오늘의 옷차림</p>
+          <p className="eyebrow">{appViewEyebrows[activeView]}</p>
           <h1>SmartCloset</h1>
         </div>
         {renderViewNavigation('desktop-view-nav', '주요 화면')}
