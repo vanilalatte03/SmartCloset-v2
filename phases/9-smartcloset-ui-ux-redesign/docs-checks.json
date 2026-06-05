@@ -15,7 +15,6 @@
     "docs/ADR.md",
     "docs/adr/014-mvp9-ui-ux-redesign.md",
     "docs/adr/015-closet-archive-restore.md",
-    "docs/design/mvp9/README.md",
     "archive/mvp-8/README.md",
     ".codex/agents",
     "phases/9-smartcloset-ui-ux-redesign"
@@ -54,9 +53,9 @@
       "pattern": "SmartCloset MVP 8 Archive"
     },
     {
-      "name": "MVP9 design reference",
-      "paths": ["docs/FRONTEND.md", "docs/design/mvp9/README.md"],
-      "pattern": "tmp/design-preview|docs/design/mvp9"
+      "name": "MVP9 frontend UX baseline",
+      "paths": ["docs/FRONTEND.md"],
+      "pattern": "MVP9 디자인 기준|공통 UI 원칙|React 화면"
     },
     {
       "name": "Primary navigation contract",
@@ -178,6 +177,11 @@
       "name": "account settings as primary nav",
       "paths": ["docs/FRONTEND.md", "docs/PRD.md", "phases/9-smartcloset-ui-ux-redesign"],
       "pattern": "primary nav.*계정|주 navigation.*계정 탭"
+    },
+    {
+      "name": "removed MVP9 design asset references in current docs",
+      "paths": ["README.md", "AGENTS.md", "docs/PRD.md", "docs/FRONTEND.md", "docs/SHARING_GUIDE.md", ".agents/skills/smartcloset-backend/SKILL.md"],
+      "pattern": "docs/design/mvp9|tmp/design-preview|smartcloset-.*mockup|auth-london-editorial"
     }
   ]
 }

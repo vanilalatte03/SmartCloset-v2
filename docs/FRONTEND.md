@@ -2,7 +2,7 @@
 
 ## 목표
 
-MVP9 프론트엔드는 MVP8 계정 안정성 완료 SPA 위에서 `tmp/design-preview`와 `docs/design/mvp9/` reference를 강하게 참고해 화면 완성도를 높인다.
+MVP9 프론트엔드는 MVP8 계정 안정성 완료 SPA 위에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 완성도를 높인다.
 
 MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. 현재 옷장 보관함 복원 UX는 ADR-015 API 확장을 사용하며, MVP8 세션 정책과 계정 안정성 UX는 유지한다.
 
@@ -23,18 +23,7 @@ MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-brea
 
 ## 디자인 기준
 
-MVP9 디자인 reference:
-
-- `tmp/design-preview`
-- `docs/design/mvp9/README.md`
-- `docs/design/mvp9/smartcloset-auth-mockup.png`
-- `docs/design/mvp9/smartcloset-recommend-mockup.png`
-- `docs/design/mvp9/smartcloset-closet-list-mockup.png`
-- `docs/design/mvp9/smartcloset-closet-add-mockup.png`
-- `docs/design/mvp9/smartcloset-preferences-mockup.png`
-- `docs/design/mvp9/smartcloset-location-mockup.png`
-- `docs/design/mvp9/smartcloset-history-mockup.png`
-- `docs/design/mvp9/smartcloset-account-mockup.png`
+MVP9 디자인 기준은 이 문서의 공통 UI 원칙과 현재 구현된 React 화면이다. 별도 디자인 reference asset은 MVP9 반영 완료 후 저장소에 보관하지 않는다.
 
 공통 UI 원칙:
 
@@ -162,11 +151,6 @@ MVP5/MVP6/MVP7 위치, 날씨, 옷, 추천 타입과 MVP8 account/auth 타입은
 
 ## Auth View
 
-Reference:
-
-- `smartcloset-auth-mockup.png`
-- `auth-london-editorial.png`
-
 제공 flow:
 
 - 로그인
@@ -192,10 +176,6 @@ UX 기준:
 
 ## Recommendation View
 
-Reference:
-
-- `smartcloset-recommend-mockup.png`
-
 UX 기준:
 
 - 추천 화면은 로그인 후 기본 view다.
@@ -209,11 +189,6 @@ UX 기준:
 - 추천 실패는 내부 failure code보다 한국어 안내와 해결 CTA를 우선 표시한다.
 
 ## Closet View
-
-Reference:
-
-- `smartcloset-closet-list-mockup.png`
-- `smartcloset-closet-add-mockup.png`
 
 UX 기준:
 
@@ -230,10 +205,6 @@ UX 기준:
 
 ## Preferences View
 
-Reference:
-
-- `smartcloset-preferences-mockup.png`
-
 UX 기준:
 
 - 선호 색상은 swatch로 표시한다.
@@ -244,10 +215,6 @@ UX 기준:
 
 ## Location View
 
-Reference:
-
-- `smartcloset-location-mockup.png`
-
 UX 기준:
 
 - 현재 저장 위치를 hero 또는 status band에서 명확히 보여준다.
@@ -257,10 +224,6 @@ UX 기준:
 - 외부 지도/주소 API와 지도 UI를 추가하지 않는다.
 
 ## History View
-
-Reference:
-
-- `smartcloset-history-mockup.png`
 
 UX 기준:
 
@@ -273,10 +236,6 @@ UX 기준:
 - 현재 위치 변경 후에도 과거 이력 snapshot이 독립적으로 보인다는 점을 유지한다.
 
 ## Account Settings UX
-
-Reference:
-
-- `smartcloset-account-mockup.png`
 
 진입:
 

@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 5-smartcloset-clothing-images
 - Step: 2 `clothing-image-api`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/74
+- PR: https://github.com/vanilalatte03/smart-closet/pull/74
 
 ## 재현 명령
 ```bash

@@ -8,7 +8,7 @@
 
 MVP8에서는 refresh session, 이메일 인증, 비밀번호 재설정, Google login, 계정 삭제까지 계정 안정성 기능을 완료했다. 원래 다음 단계는 AWS 배포였지만, 현재 서비스는 기능은 갖췄어도 사용자가 처음 접했을 때 완성된 제품처럼 느끼기에는 화면 밀도, 시각 위계, 모바일 완성도가 부족하다.
 
-`tmp/design-preview`에는 Auth, 추천, 옷장, 취향, 위치, 기록, 계정 설정 화면의 데스크톱/모바일 리디자인 시안이 있다. 이 시안은 실제 구현 기준으로 오래 보관하기 위해 `docs/design/mvp9/`에 복사해 참조한다.
+MVP9 기획과 구현 단계에서는 Auth, 추천, 옷장, 취향, 위치, 기록, 계정 설정 화면의 데스크톱/모바일 리디자인 시안을 참고했다. MVP9 반영 완료 후 별도 시안 asset은 저장소에서 제거하고, 현재 프론트 UX 기준은 `docs/FRONTEND.md`와 구현된 React 화면에 둔다.
 
 ## 결정
 
@@ -17,7 +17,7 @@ MVP9는 AWS 배포가 아니라 프론트 UI/UX 리디자인 MVP다.
 - AWS 배포, S3, SES/SMTP, Secrets Manager, CD 자동화는 후속 MVP로 연기한다.
 - MVP9는 백엔드 HTTP API, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다.
 - MVP8 계정 안정성 기능은 현재 baseline으로 유지한다.
-- `tmp/design-preview`와 `docs/design/mvp9/`의 시안을 강하게 참고한다.
+- 프론트 UX 기준은 `docs/FRONTEND.md`와 구현된 React 화면에 둔다.
 - 데스크톱 primary navigation은 상단 탭으로 둔다.
 - 모바일 primary navigation은 하단 탭으로 둔다.
 - primary nav는 `추천`, `옷장`, `내 취향`, `위치`, `기록`으로 고정한다.

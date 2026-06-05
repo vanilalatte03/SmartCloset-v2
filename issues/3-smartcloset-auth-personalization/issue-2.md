@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 3-smartcloset-auth-personalization
 - Step: 1 `auth-api-and-session-contract`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/36
+- PR: https://github.com/vanilalatte03/smart-closet/pull/36
 
 ## 재현 명령
 ```bash

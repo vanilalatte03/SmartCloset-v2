@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 3-smartcloset-auth-personalization
 - Step: 0 `user-account-schema-and-token-infra`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/31
+- PR: https://github.com/vanilalatte03/smart-closet/pull/31
 
 ## 재현 명령
 ```bash

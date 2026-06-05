@@ -9,7 +9,7 @@
 ## 구현 전 필수
 - 작업 시작 시 사용자 요청과 변경 파일 기준으로 백엔드/프론트/문서 범위를 먼저 분류한다.
 - 백엔드 구현, 리뷰, 문서 동기화 또는 HTTP API, 인증, 추천, 날씨, 위치, DB/entity, 옷 이미지 저장소 변경이 포함되면 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
-- 프론트 전용 UI/UX 구현, 리뷰, 문서 동기화는 백엔드 스킬을 강제하지 않고 `docs/FRONTEND.md`와 필요 시 `docs/design/mvp9/README.md`를 먼저 확인한다.
+- 프론트 전용 UI/UX 구현, 리뷰, 문서 동기화는 백엔드 스킬을 강제하지 않고 `docs/FRONTEND.md`를 먼저 확인한다.
 - 프론트 작업이 API 계약, 인증 흐름, 보호 이미지 fetch, DTO shape, 백엔드 파일 변경을 함께 포함하면 관련 SSOT 문서와 `.agents/skills/smartcloset-backend/SKILL.md`를 함께 확인한다.
 - 현재 baseline은 MVP9 프론트 UI/UX 리디자인 문서 전환 상태다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따르고, 옷장 보관함 복원 확장은 ADR-015를 따른다.
 - 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
@@ -24,7 +24,7 @@
 | 백엔드 구조, 저장소, 트랜잭션, 금지 패턴 | `docs/ARCHITECTURE.md` |
 | DB schema, entity/JPA 기준 | `docs/ERD.md` |
 | 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP9 프론트 UI/UX 기준 | `docs/FRONTEND.md`, `docs/design/mvp9/README.md` |
+| MVP9 프론트 UI/UX 기준 | `docs/FRONTEND.md` |
 | 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
 | Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
 | 실행 명령과 검증 명령 | `docs/COMMANDS.md` |
@@ -38,7 +38,7 @@
 - 구조/DB/프론트 충돌은 각각 `docs/ARCHITECTURE.md`, `docs/ERD.md`, `docs/FRONTEND.md`를 우선한다.
 - 오래된 ADR, phase 문서, archive 내용이 현재 문서와 충돌하면 현재 `README.md`와 `docs/` 기준을 우선한다.
 - 완료된 phase 문서는 과거 실행 기록이며, 현재 구현 source of truth를 override하지 않는다.
-- `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md`, 디자인 문서는 검증과 사용 흐름 기준이며, API/DB/추천 계약을 override하지 않는다.
+- `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md`, 프론트 UX 문서는 검증과 사용 흐름 기준이며, API/DB/추천 계약을 override하지 않는다.
 
 ## Codex 작업 규칙
 - 변경은 현재 요청과 현재 phase/step 범위 안에서만 수행한다.

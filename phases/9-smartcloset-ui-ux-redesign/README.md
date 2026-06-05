@@ -2,13 +2,13 @@
 
 ## 목표
 
-MVP8 계정 안정성 완료 baseline 위에서 `tmp/design-preview`와 `docs/design/mvp9/` 시안을 강하게 참고해 프론트 화면 완성도를 높인다.
+MVP8 계정 안정성 완료 baseline 위에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 프론트 완성도를 높인다.
 
 AWS 배포는 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포, S3, SES/SMTP, Secrets Manager, CD 자동화는 후속 MVP로 연기한다.
 
 ## 작업 범위
 
-- Must-have / MVP9 P0: MVP8 archive, MVP9 docs/ADR/agent 전환, 디자인 reference 문서화, app shell navigation 리디자인, Auth view 리디자인, 추천 dashboard 리디자인, 옷장 목록/등록 UX 리디자인, 취향/위치/기록 화면 리디자인, profile 기반 계정 설정 진입, 데스크톱/모바일 반응형 QA
+- Must-have / MVP9 P0: MVP8 archive, MVP9 docs/ADR/agent 전환, app shell navigation 리디자인, Auth view 리디자인, 추천 dashboard 리디자인, 옷장 목록/등록 UX 리디자인, 취향/위치/기록 화면 리디자인, profile 기반 계정 설정 진입, 데스크톱/모바일 반응형 QA
 - Should-have / MVP9 P1: microcopy polish, empty/loading/error 상태 시각 정리, focus/hover 상태 polish
 - MVP9 제외: AWS 배포 구현, S3 구현체, SES/SMTP 실제 발송 구현체, Secrets Manager, CD 자동화, Redis, 백엔드 API/DTO 변경, DB schema 변경, 추천 규칙 변경, AI/GPT 추천, AI 자동 태깅
 
@@ -28,7 +28,7 @@ AWS 배포는 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포, S3, S
 
 ## 단계 진행 원칙
 
-- Step 0은 문서 전환, MVP8 archive, ADR, phase 정의, 디자인 reference 정리만 다룬다.
+- Step 0은 문서 전환, MVP8 archive, ADR, phase 정의를 다룬다.
 - Step 1은 app shell navigation과 Auth view 리디자인만 다룬다.
 - Step 2는 추천 dashboard와 추천 결과 표시만 다룬다.
 - Step 3은 Closet 목록, 등록/수정 form, 이미지 표시 UX만 다룬다.
@@ -43,7 +43,7 @@ AWS 배포는 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포, S3, S
 
 - 현재 baseline 문서가 MVP9 UI/UX 리디자인을 가리킨다.
 - MVP8 계정 안정성은 `archive/mvp-8/`에 최소 요약으로만 남는다.
-- `docs/design/mvp9/`에 디자인 reference와 사용 원칙이 문서화된다.
+- MVP9 프론트 UX 기준은 `docs/FRONTEND.md`에 문서화된다.
 - 데스크톱 primary nav는 `추천`, `옷장`, `내 취향`, `위치`, `기록` 상단 탭이다.
 - 모바일 primary nav는 같은 5개 탭의 하단 navigation이다.
 - `계정 설정`은 primary nav가 아니라 profile pill/menu에서 진입한다.

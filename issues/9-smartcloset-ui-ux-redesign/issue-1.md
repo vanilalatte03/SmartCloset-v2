@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 9-smartcloset-ui-ux-redesign
 - Step: 0 `mvp9-docs-archive`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/119
+- PR: https://github.com/vanilalatte03/smart-closet/pull/119
 
 ## 재현 명령
 ```bash

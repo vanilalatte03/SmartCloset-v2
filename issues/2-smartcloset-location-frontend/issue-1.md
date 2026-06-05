@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 2-smartcloset-location-frontend
 - Step: 3 `frontend-scaffold-and-compose`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/22
+- PR: https://github.com/vanilalatte03/smart-closet/pull/22
 
 ## 재현 명령
 ```bash
