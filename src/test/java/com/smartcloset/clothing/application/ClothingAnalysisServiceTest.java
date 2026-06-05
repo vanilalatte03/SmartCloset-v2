@@ -14,6 +14,7 @@ import com.smartcloset.clothing.infrastructure.analysis.ClothingAnalysisResult;
 import com.smartcloset.clothing.infrastructure.analysis.ClothingAnalysisSuggestion;
 import com.smartcloset.clothing.infrastructure.analysis.ClothingImageAnalysisUnavailableException;
 import com.smartcloset.clothing.infrastructure.analysis.ClothingImageAnalyzer;
+import com.smartcloset.clothing.infrastructure.analysis.DisabledClothingImageAnalyzer;
 import com.smartcloset.clothing.infrastructure.file.ClothingImageProperties;
 import com.smartcloset.clothing.infrastructure.file.ClothingImageValidator;
 import com.smartcloset.common.exception.ErrorCode;
@@ -112,6 +113,25 @@ class ClothingAnalysisServiceTest {
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED));
 
         service.analyze(2L, jpegFile());
+    }
+
+    @Test
+    void disabledAnalyzerDoesNotConsumeDailyLimit() {
+        analysisProperties.setDailyLimit(1);
+        ClothingImageProperties imageProperties = new ClothingImageProperties();
+        imageProperties.setMaxSizeBytes(1024);
+        ClothingAnalysisService disabledService = new ClothingAnalysisService(
+                new ClothingImageValidator(imageProperties),
+                new DisabledClothingImageAnalyzer(),
+                new ClothingAnalysisDailyLimiter(analysisProperties)
+        );
+
+        assertThatThrownBy(() -> disabledService.analyze(1L, jpegFile()))
+                .isInstanceOfSatisfying(SmartClosetException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_DISABLED));
+        assertThatThrownBy(() -> disabledService.analyze(1L, jpegFile()))
+                .isInstanceOfSatisfying(SmartClosetException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_DISABLED));
     }
 
     @Test

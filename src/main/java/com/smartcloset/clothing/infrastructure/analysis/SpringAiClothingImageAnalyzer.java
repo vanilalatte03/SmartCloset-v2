@@ -8,15 +8,25 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.content.Media;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.util.MimeTypeUtils;
 
 /**
- * Spring AI ChatClient 기반 OpenAI 옷 사진 분석 adapter다.
+ * Spring AI {@link ChatClient} 기반 OpenAI 옷 사진 분석 adapter다.
+ *
+ * <p>이 class는 외부 AI 응답을 내부 {@link ClothingAnalysisResult}로 정규화하는 adapter이며,
+ * 분석 이미지를 저장하거나 추천 domain service와 연결하지 않는다.</p>
  */
-public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
+public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, AutoCloseable {
 
     private static final String SYSTEM_PROMPT = """
             You analyze one clothing photo for SmartCloset clothing registration.
@@ -38,16 +48,42 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
 
     private final ChatClient chatClient;
     private final ClothingAnalysisProperties properties;
+    private final ExecutorService executorService;
 
     public SpringAiClothingImageAnalyzer(ChatClient chatClient, ClothingAnalysisProperties properties) {
-        this.chatClient = chatClient;
-        this.properties = properties;
+        this(chatClient, properties, Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    SpringAiClothingImageAnalyzer(
+            ChatClient chatClient,
+            ClothingAnalysisProperties properties,
+            ExecutorService executorService
+    ) {
+        this.chatClient = Objects.requireNonNull(chatClient, "chatClient must not be null");
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.executorService = Objects.requireNonNull(executorService, "executorService must not be null");
     }
 
     @Override
     public ClothingAnalysisResult analyze(ClothingAnalysisImage image) {
+        Future<OpenAiClothingAnalysisResponse> responseFuture = executorService.submit(() -> callProvider(image));
         try {
-            OpenAiClothingAnalysisResponse response = chatClient.prompt()
+            OpenAiClothingAnalysisResponse response = responseFuture.get(timeoutSeconds(), TimeUnit.SECONDS);
+            return toResult(response);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new ClothingImageAnalysisUnavailableException("Clothing image analysis provider was interrupted", exception);
+        } catch (TimeoutException exception) {
+            responseFuture.cancel(true);
+            throw new ClothingImageAnalysisUnavailableException("Clothing image analysis provider timed out", exception);
+        } catch (ExecutionException exception) {
+            throw providerFailure(exception.getCause());
+        }
+    }
+
+    OpenAiClothingAnalysisResponse callProvider(ClothingAnalysisImage image) {
+        try {
+            return chatClient.prompt()
                     .system(SYSTEM_PROMPT)
                     .user(user -> user.text(USER_PROMPT)
                             .media(Media.builder()
@@ -56,7 +92,6 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
                                     .build()))
                     .call()
                     .entity(OpenAiClothingAnalysisResponse.class);
-            return toResult(response);
         } catch (ClothingImageAnalysisUnavailableException exception) {
             throw exception;
         } catch (RuntimeException exception) {
@@ -64,6 +99,28 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
         }
     }
 
+    @Override
+    public void close() {
+        executorService.shutdownNow();
+    }
+
+    private long timeoutSeconds() {
+        return Math.max(1, properties.timeoutSeconds());
+    }
+
+    private ClothingImageAnalysisUnavailableException providerFailure(Throwable cause) {
+        if (cause instanceof ClothingImageAnalysisUnavailableException unavailableException) {
+            return unavailableException;
+        }
+        if (cause == null) {
+            return new ClothingImageAnalysisUnavailableException("Clothing image analysis provider failed");
+        }
+        return new ClothingImageAnalysisUnavailableException("Clothing image analysis provider failed", cause);
+    }
+
+    /**
+     * Spring AI structured output을 내부 결과 모델로 변환하고, malformed output은 provider 장애로 격리한다.
+     */
     private ClothingAnalysisResult toResult(OpenAiClothingAnalysisResponse response) {
         if (response == null || response.analyzable == null) {
             throw malformedOutput("Missing analyzable field");
@@ -83,6 +140,9 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
         );
     }
 
+    /**
+     * 모델이 반환한 property name 기반 confidence map을 내부 enum key map으로 변환한다.
+     */
     private Map<ClothingAnalysisField, Double> toConfidence(Map<String, Double> rawConfidence) {
         if (rawConfidence == null || rawConfidence.isEmpty()) {
             throw malformedOutput("Missing fieldConfidence");
@@ -92,6 +152,9 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
         return confidence;
     }
 
+    /**
+     * 모델이 직접 확인 필요로 표시한 field 이름을 내부 enum 목록으로 변환한다.
+     */
     private List<ClothingAnalysisField> toFields(List<String> rawFields) {
         if (rawFields == null) {
             return List.of();
@@ -119,6 +182,12 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
         return new ClothingImageAnalysisUnavailableException("Malformed clothing image analysis output: " + message);
     }
 
+    /**
+     * OpenAI structured output schema와 맞춘 transport record다.
+     *
+     * <p>외부 응답 shape를 내부 결과 모델과 분리해 enum 변환, confidence 검증, not-analyzable 처리를
+     * adapter 안에서 끝낸다.</p>
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     record OpenAiClothingAnalysisResponse(
             Boolean analyzable,
@@ -128,6 +197,9 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
     ) {
     }
 
+    /**
+     * 기존 ClothingRequest field와 1:1로 맞춘 OpenAI 후보 field set이다.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     record OpenAiSuggestion(
             String name,
@@ -140,6 +212,9 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
             List<String> styleTags
     ) {
 
+        /**
+         * 문자열 enum 값을 domain enum으로 변환해 저장 전 후보 모델을 만든다.
+         */
         private ClothingAnalysisSuggestion toSuggestion() {
             if (name == null || category == null || color == null || material == null
                     || minTemperature == null || maxTemperature == null || rainSuitable == null) {
@@ -160,6 +235,9 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer {
         }
     }
 
+    /**
+     * Spring AI media upload에 안정적인 filename을 제공하기 위한 in-memory resource다.
+     */
     private static final class NamedByteArrayResource extends ByteArrayResource {
 
         private final String filename;
