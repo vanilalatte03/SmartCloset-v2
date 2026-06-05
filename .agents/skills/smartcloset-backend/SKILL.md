@@ -37,7 +37,7 @@ Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical
 
 ## Current Execution Baseline
 
-SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Spring Boot 4.0.6 서비스다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따른다. 현재 코드 출발점은 MVP8 계정 안정성 완료 상태이며, MVP9 구현은 `phases/9-smartcloset-ui-ux-redesign` step 문서를 따른다.
+SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Spring Boot 4.0.6 서비스다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따르고, 옷장 보관함 복원 확장은 ADR-015를 따른다. 현재 코드 출발점은 MVP8 계정 안정성 완료 상태이며, MVP9 구현은 `phases/9-smartcloset-ui-ux-redesign` step 문서를 따른다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
@@ -68,7 +68,8 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
 - Docker Compose local 공유 흐름은 유지한다.
 - MVP9는 AWS 배포를 구현하지 않고 프론트 UI/UX 리디자인에 집중한다. AWS 배포와 운영 adapter 구현은 후속 MVP로 연기한다.
-- MVP9는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다.
+- MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다.
+- ADR-015 옷장 보관함 복원 확장은 기존 `archived` 컬럼을 재사용해 `GET /api/clothes/archived`와 `PATCH /api/clothes/{clothingId}/unarchive`를 추가하며 DB schema와 추천 점수/필터/tie-break를 변경하지 않는다.
 - MVP9 primary navigation은 `추천`, `옷장`, `내 취향`, `위치`, `기록`이며, `계정 설정`은 우측 상단 profile pill/menu에서 진입한다.
 
 ## Historical Context
@@ -137,7 +138,7 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - Refresh token 값을 JSON response에 넣지 않는다.
 - 추천 생성은 `POST /api/recommendations`다.
 - today recommendation GET endpoint를 추가하거나 문서화하지 않는다.
-- 위치/날씨/옷/추천 API는 MVP7 계약을 유지한다.
+- 위치/날씨/추천 API는 MVP7 계약을 유지한다. 옷 API는 ADR-015에 따라 보관함 조회와 보관 해제를 포함한다.
 - 추천 business failure는 HTTP `422 Unprocessable Entity`를 사용한다.
 
 ## Auth and Account Rules

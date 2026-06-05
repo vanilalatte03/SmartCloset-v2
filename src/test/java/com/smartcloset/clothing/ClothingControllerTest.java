@@ -143,6 +143,9 @@ class ClothingControllerTest {
         mockMvc.perform(get("/api/clothes"))
                 .andExpect(status().isUnauthorized());
 
+        mockMvc.perform(get("/api/clothes/archived"))
+                .andExpect(status().isUnauthorized());
+
         mockMvc.perform(get("/api/clothes/{clothingId}", 1L))
                 .andExpect(status().isUnauthorized());
 
@@ -152,6 +155,9 @@ class ClothingControllerTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", 1L))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/unarchive", 1L))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(multipart("/api/clothes/{clothingId}/image", 1L)
@@ -230,6 +236,46 @@ class ClothingControllerTest {
         for (JsonNode item : data) {
             assertThat(item.has("userId")).isFalse();
             assertThat(item.get("archived").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void returnsOnlyArchivedClothesForCurrentUserOrderedById() throws Exception {
+        User targetUser = userRepository.save(User.createSeedUser("target-user"));
+        User otherUser = userRepository.save(User.createSeedUser("other-user"));
+        clothingItemRepository.save(createTop(targetUser, "화이트 셔츠"));
+        ClothingItem firstArchived = createTop(targetUser, "보관 니트");
+        firstArchived.archive();
+        clothingItemRepository.save(firstArchived);
+        ClothingItem secondArchived = ClothingItem.create(
+                targetUser,
+                "보관 팬츠",
+                ClothingCategory.BOTTOM,
+                ClothingColor.BLACK,
+                ClothingMaterial.DENIM,
+                0,
+                22,
+                false
+        );
+        secondArchived.archive();
+        clothingItemRepository.save(secondArchived);
+        ClothingItem otherArchived = createTop(otherUser, "다른 사용자 셔츠");
+        otherArchived.archive();
+        clothingItemRepository.save(otherArchived);
+        clothingItemRepository.flush();
+
+        MvcResult result = mockMvc.perform(get("/api/clothes/archived")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        assertThat(data).hasSize(2);
+        assertThat(data.get(0).get("id").asLong()).isEqualTo(firstArchived.getId());
+        assertThat(data.get(1).get("id").asLong()).isEqualTo(secondArchived.getId());
+        for (JsonNode item : data) {
+            assertThat(item.has("userId")).isFalse();
+            assertThat(item.get("archived").asBoolean()).isTrue();
         }
     }
 
@@ -369,6 +415,40 @@ class ClothingControllerTest {
     }
 
     @Test
+    void unarchivesClothingIdempotentlyAndReturnsItToActiveList() throws Exception {
+        User user = userRepository.save(User.createSeedUser("target-user"));
+        ClothingItem clothing = createTop(user, "화이트 셔츠");
+        clothing.archive();
+        clothingItemRepository.save(clothing);
+        clothingItemRepository.flush();
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/unarchive", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.archived").value(false))
+                .andExpect(jsonPath("$.data.updatedAt").exists());
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/unarchive", clothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data.archived").value(false));
+
+        mockMvc.perform(get("/api/clothes/archived")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        mockMvc.perform(get("/api/clothes")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(clothing.getId()))
+                .andExpect(jsonPath("$.data[0].archived").value(false));
+    }
+
+    @Test
     void returnsClothingNotFoundWhenUpdatingOrArchivingOtherUsersClothing() throws Exception {
         User targetUser = userRepository.save(User.createSeedUser("target-user"));
         User otherUser = userRepository.save(User.createSeedUser("other-user"));
@@ -383,6 +463,11 @@ class ClothingControllerTest {
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
 
         mockMvc.perform(patch("/api/clothes/{clothingId}/archive", otherClothing.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));
+
+        mockMvc.perform(patch("/api/clothes/{clothingId}/unarchive", otherClothing.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CLOTHING_NOT_FOUND"));

@@ -209,6 +209,10 @@ export function getClothes(accessToken: string): Promise<ClothingResponse[]> {
   return request<ClothingResponse[]>('/api/clothes', { accessToken });
 }
 
+export function getArchivedClothes(accessToken: string): Promise<ClothingResponse[]> {
+  return request<ClothingResponse[]>('/api/clothes/archived', { accessToken });
+}
+
 export function createClothing(
   accessToken: string,
   body: ClothingRequest
@@ -237,6 +241,16 @@ export function archiveClothing(
   clothingId: number
 ): Promise<ClothingArchiveResponse> {
   return request<ClothingArchiveResponse>(`/api/clothes/${clothingId}/archive`, {
+    method: 'PATCH',
+    accessToken,
+  });
+}
+
+export function unarchiveClothing(
+  accessToken: string,
+  clothingId: number
+): Promise<ClothingArchiveResponse> {
+  return request<ClothingArchiveResponse>(`/api/clothes/${clothingId}/unarchive`, {
     method: 'PATCH',
     accessToken,
   });

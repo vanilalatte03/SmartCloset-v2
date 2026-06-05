@@ -129,12 +129,15 @@ http://localhost:8080/swagger-ui/index.html
 
 1. `옷장`에서 이미지 중심 목록과 filter chip을 확인한다.
 2. 새 옷 추가 화면에서 이미지, 이름, 카테고리, 색상, 소재, 기온 범위, 비 적합성, style tag를 입력한다.
-3. `내 취향`에서 색상 swatch, 소재 toggle, style tag chip을 수정한다.
+3. 옷 카드의 `보관`을 눌러 활성 목록에서 빠지는지 확인한다.
+4. `보관함`을 열어 보관한 옷을 확인하고 `다시 꺼내기`로 활성 목록에 복귀시킨다.
+5. `내 취향`에서 색상 swatch, 소재 toggle, style tag chip을 수정한다.
 
 기대 결과:
 
 - 옷 이미지 blob fetch와 object URL cleanup 흐름이 유지된다.
 - 보호 이미지는 public `<img src>` 직접 참조가 아니다.
+- 보관한 옷은 활성 옷 목록과 추천 후보에서 제외되고, 다시 꺼내면 활성 목록으로 돌아온다.
 - 옷 등록/수정 JSON API가 multipart로 대체되지 않는다.
 - swatch/chip/toggle control이 모바일에서 겹치지 않는다.
 

@@ -19,7 +19,7 @@
 | 프론트 API client, 타입, UX, 반응형 기준 | `docs/FRONTEND.md` |
 | MVP9 디자인 reference | `docs/design/mvp9/README.md` |
 | 데모/공유 검증 | `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md` |
-| 결정 배경 | `docs/ADR.md`, `docs/adr/014-mvp9-ui-ux-redesign.md` |
+| 결정 배경 | `docs/ADR.md`, `docs/adr/014-mvp9-ui-ux-redesign.md`, `docs/adr/015-closet-archive-restore.md` |
 
 ## MVP9 한 줄 정의
 
@@ -158,7 +158,7 @@ SmartCloset의 기능은 유지하면서 사용자가 실제 서비스처럼 느
 - 계정 설정은 profile pill/menu에서 진입한다.
 - Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면이 디자인 reference 방향을 따른다.
 - MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제 UX가 유지된다.
-- 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break가 변경되지 않는다.
+- MVP9 자체에서는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break가 변경되지 않는다. 이후 옷장 보관함 복원 API 확장은 ADR-015를 따른다.
 - 1440px 데스크톱과 390px 모바일에서 텍스트, CTA, 카드가 겹치거나 잘리지 않는다.
 - AWS/S3/SES/Secrets Manager/CD/Redis 구현이 포함되지 않는다.
 

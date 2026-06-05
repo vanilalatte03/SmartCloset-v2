@@ -2,9 +2,9 @@
 
 ## 전체 아키텍처 개요
 
-SmartCloset MVP9는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP9의 변경 지점은 프론트 UI/UX다.
+SmartCloset MVP9는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP9의 변경 지점은 프론트 UI/UX다. 현재 옷장 보관함 복원 API/UX 확장은 ADR-015를 따른다.
 
-기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조는 유지한다. 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break는 MVP9에서 변경하지 않는다.
+기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조는 유지한다. MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. ADR-015는 DB schema와 추천 규칙 변경 없이 옷 보관함 조회와 보관 해제 API만 추가한다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
