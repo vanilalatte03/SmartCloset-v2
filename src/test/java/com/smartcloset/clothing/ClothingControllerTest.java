@@ -173,6 +173,10 @@ class ClothingControllerTest {
 
         mockMvc.perform(delete("/api/clothes/{clothingId}/image", 1L))
                 .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(multipart("/api/clothes/analyze-image")
+                        .file(jpegFile("shirt.jpg")))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -643,6 +647,36 @@ class ClothingControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void analyzesClothingImageRequiresValidImageAndMapsDisabledAnalyzer() throws Exception {
+        User user = userRepository.save(User.createSeedUser("analysis-disabled-user"));
+
+        mockMvc.perform(multipart("/api/clothes/analyze-image")
+                        .file(jpegFile("shirt.jpg"))
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("CLOTHING_ANALYSIS_DISABLED"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void returnsInvalidRequestWhenAnalysisImageValidationFails() throws Exception {
+        User user = userRepository.save(User.createSeedUser("analysis-invalid-image-user"));
+        MockMultipartFile invalidImage = new MockMultipartFile(
+                "image",
+                "shirt.gif",
+                "image/gif",
+                new byte[] {'G', 'I', 'F'}
+        );
+
+        mockMvc.perform(multipart("/api/clothes/analyze-image")
+                        .file(invalidImage)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("image"));
     }
 
     @Test
