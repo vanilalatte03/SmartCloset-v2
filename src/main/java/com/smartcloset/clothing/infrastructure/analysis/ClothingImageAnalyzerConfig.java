@@ -1,11 +1,9 @@
 package com.smartcloset.clothing.infrastructure.analysis;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -17,7 +15,6 @@ public class ClothingImageAnalyzerConfig {
     @Bean
     @ConditionalOnProperty(name = "smartcloset.clothing.analysis.enabled", havingValue = "true")
     @ConditionalOnProperty(name = "spring.ai.model.chat", havingValue = "openai")
-    @ConditionalOnBean(ChatModel.class)
     public ClothingImageAnalyzer springAiClothingImageAnalyzer(
             ClothingAnalysisProperties properties,
             ObjectProvider<ChatClient.Builder> chatClientBuilderProvider,
