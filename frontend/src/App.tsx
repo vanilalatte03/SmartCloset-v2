@@ -55,15 +55,6 @@ const appViewLabels: Record<AppView, string> = {
   account: '계정 설정',
 };
 
-const appViewEyebrows: Record<AppView, string> = {
-  today: '오늘의 옷차림',
-  closet: '내 옷장',
-  preferences: '개인화',
-  location: '동네 날씨',
-  history: '기록',
-  account: '계정',
-};
-
 const viewHeadings: Record<AppView, { title: string; subtitle: string }> = {
   today: {
     title: '코디 추천',
@@ -400,7 +391,6 @@ function App() {
     <main className="app-shell authenticated-shell">
       <header className="desktop-sidebar">
         <div className="sidebar-brand">
-          <p className="eyebrow">{appViewEyebrows[activeView]}</p>
           <h1>SmartCloset</h1>
         </div>
         {renderViewNavigation('desktop-view-nav', '주요 화면')}

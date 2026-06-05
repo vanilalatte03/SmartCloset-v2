@@ -2,10 +2,7 @@ import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import {
   AuthenticatedClothingThumbnail,
   ColorSwatch,
-  ColorSwatchPlaceholder,
   MaterialChip,
-  MaterialChipPlaceholder,
-  WeatherBadge,
 } from '../../components/DisplayTokens';
 import type {
   ClothingCategory,
@@ -166,15 +163,21 @@ function renderOutfitSlotCard(
   item: OutfitItemResponse | null,
   emptyMessage: string,
   glyph: string,
-  weather: WeatherResponse | null,
   accessToken: string,
   onAuthExpired: () => void
 ) {
   const label = clothingCategoryLabels[category];
   const displayStyleTags = item ? getDisplayStyleTags(item.styleTags) : [];
+  const cardClassName = [
+    'outfit-slot-card',
+    item ? null : 'empty',
+    !item && category === 'OUTER' ? 'optional-empty' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <article className={item ? 'outfit-slot-card' : 'outfit-slot-card empty'}>
+    <article className={cardClassName}>
       {item ? (
         <AuthenticatedClothingThumbnail
           accessToken={accessToken}
@@ -198,10 +201,12 @@ function renderOutfitSlotCard(
         </div>
       </div>
 
-      <div className="outfit-slot-tokens">
-        {item ? <ColorSwatch color={item.color} /> : <ColorSwatchPlaceholder />}
-        {item ? <MaterialChip material={item.material} /> : <MaterialChipPlaceholder />}
-      </div>
+      {item ? (
+        <div className="outfit-slot-tokens">
+          <ColorSwatch color={item.color} />
+          <MaterialChip material={item.material} />
+        </div>
+      ) : null}
 
       {item ? (
         <div className="tag-list outfit-slot-tags" aria-label={`${item.name} 스타일 태그`}>
@@ -216,12 +221,6 @@ function renderOutfitSlotCard(
           )}
         </div>
       ) : null}
-
-      {weather ? (
-        <WeatherBadge weather={weather} />
-      ) : (
-        <span className="weather-badge muted-token">현재 날씨 반영</span>
-      )}
     </article>
   );
 }
@@ -288,24 +287,12 @@ export function RecommendationPanel({
           <span>{forecastPeriodLabels[selectedForecastPeriod]} 예보</span>
           {displayWeather ? <span>{weatherTypeLabels[displayWeather.weatherType]}</span> : null}
         </div>
-
-        <div className="recommendation-action-bar">
-          <button
-            className="primary-button recommendation-create-button"
-            type="button"
-            onClick={() => onCreate()}
-            disabled={controlsDisabled}
-          >
-            {loading ? '추천 생성 중' : '추천 만들기'}
-          </button>
-        </div>
       </section>
 
       <section className="recommendation-controls-panel" aria-label="추천 조건 선택">
         <div>
           <div className="section-title-row compact-title-row">
             <h3>상황</h3>
-            <span className="item-meta">오늘 일정에 맞춰 선택</span>
           </div>
           <div className="situation-selector" role="group" aria-label="추천 상황 선택">
             {recommendationSituationOptions.map((situation) => (
@@ -331,25 +318,36 @@ export function RecommendationPanel({
         <div>
           <div className="section-title-row compact-title-row">
             <h3>예보 시간대</h3>
-            <span className="item-meta">언제 입을지 선택</span>
           </div>
-          <div className="forecast-selector" role="group" aria-label="예보 시간대 선택">
-            {forecastPeriodOptions.map((forecastPeriod) => (
+          <div className="recommendation-forecast-row">
+            <div className="forecast-selector" role="group" aria-label="예보 시간대 선택">
+              {forecastPeriodOptions.map((forecastPeriod) => (
+                <button
+                  className={
+                    selectedForecastPeriod === forecastPeriod
+                      ? 'situation-button active'
+                      : 'situation-button'
+                  }
+                  type="button"
+                  key={forecastPeriod}
+                  aria-pressed={selectedForecastPeriod === forecastPeriod}
+                  onClick={() => onForecastPeriodChange(forecastPeriod)}
+                  disabled={controlsDisabled}
+                >
+                  {forecastPeriodLabels[forecastPeriod]}
+                </button>
+              ))}
+            </div>
+            <div className="recommendation-controls-action">
               <button
-                className={
-                  selectedForecastPeriod === forecastPeriod
-                    ? 'situation-button active'
-                    : 'situation-button'
-                }
+                className="primary-button recommendation-create-button"
                 type="button"
-                key={forecastPeriod}
-                aria-pressed={selectedForecastPeriod === forecastPeriod}
-                onClick={() => onForecastPeriodChange(forecastPeriod)}
+                onClick={() => onCreate()}
                 disabled={controlsDisabled}
               >
-                {forecastPeriodLabels[forecastPeriod]}
+                {loading ? '추천 생성 중' : '추천 만들기'}
               </button>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -395,22 +393,6 @@ export function RecommendationPanel({
                 </span>
               </div>
             </div>
-            <div className="recommendation-weather-snapshot">
-              <span>
-                {recommendation.weather.location.fullName ||
-                  recommendation.weather.location.name ||
-                  location?.name ||
-                  '현재 위치'}{' '}
-                기준
-              </span>
-              <span className="situation-pill">
-                {recommendationSituationLabels[recommendation.situation]}
-              </span>
-              <span className="situation-pill">
-                {forecastPeriodLabels[recommendation.forecastPeriod]}
-              </span>
-              <WeatherBadge weather={recommendation.weather} />
-            </div>
             <div className="recommendation-slot-grid" aria-label="추천 슬롯">
               {outfitSlots.map((slot) =>
                 renderOutfitSlotCard(
@@ -418,7 +400,6 @@ export function RecommendationPanel({
                   getOutfitItemByCategory(recommendation, slot.category),
                   slot.category === 'OUTER' ? '선택된 아우터 없음' : `${clothingCategoryLabels[slot.category]} 없음`,
                   slot.glyph,
-                  recommendation.weather,
                   accessToken,
                   onAuthExpired
                 )
@@ -548,7 +529,6 @@ export function RecommendationPanel({
                 null,
                 slot.emptyMessage,
                 slot.glyph,
-                currentWeather,
                 accessToken,
                 onAuthExpired
               )
