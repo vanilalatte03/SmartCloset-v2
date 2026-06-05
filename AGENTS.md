@@ -10,7 +10,7 @@
 - 백엔드 구현, 리뷰, 문서 동기화 또는 HTTP API, 인증, 추천, 날씨, 위치, DB/entity, 옷 이미지 저장소 변경이 포함되면 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
 - 프론트 전용 UI/UX 구현, 리뷰, 문서 동기화는 백엔드 스킬을 강제하지 않고 `docs/FRONTEND.md`와 필요 시 `docs/design/mvp9/README.md`를 먼저 확인한다.
 - 프론트 작업이 API 계약, 인증 흐름, 보호 이미지 fetch, DTO shape, 백엔드 파일 변경을 함께 포함하면 관련 SSOT 문서와 `.agents/skills/smartcloset-backend/SKILL.md`를 함께 확인한다.
-- 현재 baseline은 MVP9 프론트 UI/UX 리디자인 문서 전환 상태다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따른다.
+- 현재 baseline은 MVP9 프론트 UI/UX 리디자인 문서 전환 상태다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따르고, 옷장 보관함 복원 확장은 ADR-015를 따른다.
 - 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
 - phase/step 작업은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 함께 따른다.
 

@@ -71,6 +71,15 @@ public class ClothingService {
     }
 
     @Transactional(readOnly = true)
+    public List<ClothingResponse> getArchivedClothes(Long currentUserId) {
+        findUser(currentUserId);
+        return clothingItemRepository.findByUserIdAndArchivedTrueOrderByIdAsc(currentUserId)
+                .stream()
+                .map(clothingItem -> ClothingResponse.from(clothingItem, clothingStyleTagMapper))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ClothingResponse getClothing(Long currentUserId, Long clothingId) {
         findUser(currentUserId);
         return ClothingResponse.from(findClothingOwnedByUser(clothingId, currentUserId), clothingStyleTagMapper);
@@ -98,6 +107,14 @@ public class ClothingService {
         findUser(currentUserId);
         ClothingItem clothingItem = findClothingOwnedByUser(clothingId, currentUserId);
         clothingItem.archive();
+        return ClothingArchiveResponse.from(clothingItem);
+    }
+
+    @Transactional
+    public ClothingArchiveResponse unarchiveClothing(Long currentUserId, Long clothingId) {
+        findUser(currentUserId);
+        ClothingItem clothingItem = findClothingOwnedByUser(clothingId, currentUserId);
+        clothingItem.unarchive();
         return ClothingArchiveResponse.from(clothingItem);
     }
 

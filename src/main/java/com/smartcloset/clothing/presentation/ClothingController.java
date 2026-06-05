@@ -54,6 +54,13 @@ public class ClothingController {
         return ApiResponse.of(clothingService.getActiveClothes(principal.userId()));
     }
 
+    @GetMapping("/archived")
+    public ApiResponse<List<ClothingResponse>> getArchivedClothes(
+            @AuthenticationPrincipal CurrentUserPrincipal principal
+    ) {
+        return ApiResponse.of(clothingService.getArchivedClothes(principal.userId()));
+    }
+
     @GetMapping("/{clothingId}")
     public ApiResponse<ClothingResponse> getClothing(
             @PathVariable Long clothingId,
@@ -77,6 +84,14 @@ public class ClothingController {
             @AuthenticationPrincipal CurrentUserPrincipal principal
     ) {
         return ApiResponse.of(clothingService.archiveClothing(principal.userId(), clothingId));
+    }
+
+    @PatchMapping("/{clothingId}/unarchive")
+    public ApiResponse<ClothingArchiveResponse> unarchiveClothing(
+            @PathVariable Long clothingId,
+            @AuthenticationPrincipal CurrentUserPrincipal principal
+    ) {
+        return ApiResponse.of(clothingService.unarchiveClothing(principal.userId(), clothingId));
     }
 
     @PutMapping(value = "/{clothingId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

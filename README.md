@@ -2,7 +2,7 @@
 
 현재 문서 기준은 **MVP9: 프론트 UI/UX 리디자인 MVP**입니다. MVP9는 MVP8 계정 안정성 완료 상태 위에서 `tmp/design-preview`와 `docs/design/mvp9/`의 화면 시안을 강하게 참고해 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 완성도를 높이는 단계입니다.
 
-원래 MVP9 후보였던 AWS 배포는 후속 MVP로 연기합니다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서, 그리고 ADR-014입니다.
+원래 MVP9 후보였던 AWS 배포는 후속 MVP로 연기합니다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서, ADR-014, 그리고 보관함 복원 결정을 담은 ADR-015입니다.
 
 ## 현재 Baseline
 
@@ -21,7 +21,7 @@
 - 추천 이력은 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
 - 현재 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
 - MVP5 이미지 업로드/교체/조회/삭제, MVP6 피드백/개인화, MVP7 위치/날씨 source snapshot 계약을 유지한다.
-- 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break는 MVP9에서 변경하지 않는다.
+- MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. 현재 옷 API는 ADR-015에 따라 보관함 조회와 보관 해제를 추가한다.
 - Docker Compose local 공유 방식을 유지한다.
 
 ## MVP9 목표
@@ -52,7 +52,7 @@
 - Secrets Manager
 - CD 자동화
 - Redis
-- 백엔드 API/DTO 변경
+- 백엔드 API/DTO 변경(ADR-015 보관함 복원 API 제외)
 - DB schema 변경
 - 추천 점수/필터/tie-break 변경
 - AI/GPT 추천
@@ -106,9 +106,11 @@
 - `GET /api/weather/current`
 - `POST /api/clothes`
 - `GET /api/clothes`
+- `GET /api/clothes/archived`
 - `GET /api/clothes/{clothingId}`
 - `PUT /api/clothes/{clothingId}`
 - `PATCH /api/clothes/{clothingId}/archive`
+- `PATCH /api/clothes/{clothingId}/unarchive`
 - `PUT /api/clothes/{clothingId}/image`
 - `GET /api/clothes/{clothingId}/image`
 - `DELETE /api/clothes/{clothingId}/image`
@@ -117,7 +119,7 @@
 - `PATCH /api/recommendations/{recommendationId}/worn`
 - `PUT /api/recommendations/{recommendationId}/feedback`
 
-MVP9는 API surface를 변경하지 않는다. 세부 계약은 `docs/API.md`를 따른다.
+MVP9 자체는 API surface를 변경하지 않는다. 현재 옷장 보관함 복원 API는 ADR-015를 따르며, 세부 계약은 `docs/API.md`를 따른다.
 
 ## 세션과 계정 정책
 

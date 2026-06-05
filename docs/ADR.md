@@ -21,6 +21,8 @@ ADR-013은 MVP8을 계정 안정성 MVP로 확정하고, refresh token session, 
 
 ADR-014는 원래 MVP9 후보였던 AWS 배포를 후속 MVP로 연기하고, MVP9를 프론트 UI/UX 리디자인 MVP로 확정한다.
 
+ADR-015는 기존 `clothing_items.archived` 컬럼을 재사용해 옷장 보관함 조회와 보관 해제 API/UX를 추가하고, DB schema와 추천 규칙은 유지한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -35,3 +37,4 @@ ADR-014는 원래 MVP9 후보였던 AWS 배포를 후속 MVP로 연기하고, MV
 - [ADR-012: Define MVP7 as Location Weather Trust](adr/012-mvp7-location-weather-trust.md)
 - [ADR-013: Define MVP8 as Account Stability](adr/013-mvp8-account-stability.md)
 - [ADR-014: Define MVP9 as UI/UX Redesign](adr/014-mvp9-ui-ux-redesign.md)
+- [ADR-015: Define Closet Archive Restore](adr/015-closet-archive-restore.md)

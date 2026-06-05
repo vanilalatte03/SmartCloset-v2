@@ -155,6 +155,7 @@ export type ClothingResponse = ClothingRequest & {
 export type ClothingArchiveResponse = {
   id: number;
   archived: boolean;
+  updatedAt: string;
 };
 
 export type WeatherType = 'SUNNY' | 'CLOUDY' | 'R\u0041INY' | 'SNOWY' | 'WINDY';

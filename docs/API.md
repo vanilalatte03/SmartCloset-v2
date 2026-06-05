@@ -1,6 +1,6 @@
 # API: SmartCloset MVP9 Contract
 
-이 문서는 SmartCloset MVP9 API 계약을 설명한다. MVP9는 프론트 UI/UX 리디자인 MVP이며 백엔드 HTTP API, request/response DTO, 인증/에러 계약을 변경하지 않는다.
+이 문서는 SmartCloset MVP9 API 계약과 현재 옷장 보관함 확장 계약을 설명한다. MVP9 자체는 프론트 UI/UX 리디자인 MVP이며 백엔드 HTTP API, request/response DTO, 인증/에러 계약을 변경하지 않는다. ADR-015는 기존 `archived` 컬럼을 재사용해 보관함 조회와 보관 해제 API를 추가한다.
 
 현재 API surface는 MVP8 계정 안정성 완료 계약을 유지한다. MVP8은 기존 인증 사용자 API, MVP5 이미지 API, MVP6 피드백/개인화 API, MVP7 위치/날씨 신뢰도 API 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google login, 계정 삭제 API를 추가했다.
 
@@ -17,7 +17,7 @@
 - Account deletion은 보호 API이며 현재 사용자 데이터만 삭제한다.
 - 추천/날씨/위치/이미지 API 계약은 MVP7 기준을 유지한다.
 - 계정 설정 이름 수정은 현재 사용자 범위의 `PATCH /api/users/me`로 처리한다.
-- MVP9 UI/UX 변경은 추천, 날씨, 위치, 이미지 API path, method, DTO field, error code를 변경하지 않는다.
+- MVP9 UI/UX 변경은 추천, 날씨, 위치, 이미지 API path, method, DTO field, error code를 변경하지 않는다. 옷장 보관함 조회와 보관 해제는 ADR-015 범위다.
 
 ## 1. 공통 규칙
 
@@ -92,9 +92,11 @@
 | `GET` | `/api/weather/current` | 현재 사용자 위치 기준 날씨 요약과 source 조회 | `200 OK` |
 | `POST` | `/api/clothes` | 옷 등록 | `201 Created` |
 | `GET` | `/api/clothes` | 옷 목록 조회 | `200 OK` |
+| `GET` | `/api/clothes/archived` | 보관한 옷 목록 조회 | `200 OK` |
 | `GET` | `/api/clothes/{clothingId}` | 옷 상세 조회 | `200 OK` |
 | `PUT` | `/api/clothes/{clothingId}` | 옷 전체 수정 | `200 OK` |
 | `PATCH` | `/api/clothes/{clothingId}/archive` | 옷 보관 처리 | `200 OK` |
+| `PATCH` | `/api/clothes/{clothingId}/unarchive` | 보관한 옷 다시 꺼내기 | `200 OK` |
 | `PUT` | `/api/clothes/{clothingId}/image` | 옷 이미지 업로드 또는 교체 | `200 OK` |
 | `GET` | `/api/clothes/{clothingId}/image` | 옷 이미지 bytes 조회 | `200 OK` |
 | `DELETE` | `/api/clothes/{clothingId}/image` | 옷 이미지 삭제 | `200 OK` |
@@ -392,10 +394,12 @@ Google-only 계정:
 
 ## 9. 유지 API
 
-위치, 날씨, 옷, 추천 API는 MVP7 계약을 유지한다.
+위치, 날씨, 추천 API는 MVP7 계약을 유지한다. 옷 API는 기존 보관 처리에 보관함 조회와 보관 해제를 더해 현재 사용자 소유 옷만 다룬다.
 
 - `GET /api/locations?keyword={keyword}`는 내부 KMA catalog 검색이다.
 - `POST /api/locations/resolve`는 브라우저 좌표 원문을 저장하지 않는다.
+- `GET /api/clothes`는 보관하지 않은 옷만 반환하고, `GET /api/clothes/archived`는 보관한 옷만 반환한다.
+- `PATCH /api/clothes/{clothingId}/archive`와 `PATCH /api/clothes/{clothingId}/unarchive`는 멱등이다.
 - `POST /api/recommendations`는 optional `situation`, `forecastPeriod`를 받을 수 있다.
 - `WeatherResponse`와 `RecommendationResponse.weather`는 location/source metadata를 포함한다.
 - 추천 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.

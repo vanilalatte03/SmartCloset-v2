@@ -182,6 +182,10 @@ public class ClothingItem extends BaseTimeEntity {
         this.archived = true;
     }
 
+    public void unarchive() {
+        this.archived = false;
+    }
+
     public void updateImageMetadata(
             String storedFilename,
             String contentType,

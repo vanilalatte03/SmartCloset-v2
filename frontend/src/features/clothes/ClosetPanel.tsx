@@ -5,8 +5,10 @@ import {
   archiveClothing,
   createClothing,
   deleteClothingImage,
+  getArchivedClothes,
   getClothingImageBlob,
   getClothes,
+  unarchiveClothing,
   updateClothing,
   uploadClothingImage,
 } from '../../api/smartClosetApi';
@@ -38,8 +40,10 @@ import {
   parseStyleTagInput,
   removeStyleTag,
 } from '../../utils/styleTags';
+import { getEulParticle } from '../../utils/koreanParticles';
 
 type CategoryFilter = 'ALL' | ClothingCategory | 'HAS_IMAGE' | 'HAS_TAG';
+type ClosetView = 'active' | 'archived';
 
 type TemperaturePreset = {
   id: string;
@@ -162,6 +166,10 @@ function getActiveCategoryCounts(clothes: ClothingResponse[]): Record<ClothingCa
       OUTER: 0,
     }
   );
+}
+
+function sortClothesById(first: ClothingResponse, second: ClothingResponse): number {
+  return first.id - second.id;
 }
 
 function matchesPreset(form: ClothingRequest, preset: TemperaturePreset): boolean {
@@ -378,19 +386,23 @@ export function ClosetPanel({
   onAuthExpired,
 }: ClosetPanelProps) {
   const [clothes, setClothes] = useState<ClothingResponse[]>([]);
+  const [archivedClothes, setArchivedClothes] = useState<ClothingResponse[]>([]);
   const [form, setForm] = useState<ClothingRequest>(defaultForm);
   const [tagInput, setTagInput] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
+  const [closetView, setClosetView] = useState<ClosetView>('active');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imageDropActive, setImageDropActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteImageRequested, setDeleteImageRequested] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
@@ -415,6 +427,29 @@ export function ClosetPanel({
     }
   }, [accessToken, onAuthExpired]);
 
+  const loadArchivedClothes = useCallback(async (preserveError = false) => {
+    setLoading(true);
+    if (!preserveError) {
+      setError(null);
+    }
+
+    try {
+      const nextArchivedClothes = await getArchivedClothes(accessToken);
+      setArchivedClothes(nextArchivedClothes);
+      setArchivedLoaded(true);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setArchivedClothes([]);
+      setArchivedLoaded(false);
+      setError(toErrorResponse(caught, '보관함을 불러오지 못했습니다.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, onAuthExpired]);
+
   useEffect(() => {
     void loadClothes();
   }, [loadClothes]);
@@ -426,6 +461,7 @@ export function ClosetPanel({
 
     setEditingId(null);
     setTagInput('');
+    setClosetView('active');
     setCategoryFilter(initialCategory);
     setForm({
       ...defaultForm,
@@ -439,23 +475,24 @@ export function ClosetPanel({
     () => clothes.filter((item) => !item.archived),
     [clothes]
   );
+  const visibleClothes = closetView === 'archived' ? archivedClothes : activeClothes;
   const activeCategoryCounts = useMemo(
     () => getActiveCategoryCounts(activeClothes),
     [activeClothes]
   );
   const filteredClothes = useMemo(() => {
     if (categoryFilter === 'ALL') {
-      return activeClothes;
+      return visibleClothes;
     }
     if (categoryFilter === 'HAS_IMAGE') {
-      return activeClothes.filter((item) => item.image !== null);
+      return visibleClothes.filter((item) => item.image !== null);
     }
     if (categoryFilter === 'HAS_TAG') {
-      return activeClothes.filter((item) => item.styleTags.length > 0);
+      return visibleClothes.filter((item) => item.styleTags.length > 0);
     }
 
-    return activeClothes.filter((item) => item.category === categoryFilter);
-  }, [activeClothes, categoryFilter]);
+    return visibleClothes.filter((item) => item.category === categoryFilter);
+  }, [categoryFilter, visibleClothes]);
   const editingItem = editingId
     ? activeClothes.find((item) => item.id === editingId) ?? null
     : null;
@@ -474,6 +511,7 @@ export function ClosetPanel({
     setError(null);
     setStatus(null);
     resetForm();
+    setClosetView('active');
     setMobileEditorOpen(true);
     scrollToTopOnMobile();
   };
@@ -482,6 +520,34 @@ export function ClosetPanel({
     resetForm();
     setMobileEditorOpen(false);
     scrollToTopOnMobile();
+  };
+
+  const handleToggleArchiveView = () => {
+    setError(null);
+    setStatus(null);
+
+    if (closetView === 'archived') {
+      setClosetView('active');
+      scrollToTopOnMobile();
+      return;
+    }
+
+    resetForm();
+    setClosetView('archived');
+    setMobileEditorOpen(false);
+    scrollToTopOnMobile();
+    if (!archivedLoaded) {
+      void loadArchivedClothes();
+    }
+  };
+
+  const handleRefresh = () => {
+    if (closetView === 'archived') {
+      void loadArchivedClothes();
+      return;
+    }
+
+    void loadClothes();
   };
 
   useEffect(() => {
@@ -677,12 +743,18 @@ export function ClosetPanel({
     try {
       await archiveClothing(accessToken, item.id);
       setClothes((current) => current.filter((candidate) => candidate.id !== item.id));
+      if (archivedLoaded) {
+        setArchivedClothes((current) =>
+          [...current.filter((candidate) => candidate.id !== item.id), { ...item, archived: true }]
+            .sort(sortClothesById)
+        );
+      }
       if (editingId === item.id) {
         resetForm();
         setMobileEditorOpen(false);
         scrollToTopOnMobile();
       }
-      setStatus(`${item.name}을 보관했습니다.`);
+      setStatus(`${item.name}${getEulParticle(item.name)} 보관했습니다.`);
       await loadClothes();
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -692,6 +764,30 @@ export function ClosetPanel({
       setError(toErrorResponse(caught, '옷을 보관하지 못했습니다.'));
     } finally {
       setArchivingId(null);
+    }
+  };
+
+  const handleRestore = async (item: ClothingResponse) => {
+    setError(null);
+    setStatus(null);
+    setRestoringId(item.id);
+
+    try {
+      await unarchiveClothing(accessToken, item.id);
+      const restoredItem = { ...item, archived: false };
+      setArchivedClothes((current) => current.filter((candidate) => candidate.id !== item.id));
+      setClothes((current) =>
+        [...current.filter((candidate) => candidate.id !== item.id), restoredItem].sort(sortClothesById)
+      );
+      setStatus(`${item.name}${getEulParticle(item.name)} 다시 꺼냈습니다.`);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setError(toErrorResponse(caught, '옷을 다시 꺼내지 못했습니다.'));
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -785,27 +881,47 @@ export function ClosetPanel({
       </div>
 
       <div className="closet-layout">
-        <section className="closet-card-section" aria-label="활성 옷 카드">
+        <section
+          className="closet-card-section"
+          aria-label={closetView === 'archived' ? '보관한 옷 카드' : '활성 옷 카드'}
+        >
           <div className="section-title-row">
             <div>
-              <p className="eyebrow">내 옷 리스트</p>
-              <h3>최근 추가한 옷</h3>
-              <p className="muted closet-form-note">보관하지 않은 옷만 추천 후보가 됩니다.</p>
+              <p className="eyebrow">
+                {closetView === 'archived' ? '보관함' : '내 옷 리스트'}
+              </p>
+              <h3>{closetView === 'archived' ? '보관한 옷' : '최근 추가한 옷'}</h3>
+              <p className="muted closet-form-note">
+                {closetView === 'archived'
+                  ? '다시 꺼낸 옷은 추천 후보로 돌아옵니다.'
+                  : '보관하지 않은 옷만 추천 후보가 됩니다.'}
+              </p>
             </div>
             <div className="closet-list-actions">
               <button
                 className="primary-button closet-mobile-add-button"
                 type="button"
                 onClick={openCreateForm}
-                disabled={submitting || archivingId !== null}
+                disabled={submitting || archivingId !== null || restoringId !== null}
               >
                 옷 추가
               </button>
               <button
+                className={
+                  closetView === 'archived' ? 'secondary-button active' : 'secondary-button'
+                }
+                type="button"
+                aria-pressed={closetView === 'archived'}
+                onClick={handleToggleArchiveView}
+                disabled={loading || submitting || archivingId !== null || restoringId !== null}
+              >
+                보관함
+              </button>
+              <button
                 className="secondary-button"
                 type="button"
-                onClick={() => void loadClothes()}
-                disabled={loading || submitting || archivingId !== null}
+                onClick={handleRefresh}
+                disabled={loading || submitting || archivingId !== null || restoringId !== null}
               >
                 새로고침
               </button>
@@ -827,8 +943,12 @@ export function ClosetPanel({
           </div>
 
           {loading ? (
-            <p className="muted">활성 옷을 확인하고 있어요.</p>
-          ) : activeClothes.length > 0 ? (
+            <p className="muted">
+              {closetView === 'archived'
+                ? '보관함을 확인하고 있어요.'
+                : '활성 옷을 확인하고 있어요.'}
+            </p>
+          ) : visibleClothes.length > 0 ? (
             filteredClothes.length > 0 ? (
               <div className="closet-card-grid">
                 {filteredClothes.map((item) => {
@@ -881,32 +1001,53 @@ export function ClosetPanel({
                         </span>
                       </div>
                       <div className="closet-item-actions closet-card-actions">
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={() => handleEdit(item)}
-                          disabled={submitting || archivingId !== null}
-                        >
-                          수정
-                        </button>
-                        <button
-                          className="secondary-button danger-button"
-                          type="button"
-                          onClick={() => void handleArchive(item)}
-                          disabled={submitting || archivingId !== null}
-                        >
-                          {archivingId === item.id ? '보관 중' : '보관'}
-                        </button>
+                        {closetView === 'archived' ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={() => void handleRestore(item)}
+                            disabled={submitting || archivingId !== null || restoringId !== null}
+                          >
+                            {restoringId === item.id ? '꺼내는 중' : '다시 꺼내기'}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => handleEdit(item)}
+                              disabled={submitting || archivingId !== null || restoringId !== null}
+                            >
+                              수정
+                            </button>
+                            <button
+                              className="secondary-button danger-button"
+                              type="button"
+                              onClick={() => void handleArchive(item)}
+                              disabled={submitting || archivingId !== null || restoringId !== null}
+                            >
+                              {archivingId === item.id ? '보관 중' : '보관'}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </article>
                   );
                 })}
               </div>
             ) : (
-              <p className="muted">선택한 카테고리에 활성 옷이 없어요.</p>
+              <p className="muted">
+                {closetView === 'archived'
+                  ? '선택한 카테고리에 보관한 옷이 없어요.'
+                  : '선택한 카테고리에 활성 옷이 없어요.'}
+              </p>
             )
           ) : (
-            <p className="muted">첫 추천을 위해 상의, 하의, 아우터를 하나씩 등록해주세요.</p>
+            <p className="muted">
+              {closetView === 'archived'
+                ? '보관한 옷이 없어요.'
+                : '첫 추천을 위해 상의, 하의, 아우터를 하나씩 등록해주세요.'}
+            </p>
           )}
         </section>
 

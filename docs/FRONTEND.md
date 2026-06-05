@@ -4,7 +4,7 @@
 
 MVP9 프론트엔드는 MVP8 계정 안정성 완료 SPA 위에서 `tmp/design-preview`와 `docs/design/mvp9/` reference를 강하게 참고해 화면 완성도를 높인다.
 
-백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break는 변경하지 않는다. MVP8 세션 정책과 계정 안정성 UX는 유지한다.
+MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. 현재 옷장 보관함 복원 UX는 ADR-015 API 확장을 사용하며, MVP8 세션 정책과 계정 안정성 UX는 유지한다.
 
 ## 기술 기준
 
@@ -218,9 +218,10 @@ Reference:
 UX 기준:
 
 - 목록은 이미지 중심 card/list로 구성한다.
-- 데스크톱은 grid, 모바일은 scannable list를 우선한다.
+- 데스크톱 옷장 목록은 한 줄 4개 고정 grid로 카드 크기를 균일하게 유지하고, 모바일은 2열 grid로 과도하게 큰 카드를 피한다.
 - category, image presence, tag presence filter를 chip으로 제공할 수 있다.
 - 옷 추가 CTA는 데스크톱과 모바일 모두 hover 없이 접근 가능해야 한다.
+- 옷장 목록 action 영역의 `보관함` 버튼으로 보관한 옷 목록을 열고, 보관한 옷은 `다시 꺼내기`로 추천 후보에 복귀시킨다.
 - 모바일은 옷장 진입 시 목록을 먼저 보여주고, 옷 추가 CTA 또는 수정 버튼으로 등록/수정 화면에 진입한다.
 - 등록/수정 form은 이미지 업로드, 이름, 카테고리, 색상, 소재, 기온 범위, 비 적합성, style tag를 한 흐름으로 제공한다.
 - 이미지 업로드 입력은 파일 선택, 드래그 앤 드롭, 클립보드 이미지 붙여넣기를 같은 파일 검증 규칙으로 처리한다.

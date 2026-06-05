@@ -12,6 +12,8 @@ public interface ClothingItemRepository extends JpaRepository<ClothingItem, Long
 
     List<ClothingItem> findByUserIdAndArchivedFalseOrderByIdAsc(Long userId);
 
+    List<ClothingItem> findByUserIdAndArchivedTrueOrderByIdAsc(Long userId);
+
     Optional<ClothingItem> findByIdAndUserId(Long id, Long userId);
 
     long countByUserId(Long userId);

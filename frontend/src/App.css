@@ -471,6 +471,12 @@
   border-color: #d4dae4;
 }
 
+.secondary-button.active {
+  background: #eef4ee;
+  border-color: #85a98d;
+  color: #31533a;
+}
+
 .primary-button:focus-visible,
 .secondary-button:focus-visible {
   outline: 3px solid var(--focus);
@@ -3249,9 +3255,11 @@
 }
 
 .closet-card-grid {
+  align-items: stretch;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .closet-card {
@@ -3260,6 +3268,8 @@
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  grid-template-rows: auto minmax(178px, 1fr) auto;
+  height: 100%;
   min-width: 0;
   overflow: hidden;
   padding: 0;
@@ -3405,20 +3415,29 @@
 .closet-card-body {
   display: grid;
   gap: 8px;
+  grid-template-rows: auto auto auto auto minmax(32px, 1fr);
   min-width: 0;
   padding: 0 14px;
 }
 
 .closet-card .closet-item-name {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--text-heading);
-  display: block;
+  display: -webkit-box;
   font-size: 17px;
   line-height: 1.25;
+  min-height: 42px;
+  overflow: hidden;
   overflow-wrap: anywhere;
 }
 
 .closet-card-tags {
+  align-content: start;
+  max-height: 64px;
   margin-top: 0;
+  min-height: 32px;
+  overflow: hidden;
 }
 
 .closet-card .color-swatch {
@@ -5124,16 +5143,70 @@
   }
 
   .closet-card-grid {
-    grid-template-columns: 1fr;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .closet-card {
+    gap: 8px;
+    grid-template-rows: auto minmax(116px, 1fr) auto;
+  }
+
+  .closet-thumbnail-frame {
+    min-height: 106px;
+  }
+
+  .closet-card-body {
+    gap: 6px;
+    grid-template-rows: auto auto auto auto minmax(26px, 1fr);
+    padding: 0 10px;
+  }
+
+  .closet-card .closet-item-name {
+    font-size: 14px;
+    line-height: 1.2;
+    min-height: 34px;
+  }
+
+  .closet-card-visual-row,
+  .closet-weather-row {
+    gap: 6px;
+  }
+
+  .closet-category-visual {
+    font-size: 13px;
+    height: 30px;
+    width: 30px;
+  }
+
+  .closet-card-tags {
+    max-height: 52px;
+    min-height: 26px;
+  }
+
+  .closet-card .color-swatch {
+    height: 16px;
+    width: 16px;
+  }
+
+  .closet-card .weather-fit-badge {
+    font-size: 11px;
+    min-height: 24px;
+    padding: 0 7px;
   }
 
   .closet-card-actions {
     align-items: stretch;
+    gap: 6px;
+    padding: 10px;
     width: 100%;
   }
 
   .closet-card-actions .secondary-button {
-    min-height: 42px;
+    flex: 1 1 58px;
+    font-size: 13px;
+    min-height: 36px;
+    padding: 0 8px;
   }
 
   .closet-image-editor {
