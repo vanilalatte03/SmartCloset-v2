@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClipboardEvent, DragEvent, FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
@@ -465,6 +465,11 @@ export function ClosetPanel({
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
+  const selectedImageFingerprintRef = useRef<string | null>(null);
+  const updateSelectedImageFile = useCallback((file: File | null) => {
+    selectedImageFingerprintRef.current = file ? getFileFingerprint(file) : null;
+    setSelectedImageFile(file);
+  }, []);
 
   const loadClothes = useCallback(async (preserveError = false) => {
     setLoading(true);
@@ -603,7 +608,7 @@ export function ClosetPanel({
     setForm(defaultForm);
     setTagInput('');
     setEditingId(null);
-    setSelectedImageFile(null);
+    updateSelectedImageFile(null);
     setPreviewUrl(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
@@ -669,6 +674,11 @@ export function ClosetPanel({
   }, [selectedImageFile]);
 
   const handleImageFileChange = (file: File | null) => {
+    if (analysisLoading) {
+      setFileInputKey((current) => current + 1);
+      return;
+    }
+
     setError(null);
     setStatus(null);
     setAnalysisMessage(null);
@@ -676,21 +686,21 @@ export function ClosetPanel({
     setPendingReviewSubmit(null);
 
     if (!file) {
-      setSelectedImageFile(null);
+      updateSelectedImageFile(null);
       return;
     }
 
     const imageFile = ensureNamedImageFile(file);
     const imageError = validateImageFile(imageFile);
     if (imageError) {
-      setSelectedImageFile(null);
+      updateSelectedImageFile(null);
       setFileInputKey((current) => current + 1);
       setError(imageError);
       return;
     }
 
     setDeleteImageRequested(false);
-    setSelectedImageFile(imageFile);
+    updateSelectedImageFile(imageFile);
   };
 
   const handleImageDragEnter = (event: DragEvent<HTMLElement>) => {
@@ -698,6 +708,11 @@ export function ClosetPanel({
       return;
     }
     event.preventDefault();
+    if (analysisLoading) {
+      event.dataTransfer.dropEffect = 'none';
+      setImageDropActive(false);
+      return;
+    }
     setImageDropActive(true);
   };
 
@@ -706,6 +721,11 @@ export function ClosetPanel({
       return;
     }
     event.preventDefault();
+    if (analysisLoading) {
+      event.dataTransfer.dropEffect = 'none';
+      setImageDropActive(false);
+      return;
+    }
     event.dataTransfer.dropEffect = 'copy';
     setImageDropActive(true);
   };
@@ -723,6 +743,9 @@ export function ClosetPanel({
     }
     event.preventDefault();
     setImageDropActive(false);
+    if (analysisLoading) {
+      return;
+    }
     handleImageFileChange(getFirstFile(event.dataTransfer.files));
   };
 
@@ -732,13 +755,20 @@ export function ClosetPanel({
       return;
     }
     event.preventDefault();
+    if (analysisLoading) {
+      return;
+    }
     handleImageFileChange(imageFile);
   };
 
   const handleRequestImageDelete = () => {
+    if (analysisLoading) {
+      return;
+    }
+
     setError(null);
     setStatus(null);
-    setSelectedImageFile(null);
+    updateSelectedImageFile(null);
     setDeleteImageRequested(true);
     setFileInputKey((current) => current + 1);
     setAnalysisMessage(null);
@@ -747,7 +777,11 @@ export function ClosetPanel({
   };
 
   const clearImageSelection = () => {
-    setSelectedImageFile(null);
+    if (analysisLoading) {
+      return;
+    }
+
+    updateSelectedImageFile(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
     setAnalysisMessage(null);
@@ -804,12 +838,18 @@ export function ClosetPanel({
     setAnalysisLoading(true);
     try {
       const response = await analyzeClothingImage(accessToken, selectedImageFile);
+      if (selectedImageFingerprintRef.current !== fingerprint) {
+        return;
+      }
       setAnalysisCache((current) => ({
         ...current,
         [fingerprint]: response,
       }));
       applyAnalysisResponse(response, false);
     } catch (caught) {
+      if (selectedImageFingerprintRef.current !== fingerprint) {
+        return;
+      }
       if (isUnauthorizedError(caught)) {
         onAuthExpired();
         return;
@@ -938,7 +978,7 @@ export function ClosetPanel({
     setEditingId(item.id);
     setTagInput('');
     setForm(toClothingRequest(item));
-    setSelectedImageFile(null);
+    updateSelectedImageFile(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
     setMobileEditorOpen(true);
@@ -1345,6 +1385,7 @@ export function ClosetPanel({
                     id="clothing-image-file"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
+                    disabled={analysisLoading || submitting}
                     onChange={(event) =>
                       handleImageFileChange(event.target.files?.item(0) ?? null)
                     }
@@ -1358,7 +1399,7 @@ export function ClosetPanel({
                       className="secondary-button"
                       type="button"
                       onClick={clearImageSelection}
-                      disabled={submitting}
+                      disabled={analysisLoading || submitting}
                     >
                       선택 해제
                     </button>
@@ -1388,7 +1429,7 @@ export function ClosetPanel({
                     className="secondary-button danger-button"
                     type="button"
                     onClick={handleRequestImageDelete}
-                    disabled={submitting || deleteImageRequested}
+                    disabled={analysisLoading || submitting || deleteImageRequested}
                   >
                     {deleteImageRequested ? '삭제 예정' : '이미지 삭제'}
                   </button>
