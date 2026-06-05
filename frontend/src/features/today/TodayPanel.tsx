@@ -14,17 +14,14 @@ import {
   replaceRecommendationFeedback,
 } from '../../api/smartClosetApi';
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
-import {
-  ColorSwatch,
-  MaterialChip,
-  WeatherLabel,
-} from '../../components/DisplayTokens';
+import { ColorSwatch } from '../../components/DisplayTokens';
 import { RecommendationPanel } from '../recommendation/RecommendationPanel';
 import type {
   ClothingCategory,
   ClothingResponse,
   ErrorResponse,
   ForecastPeriod,
+  OutfitItemResponse,
   RecommendationFeedbackSentiment,
   RecommendationResponse,
   RecommendationSituation,
@@ -35,6 +32,7 @@ import type {
 } from '../../types/api';
 import {
   clothingCategoryLabels,
+  clothingMaterialLabels,
   forecastPeriodLabels,
   recommendationFeedbackSentimentLabels,
   recommendationSituationLabels,
@@ -68,7 +66,7 @@ type ChecklistItem = {
 };
 
 const recentHistoryLimit = 20;
-const recentHistoryPreviewCount = 3;
+const recentHistoryPreviewCount = 1;
 const recentHistoryApiPath = '/api/recommendations?limit=20';
 
 const requiredCategories: ClothingCategory[] = ['TOP', 'BOTTOM', 'OUTER'];
@@ -160,6 +158,27 @@ function renderWeatherState(weather: WeatherResponse, forecastPeriod: ForecastPe
 function renderHistoryOutfit(item: RecommendationResponse): string {
   const outerName = item.outfit.outer ? ` / ${item.outfit.outer.name}` : '';
   return `${item.outfit.top.name} / ${item.outfit.bottom.name}${outerName}`;
+}
+
+function getHistoryOutfitPieces(item: RecommendationResponse): OutfitItemResponse[] {
+  const pieces = [item.outfit.top, item.outfit.bottom];
+
+  if (item.outfit.outer) {
+    pieces.push(item.outfit.outer);
+  }
+
+  return pieces;
+}
+
+function getHistoryFeedbackLabel(feedback: RecommendationResponse['feedback']): string {
+  const labels = feedback
+    ? [
+        feedback.sentiment ? recommendationFeedbackSentimentLabels[feedback.sentiment] : null,
+        feedback.thermal ? recommendationThermalFeedbackLabels[feedback.thermal] : null,
+      ].filter((label): label is string => Boolean(label))
+    : [];
+
+  return labels.length > 0 ? labels.join(' · ') : '피드백 없음';
 }
 
 export function TodayPanel({
@@ -393,11 +412,6 @@ export function TodayPanel({
   const activeCategoryCounts = useMemo(() => getActiveCategoryCounts(clothes), [clothes]);
   const preferenceChecked = preferences !== null;
   const previewHistory = history.slice(0, recentHistoryPreviewCount);
-  const allRequiredClothesReady = requiredCategories.every(
-    (category) => activeCategoryCounts[category] > 0
-  );
-  const readyForFirstRecommendation =
-    Boolean(location) && preferenceChecked && allRequiredClothesReady;
 
   const preferenceDetail = preferenceChecked
     ? `색상 ${preferences.preferredColors.length}개, 소재 ${preferences.preferredMaterials.length}개 확인`
@@ -435,28 +449,11 @@ export function TodayPanel({
       };
     }),
   ];
+  const incompleteChecklistItems = checklistItems.filter((item) => !item.complete);
+  const incompleteChecklistLabels = incompleteChecklistItems.map((item) => item.label).join(', ');
 
   return (
     <div className="today-layout">
-      <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
-        {weatherLoading ? (
-          <div className="today-weather-loading">
-            <p className="eyebrow">날씨</p>
-            <strong>{location ? location.name : '위치 확인 중'}</strong>
-            <span>현재 날씨를 확인하고 있어요.</span>
-          </div>
-        ) : null}
-        {!weatherLoading && weather ? (
-          renderWeatherState(weather, selectedForecastPeriod)
-        ) : null}
-        {!weatherLoading && weatherError ? (
-          <div className="today-soft-error">
-            <ApiErrorMessage error={weatherError} />
-            <p className="muted">날씨가 없어도 체크리스트와 화면 이동은 계속 사용할 수 있어요.</p>
-          </div>
-        ) : null}
-      </article>
-
       <RecommendationPanel
         location={location}
         currentWeather={weather}
@@ -480,163 +477,174 @@ export function TodayPanel({
         onAuthExpired={onAuthExpired}
       />
 
-      <article className="panel today-checklist-panel" aria-label="첫 추천 체크리스트">
-        <div className="section-title-row">
-          <h3>첫 추천 체크리스트</h3>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void loadReadiness()}
-            disabled={readinessLoading}
-          >
-            다시 확인
-          </button>
-        </div>
+      <aside className="today-side-stack" aria-label="오늘 상태 요약">
+        <article className="panel today-weather-panel" aria-label="현재 위치와 날씨">
+          {weatherLoading ? (
+            <div className="today-weather-loading">
+              <p className="eyebrow">날씨</p>
+              <strong>{location ? location.name : '위치 확인 중'}</strong>
+              <span>현재 날씨를 확인하고 있어요.</span>
+            </div>
+          ) : null}
+          {!weatherLoading && weather ? (
+            renderWeatherState(weather, selectedForecastPeriod)
+          ) : null}
+          {!weatherLoading && weatherError ? (
+            <div className="today-soft-error">
+              <ApiErrorMessage error={weatherError} />
+              <p className="muted">날씨가 없어도 체크리스트와 화면 이동은 계속 사용할 수 있어요.</p>
+            </div>
+          ) : null}
+        </article>
 
-        {readinessLoading ? (
-          <p className="muted">준비 상태를 확인하고 있어요.</p>
-        ) : (
-          <ul className="today-checklist">
-            {checklistItems.map((item) => (
-              <li className="today-checklist-item" key={item.id}>
-                <span
-                  className={
-                    item.complete ? 'checklist-status complete' : 'checklist-status pending'
-                  }
-                  aria-label={item.complete ? '완료' : '필요'}
-                />
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{item.detail}</span>
-                </div>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() =>
-                    onNavigate(
-                      item.targetView,
-                      item.category ? { closetCategory: item.category } : undefined
-                    )
-                  }
-                >
-                  {item.ctaLabel}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <p className="today-checklist-note">
-          기온이 12도 안팎이면 아우터까지 준비되어야 추천 성공률이 높아요.
-        </p>
-
-        {preferencesError ? <ApiErrorMessage error={preferencesError} /> : null}
-        {clothesError ? <ApiErrorMessage error={clothesError} /> : null}
-      </article>
-
-      <article
-        className={
-          readyForFirstRecommendation
-            ? 'panel today-hero-panel ready'
-            : 'panel today-hero-panel pending'
-        }
-      >
-        <div className="today-hero-copy">
-          <p className="eyebrow">추천 준비 상태</p>
-          <h2>
-            {readyForFirstRecommendation
-              ? '첫 추천 준비가 끝났어요'
-              : '부족한 항목을 채우면 추천이 완성돼요'}
-          </h2>
-          <p className="muted">
-            {readyForFirstRecommendation
-              ? '이제 추천을 만들어 옷 조합과 이유를 확인하면 됩니다.'
-              : '위치, 선호도, 상의, 하의, 아우터를 채우면 추천을 만들 수 있어요.'}
-          </p>
-        </div>
-        <div className="today-readiness-summary">
-          <span
-            className={
-              readyForFirstRecommendation
-                ? 'readiness-pill complete'
-                : 'readiness-pill pending'
-            }
-          >
-            {readyForFirstRecommendation ? '준비 완료' : '준비 중'}
-          </span>
-          <span className="today-cta-note">
-            {readyForFirstRecommendation
-              ? '바로 아래에서 시작하세요.'
-              : '부족한 항목은 체크리스트에서 바로 이동할 수 있어요.'}
-          </span>
-        </div>
-      </article>
-
-      <article
-        className="panel today-history-preview"
-        aria-label="최근 추천 미리보기"
-        data-api-path={recentHistoryApiPath}
-      >
-        <div className="section-title-row">
-          <h3>최근 추천 미리보기</h3>
-          <button className="secondary-button" type="button" onClick={() => onNavigate('history')}>
-            이력 보기
-          </button>
-        </div>
-
-        {historyLoading ? <p className="muted">최근 추천을 확인하고 있어요.</p> : null}
-        {!historyLoading && historyError ? <ApiErrorMessage error={historyError} /> : null}
-        {!historyLoading && !historyError && previewHistory.length > 0 ? (
-          <div className="item-list today-history-list">
-            {previewHistory.map((item) => (
-              <div className="item-row today-history-row" key={item.recommendationId}>
-                <div>
-                  <strong>{formatDateTime(item.createdAt)}</strong>
-                  <span>{renderHistoryOutfit(item)}</span>
-                  <span className="token-row">
-                    <span className="situation-pill">
-                      {recommendationSituationLabels[item.situation]}
-                    </span>
-                    <span className="situation-pill">
-                      {forecastPeriodLabels[item.forecastPeriod]}
-                    </span>
-                    <span>{item.weather.temperature}°C</span>
-                    <WeatherLabel weatherType={item.weather.weatherType} />
-                    <ColorSwatch color={item.outfit.top.color} showLabel={false} />
-                    <MaterialChip material={item.outfit.top.material} />
-                  </span>
-                  <span className="token-row">
-                    <span>{item.weather.location.fullName || item.weather.location.name}</span>
-                    <span className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}>
-                      {item.worn
-                        ? `착용 완료${item.wornAt ? ` · ${formatDateTime(item.wornAt)}` : ''}`
-                        : '착용 전'}
-                    </span>
-                    <span className="feedback-state-pill">
-                      {item.feedback
-                        ? [
-                            item.feedback.sentiment
-                              ? recommendationFeedbackSentimentLabels[item.feedback.sentiment]
-                              : null,
-                            item.feedback.thermal
-                              ? recommendationThermalFeedbackLabels[item.feedback.thermal]
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')
-                        : '피드백 없음'}
-                    </span>
-                  </span>
-                </div>
-                <span className="item-meta">{item.worn ? '착용 완료' : '착용 전'}</span>
-              </div>
-            ))}
+        <article className="panel today-checklist-panel" aria-label="첫 추천 체크리스트">
+          <div className="section-title-row">
+            <h3>첫 추천 체크리스트</h3>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void loadReadiness()}
+              disabled={readinessLoading}
+            >
+              다시 확인
+            </button>
           </div>
-        ) : null}
-        {!historyLoading && !historyError && previewHistory.length === 0 ? (
-          <p className="muted">아직 추천 이력이 없어요.</p>
-        ) : null}
-      </article>
+
+          {!readinessLoading && incompleteChecklistItems.length > 0 ? (
+            <p className="today-checklist-alert" role="status">
+              아직 {incompleteChecklistLabels} 항목이 남아 있어요.
+            </p>
+          ) : null}
+
+          {readinessLoading ? (
+            <p className="muted">준비 상태를 확인하고 있어요.</p>
+          ) : (
+            <ul className="today-checklist">
+              {checklistItems.map((item) => (
+                <li className="today-checklist-item" key={item.id}>
+                  <span
+                    className={
+                      item.complete ? 'checklist-status complete' : 'checklist-status pending'
+                    }
+                    aria-label={item.complete ? '완료' : '필요'}
+                  />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                  </div>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() =>
+                      onNavigate(
+                        item.targetView,
+                        item.category ? { closetCategory: item.category } : undefined
+                      )
+                    }
+                  >
+                    {item.ctaLabel}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="today-checklist-note">
+            기온이 12도 안팎이면 아우터까지 준비되어야 추천 성공률이 높아요.
+          </p>
+
+          {preferencesError ? <ApiErrorMessage error={preferencesError} /> : null}
+          {clothesError ? <ApiErrorMessage error={clothesError} /> : null}
+        </article>
+
+        <article
+          className="panel today-history-preview"
+          aria-label="최근 추천 미리보기"
+          data-api-path={recentHistoryApiPath}
+        >
+          <div className="section-title-row">
+            <h3>최근 추천 미리보기</h3>
+            <button className="secondary-button" type="button" onClick={() => onNavigate('history')}>
+              이력 보기
+            </button>
+          </div>
+
+          {historyLoading ? <p className="muted">최근 추천을 확인하고 있어요.</p> : null}
+          {!historyLoading && historyError ? <ApiErrorMessage error={historyError} /> : null}
+          {!historyLoading && !historyError && previewHistory.length > 0 ? (
+            <div className="today-history-list">
+              {previewHistory.map((item) => {
+                const wornLabel = item.worn
+                  ? `착용 완료${item.wornAt ? ` · ${formatDateTime(item.wornAt)}` : ''}`
+                  : '착용 전';
+                const weatherLocation =
+                  item.weather.location.fullName || item.weather.location.name;
+
+                return (
+                  <article className="today-history-card" key={item.recommendationId}>
+                    <div className="today-history-card-header">
+                      <div>
+                        <span className="today-history-kicker">추천 시간</span>
+                        <strong>{formatDateTime(item.createdAt)}</strong>
+                      </div>
+                      <span
+                        className={item.worn ? 'history-worn-pill complete' : 'history-worn-pill'}
+                      >
+                        {wornLabel}
+                      </span>
+                    </div>
+
+                    <p className="today-history-outfit">{renderHistoryOutfit(item)}</p>
+
+                    <div className="today-history-meta-block">
+                      <span className="today-history-kicker">추천 조건</span>
+                      <span className="today-history-condition-line">
+                        {recommendationSituationLabels[item.situation]} ·{' '}
+                        {forecastPeriodLabels[item.forecastPeriod]} · {item.weather.temperature}°C ·{' '}
+                        {weatherTypeLabels[item.weather.weatherType]}
+                      </span>
+                    </div>
+
+                    <div className="today-history-meta-block">
+                      <span className="today-history-kicker">위치</span>
+                      <span className="today-history-location">{weatherLocation}</span>
+                    </div>
+
+                    <div className="today-history-meta-block">
+                      <span className="today-history-kicker">옷별 색상과 소재</span>
+                      <div className="today-history-piece-list">
+                        {getHistoryOutfitPieces(item).map((piece) => (
+                          <span
+                            className="today-history-piece"
+                            key={`${piece.category}-${piece.id}`}
+                          >
+                            <span className="today-history-piece-label">
+                              {clothingCategoryLabels[piece.category]}
+                            </span>
+                            <span className="today-history-piece-value">
+                              <ColorSwatch color={piece.color} />
+                              <span>· {clothingMaterialLabels[piece.material]}</span>
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="today-history-card-footer">
+                      <span className="feedback-state-pill">
+                        {getHistoryFeedbackLabel(item.feedback)}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+          {!historyLoading && !historyError && previewHistory.length === 0 ? (
+            <p className="muted">아직 추천 이력이 없어요.</p>
+          ) : null}
+        </article>
+      </aside>
     </div>
   );
 }
