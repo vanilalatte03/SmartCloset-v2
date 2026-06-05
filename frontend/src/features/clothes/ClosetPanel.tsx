@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ClipboardEvent, DragEvent, FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
   archiveClothing,
@@ -21,6 +21,7 @@ import type {
 import {
   clothingCategoryLabels,
   clothingCategoryOptions,
+  clothingColorMetadata,
   clothingColorOptions,
   clothingMaterialLabels,
   clothingMaterialOptions,
@@ -71,20 +72,19 @@ const categoryFilterOptions: Array<{
   { value: 'HAS_TAG', label: '태그 있음' },
 ];
 
-const categoryVisualLabels: Record<ClothingCategory, string> = {
-  TOP: '상',
-  BOTTOM: '하',
-  OUTER: '겉',
-};
-
 const maxImageSizeBytes = 5 * 1024 * 1024;
 const allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
+const imageExtensionByType: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 const temperaturePresets: TemperaturePreset[] = [
   {
     id: 'deep-winter',
-    label: '한겨울',
+    label: '추운 날',
     minTemperature: -10,
     maxTemperature: 5,
     rainSuitable: false,
@@ -105,9 +105,9 @@ const temperaturePresets: TemperaturePreset[] = [
   },
   {
     id: 'warm-day',
-    label: '따뜻한 날',
+    label: '더운 날',
     minTemperature: 17,
-    maxTemperature: 28,
+    maxTemperature: 35,
     rainSuitable: false,
   },
   {
@@ -172,6 +172,63 @@ function matchesPreset(form: ClothingRequest, preset: TemperaturePreset): boolea
   );
 }
 
+function getFileExtension(fileName: string): string {
+  if (!fileName.includes('.')) {
+    return '';
+  }
+  return fileName.split('.').pop()?.toLowerCase() ?? '';
+}
+
+function ensureNamedImageFile(file: File): File {
+  const currentExtension = getFileExtension(file.name);
+  if (allowedImageExtensions.has(currentExtension)) {
+    return file;
+  }
+  if (currentExtension) {
+    return file;
+  }
+
+  const extension = imageExtensionByType[file.type];
+  if (!extension) {
+    return file;
+  }
+
+  return new File([file], `smartcloset-image.${extension}`, {
+    type: file.type,
+    lastModified: file.lastModified,
+  });
+}
+
+function getFirstFile(files: FileList): File | null {
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files.item(index);
+    if (file) {
+      return file;
+    }
+  }
+  return null;
+}
+
+function getFirstClipboardImageFile(dataTransfer: DataTransfer): File | null {
+  for (let index = 0; index < dataTransfer.items.length; index += 1) {
+    const item = dataTransfer.items[index];
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      return item.getAsFile();
+    }
+  }
+
+  return getFirstFile(dataTransfer.files);
+}
+
+function hasFileDrag(dataTransfer: DataTransfer): boolean {
+  for (let index = 0; index < dataTransfer.types.length; index += 1) {
+    if (dataTransfer.types[index] === 'Files') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validateImageFile(file: File): ErrorResponse | null {
   if (file.size <= 0) {
     return imageValidationError('비어 있는 이미지는 업로드할 수 없습니다.');
@@ -181,7 +238,7 @@ function validateImageFile(file: File): ErrorResponse | null {
     return imageValidationError('이미지는 5MB 이하만 업로드할 수 있습니다.');
   }
 
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const extension = getFileExtension(file.name);
   if (!allowedImageExtensions.has(extension)) {
     return imageValidationError('jpg, png, webp 형식의 이미지만 업로드할 수 있습니다.');
   }
@@ -206,6 +263,19 @@ function validateImageFile(file: File): ErrorResponse | null {
   return null;
 }
 
+function scrollToTopOnMobile() {
+  if (
+    typeof window === 'undefined' ||
+    !window.matchMedia('(max-width: 920px)').matches
+  ) {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 function ClothingThumbnail({
   accessToken,
   item,
@@ -217,7 +287,6 @@ function ClothingThumbnail({
 }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const fallbackLabel = categoryVisualLabels[item.category];
 
   useEffect(() => {
     let active = true;
@@ -265,15 +334,34 @@ function ClothingThumbnail({
     );
   }
 
+  return <ClothingImageFallback category={item.category} color={item.color} label={`${item.name} 이미지 없음`} />;
+}
+
+function ClothingImageFallback({
+  category,
+  color,
+  label,
+}: {
+  category: ClothingCategory;
+  color: ClothingResponse['color'];
+  label: string;
+}) {
+  const colorMetadata = clothingColorMetadata[color];
+
   return (
-    <div className={`closet-thumbnail-frame fallback ${item.category.toLowerCase()}`}>
+    <div
+      className={`closet-thumbnail-frame fallback ${category.toLowerCase()}`}
+      role="img"
+      aria-label={label}
+    >
       <span
-        className={`closet-category-visual ${item.category.toLowerCase()}`}
+        className="closet-placeholder-color-dot"
+        style={{
+          backgroundColor: colorMetadata.swatch,
+          borderColor: colorMetadata.borderColor,
+        }}
         aria-hidden="true"
-      >
-        {fallbackLabel}
-      </span>
-      <ColorSwatch color={item.color} />
+      />
     </div>
   );
 }
@@ -298,9 +386,11 @@ export function ClosetPanel({
   const [submitting, setSubmitting] = useState(false);
   const [archivingId, setArchivingId] = useState<number | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imageDropActive, setImageDropActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteImageRequested, setDeleteImageRequested] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<ErrorResponse | null>(null);
 
@@ -341,6 +431,8 @@ export function ClosetPanel({
       ...defaultForm,
       category: initialCategory,
     });
+    setMobileEditorOpen(true);
+    scrollToTopOnMobile();
   }, [initialCategory]);
 
   const activeClothes = useMemo(
@@ -378,6 +470,20 @@ export function ClosetPanel({
     setFileInputKey((current) => current + 1);
   };
 
+  const openCreateForm = () => {
+    setError(null);
+    setStatus(null);
+    resetForm();
+    setMobileEditorOpen(true);
+    scrollToTopOnMobile();
+  };
+
+  const closeMobileEditor = () => {
+    resetForm();
+    setMobileEditorOpen(false);
+    scrollToTopOnMobile();
+  };
+
   useEffect(() => {
     if (!selectedImageFile) {
       setPreviewUrl(null);
@@ -401,7 +507,8 @@ export function ClosetPanel({
       return;
     }
 
-    const imageError = validateImageFile(file);
+    const imageFile = ensureNamedImageFile(file);
+    const imageError = validateImageFile(imageFile);
     if (imageError) {
       setSelectedImageFile(null);
       setFileInputKey((current) => current + 1);
@@ -410,7 +517,49 @@ export function ClosetPanel({
     }
 
     setDeleteImageRequested(false);
-    setSelectedImageFile(file);
+    setSelectedImageFile(imageFile);
+  };
+
+  const handleImageDragEnter = (event: DragEvent<HTMLElement>) => {
+    if (!hasFileDrag(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    setImageDropActive(true);
+  };
+
+  const handleImageDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!hasFileDrag(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setImageDropActive(true);
+  };
+
+  const handleImageDragLeave = (event: DragEvent<HTMLElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+    setImageDropActive(false);
+  };
+
+  const handleImageDrop = (event: DragEvent<HTMLElement>) => {
+    if (!hasFileDrag(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    setImageDropActive(false);
+    handleImageFileChange(getFirstFile(event.dataTransfer.files));
+  };
+
+  const handleImagePaste = (event: ClipboardEvent<HTMLElement>) => {
+    const imageFile = getFirstClipboardImageFile(event.clipboardData);
+    if (!imageFile) {
+      return;
+    }
+    event.preventDefault();
+    handleImageFileChange(imageFile);
   };
 
   const handleRequestImageDelete = () => {
@@ -493,6 +642,8 @@ export function ClosetPanel({
       }
 
       resetForm();
+      setMobileEditorOpen(false);
+      scrollToTopOnMobile();
       await loadClothes(true);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -514,6 +665,8 @@ export function ClosetPanel({
     setSelectedImageFile(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
+    setMobileEditorOpen(true);
+    scrollToTopOnMobile();
   };
 
   const handleArchive = async (item: ClothingResponse) => {
@@ -526,6 +679,8 @@ export function ClosetPanel({
       setClothes((current) => current.filter((candidate) => candidate.id !== item.id));
       if (editingId === item.id) {
         resetForm();
+        setMobileEditorOpen(false);
+        scrollToTopOnMobile();
       }
       setStatus(`${item.name}을 보관했습니다.`);
       await loadClothes();
@@ -602,19 +757,21 @@ export function ClosetPanel({
     }));
   };
 
-  const imageCount = activeClothes.filter((item) => item.image !== null).length;
-  const taggedCount = activeClothes.filter((item) => item.styleTags.length > 0).length;
   const formDisplayStyleTags = getDisplayStyleTags(form.styleTags);
   const formDisplayStyleTagEntries = getDisplayStyleTagEntries(form.styleTags);
 
   return (
-    <article className="panel closet-panel">
+    <article
+      className={
+        mobileEditorOpen ? 'panel closet-panel mobile-editor-open' : 'panel closet-panel'
+      }
+    >
       <div className="closet-panel-header closet-wardrobe-hero">
         <div className="closet-hero-copy">
           <p className="eyebrow">옷장 상태</p>
           <h2>추천에 쓸 수 있는 옷 {activeClothes.length}개</h2>
           <p className="closet-panel-copy">
-            이미지, 온도 범위, 태그까지 정리해 오늘 추천 후보를 더 빠르게 준비합니다.
+            카테고리와 온도 범위를 정리해 오늘 추천 후보를 더 빠르게 준비합니다.
           </p>
         </div>
         <dl className="metric-list closet-counts" aria-label="활성 옷 수">
@@ -624,14 +781,6 @@ export function ClosetPanel({
               <dd>{activeCategoryCounts[category]}개</dd>
             </div>
           ))}
-          <div>
-            <dt>이미지</dt>
-            <dd>{imageCount}개</dd>
-          </div>
-          <div>
-            <dt>태그</dt>
-            <dd>{taggedCount}개</dd>
-          </div>
         </dl>
       </div>
 
@@ -643,14 +792,24 @@ export function ClosetPanel({
               <h3>최근 추가한 옷</h3>
               <p className="muted closet-form-note">보관하지 않은 옷만 추천 후보가 됩니다.</p>
             </div>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => void loadClothes()}
-              disabled={loading || submitting || archivingId !== null}
-            >
-              새로고침
-            </button>
+            <div className="closet-list-actions">
+              <button
+                className="primary-button closet-mobile-add-button"
+                type="button"
+                onClick={openCreateForm}
+                disabled={submitting || archivingId !== null}
+              >
+                옷 추가
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => void loadClothes()}
+                disabled={loading || submitting || archivingId !== null}
+              >
+                새로고침
+              </button>
+            </div>
           </div>
 
           <div className="category-filter" role="group" aria-label="카테고리 필터">
@@ -677,15 +836,6 @@ export function ClosetPanel({
 
                   return (
                     <article className="closet-card" key={item.id}>
-                      <div className="closet-card-visual-row">
-                        <span
-                          className={`closet-category-visual ${item.category.toLowerCase()}`}
-                          aria-hidden="true"
-                        >
-                          {categoryVisualLabels[item.category]}
-                        </span>
-                        <span className="category-pill">{clothingCategoryLabels[item.category]}</span>
-                      </div>
                       <ClothingThumbnail
                         accessToken={accessToken}
                         item={item}
@@ -764,27 +914,46 @@ export function ClosetPanel({
           <div className="section-title-row closet-form-heading">
             <div>
               <p className="eyebrow">상세 정보</p>
-              <h3>{editingItem ? `${editingItem.name} 수정` : `${form.name.trim() || '새 옷'} 등록`}</h3>
+              <h3>{editingItem ? '옷 정보 수정' : '새 옷 등록'}</h3>
               <p className="muted closet-form-note">
                 {editingItem
-                  ? `${editingItem.name} 정보를 전체 수정합니다.`
+                  ? '선택한 옷 정보를 전체 수정합니다.'
                   : '추천 준비에 필요한 옷 정보를 한 번에 등록합니다.'}
               </p>
             </div>
-            {editingItem ? (
+            <div className="closet-form-heading-actions">
               <button
-                className="secondary-button"
+                className="secondary-button closet-mobile-editor-close"
                 type="button"
-                onClick={resetForm}
+                onClick={closeMobileEditor}
                 disabled={submitting}
               >
-                수정 취소
+                {editingItem ? '수정 취소' : '목록으로'}
               </button>
-            ) : null}
+              {editingItem ? (
+                <button
+                  className="secondary-button closet-desktop-edit-cancel"
+                  type="button"
+                  onClick={resetForm}
+                  disabled={submitting}
+                >
+                  수정 취소
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="closet-form-overview">
-            <section className="closet-image-editor" aria-label="옷 이미지 관리">
+            <section
+              className={imageDropActive ? 'closet-image-editor drop-active' : 'closet-image-editor'}
+              aria-label="옷 이미지 관리"
+              onDragEnter={handleImageDragEnter}
+              onDragLeave={handleImageDragLeave}
+              onDragOver={handleImageDragOver}
+              onDrop={handleImageDrop}
+              onPaste={handleImagePaste}
+              tabIndex={0}
+            >
               <div className="closet-image-preview">
                 {previewUrl ? (
                   <img src={previewUrl} alt="선택한 옷 이미지 미리보기" />
@@ -795,18 +964,19 @@ export function ClosetPanel({
                     onAuthExpired={onAuthExpired}
                   />
                 ) : (
-                  <div className={`closet-thumbnail-frame fallback ${form.category.toLowerCase()}`}>
-                    <span
-                      className={`closet-category-visual ${form.category.toLowerCase()}`}
-                      aria-hidden="true"
-                    >
-                      {categoryVisualLabels[form.category]}
-                    </span>
-                    <ColorSwatch color={form.color} />
-                  </div>
+                  <ClothingImageFallback
+                    category={form.category}
+                    color={form.color}
+                    label="선택한 옷 이미지 없음"
+                  />
                 )}
               </div>
               <div className="closet-image-controls">
+                <p className="closet-image-drop-hint">
+                  {imageDropActive
+                    ? '여기에 놓으면 이미지가 추가됩니다.'
+                    : '이미지를 드래그하거나 붙여넣어 추가할 수 있습니다.'}
+                </p>
                 <label className="field image-file-field" htmlFor="clothing-image-file">
                   <span>{editingItem ? '이미지 교체' : '이미지 추가'}</span>
                   <input

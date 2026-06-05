@@ -103,7 +103,9 @@ public class AuthService {
     @Transactional
     public RefreshTokenBundle refresh(String refreshToken) {
         RefreshTokenService.RotatedRefreshToken rotated = refreshTokenService.rotate(refreshToken);
-        return new RefreshTokenBundle(authResponse(rotated.user()), rotated.refreshToken());
+        User user = rotated.user();
+        defaultClothingPresetSeeder.seedIfEmpty(user);
+        return new RefreshTokenBundle(authResponse(user), rotated.refreshToken());
     }
 
     @Transactional
