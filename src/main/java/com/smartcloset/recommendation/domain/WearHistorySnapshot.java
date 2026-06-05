@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * 최근 착용 페널티 계산에 필요한 착용 이력 요약이다.
+ */
 public record WearHistorySnapshot(
         Long recommendationResultId,
         LocalDateTime wornAt,

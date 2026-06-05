@@ -27,6 +27,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * Google OAuth 로그인 URL 생성과 callback 처리를 담당한다.
+ *
+ * <p>Google에서 verified email을 확인한 프로필만 계정 생성/연결에 사용하며,
+ * 기존 password 계정과 같은 이메일이면 Google social account를 연결한다.</p>
+ */
 @Service
 public class GoogleOAuthService {
 
@@ -77,16 +83,25 @@ public class GoogleOAuthService {
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
+    /**
+     * Google OAuth 설정 상태와 프론트가 사용할 로그인 시작 path를 반환한다.
+     */
     public OAuthProvidersResponse providers() {
         return OAuthProvidersResponse.google(properties.googleEnabled(), GOOGLE_LOGIN_PATH);
     }
 
+    /**
+     * OAuth callback 검증용 state 값을 예측 불가능한 URL-safe 문자열로 생성한다.
+     */
     public String createState() {
         byte[] bytes = new byte[OAUTH_STATE_BYTES];
         SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    /**
+     * controller가 발급한 state 값을 Google authorization URL에 넣어 CSRF를 방지한다.
+     */
     public URI authorizationUri(String state) {
         ensureGoogleEnabled();
         if (state == null || state.isBlank()) {
@@ -105,6 +120,9 @@ public class GoogleOAuthService {
                 .toUri();
     }
 
+    /**
+     * authorization code를 Google profile로 교환한 뒤 SmartCloset 세션 token 쌍을 발급한다.
+     */
     @Transactional
     public RefreshTokenBundle callback(String code) {
         ensureGoogleEnabled();
@@ -124,6 +142,9 @@ public class GoogleOAuthService {
         );
     }
 
+    /**
+     * OAuth callback 성공 후 브라우저를 돌려보낼 프론트 callback URI를 반환한다.
+     */
     public URI frontendCallbackUri() {
         return URI.create(properties.frontendCallbackUrl());
     }
@@ -135,6 +156,9 @@ public class GoogleOAuthService {
                 .orElseGet(() -> linkByEmailOrCreate(profile));
     }
 
+    /**
+     * 같은 이메일의 local 계정이 있으면 인증 완료로 표시하고 Google provider를 연결한다.
+     */
     private User linkByEmailOrCreate(GoogleUserProfile profile) {
         User user = userRepository.findByEmail(profile.email())
                 .map(existing -> {

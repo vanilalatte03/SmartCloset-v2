@@ -8,6 +8,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
+/**
+ * 인증되지 않은 보호 API 요청을 공통 unauthorized error shape로 변환한다.
+ */
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
@@ -17,6 +20,9 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         this.errorResponseWriter = errorResponseWriter;
     }
 
+    /**
+     * 인증되지 않은 보호 API 진입 실패를 UNAUTHORIZED JSON 응답으로 기록한다.
+     */
     @Override
     public void commence(
             HttpServletRequest request,

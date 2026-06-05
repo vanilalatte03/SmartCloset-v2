@@ -13,6 +13,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 옷 이미지를 로컬 파일 시스템에 저장하는 현재 MVP용 storage adapter다.
+ *
+ * <p>저장 파일명은 서버가 만든 UUID만 허용하고, 읽기/삭제 시에도 storage root 밖으로
+ * 나가지 못하게 path traversal을 방어한다.</p>
+ */
 @Component
 public class FileSystemClothingImageStorage implements ClothingImageStorage {
 
@@ -22,6 +28,9 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         this.storageRoot = Path.of(properties.storageDir()).toAbsolutePath().normalize();
     }
 
+    /**
+     * multipart 이미지 stream을 서버 생성 파일명으로 저장한다.
+     */
     @Override
     public StoredClothingImage store(MultipartFile image, String extension) {
         try {
@@ -33,6 +42,9 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         }
     }
 
+    /**
+     * 메모리에 있는 이미지 bytes를 서버 생성 파일명으로 저장한다.
+     */
     @Override
     public StoredClothingImage store(byte[] bytes, String extension) {
         try {
@@ -42,6 +54,9 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         }
     }
 
+    /**
+     * DB에 저장된 파일명으로 이미지 bytes를 읽고 파일이 없으면 빈 Optional을 반환한다.
+     */
     @Override
     public Optional<byte[]> read(String storedFilename) {
         Path source = resolve(storedFilename);
@@ -55,6 +70,9 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         }
     }
 
+    /**
+     * DB에 저장된 파일명의 이미지를 멱등하게 삭제한다.
+     */
     @Override
     public void delete(String storedFilename) {
         if (storedFilename == null || storedFilename.isBlank()) {
@@ -67,6 +85,9 @@ public class FileSystemClothingImageStorage implements ClothingImageStorage {
         }
     }
 
+    /**
+     * DB에 저장된 filename을 실제 Path로 바꾸되, 하위 디렉터리나 절대 경로가 들어오면 거부한다.
+     */
     private Path resolve(String storedFilename) {
         try {
             Path filename = Path.of(storedFilename).getFileName();

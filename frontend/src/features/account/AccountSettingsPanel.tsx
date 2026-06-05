@@ -60,6 +60,7 @@ export function AccountSettingsPanel({
       return;
     }
 
+    // Google-only 계정은 확인 문구만 보내고, password login 계정은 서버에서 비밀번호를 재검증한다.
     const body: AccountDeletionRequest = {
       confirmation,
       ...(currentUser.passwordLoginEnabled ? { password } : {}),

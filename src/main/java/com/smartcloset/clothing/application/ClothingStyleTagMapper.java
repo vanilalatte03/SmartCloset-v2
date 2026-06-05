@@ -9,6 +9,11 @@ import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
+/**
+ * style tag 배열을 DB의 JSON 문자열과 API 배열 사이에서 변환한다.
+ *
+ * <p>태그 비교는 ASCII 대소문자를 무시하지만, 사용자에게 보여줄 원래 표기는 처음 입력된 값을 보존한다.</p>
+ */
 @Component
 public class ClothingStyleTagMapper {
 
@@ -21,6 +26,9 @@ public class ClothingStyleTagMapper {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * blank tag를 제거하고 ASCII 대소문자 중복을 정리한 뒤 JSON 배열 문자열로 직렬화한다.
+     */
     public String toJson(List<String> styleTags) {
         try {
             return objectMapper.writeValueAsString(normalize(styleTags));
@@ -29,6 +37,9 @@ public class ClothingStyleTagMapper {
         }
     }
 
+    /**
+     * DB JSON 문자열을 API 배열로 복원하며 비어 있는 값은 빈 배열로 취급한다.
+     */
     public List<String> fromJson(String styleTagsJson) {
         if (styleTagsJson == null || styleTagsJson.isBlank()) {
             return List.of();

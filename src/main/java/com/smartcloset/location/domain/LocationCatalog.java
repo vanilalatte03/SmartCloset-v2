@@ -14,6 +14,12 @@ import java.util.Optional;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+/**
+ * KMA 격자 위치 catalog를 메모리에 올려 검색과 가까운 위치 후보 조회를 제공한다.
+ *
+ * <p>외부 지도/주소 API를 쓰지 않는 MVP 정책 때문에, 검색 가능한 행정구역과 nx/ny 격자는
+ * {@code kma-location-catalog.csv}가 source of truth다.</p>
+ */
 @Component
 public class LocationCatalog {
 
@@ -25,10 +31,16 @@ public class LocationCatalog {
         this.locations = loadLocations();
     }
 
+    /**
+     * catalog에 로드된 모든 저장 가능 위치를 CSV 순서대로 반환한다.
+     */
     public List<LocationOption> findAll() {
         return locations;
     }
 
+    /**
+     * 한글 행정구역 검색에서 공백이나 숫자 표기 차이가 작게 느껴지도록 compact keyword도 함께 비교한다.
+     */
     public List<LocationOption> search(String keyword) {
         if (keyword == null || keyword.isBlank()) {
             return findAll();
@@ -53,6 +65,9 @@ public class LocationCatalog {
                 .toList();
     }
 
+    /**
+     * 사용자가 선택한 location code를 catalog option으로 찾는다.
+     */
     public Optional<LocationOption> findByCode(String code) {
         if (code == null || code.isBlank()) {
             return Optional.empty();
@@ -64,6 +79,10 @@ public class LocationCatalog {
                 .findFirst();
     }
 
+    /**
+     * 브라우저 좌표 resolve 결과로 저장할 후보를 고른다. 좌표가 catalog에 있으면 거리 계산,
+     * 없으면 KMA grid 거리로 fallback한다.
+     */
     public List<LocationOption> findNearest(LocationGrid grid, BigDecimal latitude, BigDecimal longitude, int limit) {
         if (limit <= 0) {
             throw new IllegalArgumentException("limit must be positive");
@@ -77,6 +96,9 @@ public class LocationCatalog {
                 .toList();
     }
 
+    /**
+     * 신규 사용자와 fallback 흐름에서 사용하는 기본 Seoul 위치를 반환한다.
+     */
     public LocationOption defaultLocation() {
         return LocationOption.defaultSeoul();
     }
@@ -181,6 +203,7 @@ public class LocationCatalog {
         if (latitude != null && longitude != null && location.latitude() != null && location.longitude() != null) {
             return haversineDistanceKm(latitude, longitude, location.latitude(), location.longitude());
         }
+        // 일부 catalog row에 위경도가 없더라도 KMA grid 기준 가까운 후보를 계속 제공한다.
         int dx = location.nx() - grid.nx();
         int dy = location.ny() - grid.ny();
         return Math.sqrt(dx * dx + dy * dy);

@@ -16,6 +16,11 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 사용자가 특정 추천을 실제로 착용했다고 표시한 이력을 저장하는 JPA entity다.
+ *
+ * <p>추천 결과당 하나의 착용 이력만 허용해 점수 계산의 recent wear history 입력을 안정적으로 유지한다.</p>
+ */
 @Entity
 @Table(
         name = "wear_histories",
@@ -58,6 +63,9 @@ public class WearHistory extends BaseTimeEntity {
         this.wornAt = Objects.requireNonNull(wornAt, "wornAt must not be null");
     }
 
+    /**
+     * 특정 추천 결과를 실제 착용한 이력으로 기록한다.
+     */
     public static WearHistory record(User user, RecommendationResult recommendationResult, LocalDateTime wornAt) {
         return new WearHistory(user, recommendationResult, wornAt);
     }

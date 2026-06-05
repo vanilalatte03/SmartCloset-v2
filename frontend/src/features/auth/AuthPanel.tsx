@@ -65,6 +65,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
   useEffect(() => {
     let cancelled = false;
 
+    // Google 설정이 없는 로컬 환경에서도 로그인 화면이 깨지지 않도록 provider 조회 실패를 disabled로 처리한다.
     getOAuthProviders()
       .then((providers) => {
         if (!cancelled) {
@@ -106,6 +107,7 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
       const nextError = toErrorResponse(caught, '로그인할 수 없습니다.');
       setError(nextError);
       if (nextError.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        // 미인증 계정은 같은 이메일을 verify form에 채워 사용자가 바로 인증을 이어가게 한다.
         const email = loginForm.email.trim();
         setVerificationEmail(email);
         setAuthMode('verify');

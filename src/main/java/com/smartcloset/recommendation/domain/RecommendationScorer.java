@@ -14,6 +14,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 추천 후보의 점수를 계산하고, 동일 점수일 때도 항상 같은 결과가 나오도록 최종 후보를 고른다.
+ *
+ * <p>점수 배점은 {@code docs/RECOMMENDATION_RULES.md}의 계약과 맞물려 있으므로, 새 항목을
+ * 추가하기보다 기존 weather/color/history/preference 축 안에서 보정하는 방식으로 유지한다.</p>
+ */
 public class RecommendationScorer {
 
     private static final int MAX_WEATHER_SCORE = 35;
@@ -23,6 +29,9 @@ public class RecommendationScorer {
     private static final int MAX_PREFERENCE_SCORE = 10;
     private static final Comparator<Long> ID_ASC = Comparator.nullsLast(Long::compareTo);
 
+    /**
+     * 생성된 모든 코디 후보에 동일한 사용자/날씨/이력 컨텍스트를 적용해 점수 모델로 변환한다.
+     */
     public List<ScoredOutfitCandidate> scoreAll(
             List<OutfitCandidate> candidates,
             WeatherCondition weather,
@@ -85,6 +94,11 @@ public class RecommendationScorer {
         return scoreAll(candidates, weather, wearHistories, recommendationHistories, requestedAt, List.of(), List.of());
     }
 
+    /**
+     * 단일 후보의 총점과 세부 점수를 계산한다.
+     *
+     * <p>총점은 100점 만점이며, 각 세부 점수의 최대값은 이 클래스의 상수로 고정되어 있다.</p>
+     */
     public RecommendationScore score(
             OutfitCandidate candidate,
             WeatherCondition weather,
@@ -171,6 +185,9 @@ public class RecommendationScorer {
         return selectBest(candidates, null);
     }
 
+    /**
+     * 가장 높은 점수의 후보를 선택한다. 동점이면 {@link #compareBest}의 tie-break 순서를 따른다.
+     */
     public ScoredOutfitCandidate selectBest(List<ScoredOutfitCandidate> candidates, WeatherCondition weather) {
         Objects.requireNonNull(candidates, "candidates must not be null");
         return candidates.stream()
@@ -178,6 +195,9 @@ public class RecommendationScorer {
                 .orElseThrow(() -> new RecommendationFailureException(RecommendationFailureCode.INSUFFICIENT_CLOSET_ITEMS));
     }
 
+    /**
+     * 기온 범위 통과를 기본점으로 두고, 아우터/비/소재 적합성으로 날씨 점수를 보정한다.
+     */
     int calculateWeatherScore(OutfitCandidate candidate, WeatherCondition weather) {
         int temperatureRangeScore = 15;
         int outerScore = calculateOuterScore(candidate, weather);
@@ -190,6 +210,9 @@ public class RecommendationScorer {
         );
     }
 
+    /**
+     * 상의-하의 조합을 기본으로 평가하고, 아우터가 있으면 세 쌍의 평균으로 색상 균형을 잡는다.
+     */
     int calculateColorScore(OutfitCandidate candidate) {
         if (!candidate.hasOuter()) {
             return calculatePairColorScore(candidate.top().getColor(), candidate.bottom().getColor());
@@ -201,6 +224,9 @@ public class RecommendationScorer {
         return clamp(Math.round((topBottom + topOuter + bottomOuter) / 3.0f), 0, MAX_COLOR_SCORE);
     }
 
+    /**
+     * 최근 7일 착용 이력을 페널티로 반영한다. 점수가 높을수록 최근 반복 착용 부담이 낮다.
+     */
     int calculateWearHistoryScore(
             OutfitCandidate candidate,
             List<WearHistorySnapshot> wearHistories,
@@ -214,6 +240,9 @@ public class RecommendationScorer {
                 .orElse(MAX_WEAR_HISTORY_SCORE);
     }
 
+    /**
+     * 최근 추천과 같은 조합 또는 일부 겹치는 조합이 반복 노출되지 않도록 점수를 낮춘다.
+     */
     int calculateRecommendationHistoryScore(
             OutfitCandidate candidate,
             List<RecommendationHistorySnapshot> recommendationHistories,
@@ -244,6 +273,9 @@ public class RecommendationScorer {
         return score;
     }
 
+    /**
+     * 사용자 선호 색상/소재/태그와 최근 피드백을 개인화 점수로 합산한다.
+     */
     int calculatePreferenceScore(
             OutfitCandidate candidate,
             List<ClothingColor> preferredColors,
@@ -293,6 +325,9 @@ public class RecommendationScorer {
         return clamp(score, 0, MAX_PREFERENCE_SCORE);
     }
 
+    /**
+     * 사용자 태그와 상황 태그를 같은 정규화 규칙으로 비교해 다국어/대소문자 차이를 줄인다.
+     */
     int calculateStyleTagScore(
             OutfitCandidate candidate,
             List<String> preferredStyleTags,
@@ -309,6 +344,12 @@ public class RecommendationScorer {
         return score;
     }
 
+    /**
+     * 최근 14일 피드백을 후보와의 겹침 정도에 따라 보정한다.
+     *
+     * <p>부정 피드백은 안전하게 우선 적용한다. 같은 후보를 싫어했거나 비슷한 기온에서
+     * 춥다/덥다고 했으면 긍정 보정보다 먼저 감점한다.</p>
+     */
     int calculateFeedbackAdjustment(
             OutfitCandidate candidate,
             List<RecommendationHistorySnapshot> recommendationHistories,
@@ -335,6 +376,7 @@ public class RecommendationScorer {
                 positiveAdjustment = Math.max(positiveAdjustment, overlap == Overlap.SAME ? 3 : 1);
             }
 
+            // 온도 피드백은 당시 추천 온도와 현재 온도가 충분히 가까울 때만 재사용한다.
             if (history.thermalFeedback() == RecommendationThermalFeedback.TOO_COLD
                     && weather.temperature() <= history.weatherTemperature() + 3) {
                 negativeAdjustment = Math.min(negativeAdjustment, overlap == Overlap.SAME ? -2 : -1);
@@ -476,6 +518,12 @@ public class RecommendationScorer {
         return (left == first && right == second) || (left == second && right == first);
     }
 
+    /**
+     * Comparator에서 점수가 높은 후보가 먼저 오도록 음수를 반환한다.
+     *
+     * <p>점수 동률이면 계약 문서의 tie-break 순서대로 세부 점수, 옷 id, 아우터 유무,
+     * 생성 순서를 사용해 결과를 결정적으로 만든다.</p>
+     */
     private int compareBest(ScoredOutfitCandidate left, ScoredOutfitCandidate right, WeatherCondition weather) {
         int result = compareHigher(left.score().totalScore(), right.score().totalScore());
         if (result != 0) {
@@ -588,6 +636,7 @@ public class RecommendationScorer {
         if (styleTag == null) {
             return "";
         }
+        // 한글 태그는 그대로 두고 ASCII 태그만 case-insensitive 비교되도록 Locale.ROOT를 사용한다.
         return styleTag.trim().toLowerCase(Locale.ROOT);
     }
 
@@ -601,6 +650,9 @@ public class RecommendationScorer {
         SAME
     }
 
+    /**
+     * 색상 점수에서 쓰는 작은 팔레트 분류다. UNKNOWN은 중립 점수로 처리하므로 별도 그룹에 넣지 않는다.
+     */
     private enum ColorGroup {
         NEUTRAL(EnumSet.of(ClothingColor.BLACK, ClothingColor.WHITE, ClothingColor.GRAY)),
         BLUE(EnumSet.of(ClothingColor.NAVY, ClothingColor.BLUE)),

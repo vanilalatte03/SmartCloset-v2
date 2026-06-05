@@ -16,6 +16,12 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 서버가 관리하는 refresh token session이다.
+ *
+ * <p>tokenHash만 저장하고 raw token은 저장하지 않는다. rotation 시 기존 session은 revoke되고
+ * 새 token hash가 replacedByTokenHash로 남는다.</p>
+ */
 @Entity
 @Table(
         name = "refresh_sessions",
@@ -63,21 +69,33 @@ public class RefreshSession extends BaseTimeEntity {
         }
     }
 
+    /**
+     * raw refresh token 대신 hash와 유효 기간만 저장하는 session을 발급한다.
+     */
     public static RefreshSession issue(User user, String tokenHash, LocalDateTime issuedAt, LocalDateTime expiresAt) {
         return new RefreshSession(user, tokenHash, issuedAt, expiresAt);
     }
 
+    /**
+     * 이미 revoke된 session은 같은 상태를 유지해 logout을 멱등하게 만든다.
+     */
     public void revoke(LocalDateTime revokedAt) {
         if (this.revokedAt == null) {
             this.revokedAt = Objects.requireNonNull(revokedAt, "revokedAt must not be null");
         }
     }
 
+    /**
+     * rotation 시 현재 session을 revoke하고 다음 token hash를 추적용 metadata로 남긴다.
+     */
     public void replace(String replacedByTokenHash, LocalDateTime revokedAt) {
         revoke(revokedAt);
         this.replacedByTokenHash = requireTokenHash(replacedByTokenHash);
     }
 
+    /**
+     * session이 아직 만료되지 않았고 revoke되지 않았을 때만 refresh에 사용할 수 있다.
+     */
     public boolean isActive(LocalDateTime now) {
         return revokedAt == null && expiresAt.isAfter(now);
     }

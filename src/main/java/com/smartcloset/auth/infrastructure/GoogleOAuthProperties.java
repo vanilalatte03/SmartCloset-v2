@@ -3,6 +3,11 @@ package com.smartcloset.auth.infrastructure;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Google OAuth2 login과 frontend callback redirect에 필요한 설정을 바인딩한다.
+ *
+ * <p>필수 Google client 설정이 비어 있으면 provider disabled 상태로 취급한다.</p>
+ */
 @ConfigurationProperties(prefix = "smartcloset.security.oauth2")
 public record GoogleOAuthProperties(
         String frontendCallbackUrl,

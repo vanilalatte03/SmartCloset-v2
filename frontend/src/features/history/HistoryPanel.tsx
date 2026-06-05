@@ -59,6 +59,7 @@ function toDateKey(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
 
+  // 달력 선택과 history grouping은 timezone 영향을 줄이기 위해 로컬 날짜 key 문자열로 맞춘다.
   return `${year}-${month}-${day}`;
 }
 
@@ -341,6 +342,7 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
       return;
     }
 
+    // 첫 로드에서는 최신 추천이 있는 날짜를 자동 선택해 빈 주간 달력으로 시작하지 않게 한다.
     setSelectedDateKey(toDateKey(latestHistoryDate));
     setCalendarWeekStartKey(toDateKey(startOfCalendarWeek(latestHistoryDate)));
   }, [history, selectedDateKey]);
@@ -419,6 +421,7 @@ export function HistoryPanel({ accessToken, onAuthExpired }: HistoryPanelProps) 
             : item
         )
       );
+      // 서버 응답 시간을 별도 map에도 저장해 현재 목록을 다시 불러오기 전까지 표시를 안정적으로 유지한다.
       setWornAtById((current) => ({
         ...current,
         [response.recommendationId]: response.wornAt,

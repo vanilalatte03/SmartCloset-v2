@@ -8,6 +8,9 @@ import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring Security filter 단계에서 발생한 인증/인가 실패도 일반 API와 같은 error JSON 형태로 내려준다.
+ */
 @Component
 public class SecurityErrorResponseWriter {
 
@@ -17,6 +20,9 @@ public class SecurityErrorResponseWriter {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Security filter 단계에서 직접 status와 공통 error JSON body를 response에 쓴다.
+     */
     public void write(HttpServletResponse response, ErrorCode errorCode) throws IOException {
         response.setStatus(errorCode.status().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

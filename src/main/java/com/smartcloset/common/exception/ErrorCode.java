@@ -2,6 +2,11 @@ package com.smartcloset.common.exception;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * 공개 API error response에 노출되는 안정적인 오류 코드와 기본 HTTP status/message registry다.
+ *
+ * <p>Controller와 service는 임의 문자열 대신 이 enum을 통해 현재 API error shape를 유지한다.</p>
+ */
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
@@ -32,10 +37,16 @@ public enum ErrorCode {
         this.message = message;
     }
 
+    /**
+     * 이 error code가 API 응답에 사용할 HTTP status를 반환한다.
+     */
     public HttpStatus status() {
         return status;
     }
 
+    /**
+     * 이 error code의 기본 사용자 표시 메시지를 반환한다.
+     */
     public String message() {
         return message;
     }

@@ -16,6 +16,9 @@
 ## 기본 원칙
 
 - 완료된 phase 문서와 `archive/`는 과거 실행 기록이다. 현재 구현 기준은 루트 `README.md`와 `docs/` 아래 현재 문서다.
+- `README.md`는 백엔드 프로젝트 소개, 기술 스택, 핵심 사용자 흐름, 도메인 구조, 아키텍처 요약, 주요 기술 결정 이유, 현재 MVP 포인터를 담당한다.
+- API 목록, DTO, 인증 세부 정책, 추천 점수, 화면별 UX 기준처럼 MVP마다 크게 바뀌는 계약 원문은 전용 `docs/` 문서에 둔다.
+- MVP 전환 시 README는 `Current MVP`, MVP-specific 문서 링크, 필요 시 계속 유효한 결정 요약만 갱신한다.
 - 오래된 ADR을 새 결정처럼 고치지 않는다. 새 MVP 결정은 새 ADR 파일을 만들고 `docs/ADR.md`에 연결한다.
 - MVP별 정규식 검증은 `scripts/checks.py`에 넣지 않는다. 새 phase의 `phases/{phase}/docs-checks.json`에 둔다.
 - `docs-checks.json`은 자동으로 잡을 수 있는 핵심 회귀 신호만 담는다. 에이전트가 읽고 판단해야 하는 정성 규칙은 `.agents/skills/smartcloset-backend/SKILL.md`와 현재 문서에 둔다.
@@ -25,7 +28,7 @@
 
 | 파일 | 확인할 내용 |
 | --- | --- |
-| `README.md` | 현재 MVP 한 줄 설명, 현재 baseline, 포함/제외 범위 요약, API 요약, 실행/검증 요약, 문서 기준 표 |
+| `README.md` | 백엔드 프로젝트 소개, tech stack, 핵심 흐름, backend highlights, domain structure, architecture, 주요 결정 이유, 현재 MVP 포인터, 실행/검증 요약, 문서 기준 표. 세부 계약 원문과 archive 목록은 복사하지 않는다. |
 | `docs/PRD.md` | MVP 정의, 목표, 포함/제외, P0/P1 우선순위, 완료 기준, 현재 baseline |
 | `docs/ADR.md`, `docs/adr/{NNN}-*.md` | 새 MVP 결정 ADR 추가, ADR index 연결, 이전 ADR과의 관계 |
 | `docs/API.md` | 공개/보호 API, 인증 경계, DTO, 에러 코드, 폐기된 endpoint 제거 |

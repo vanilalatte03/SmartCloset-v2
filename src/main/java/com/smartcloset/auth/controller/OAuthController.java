@@ -1,4 +1,4 @@
-package com.smartcloset.auth.presentation;
+package com.smartcloset.auth.controller;
 
 import com.smartcloset.auth.application.GoogleOAuthService;
 import com.smartcloset.auth.application.RefreshTokenBundle;
@@ -17,6 +17,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * OAuth2 login 시작과 callback을 처리하는 HTTP adapter다.
+ *
+ * <p>SmartCloset 세션 발급 전 callback state cookie를 검증해 외부 redirect 흐름을 보호한다.</p>
+ */
 @RestController
 @RequestMapping("/api/auth/oauth2")
 public class OAuthController {
@@ -35,11 +40,17 @@ public class OAuthController {
         this.refreshTokenCookieWriter = refreshTokenCookieWriter;
     }
 
+    /**
+     * 프론트가 표시할 OAuth provider 활성화 상태와 로그인 시작 경로를 반환한다.
+     */
     @GetMapping("/providers")
     public ApiResponse<OAuthProvidersResponse> providers() {
         return ApiResponse.of(googleOAuthService.providers());
     }
 
+    /**
+     * OAuth state를 cookie에 저장한 뒤 Google authorization endpoint로 redirect한다.
+     */
     @GetMapping("/google")
     public void startGoogleLogin(HttpServletResponse response) throws IOException {
         String state = googleOAuthService.createState();
@@ -48,6 +59,9 @@ public class OAuthController {
         response.sendRedirect(authorizationUri);
     }
 
+    /**
+     * callback state가 cookie와 일치할 때만 SmartCloset 세션을 발급하고 프론트로 돌려보낸다.
+     */
     @GetMapping("/callback/google")
     public void googleCallback(
             @RequestParam @NotBlank String code,

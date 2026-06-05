@@ -18,6 +18,11 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 외부 OAuth provider 계정과 SmartCloset 사용자를 연결하는 JPA entity다.
+ *
+ * <p>Provider별 외부 사용자 id는 unique constraint로 보호해 같은 외부 계정이 여러 사용자에게 연결되지 않게 한다.</p>
+ */
 @Entity
 @Table(
         name = "social_accounts",
@@ -70,6 +75,9 @@ public class SocialAccount extends BaseTimeEntity {
         this.linkedAt = Objects.requireNonNull(linkedAt, "linkedAt must not be null");
     }
 
+    /**
+     * 검증된 외부 provider 계정을 SmartCloset 사용자와 연결한다.
+     */
     public static SocialAccount link(
             User user,
             OAuthProvider provider,

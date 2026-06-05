@@ -15,6 +15,12 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Authorization header의 bearer access token을 SecurityContext로 변환하는 filter다.
+ *
+ * <p>토큰이 없으면 공개 API나 이후 security rule이 판단하도록 그대로 통과시키고,
+ * 토큰이 있으면 서명/만료/사용자 존재 여부를 검증한다.</p>
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
@@ -33,6 +39,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userRepository = userRepository;
     }
 
+    /**
+     * Bearer access token이 있으면 현재 사용자 principal을 검증해 SecurityContext에 채운다.
+     */
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -49,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             CurrentUserPrincipal principal = jwtTokenProvider.parseAccessToken(
                     authorization.substring(BEARER_PREFIX.length()));
             if (!userRepository.existsById(principal.userId())) {
+                // 계정 삭제 후 남은 access token은 USER_NOT_FOUND로 끊어 stale session을 방지한다.
                 SecurityContextHolder.clearContext();
                 errorResponseWriter.write(response, ErrorCode.USER_NOT_FOUND);
                 return;

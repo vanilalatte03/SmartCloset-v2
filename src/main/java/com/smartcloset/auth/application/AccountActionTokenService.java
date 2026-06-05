@@ -19,6 +19,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/**
+ * 이메일 인증과 비밀번호 재설정에 쓰는 single-use 토큰을 관리한다.
+ *
+ * <p>Refresh token과 마찬가지로 원문 토큰은 메일 발송용으로만 사용하고 DB에는 HMAC hash만 저장한다.</p>
+ */
 @Service
 public class AccountActionTokenService {
 
@@ -68,6 +73,9 @@ public class AccountActionTokenService {
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
+    /**
+     * 목적별 TTL을 적용한 새 계정 액션 토큰을 발급한다.
+     */
     public IssuedAccountActionToken issue(User user, AccountActionTokenPurpose purpose) {
         String token = generateToken();
         String tokenHash = hash(token);
@@ -77,6 +85,9 @@ public class AccountActionTokenService {
         return new IssuedAccountActionToken(token, tokenHash);
     }
 
+    /**
+     * 토큰 목적, 만료, 사용 여부를 한 번에 검증하고 사용 처리한다.
+     */
     public User consume(String token, AccountActionTokenPurpose purpose) {
         String tokenHash = hash(token);
         AccountActionToken accountActionToken = accountActionTokenRepository.findByTokenHash(tokenHash)

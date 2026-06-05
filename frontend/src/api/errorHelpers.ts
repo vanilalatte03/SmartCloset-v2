@@ -24,5 +24,6 @@ export function toErrorResponse(caught: unknown, fallbackMessage: string): Error
 export function toRecommendationFailureCta(
   error: ErrorResponse
 ): RecommendationFailureCta | null {
+  // 추천 실패 코드 중 사용자가 바로 해결할 수 있는 케이스만 화면 이동 CTA로 변환한다.
   return getRecommendationFailureCta(error.code);
 }

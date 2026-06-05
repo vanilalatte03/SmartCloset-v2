@@ -17,6 +17,12 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 사용자가 등록한 옷 한 벌을 표현하는 entity다.
+ *
+ * <p>이미지 bytes는 DB에 저장하지 않고, 이 entity에는 저장소에서 파일을 찾기 위한 메타데이터만 둔다.
+ * {@code archived=true}는 삭제가 아니라 추천 후보에서 제외되는 보관 상태를 뜻한다.</p>
+ */
 @Entity
 @Table(
         name = "clothing_items",
@@ -98,6 +104,9 @@ public class ClothingItem extends BaseTimeEntity {
         this.archived = false;
     }
 
+    /**
+     * style tag가 없는 기본 옷 등록 경로에서 빈 JSON 배열을 기본값으로 둔다.
+     */
     public static ClothingItem create(
             User user,
             String name,
@@ -121,6 +130,9 @@ public class ClothingItem extends BaseTimeEntity {
         );
     }
 
+    /**
+     * style tag JSON snapshot까지 포함해 새 옷 entity를 만든다.
+     */
     public static ClothingItem create(
             User user,
             String name,
@@ -145,6 +157,9 @@ public class ClothingItem extends BaseTimeEntity {
         );
     }
 
+    /**
+     * style tag를 유지한 채 옷 기본 정보만 전체 교체한다.
+     */
     public void updateDetails(
             String name,
             ClothingCategory category,
@@ -157,6 +172,9 @@ public class ClothingItem extends BaseTimeEntity {
         updateDetails(name, category, color, material, minTemperature, maxTemperature, rainSuitable, getStyleTagsJson());
     }
 
+    /**
+     * 옷 기본 정보는 수정 시 전체 교체한다. styleTagsJson은 빈 배열 문자열까지 유효한 값으로 취급한다.
+     */
     public void updateDetails(
             String name,
             ClothingCategory category,
@@ -178,14 +196,23 @@ public class ClothingItem extends BaseTimeEntity {
         this.styleTagsJson = requireJsonArrayString(styleTagsJson, "styleTagsJson");
     }
 
+    /**
+     * 옷을 보관 상태로 전환해 기본 목록과 추천 후보에서 제외되게 한다.
+     */
     public void archive() {
         this.archived = true;
     }
 
+    /**
+     * 보관된 옷을 활성 상태로 되돌린다.
+     */
     public void unarchive() {
         this.archived = false;
     }
 
+    /**
+     * 저장소에 파일 쓰기가 끝난 뒤 DB에 남길 이미지 메타데이터를 갱신한다.
+     */
     public void updateImageMetadata(
             String storedFilename,
             String contentType,
@@ -198,6 +225,9 @@ public class ClothingItem extends BaseTimeEntity {
         this.imageUploadedAt = Objects.requireNonNull(uploadedAt, "uploadedAt must not be null");
     }
 
+    /**
+     * 저장소 파일 삭제 후 DB에 남은 이미지 참조 정보를 모두 제거한다.
+     */
     public void clearImageMetadata() {
         this.imageStoredFilename = null;
         this.imageContentType = null;
@@ -205,6 +235,9 @@ public class ClothingItem extends BaseTimeEntity {
         this.imageUploadedAt = null;
     }
 
+    /**
+     * 테스트와 도메인 정책 검증에서 소유자 경계를 확인할 때 사용한다.
+     */
     public boolean belongsTo(Long userId) {
         return user != null && Objects.equals(user.getId(), userId);
     }
@@ -246,6 +279,7 @@ public class ClothingItem extends BaseTimeEntity {
     }
 
     public String getStyleTagsJson() {
+        // 과거 row 또는 JPA fixture에서 null이 들어와도 추천 로직에는 빈 배열로 전달한다.
         return styleTagsJson == null ? EMPTY_JSON_ARRAY : styleTagsJson;
     }
 

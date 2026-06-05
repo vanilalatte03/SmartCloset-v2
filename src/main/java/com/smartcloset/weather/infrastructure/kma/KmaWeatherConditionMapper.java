@@ -16,6 +16,12 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * KMA forecast item 목록을 SmartCloset의 간단한 날씨 모델로 매핑한다.
+ *
+ * <p>KMA 응답은 TMP/SKY/PTY/PCP/WSD처럼 category별 row로 내려오므로, 먼저 forecast
+ * date/time으로 묶은 뒤 필요한 category가 모두 있는 시간대를 선택한다.</p>
+ */
 public class KmaWeatherConditionMapper {
 
     private static final List<String> REQUIRED_CATEGORIES = List.of("TMP", "SKY", "PTY", "PCP", "WSD");
@@ -23,6 +29,9 @@ public class KmaWeatherConditionMapper {
     private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?\\d+(?:\\.\\d+)?");
     private static final String PCP_NO_PRECIPITATION = "\uAC15\uC218\uC5C6\uC74C";
 
+    /**
+     * 요청한 예보 시간대에 맞는 KMA forecast group을 골라 내부 날씨 조건으로 변환한다.
+     */
     public KmaMappedWeather map(List<KmaForecastItem> items, ZonedDateTime now, ForecastPeriod forecastPeriod) {
         Objects.requireNonNull(items, "items must not be null");
         if (items.isEmpty()) {
@@ -61,6 +70,9 @@ public class KmaWeatherConditionMapper {
         );
     }
 
+    /**
+     * CURRENT forecast period 기준으로 KMA forecast item을 내부 날씨 조건으로 변환한다.
+     */
     public KmaMappedWeather map(List<KmaForecastItem> items, ZonedDateTime now) {
         return map(items, now, ForecastPeriod.CURRENT);
     }
@@ -86,6 +98,9 @@ public class KmaWeatherConditionMapper {
         }
     }
 
+    /**
+     * CURRENT는 현재 이후 첫 예보를, 고정 시간대는 그 시간 이후 첫 예보를 우선 선택한다.
+     */
     private Map.Entry<LocalDateTime, Map<String, String>> selectForecastGroup(
             Map<LocalDateTime, Map<String, String>> groups,
             LocalDateTime nowKst,
@@ -178,6 +193,9 @@ public class KmaWeatherConditionMapper {
         }
     }
 
+    /**
+     * PCP는 "강수없음", "-", "1.0mm"처럼 숫자와 문구가 섞일 수 있어 숫자 추출로 판단한다.
+     */
     private boolean hasPrecipitation(String value) {
         if (value == null) {
             return false;

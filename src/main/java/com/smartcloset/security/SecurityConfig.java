@@ -16,9 +16,17 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+/**
+ * SmartCloset API의 Spring Security boundary를 정의한다.
+ *
+ * <p>Access token은 stateless Bearer JWT로 검증하고, refresh cookie는 공개 auth endpoint에서만 다룬다.</p>
+ */
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * 백엔드는 stateless bearer 인증을 사용한다. refresh token cookie는 auth endpoint에서만 다룬다.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -39,6 +47,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
+                        // CORS preflight와 auth bootstrap endpoint는 access token 없이 접근 가능해야 한다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -74,14 +83,21 @@ public class SecurityConfig {
                 .build();
     }
 
+    /**
+     * password signup/login에 사용할 BCrypt encoder를 등록한다.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * refresh cookie를 포함한 frontend 요청을 허용하기 위해 credentials-aware CORS 설정을 등록한다.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
         CorsConfiguration configuration = new CorsConfiguration();
+        // credentials=true가 필요해야 refresh cookie 기반 세션 복구가 동작한다.
         corsProperties.allowedOrigins().forEach(configuration::addAllowedOrigin);
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");

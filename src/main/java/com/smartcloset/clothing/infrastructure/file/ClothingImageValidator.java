@@ -13,6 +13,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 업로드된 옷 이미지가 MVP에서 허용한 파일 정책을 만족하는지 검사한다.
+ *
+ * <p>확장자와 MIME type만 믿지 않고 파일 signature까지 확인해, 잘못된 파일이 storage에
+ * 들어가기 전에 차단한다.</p>
+ */
 @Component
 public class ClothingImageValidator {
 
@@ -35,6 +41,9 @@ public class ClothingImageValidator {
         this.properties = properties;
     }
 
+    /**
+     * 이미지 크기, 확장자, MIME type, 파일 signature를 모두 검증하고 저장용 metadata를 반환한다.
+     */
     public ValidatedClothingImage validate(MultipartFile image) {
         if (image == null || image.isEmpty()) {
             throw invalidImage("이미지 파일을 선택해주세요.");
@@ -65,6 +74,9 @@ public class ClothingImageValidator {
         return extension == null ? "" : extension.toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * jpg/png/webp의 magic number를 확인한다. 전체 파일을 읽지 않고 앞 12바이트만 사용한다.
+     */
     private boolean hasMatchingSignature(MultipartFile image, String contentType) {
         byte[] header = new byte[12];
         try (InputStream inputStream = image.getInputStream()) {

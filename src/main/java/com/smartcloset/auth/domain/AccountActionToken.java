@@ -18,6 +18,11 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 이메일 인증과 비밀번호 재설정에 쓰는 single-use 계정 토큰 entity다.
+ *
+ * <p>사용자가 받은 원문 토큰은 저장하지 않고, tokenHash로만 조회한다.</p>
+ */
 @Entity
 @Table(
         name = "account_action_tokens",
@@ -66,6 +71,9 @@ public class AccountActionToken extends BaseTimeEntity {
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
     }
 
+    /**
+     * 원문 token 대신 hash와 만료 시각만 저장하는 계정 액션 token을 발급한다.
+     */
     public static AccountActionToken issue(
             User user,
             AccountActionTokenPurpose purpose,
@@ -75,10 +83,16 @@ public class AccountActionToken extends BaseTimeEntity {
         return new AccountActionToken(user, purpose, tokenHash, expiresAt);
     }
 
+    /**
+     * 목적이 맞고, 사용된 적 없고, 만료되지 않은 token만 소비할 수 있다.
+     */
     public boolean canConsume(AccountActionTokenPurpose expectedPurpose, LocalDateTime now) {
         return purpose == expectedPurpose && usedAt == null && expiresAt.isAfter(now);
     }
 
+    /**
+     * token을 single-use로 만들기 위해 최초 사용 시각만 기록한다.
+     */
     public void markUsed(LocalDateTime usedAt) {
         if (this.usedAt == null) {
             this.usedAt = Objects.requireNonNull(usedAt, "usedAt must not be null");

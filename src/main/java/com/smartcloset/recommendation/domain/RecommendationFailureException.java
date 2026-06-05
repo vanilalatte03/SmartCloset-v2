@@ -11,6 +11,9 @@ public class RecommendationFailureException extends RuntimeException {
         this.failureCode = Objects.requireNonNull(failureCode, "failureCode must not be null");
     }
 
+    /**
+     * 추천 생성 실패를 API error code로 매핑할 때 사용할 domain failure code를 반환한다.
+     */
     public RecommendationFailureCode failureCode() {
         return failureCode;
     }

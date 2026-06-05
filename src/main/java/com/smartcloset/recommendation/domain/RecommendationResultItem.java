@@ -17,6 +17,11 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.Objects;
 
+/**
+ * 추천 결과에 포함된 각 옷과 outfit slot을 저장하는 JPA entity다.
+ *
+ * <p>추천 생성 시점의 슬롯 구성을 보존해 이후 옷장 변경과 무관하게 이력 응답을 재구성할 수 있게 한다.</p>
+ */
 @Entity
 @Table(
         name = "recommendation_result_items",
@@ -61,6 +66,9 @@ public class RecommendationResultItem extends BaseTimeEntity {
         this.slot = Objects.requireNonNull(slot, "slot must not be null");
     }
 
+    /**
+     * 추천 결과 snapshot 안에서 특정 옷이 차지한 outfit slot을 기록한다.
+     */
     public static RecommendationResultItem of(
             RecommendationResult recommendationResult,
             ClothingItem clothingItem,

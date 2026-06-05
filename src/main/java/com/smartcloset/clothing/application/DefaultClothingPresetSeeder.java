@@ -20,6 +20,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
+/**
+ * 새 계정이 바로 추천을 실험할 수 있도록 기본 옷과 이미지를 준비한다.
+ *
+ * <p>이미 옷이 있는 사용자는 seed하지 않고, 과거 기본 옷의 더운 날 온도 범위만 보정한다.</p>
+ */
 @Service
 public class DefaultClothingPresetSeeder {
 
@@ -136,6 +141,9 @@ public class DefaultClothingPresetSeeder {
         this.clothingStyleTagMapper = clothingStyleTagMapper;
     }
 
+    /**
+     * 로그인/세션 복구 시에도 호출될 수 있으므로 멱등성을 유지한다.
+     */
     public void seedIfEmpty(User user) {
         User requiredUser = Objects.requireNonNull(user, "user must not be null");
         if (clothingItemRepository.countByUserId(requiredUser.getId()) == 0) {
@@ -175,6 +183,7 @@ public class DefaultClothingPresetSeeder {
             }
             clothingItemRepository.flush();
         } catch (RuntimeException exception) {
+            // DB 저장이 실패하면 이미 복사한 preset 이미지를 제거해 storage와 DB의 불일치를 줄인다.
             cleanupStoredImages(storedFilenames, exception);
             throw exception;
         }

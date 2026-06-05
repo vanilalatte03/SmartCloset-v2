@@ -9,6 +9,12 @@ import com.smartcloset.location.dto.LocationResolveResponse;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
+/**
+ * 위치 검색과 브라우저 좌표 resolve use case를 제공한다.
+ *
+ * <p>resolve는 가까운 행정구역 후보만 반환하고, 실제 저장은 사용자가 후보를 선택한 뒤
+ * UserLocationService에서 수행한다.</p>
+ */
 @Service
 public class LocationService {
 
@@ -22,6 +28,9 @@ public class LocationService {
         this.kmaGridConverter = kmaGridConverter;
     }
 
+    /**
+     * 내장 KMA 행정구역 catalog를 검색해 저장 가능한 위치 후보를 반환한다.
+     */
     public List<LocationOptionResponse> searchLocations(String keyword) {
         return locationCatalog.search(keyword)
                 .stream()
@@ -29,6 +38,9 @@ public class LocationService {
                 .toList();
     }
 
+    /**
+     * 브라우저 좌표를 KMA grid로 변환하고 가까운 catalog 후보를 제한 개수만큼 반환한다.
+     */
     public LocationResolveResponse resolveLocation(LocationResolveRequest request) {
         LocationGrid grid = kmaGridConverter.toGrid(
                 request.latitude().doubleValue(),

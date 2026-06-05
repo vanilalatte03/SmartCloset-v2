@@ -2,6 +2,11 @@ package com.smartcloset.location.domain;
 
 import org.springframework.stereotype.Component;
 
+/**
+ * 위경도를 KMA 단기예보 API가 사용하는 nx/ny 격자로 변환한다.
+ *
+ * <p>KMA에서 공개한 Lambert Conformal Conic 변환식을 그대로 구현한 순수 계산 컴포넌트다.</p>
+ */
 @Component
 public class KmaGridConverter {
 
@@ -27,6 +32,9 @@ public class KmaGridConverter {
         this.originRadius = calculateRadius(ORIGIN_LATITUDE);
     }
 
+    /**
+     * 브라우저 geolocation 좌표를 서버 내부에서만 격자로 바꾼다. 원본 좌표는 DB에 저장하지 않는다.
+     */
     public LocationGrid toGrid(double latitude, double longitude) {
         double radius = calculateRadius(latitude);
         double theta = longitude * DEGREES_TO_RADIANS - ORIGIN_LONGITUDE * DEGREES_TO_RADIANS;
