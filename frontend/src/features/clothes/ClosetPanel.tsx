@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ClipboardEvent, DragEvent, FormEvent } from 'react';
 import { isUnauthorizedError, toErrorResponse } from '../../api/errorHelpers';
 import {
+  analyzeClothingImage,
   archiveClothing,
   createClothing,
   deleteClothingImage,
@@ -15,6 +16,8 @@ import {
 import { ApiErrorMessage } from '../../components/ApiErrorMessage';
 import { ColorSwatch, MaterialChip } from '../../components/DisplayTokens';
 import type {
+  ClothingAnalysisField,
+  ClothingAnalysisResponse,
   ClothingCategory,
   ClothingRequest,
   ClothingResponse,
@@ -51,6 +54,28 @@ type TemperaturePreset = {
   minTemperature: number;
   maxTemperature: number;
   rainSuitable: boolean;
+};
+
+const analysisFields: ClothingAnalysisField[] = [
+  'name',
+  'category',
+  'color',
+  'material',
+  'minTemperature',
+  'maxTemperature',
+  'rainSuitable',
+  'styleTags',
+];
+
+const analysisFieldLabels: Record<ClothingAnalysisField, string> = {
+  name: '옷 이름',
+  category: '카테고리',
+  color: '색상',
+  material: '소재',
+  minTemperature: '최저 기온',
+  maxTemperature: '최고 기온',
+  rainSuitable: '비 적합성',
+  styleTags: '스타일 태그',
 };
 
 const defaultForm: ClothingRequest = {
@@ -272,6 +297,33 @@ function validateImageFile(file: File): ErrorResponse | null {
   return null;
 }
 
+function getFileFingerprint(file: File): string {
+  return [file.name, file.size, file.lastModified, file.type].join(':');
+}
+
+function isAnalysisField(value: string): value is ClothingAnalysisField {
+  return analysisFields.includes(value as ClothingAnalysisField);
+}
+
+function getReviewRequiredFields(response: ClothingAnalysisResponse): ClothingAnalysisField[] {
+  const fields = new Set<ClothingAnalysisField>();
+
+  response.reviewRequiredFields.forEach((field) => {
+    if (isAnalysisField(field)) {
+      fields.add(field);
+    }
+  });
+
+  analysisFields.forEach((field) => {
+    const confidence = response.fieldConfidence[field];
+    if (typeof confidence === 'number' && confidence < response.lowConfidenceThreshold) {
+      fields.add(field);
+    }
+  });
+
+  return Array.from(fields);
+}
+
 function scrollToTopOnMobile() {
   if (
     typeof window === 'undefined' ||
@@ -404,6 +456,11 @@ export function ClosetPanel({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteImageRequested, setDeleteImageRequested] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+  const [analysisCache, setAnalysisCache] = useState<Record<string, ClothingAnalysisResponse>>({});
+  const [reviewRequiredFields, setReviewRequiredFields] = useState<ClothingAnalysisField[]>([]);
+  const [pendingReviewSubmit, setPendingReviewSubmit] = useState<ClothingRequest | null>(null);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -500,6 +557,48 @@ export function ClosetPanel({
     ? activeClothes.find((item) => item.id === editingId) ?? null
     : null;
 
+  const isReviewRequired = (field: ClothingAnalysisField) =>
+    reviewRequiredFields.includes(field);
+
+  const clearAnalysisState = () => {
+    setAnalysisLoading(false);
+    setAnalysisMessage(null);
+    setReviewRequiredFields([]);
+    setPendingReviewSubmit(null);
+  };
+
+  const markFieldReviewed = (field: ClothingAnalysisField) => {
+    setReviewRequiredFields((current) => current.filter((candidate) => candidate !== field));
+  };
+
+  const updateFormField = <Field extends keyof ClothingRequest>(
+    field: Field,
+    value: ClothingRequest[Field]
+  ) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    if (isAnalysisField(field)) {
+      markFieldReviewed(field);
+    }
+  };
+
+  const renderReviewMarker = (field: ClothingAnalysisField) =>
+    isReviewRequired(field) ? (
+      <>
+        <span className="analysis-review-badge">확인 필요</span>
+        <button
+          className="analysis-confirm-button"
+          type="button"
+          onClick={() => markFieldReviewed(field)}
+          disabled={submitting}
+        >
+          확인
+        </button>
+      </>
+    ) : null;
+
   const resetForm = () => {
     setForm(defaultForm);
     setTagInput('');
@@ -508,6 +607,7 @@ export function ClosetPanel({
     setPreviewUrl(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
+    clearAnalysisState();
   };
 
   const openCreateForm = () => {
@@ -571,6 +671,9 @@ export function ClosetPanel({
   const handleImageFileChange = (file: File | null) => {
     setError(null);
     setStatus(null);
+    setAnalysisMessage(null);
+    setReviewRequiredFields([]);
+    setPendingReviewSubmit(null);
 
     if (!file) {
       setSelectedImageFile(null);
@@ -638,35 +741,88 @@ export function ClosetPanel({
     setSelectedImageFile(null);
     setDeleteImageRequested(true);
     setFileInputKey((current) => current + 1);
+    setAnalysisMessage(null);
+    setReviewRequiredFields([]);
+    setPendingReviewSubmit(null);
   };
 
   const clearImageSelection = () => {
     setSelectedImageFile(null);
     setDeleteImageRequested(false);
     setFileInputKey((current) => current + 1);
+    setAnalysisMessage(null);
+    setReviewRequiredFields([]);
+    setPendingReviewSubmit(null);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const applyAnalysisResponse = (response: ClothingAnalysisResponse, fromCache: boolean) => {
+    if (!response.analyzable || !response.suggestion) {
+      setReviewRequiredFields([]);
+      setAnalysisMessage('옷으로 보기 어려운 이미지입니다. 직접 입력해 저장할 수 있습니다.');
+      return;
+    }
+
+    const suggestion = response.suggestion;
+    setForm({
+      name: suggestion.name,
+      category: suggestion.category,
+      color: suggestion.color,
+      material: suggestion.material,
+      minTemperature: suggestion.minTemperature,
+      maxTemperature: suggestion.maxTemperature,
+      rainSuitable: suggestion.rainSuitable,
+      styleTags: normalizeStyleTags(suggestion.styleTags),
+    });
+
+    const nextReviewRequiredFields = getReviewRequiredFields(response);
+    setReviewRequiredFields(nextReviewRequiredFields);
+    setAnalysisMessage(
+      nextReviewRequiredFields.length > 0
+        ? `${fromCache ? '이전 분석 결과를 다시 적용했습니다.' : 'AI 후보를 적용했습니다.'} 확인 필요 항목 ${nextReviewRequiredFields.length}개를 확인해주세요.`
+        : `${fromCache ? '이전 분석 결과를 다시 적용했습니다.' : 'AI 후보를 적용했습니다.'} 바로 저장할 수 있습니다.`
+    );
+  };
+
+  const handleAnalyzeImage = async () => {
     setError(null);
     setStatus(null);
+    setAnalysisMessage(null);
+    setPendingReviewSubmit(null);
 
-    const trimmedName = form.name.trim();
-    if (!trimmedName) {
-      setError(validationError('옷 이름을 입력해주세요.'));
-      return;
-    }
-    if (form.minTemperature > form.maxTemperature) {
-      setError(validationError('최저 기온은 최고 기온보다 낮거나 같아야 합니다.'));
+    if (!selectedImageFile) {
+      setAnalysisMessage('이미지를 선택한 뒤 AI 후보 체크를 실행해주세요.');
       return;
     }
 
-    const requestBody: ClothingRequest = {
-      ...form,
-      name: trimmedName,
-      styleTags: normalizeStyleTags(form.styleTags),
-    };
+    const fingerprint = getFileFingerprint(selectedImageFile);
+    const cachedResponse = analysisCache[fingerprint];
+    if (cachedResponse) {
+      applyAnalysisResponse(cachedResponse, true);
+      return;
+    }
 
+    setAnalysisLoading(true);
+    try {
+      const response = await analyzeClothingImage(accessToken, selectedImageFile);
+      setAnalysisCache((current) => ({
+        ...current,
+        [fingerprint]: response,
+      }));
+      applyAnalysisResponse(response, false);
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onAuthExpired();
+        return;
+      }
+      setReviewRequiredFields([]);
+      setAnalysisMessage('AI 후보 체크를 사용할 수 없습니다. 직접 입력해 저장할 수 있습니다.');
+      setError(toErrorResponse(caught, 'AI 후보 체크에 실패했습니다.'));
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const persistClothing = async (requestBody: ClothingRequest) => {
     setSubmitting(true);
     try {
       if (editingId !== null) {
@@ -728,9 +884,57 @@ export function ClosetPanel({
     }
   };
 
+  const buildValidatedRequestBody = (): ClothingRequest | null => {
+    const trimmedName = form.name.trim();
+    if (!trimmedName) {
+      setError(validationError('옷 이름을 입력해주세요.'));
+      return null;
+    }
+    if (form.minTemperature > form.maxTemperature) {
+      setError(validationError('최저 기온은 최고 기온보다 낮거나 같아야 합니다.'));
+      return null;
+    }
+
+    return {
+      ...form,
+      name: trimmedName,
+      styleTags: normalizeStyleTags(form.styleTags),
+    };
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setStatus(null);
+    setPendingReviewSubmit(null);
+
+    const requestBody = buildValidatedRequestBody();
+    if (!requestBody) {
+      return;
+    }
+
+    if (reviewRequiredFields.length > 0) {
+      setPendingReviewSubmit(requestBody);
+      return;
+    }
+
+    await persistClothing(requestBody);
+  };
+
+  const handleConfirmReviewSubmit = async () => {
+    if (!pendingReviewSubmit) {
+      return;
+    }
+    const requestBody = pendingReviewSubmit;
+    setPendingReviewSubmit(null);
+    setReviewRequiredFields([]);
+    await persistClothing(requestBody);
+  };
+
   const handleEdit = (item: ClothingResponse) => {
     setError(null);
     setStatus(null);
+    clearAnalysisState();
     setEditingId(item.id);
     setTagInput('');
     setForm(toClothingRequest(item));
@@ -805,6 +1009,12 @@ export function ClosetPanel({
       maxTemperature: preset.maxTemperature,
       rainSuitable: preset.rainSuitable,
     }));
+    setReviewRequiredFields((current) =>
+      current.filter(
+        (field) =>
+          field !== 'minTemperature' && field !== 'maxTemperature' && field !== 'rainSuitable'
+      )
+    );
   };
 
   const addStyleTagsToForm = (nextTags: string[], reportEmpty: boolean): boolean => {
@@ -827,6 +1037,7 @@ export function ClosetPanel({
       ...current,
       styleTags: mergeStyleTags(current.styleTags, normalizedNextTags),
     }));
+    markFieldReviewed('styleTags');
     return true;
   };
 
@@ -845,6 +1056,7 @@ export function ClosetPanel({
         ? removeStyleTag(current.styleTags, tag)
         : mergeStyleTags(current.styleTags, [tag]),
     }));
+    markFieldReviewed('styleTags');
     setTagInput('');
   };
 
@@ -858,6 +1070,7 @@ export function ClosetPanel({
         current.styleTags
       ),
     }));
+    markFieldReviewed('styleTags');
   };
 
   const formDisplayStyleTags = getDisplayStyleTags(form.styleTags);
@@ -1151,6 +1364,25 @@ export function ClosetPanel({
                     </button>
                   </div>
                 ) : null}
+                <div className="analysis-assist-row">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => void handleAnalyzeImage()}
+                    disabled={!selectedImageFile || analysisLoading || submitting}
+                  >
+                    {analysisLoading ? '확인 중' : 'AI 후보 체크'}
+                  </button>
+                  {analysisMessage ? (
+                    <p className="analysis-assist-message" role="status">
+                      {analysisMessage}
+                    </p>
+                  ) : (
+                    <p className="muted closet-image-help">
+                      선택한 이미지가 있을 때만 수동으로 실행됩니다.
+                    </p>
+                  )}
+                </div>
                 {editingItem?.image || deleteImageRequested ? (
                   <button
                     className="secondary-button danger-button"
@@ -1195,15 +1427,19 @@ export function ClosetPanel({
             </aside>
           </div>
 
-          <label className="field wide">
-            <span>옷 이름</span>
+          <div className={isReviewRequired('name') ? 'field wide analysis-field review-required' : 'field wide analysis-field'}>
+            <div className="field-label-row">
+              <label htmlFor="clothing-name">옷 이름</label>
+              {renderReviewMarker('name')}
+            </div>
             <input
+              id="clothing-name"
               value={form.name}
               maxLength={50}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              onChange={(event) => updateFormField('name', event.target.value)}
               placeholder="그레이 후드"
             />
-          </label>
+          </div>
 
           <div className="preset-list" role="group" aria-label="계절과 기온 프리셋">
             {temperaturePresets.map((preset) => (
@@ -1224,8 +1460,11 @@ export function ClosetPanel({
           </div>
 
           <div className="field-grid closet-form-grid">
-            <section className="closet-control-card">
-              <span className="label">카테고리</span>
+            <section className={isReviewRequired('category') ? 'closet-control-card analysis-field review-required' : 'closet-control-card analysis-field'}>
+              <div className="field-label-row">
+                <span className="label">카테고리</span>
+                {renderReviewMarker('category')}
+              </div>
               <div className="closet-option-grid compact" role="group" aria-label="카테고리">
                 {clothingCategoryOptions.map((option) => (
                   <button
@@ -1235,15 +1474,18 @@ export function ClosetPanel({
                     type="button"
                     key={option}
                     aria-pressed={form.category === option}
-                    onClick={() => setForm({ ...form, category: option })}
+                    onClick={() => updateFormField('category', option)}
                   >
                     {clothingCategoryLabels[option]}
                   </button>
                 ))}
               </div>
             </section>
-            <section className="closet-control-card color-control-card">
-              <span className="label">색상</span>
+            <section className={isReviewRequired('color') ? 'closet-control-card color-control-card analysis-field review-required' : 'closet-control-card color-control-card analysis-field'}>
+              <div className="field-label-row">
+                <span className="label">색상</span>
+                {renderReviewMarker('color')}
+              </div>
               <div className="closet-option-grid color-grid" role="group" aria-label="색상">
                 {clothingColorOptions.map((option) => (
                   <button
@@ -1251,15 +1493,18 @@ export function ClosetPanel({
                     type="button"
                     key={option}
                     aria-pressed={form.color === option}
-                    onClick={() => setForm({ ...form, color: option })}
+                    onClick={() => updateFormField('color', option)}
                   >
                     <ColorSwatch color={option} />
                   </button>
                 ))}
               </div>
             </section>
-            <section className="closet-control-card material-control-card">
-              <span className="label">소재</span>
+            <section className={isReviewRequired('material') ? 'closet-control-card material-control-card analysis-field review-required' : 'closet-control-card material-control-card analysis-field'}>
+              <div className="field-label-row">
+                <span className="label">소재</span>
+                {renderReviewMarker('material')}
+              </div>
               <div className="closet-option-grid material-grid" role="group" aria-label="소재">
                 {clothingMaterialOptions.map((option) => (
                   <button
@@ -1269,46 +1514,59 @@ export function ClosetPanel({
                     type="button"
                     key={option}
                     aria-pressed={form.material === option}
-                    onClick={() => setForm({ ...form, material: option })}
+                    onClick={() => updateFormField('material', option)}
                   >
                     <MaterialChip material={option} />
                   </button>
                 ))}
               </div>
             </section>
-            <label className="field">
-              <span>최저 기온</span>
+            <div className={isReviewRequired('minTemperature') ? 'field analysis-field review-required' : 'field analysis-field'}>
+              <div className="field-label-row">
+                <label htmlFor="clothing-min-temperature">최저 기온</label>
+                {renderReviewMarker('minTemperature')}
+              </div>
               <input
+                id="clothing-min-temperature"
                 type="number"
                 value={form.minTemperature}
                 onChange={(event) =>
-                  setForm({ ...form, minTemperature: Number(event.target.value) })
+                  updateFormField('minTemperature', Number(event.target.value))
                 }
               />
-            </label>
-            <label className="field">
-              <span>최고 기온</span>
+            </div>
+            <div className={isReviewRequired('maxTemperature') ? 'field analysis-field review-required' : 'field analysis-field'}>
+              <div className="field-label-row">
+                <label htmlFor="clothing-max-temperature">최고 기온</label>
+                {renderReviewMarker('maxTemperature')}
+              </div>
               <input
+                id="clothing-max-temperature"
                 type="number"
                 value={form.maxTemperature}
                 onChange={(event) =>
-                  setForm({ ...form, maxTemperature: Number(event.target.value) })
+                  updateFormField('maxTemperature', Number(event.target.value))
                 }
               />
-            </label>
-            <label className="checkbox-field">
+            </div>
+            <div className={isReviewRequired('rainSuitable') ? 'checkbox-field analysis-field review-required' : 'checkbox-field analysis-field'}>
               <input
+                id="clothing-rain-suitable"
                 type="checkbox"
                 checked={form.rainSuitable}
                 onChange={(event) =>
-                  setForm({ ...form, rainSuitable: event.target.checked })
+                  updateFormField('rainSuitable', event.target.checked)
                 }
               />
-              <span>비 오는 날 입기 좋음</span>
-            </label>
+              <label htmlFor="clothing-rain-suitable">비 오는 날 입기 좋음</label>
+              {renderReviewMarker('rainSuitable')}
+            </div>
           </div>
 
-          <section className="closet-style-tag-editor" aria-label="옷 스타일 태그">
+          <section
+            className={isReviewRequired('styleTags') ? 'closet-style-tag-editor analysis-field review-required' : 'closet-style-tag-editor analysis-field'}
+            aria-label="옷 스타일 태그"
+          >
             <div className="section-title-row">
               <div>
                 <h3>스타일 태그</h3>
@@ -1316,6 +1574,7 @@ export function ClosetPanel({
                   저장 전 {formDisplayStyleTags.length}개 태그가 추천 개인화에 사용됩니다.
                 </p>
               </div>
+              <div className="field-label-row">{renderReviewMarker('styleTags')}</div>
             </div>
             <div className="style-tag-suggestions" aria-label="추천 스타일 태그">
               {styleTagSuggestionGroups.map((group) => (
@@ -1412,6 +1671,57 @@ export function ClosetPanel({
         <p className="panel-success" role="status">
           {status}
         </p>
+      ) : null}
+      {pendingReviewSubmit ? (
+        <div
+          className="analysis-confirm-modal-backdrop"
+          role="presentation"
+          onClick={() => setPendingReviewSubmit(null)}
+        >
+          <section
+            className="analysis-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="analysis-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="analysis-confirm-modal-heading">
+              <p className="eyebrow">저장 전 확인</p>
+              <h2 id="analysis-confirm-title">아직 확인 필요 항목이 있습니다</h2>
+            </div>
+            <p className="account-delete-copy">
+              {reviewRequiredFields
+                .map((field) => analysisFieldLabels[field])
+                .join(', ')}
+              을(를) 확인하지 않았습니다. 현재 값으로 저장할 수 있습니다.
+            </p>
+            <div className="analysis-review-list" aria-label="확인 필요 항목">
+              {reviewRequiredFields.map((field) => (
+                <span className="analysis-review-badge" key={field}>
+                  {analysisFieldLabels[field]}
+                </span>
+              ))}
+            </div>
+            <div className="account-delete-modal-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setPendingReviewSubmit(null)}
+                disabled={submitting}
+              >
+                더 확인하기
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => void handleConfirmReviewSubmit()}
+                disabled={submitting}
+              >
+                현재 값으로 저장
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </article>
   );

@@ -1943,7 +1943,8 @@
 }
 
 .field span,
-.checkbox-field span {
+.checkbox-field span,
+.checkbox-field label {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
@@ -3618,6 +3619,129 @@
   font-size: 13px;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.analysis-assist-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.analysis-assist-message {
+  background: #f7f3ea;
+  border: 1px solid #e7d7b2;
+  border-radius: 8px;
+  color: #6b4e16;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 9px 10px;
+}
+
+.analysis-field.review-required {
+  background: #fffaf0;
+  border-color: #e6c878;
+  box-shadow: inset 0 0 0 1px rgba(230, 200, 120, 0.38);
+}
+
+.analysis-field.review-required input,
+.analysis-field.review-required select,
+.analysis-field.review-required .closet-option-grid,
+.analysis-field.review-required .style-tag-suggestions,
+.analysis-field.review-required .tag-list {
+  opacity: 0.72;
+}
+
+.field-label-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label-row label,
+.field-label-row .label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.analysis-review-badge {
+  align-items: center;
+  background: #fef3c7;
+  border: 1px solid #f1d27a;
+  border-radius: 999px;
+  color: #7c4a03;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.1;
+  min-height: 22px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.analysis-confirm-button {
+  background: transparent;
+  border: 0;
+  color: #166534;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  min-height: 24px;
+  padding: 0 4px;
+}
+
+.analysis-confirm-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.analysis-confirm-modal-backdrop {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 50;
+}
+
+.analysis-confirm-modal {
+  background: #fffdf8;
+  border: 1px solid #e7d7b2;
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(17, 24, 39, 0.22);
+  display: grid;
+  gap: 12px;
+  max-height: min(680px, calc(100vh - 36px));
+  max-width: 520px;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px;
+  width: min(520px, 100%);
+}
+
+.analysis-confirm-modal-heading h2 {
+  color: var(--text-heading);
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.analysis-review-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
 .closet-control-card {
