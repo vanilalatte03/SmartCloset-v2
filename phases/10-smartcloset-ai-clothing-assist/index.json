@@ -32,7 +32,7 @@
       "status": "completed",
       "started_at": "2026-06-05T21:33:43+0900",
       "summary": "보호 옷 사진 분석 API, DTO mapping, 이미지 검증 재사용, user별 daily limit과 에러 코드 테스트를 추가했다.",
-      "completed_at": "2026-06-05T21:36:52+0900"
+      "completed_at": "2026-06-05T21:37:35+0900"
     },
     {
       "step": 4,
