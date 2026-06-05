@@ -163,7 +163,6 @@ npm run build
 | 백엔드 구조, 저장소, 트랜잭션 | `docs/ARCHITECTURE.md` |
 | DB schema, entity/JPA 기준 | `docs/ERD.md` |
 | 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP9 디자인 reference | `docs/design/mvp9/README.md` |
 | 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
 | Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
 | 실행 명령과 검증 명령 | `docs/COMMANDS.md` |

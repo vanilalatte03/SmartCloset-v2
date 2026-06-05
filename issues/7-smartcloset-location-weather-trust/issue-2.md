@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 7-smartcloset-location-weather-trust
 - Step: 3 `weather-source-snapshot`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/97
+- PR: https://github.com/vanilalatte03/smart-closet/pull/97
 
 ## 재현 명령
 ```bash

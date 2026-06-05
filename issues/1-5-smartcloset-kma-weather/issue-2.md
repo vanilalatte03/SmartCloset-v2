@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 1-5-smartcloset-kma-weather
 - Step: 4 `recommendation-api-kma-integration`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/14
+- PR: https://github.com/vanilalatte03/smart-closet/pull/14
 
 ## 재현 명령
 ```bash

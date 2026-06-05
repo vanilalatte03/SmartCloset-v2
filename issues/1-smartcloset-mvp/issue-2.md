@@ -2,7 +2,7 @@
 
 ## 발생 위치
 - Phase: 1-smartcloset-mvp
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/3
+- PR: https://github.com/vanilalatte03/smart-closet/pull/3
 
 ## 재현 명령
 ```bash

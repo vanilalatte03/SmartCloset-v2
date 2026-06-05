@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 7-smartcloset-location-weather-trust
 - Step: 1 `kma-location-catalog`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/94
+- PR: https://github.com/vanilalatte03/smart-closet/pull/94
 
 ## 재현 명령
 ```bash

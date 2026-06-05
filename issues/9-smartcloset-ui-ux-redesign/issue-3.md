@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 9-smartcloset-ui-ux-redesign
 - Step: 6 `account-settings`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/127
+- PR: https://github.com/vanilalatte03/smart-closet/pull/127
 
 ## 재현 명령
 ```bash

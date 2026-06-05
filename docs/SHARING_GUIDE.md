@@ -20,7 +20,6 @@ MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 신뢰도, MVP8 계
 - `docker-compose.yml`
 - `.env.example`
 - `frontend/`
-- `docs/design/mvp9/`
 - Frontend 경로: http://localhost:5173
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
@@ -29,7 +28,7 @@ MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 신뢰도, MVP8 계
 
 ```bash
 git clone <repository-url>
-cd SmartCloset-v2
+cd smart-closet
 test -f .env || cp .env.example .env
 docker compose down -v
 docker compose up --build

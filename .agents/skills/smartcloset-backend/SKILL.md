@@ -306,7 +306,7 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - MVP8 계정 안정성 API는 MVP9에서도 유지하며 refresh token 원문을 JSON response에 넣지 않는다고 문서화한다.
 - 현재 이메일은 `ConsoleEmailSender` 기준이며 SES/SMTP는 제외 범위로 문서화한다.
 - MVP9는 AWS 배포를 후속 MVP로 연기하고 현재 local adapter 경계만 유지한다고 문서화한다.
-- MVP9 frontend UX는 `docs/FRONTEND.md`와 `docs/design/mvp9/README.md` 기준으로 문서화한다.
+- MVP9 frontend UX는 `docs/FRONTEND.md` 기준으로 문서화한다.
 - MVP7 위치 검색은 내부 KMA catalog 기준으로 유지하고 외부 지도/주소 API를 사용하지 않는다.
 - MVP7 브라우저 현재 위치는 좌표 resolve 후보 찾기로만 유지하고 GPS 원문 DB 저장을 추가하지 않는다.
 - MVP7 weather source snapshot은 raw KMA 응답 JSON 없이 provider, KMA/fallback 여부, base/forecast 시각만 문서화한다.

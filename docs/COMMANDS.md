@@ -76,7 +76,6 @@ MVP9 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrom
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - Frontend: `http://localhost:5173`
-- 보조 Demo UI: `http://localhost:8080/demo/index.html`
 
 ## 문서 검증
 

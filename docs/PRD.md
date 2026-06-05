@@ -2,7 +2,7 @@
 
 ## 문서 목적
 
-이 문서는 SmartCloset MVP9의 확정 범위를 정의한다. MVP9는 MVP8 계정 안정성 완료 baseline 위에서 `tmp/design-preview`와 `docs/design/mvp9/` 화면 시안을 강하게 참고해 프론트 UI/UX 완성도를 높인다.
+이 문서는 SmartCloset MVP9의 확정 범위를 정의한다. MVP9는 MVP8 계정 안정성 완료 baseline 위에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 프론트 UI/UX 완성도를 높인다.
 
 현재 코드 출발점은 MVP8 구현 완료 상태다. MVP9 구현 기준은 이 문서와 `docs/` 아래 현재 문서, ADR-014다.
 
@@ -17,7 +17,6 @@
 | 백엔드 구조, transaction, adapter 정책 | `docs/ARCHITECTURE.md` |
 | DB schema와 JPA/entity 기준 | `docs/ERD.md` |
 | 프론트 API client, 타입, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP9 디자인 reference | `docs/design/mvp9/README.md` |
 | 데모/공유 검증 | `docs/DEMO_SCENARIO.md`, `docs/SHARING_GUIDE.md` |
 | 결정 배경 | `docs/ADR.md`, `docs/adr/014-mvp9-ui-ux-redesign.md`, `docs/adr/015-closet-archive-restore.md` |
 
@@ -84,7 +83,7 @@ SmartCloset의 기능은 유지하면서 사용자가 실제 서비스처럼 느
 - MVP8은 `archive/mvp-8/`에 최소 요약으로 이동한다.
 - 현재 baseline은 MVP9 UI/UX 리디자인으로 전환한다.
 - ADR-014를 추가하고 `docs/ADR.md`에 연결한다.
-- `tmp/design-preview` 이미지를 `docs/design/mvp9/`에 보관하고 사용 원칙을 문서화한다.
+- 프론트 UX 기준은 `docs/FRONTEND.md`에 통합한다.
 
 ### P0: App shell과 Auth redesign
 
@@ -96,7 +95,6 @@ SmartCloset의 기능은 유지하면서 사용자가 실제 서비스처럼 느
 
 ### P0: Recommendation dashboard
 
-- 추천 화면은 `smartcloset-recommend-mockup.png`를 강하게 참고한다.
 - 추천 생성 조건, 날씨/위치, 준비 상태, 추천 결과, 점수 상세, 최근 이력을 dashboard로 구성한다.
 - 추천 결과는 옷 이미지와 추천 이유를 먼저 보여주고 점수 상세는 보조 정보로 둔다.
 - 추천 상황과 예보 시간대는 명확한 segmented/card control로 표시한다.
@@ -118,7 +116,6 @@ SmartCloset의 기능은 유지하면서 사용자가 실제 서비스처럼 느
 
 - `archive/mvp-8/` 최소 요약
 - ADR-014
-- `docs/design/mvp9/` reference
 - MVP9 phase 문서와 docs-check 규칙
 - Frontend app shell navigation 변경
 - Auth view visual redesign
@@ -152,11 +149,11 @@ SmartCloset의 기능은 유지하면서 사용자가 실제 서비스처럼 느
 
 - 현재 문서 baseline이 MVP9 UI/UX 리디자인과 ADR-014를 가리킨다.
 - MVP8 계정 안정성은 archive에 최소 요약으로만 남는다.
-- `docs/design/mvp9/` reference가 구현 기준으로 문서화된다.
+- MVP9 프론트 UX 기준은 `docs/FRONTEND.md`에 문서화된다.
 - 데스크톱 primary nav는 `추천`, `옷장`, `내 취향`, `위치`, `기록` 상단 탭이다.
 - 모바일 primary nav는 같은 5개 탭의 하단 navigation이다.
 - 계정 설정은 profile pill/menu에서 진입한다.
-- Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면이 디자인 reference 방향을 따른다.
+- Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면이 `docs/FRONTEND.md`의 UX 기준을 따른다.
 - MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제 UX가 유지된다.
 - MVP9 자체에서는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break가 변경되지 않는다. 이후 옷장 보관함 복원 API 확장은 ADR-015를 따른다.
 - 1440px 데스크톱과 390px 모바일에서 텍스트, CTA, 카드가 겹치거나 잘리지 않는다.
@@ -184,7 +181,7 @@ MVP9 구현 phase 검증:
 
 - MVP9 범위: 프론트 UI/UX 리디자인
 - AWS 배포: 후속 MVP로 연기
-- 디자인 기준: `tmp/design-preview`와 `docs/design/mvp9/`
+- 프론트 UX 기준: `docs/FRONTEND.md`와 현재 구현된 React 화면
 - Primary nav: `추천`, `옷장`, `내 취향`, `위치`, `기록`
 - 계정 설정 진입: 우측 상단 profile pill/menu
 - API/DB/추천 규칙: MVP8 계약 유지, MVP9에서 변경하지 않음

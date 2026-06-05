@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 8-smartcloset-account-stability
 - Step: 4 `account-hard-delete`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/110
+- PR: https://github.com/vanilalatte03/smart-closet/pull/110
 
 ## 재현 명령
 ```bash

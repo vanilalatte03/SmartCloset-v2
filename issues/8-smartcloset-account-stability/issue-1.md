@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 8-smartcloset-account-stability
 - Step: 3 `google-oauth-login`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/108
+- PR: https://github.com/vanilalatte03/smart-closet/pull/108
 
 ## 재현 명령
 ```bash

@@ -3,7 +3,7 @@
 ## 발생 위치
 - Phase: 3-smartcloset-auth-personalization
 - Step: 6 `recommendation-current-user-api`
-- PR: https://github.com/vanilalatte03/SmartCloset-v2/pull/42
+- PR: https://github.com/vanilalatte03/smart-closet/pull/42
 
 ## 재현 명령
 ```bash
