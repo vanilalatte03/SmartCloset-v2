@@ -26,6 +26,7 @@ public class DefaultClothingPresetSeeder {
     private static final String IMAGE_CONTENT_TYPE = "image/jpeg";
     private static final String IMAGE_EXTENSION = "jpg";
     private static final String PRESET_RESOURCE_PREFIX = "classpath:default-clothing-presets/";
+    private static final int HOT_WEATHER_MAX_TEMPERATURE = 35;
     private static final List<Preset> PRESETS = List.of(
             new Preset(
                     "화이트 반팔 티셔츠",
@@ -33,7 +34,7 @@ public class DefaultClothingPresetSeeder {
                     ClothingColor.WHITE,
                     ClothingMaterial.COTTON,
                     8,
-                    30,
+                    HOT_WEATHER_MAX_TEMPERATURE,
                     false,
                     List.of("CASUAL", "DAILY", "캐주얼"),
                     "white-short-sleeve-tshirt.jpg"
@@ -44,7 +45,7 @@ public class DefaultClothingPresetSeeder {
                     ClothingColor.BLACK,
                     ClothingMaterial.COTTON,
                     8,
-                    30,
+                    HOT_WEATHER_MAX_TEMPERATURE,
                     false,
                     List.of("CASUAL", "MINIMAL", "미니멀"),
                     "black-short-sleeve-tshirt.jpg"
@@ -55,7 +56,7 @@ public class DefaultClothingPresetSeeder {
                     ClothingColor.BLACK,
                     ClothingMaterial.DENIM,
                     0,
-                    28,
+                    HOT_WEATHER_MAX_TEMPERATURE,
                     false,
                     List.of("CASUAL", "DAILY", "데일리"),
                     "black-denim-jeans.jpg"
@@ -66,7 +67,7 @@ public class DefaultClothingPresetSeeder {
                     ClothingColor.BLUE,
                     ClothingMaterial.DENIM,
                     0,
-                    28,
+                    HOT_WEATHER_MAX_TEMPERATURE,
                     false,
                     List.of("CASUAL", "DAILY", "데일리"),
                     "dark-blue-denim-jeans.jpg"
@@ -81,6 +82,40 @@ public class DefaultClothingPresetSeeder {
                     false,
                     List.of("MINIMAL", "OFFICE", "미니멀"),
                     "black-cardigan.jpg"
+            )
+    );
+    private static final List<LegacyTemperatureRangeUpgrade> LEGACY_HOT_WEATHER_UPGRADES = List.of(
+            new LegacyTemperatureRangeUpgrade(
+                    "화이트 반팔 티셔츠",
+                    ClothingCategory.TOP,
+                    ClothingColor.WHITE,
+                    ClothingMaterial.COTTON,
+                    8,
+                    30
+            ),
+            new LegacyTemperatureRangeUpgrade(
+                    "블랙 반팔 티셔츠",
+                    ClothingCategory.TOP,
+                    ClothingColor.BLACK,
+                    ClothingMaterial.COTTON,
+                    8,
+                    30
+            ),
+            new LegacyTemperatureRangeUpgrade(
+                    "흑청 데님 팬츠",
+                    ClothingCategory.BOTTOM,
+                    ClothingColor.BLACK,
+                    ClothingMaterial.DENIM,
+                    0,
+                    28
+            ),
+            new LegacyTemperatureRangeUpgrade(
+                    "진청 데님 팬츠",
+                    ClothingCategory.BOTTOM,
+                    ClothingColor.BLUE,
+                    ClothingMaterial.DENIM,
+                    0,
+                    28
             )
     );
 
@@ -103,10 +138,15 @@ public class DefaultClothingPresetSeeder {
 
     public void seedIfEmpty(User user) {
         User requiredUser = Objects.requireNonNull(user, "user must not be null");
-        if (clothingItemRepository.countByUserId(requiredUser.getId()) > 0) {
+        if (clothingItemRepository.countByUserId(requiredUser.getId()) == 0) {
+            seedDefaults(requiredUser);
             return;
         }
 
+        upgradeLegacyHotWeatherRanges(requiredUser);
+    }
+
+    private void seedDefaults(User requiredUser) {
         List<String> storedFilenames = new ArrayList<>();
         try {
             for (Preset preset : PRESETS) {
@@ -140,6 +180,24 @@ public class DefaultClothingPresetSeeder {
         }
     }
 
+    private void upgradeLegacyHotWeatherRanges(User user) {
+        clothingItemRepository.findByUserIdAndArchivedFalseOrderByIdAsc(user.getId()).stream()
+                .filter(this::matchesLegacyHotWeatherRange)
+                .forEach(item -> item.updateDetails(
+                        item.getName(),
+                        item.getCategory(),
+                        item.getColor(),
+                        item.getMaterial(),
+                        item.getMinTemperature(),
+                        HOT_WEATHER_MAX_TEMPERATURE,
+                        item.isRainSuitable()
+                ));
+    }
+
+    private boolean matchesLegacyHotWeatherRange(ClothingItem item) {
+        return LEGACY_HOT_WEATHER_UPGRADES.stream().anyMatch(upgrade -> upgrade.matches(item));
+    }
+
     private byte[] readPresetImage(String imageFilename) {
         Resource resource = resourceLoader.getResource(PRESET_RESOURCE_PREFIX + imageFilename);
         try (InputStream inputStream = resource.getInputStream()) {
@@ -170,5 +228,24 @@ public class DefaultClothingPresetSeeder {
             List<String> styleTags,
             String imageFilename
     ) {
+    }
+
+    private record LegacyTemperatureRangeUpgrade(
+            String name,
+            ClothingCategory category,
+            ClothingColor color,
+            ClothingMaterial material,
+            int minTemperature,
+            int maxTemperature
+    ) {
+
+        private boolean matches(ClothingItem item) {
+            return item.getName().equals(name)
+                    && item.getCategory() == category
+                    && item.getColor() == color
+                    && item.getMaterial() == material
+                    && item.getMinTemperature() == minTemperature
+                    && item.getMaxTemperature() == maxTemperature;
+        }
     }
 }
