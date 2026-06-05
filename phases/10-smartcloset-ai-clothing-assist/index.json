@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "clothing-image-analyzer-adapter",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-05T21:16:53+0900",
+      "summary": "HTTP와 분리된 ClothingImageAnalyzer boundary, disabled/OpenAI analyzer, structured result model과 테스트를 추가했다.",
+      "completed_at": "2026-06-05T21:23:06+0900"
     },
     {
       "step": 3,
