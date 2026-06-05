@@ -1,7 +1,9 @@
 package com.smartcloset.clothing.controller;
 
+import com.smartcloset.clothing.application.ClothingAnalysisService;
 import com.smartcloset.clothing.application.ClothingService;
 import com.smartcloset.clothing.dto.ClothingArchiveResponse;
+import com.smartcloset.clothing.dto.ClothingAnalysisResponse;
 import com.smartcloset.clothing.dto.ClothingImageFileResponse;
 import com.smartcloset.clothing.dto.ClothingRequest;
 import com.smartcloset.clothing.dto.ClothingResponse;
@@ -36,9 +38,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class ClothingController {
 
     private final ClothingService clothingService;
+    private final ClothingAnalysisService clothingAnalysisService;
 
-    public ClothingController(ClothingService clothingService) {
+    public ClothingController(ClothingService clothingService, ClothingAnalysisService clothingAnalysisService) {
         this.clothingService = clothingService;
+        this.clothingAnalysisService = clothingAnalysisService;
     }
 
     /**
@@ -156,5 +160,16 @@ public class ClothingController {
             @AuthenticationPrincipal CurrentUserPrincipal principal
     ) {
         return ApiResponse.of(clothingService.deleteClothingImage(principal.userId(), clothingId));
+    }
+
+    /**
+     * 저장 전 옷 사진 후보 분석 결과를 반환한다. 이미지는 저장하지 않는다.
+     */
+    @PostMapping(value = "/analyze-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ClothingAnalysisResponse> analyzeClothingImage(
+            @AuthenticationPrincipal CurrentUserPrincipal principal,
+            @RequestPart("image") MultipartFile image
+    ) {
+        return ApiResponse.of(clothingAnalysisService.analyze(principal.userId(), image));
     }
 }
