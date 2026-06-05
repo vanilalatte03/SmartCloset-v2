@@ -40,7 +40,7 @@
       "status": "completed",
       "started_at": "2026-06-05T21:39:55+0900",
       "summary": "프론트 옷 등록/수정 form에 AI 후보 체크 API, confidence 확인 필요 UX, 저장 전 확인 modal을 추가했다.",
-      "completed_at": "2026-06-05T21:45:00+0900"
+      "completed_at": "2026-06-05T21:45:43+0900"
     },
     {
       "step": 5,
