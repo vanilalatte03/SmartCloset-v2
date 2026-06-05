@@ -1,12 +1,12 @@
-# 추천 규칙: SmartCloset MVP9
+# 추천 규칙: SmartCloset MVP10
 
 ## 문서 목적
 
-SmartCloset MVP9의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+SmartCloset MVP10의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie-break를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약을 그대로 유지한다. 추천 이유는 기존 template 기반 원칙을 유지하되 사용자 화면에서 반복을 줄이기 위해 날씨 문구를 온도대/비/아우터 상태에 맞게 세분화한다.
+MVP10은 사진 기반 AI 옷 등록 보조 MVP이며 추천 점수, 후보 생성, tie-break를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약, MVP9 UI/UX 기준을 그대로 유지한다. 추천 이유는 기존 template 기반 원칙을 유지한다.
 
-## MVP9 결정
+## MVP10 결정
 
 - 총점은 100점이며 기존 score response field를 유지한다.
 - `weatherScore` 최대값은 35점이다.
@@ -18,8 +18,9 @@ MVP9는 프론트 UI/UX 리디자인 MVP이며 추천 점수, 후보 생성, tie
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - `forecastPeriod`는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
 - 위치/source snapshot은 추천 근거 표시와 이력 신뢰도에만 사용한다.
-- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break에 영향을 주지 않는다.
+- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조는 추천 후보 필터링과 tie-break에 영향을 주지 않는다.
 - Image metadata는 추천 점수, 후보 필터링, tie-break, 추천 이유에 사용하지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields는 추천 입력으로 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 
 ## 추천 입력
@@ -120,13 +121,24 @@ Style tag 비교:
 - 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.
 - `sentiment`와 `thermal`이 모두 `null`이면 clear다.
 
+## AI 옷 등록 보조와 추천의 분리
+
+MVP10의 `POST /api/clothes/analyze-image` 응답은 옷 등록 form 후보 제안에만 사용한다.
+
+- AI 분석 결과는 recommendation request/response field가 아니다.
+- AI 분석 결과는 추천 이력 snapshot으로 저장하지 않는다.
+- AI confidence는 추천 점수 field가 아니다.
+- 추천은 사용자가 최종 저장한 옷 속성만 읽는다.
+- 사용자가 AI 후보를 수정하거나 확인한 뒤 저장하면, 추천 엔진은 그 저장된 옷 속성을 기존 규칙대로 처리한다.
+
 ## 테스트 기준
 
-MVP9 구현 후 추천 규칙 검증은 아래를 증명해야 한다.
+MVP10 구현 후 추천 규칙 검증은 아래를 증명해야 한다.
 
-- MVP8 계정 기능과 MVP9 UI/UX 변경 후에도 추천 생성 기본값 `CASUAL`, `CURRENT`가 유지된다.
+- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조 후에도 추천 생성 기본값 `CASUAL`, `CURRENT`가 유지된다.
 - 총점 100점 체계와 세부 score field가 유지된다.
 - 위치/source snapshot은 점수 field를 추가하지 않는다.
 - 사용자 위치 변경 후 과거 추천 snapshot은 바뀌지 않는다.
 - 이미지 metadata는 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields는 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
 - 계정 삭제 구현 후 삭제된 사용자 추천 이력은 더 이상 조회되지 않는다.

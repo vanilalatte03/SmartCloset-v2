@@ -1,10 +1,10 @@
-# ERD: SmartCloset MVP9
+# ERD: SmartCloset MVP10
 
 ## 0. DB Baseline
 
-MVP9 DB baseline은 MVP8 계정 안정성 완료 schema를 유지한다. MVP9는 프론트 UI/UX 리디자인 MVP이며 DB schema를 변경하지 않는다.
+MVP10 DB baseline은 MVP8 계정 안정성 완료 schema와 MVP9 UI/UX 리디자인 이후의 기존 옷장/추천 schema를 유지한다. MVP10은 사진 기반 AI 옷 등록 보조 MVP이며 DB schema를 변경하지 않는다.
 
-## MVP9 DB 결정
+## MVP10 DB 결정
 
 - MVP8에서 `users`에 이메일 인증과 password login 상태를 추가했다.
 - Refresh token은 `refresh_sessions`에 hash만 저장한다.
@@ -12,8 +12,12 @@ MVP9 DB baseline은 MVP8 계정 안정성 완료 schema를 유지한다. MVP9는
 - Google social account 연결은 `social_accounts`에 저장한다.
 - 계정 삭제는 soft delete가 아니라 관련 row hard delete다.
 - 옷 이미지 파일 bytes는 계속 DB에 저장하지 않는다.
-- AWS/RDS 운영 migration 도구 전환은 MVP9 범위가 아니다.
-- MVP9 UI/UX 변경은 table, column, relation, index를 추가하지 않는다.
+- AI 분석용 이미지는 DB에 저장하지 않는다.
+- AI 분석 결과와 confidence는 DB에 저장하지 않는다.
+- `ClothingAnalysisResponse`는 API/UI 후보 제안 DTO이며 entity가 아니다.
+- AI 분석 결과는 추천 이력, 추천 score field, 추천 이유 JSON에 남기지 않는다.
+- AWS/RDS 운영 migration 도구 전환은 MVP10 범위가 아니다.
+- MVP10 AI 옷 등록 보조는 table, column, relation, index를 추가하지 않는다.
 
 ## 1. 공통 DB 정책
 

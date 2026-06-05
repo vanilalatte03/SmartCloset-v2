@@ -1,0 +1,36 @@
+{
+  "project": "SmartCloset",
+  "phase": "10-smartcloset-ai-clothing-assist",
+  "steps": [
+    {
+      "step": 0,
+      "name": "mvp10-docs-archive",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "spring-ai-config-boundary",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "clothing-image-analyzer-adapter",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "clothing-analysis-api",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "closet-form-ai-assist",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "docs-qa-final",
+      "status": "pending"
+    }
+  ]
+}

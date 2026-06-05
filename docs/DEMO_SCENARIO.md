@@ -1,22 +1,26 @@
-# Demo Scenario: SmartCloset MVP9
+# Demo Scenario: SmartCloset MVP10
 
 ## 데모 목표
 
-Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 브라우저에서 MVP8 계정 안정성 기능이 유지되는지와 MVP9 UI/UX 리디자인 화면이 데스크톱/모바일에서 겹침 없이 동작하는지 확인한다.
+Docker Compose로 SmartCloset 백엔드, MySQL, React 프론트엔드를 실행한 뒤 MVP8 계정 안정성, MVP9 화면 구조, MVP10 AI 옷 등록 보조 흐름이 함께 유지되는지 확인한다.
 
-MVP9 데모의 핵심은 사용자가 SmartCloset을 실제 서비스처럼 느낄 수 있는 화면 완성도를 확인하는 것이다.
+MVP10 데모의 핵심은 옷 사진을 선택한 뒤 사용자가 직접 `AI 후보 체크`를 실행하고, confidence가 낮은 필드를 확인/수정한 뒤 기존 저장 흐름으로 옷을 등록하는 것이다.
 
-## MVP9 데모 범위
+기본 공유 데모는 AI 분석 비활성 상태로도 성공해야 한다. 실제 OpenAI 호출 데모는 환경변수를 명시적으로 설정한 경우에만 진행한다.
+
+## MVP10 데모 범위
 
 포함:
 
 - Auth 화면 visual/form layout 확인
 - 회원가입 후 이메일 인증 필요 상태 확인
-- 로그인 이메일 저장 체크박스
 - refresh cookie 기반 새로고침 세션 복구
 - Google provider enabled/disabled 상태 확인
-- 추천 dashboard와 추천 결과 확인
+- 추천 dashboard와 규칙 기반 추천 결과 확인
 - 옷장 목록, 옷 이미지, 옷 추가/수정 form 확인
+- 옷 등록/수정 form의 AI 후보 체크 버튼, loading/error/review state 확인
+- confidence 낮은 필드의 흐림/확인 필요 표시 확인
+- 사용자가 수정/확인한 값만 기존 옷 저장 API로 저장되는지 확인
 - 내 취향 swatch/chip/toggle 입력 확인
 - 위치 검색과 현재 위치 후보 찾기 확인
 - 기록 calendar/timeline과 위치/날씨 snapshot 확인
@@ -32,10 +36,12 @@ MVP9 데모의 핵심은 사용자가 SmartCloset을 실제 서비스처럼 느�
 - Secrets Manager
 - CD 자동화
 - Redis
-- 백엔드 API/DTO 변경
 - DB schema 변경
 - 추천 규칙 변경
-- AI/GPT 추천
+- AI/GPT 옷차림 추천
+- AI-generated 추천 이유
+- 사용자 확인 없는 자동 저장
+- 다중 이미지, 이미지 편집, EXIF 분석, image moderation
 
 ## 데모 전제
 
@@ -43,6 +49,8 @@ MVP9 데모의 핵심은 사용자가 SmartCloset을 실제 서비스처럼 느�
 - 이메일 발송은 `ConsoleEmailSender` 기준이며 실제 메일은 발송하지 않는다.
 - Google OAuth 설정이 없으면 provider disabled 상태로 데모한다.
 - KMA key가 없어도 `WEATHER_FALLBACK_ENABLED=true`이면 fallback weather로 추천 데모 가능하다.
+- `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 앱이 정상 실행되어야 한다.
+- 실제 AI 분석 데모를 할 때만 `CLOTHING_ANALYSIS_ENABLED=true`, `SPRING_AI_MODEL_CHAT=openai`, `OPENAI_API_KEY`를 설정한다.
 - Docker Compose reset 시 DB와 이미지 volume이 초기화된다.
 
 ## 실행
@@ -65,7 +73,7 @@ Swagger UI:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-## React 앱 MVP9 데모 시나리오
+## React 앱 MVP10 데모 시나리오
 
 ### 1. Auth 화면과 회원가입
 
@@ -86,8 +94,7 @@ http://localhost:8080/swagger-ui/index.html
 1. backend console/log에서 인증 token 또는 인증 링크를 확인한다.
 2. 앱의 이메일 인증 확인 화면에 token을 입력하거나 링크를 연다.
 3. 인증된 이메일/password로 로그인한다.
-4. 이메일 저장 체크박스를 선택한 뒤 로그인한다.
-5. 앱을 새로고침한다.
+4. 앱을 새로고침한다.
 
 기대 결과:
 
@@ -95,7 +102,6 @@ http://localhost:8080/swagger-ui/index.html
 - login 응답은 access token을 반환한다.
 - refresh token 값은 JSON body에 없다.
 - 새로고침 후 `POST /api/auth/refresh`로 세션이 복구된다.
-- 로그인 화면에는 저장된 이메일 주소만 복원된다.
 - 비밀번호, access token, refresh token은 브라우저 저장소에 저장되지 않는다.
 
 ### 3. Navigation과 account entry
@@ -108,10 +114,31 @@ http://localhost:8080/swagger-ui/index.html
 기대 결과:
 
 - primary nav에 계정 탭이 없다.
-- 계정 설정은 profile에서 자연스럽게 열린다.
+- 계정 설정은 profile에서 열린다.
 - 상단 탭과 하단 탭의 텍스트가 잘리지 않는다.
 
-### 4. 추천 dashboard
+### 4. 옷장 AI 후보 체크
+
+1. `옷장`에서 새 옷 추가 화면을 연다.
+2. jpg/png/webp 옷 사진을 선택하고 preview를 확인한다.
+3. `AI 후보 체크` 버튼을 누른다.
+4. 분석 성공 시 후보값이 이름, 카테고리, 색상, 소재, 기온 범위, 비 적합성, style tag form에 적용되는지 확인한다.
+5. `확인 필요`로 표시된 field를 수정하거나 확인 처리한다.
+6. 확인 필요 field를 일부 남긴 채 저장을 시도해 저장 전 confirmation을 확인한다.
+7. 최종 저장 후 옷 목록과 상세에서 값과 이미지가 보이는지 확인한다.
+
+기대 결과:
+
+- 이미지 선택만으로 자동 분석 호출이 실행되지 않는다.
+- 분석은 `POST /api/clothes/analyze-image` 보호 API를 사용한다.
+- 분석 이미지는 저장되지 않는다.
+- confidence가 낮은 field는 흐림/확인 필요 상태로 보인다.
+- 사용자가 확인/수정한 최종 값만 `POST /api/clothes` 또는 `PUT /api/clothes/{clothingId}`로 저장된다.
+- 이미지 저장은 기존 `PUT /api/clothes/{clothingId}/image`를 사용한다.
+- 분석 실패 또는 기능 비활성 상태에서도 manual form 입력과 저장이 가능하다.
+- 390px 모바일에서 preview, 버튼, badge, control이 겹치지 않는다.
+
+### 5. 추천 dashboard
 
 1. `추천` 화면에서 날씨, 위치, 상황, 예보 시간대, 준비 상태를 확인한다.
 2. 상황과 예보 시간대를 선택해 추천을 생성한다.
@@ -121,34 +148,21 @@ http://localhost:8080/swagger-ui/index.html
 기대 결과:
 
 - 추천 생성은 `POST /api/recommendations`를 사용한다.
-- 추천 점수/필터/tie-break는 기존 규칙을 유지한다.
+- 추천은 규칙 기반으로 생성된다.
+- AI 분석 결과, confidence, reviewRequiredFields는 추천 결과에 표시되거나 저장되지 않는다.
 - 옷 조합과 "오늘 입기 좋은 이유"가 점수표보다 먼저 읽힌다.
 - 이미지가 없는 옷은 fallback visual로 식별 가능하다.
 
-### 5. 옷장과 내 취향
+### 6. 내 취향, 위치, 기록
 
-1. `옷장`에서 이미지 중심 목록과 filter chip을 확인한다.
-2. 새 옷 추가 화면에서 이미지, 이름, 카테고리, 색상, 소재, 기온 범위, 비 적합성, style tag를 입력한다.
-3. 옷 카드의 `보관`을 눌러 활성 목록에서 빠지는지 확인한다.
-4. `보관함`을 열어 보관한 옷을 확인하고 `다시 꺼내기`로 활성 목록에 복귀시킨다.
-5. `내 취향`에서 색상 swatch, 소재 toggle, style tag chip을 수정한다.
+1. `내 취향`에서 색상 swatch, 소재 toggle, style tag chip을 수정한다.
+2. `위치`에서 `일산동` 검색과 현재 위치 후보 찾기를 확인한다.
+3. 후보를 선택해 계정 위치를 저장한다.
+4. `기록`에서 과거 추천의 위치/날씨 요약이 현재 위치 변경과 독립적으로 유지되는지 확인한다.
 
 기대 결과:
 
-- 옷 이미지 blob fetch와 object URL cleanup 흐름이 유지된다.
-- 보호 이미지는 public `<img src>` 직접 참조가 아니다.
-- 보관한 옷은 활성 옷 목록과 추천 후보에서 제외되고, 다시 꺼내면 활성 목록으로 돌아온다.
-- 옷 등록/수정 JSON API가 multipart로 대체되지 않는다.
 - swatch/chip/toggle control이 모바일에서 겹치지 않는다.
-
-### 6. 위치와 기록
-
-1. `위치`에서 `일산동` 검색과 현재 위치 후보 찾기를 확인한다.
-2. 후보를 선택해 계정 위치를 저장한다.
-3. `기록`에서 과거 추천의 위치/날씨 요약이 현재 위치 변경과 독립적으로 유지되는지 확인한다.
-
-기대 결과:
-
 - 위치 검색은 내부 KMA catalog 기준이다.
 - 브라우저 GPS 원문 좌표를 DB에 저장하지 않는다.
 - 선택된 동네만 사용자 위치로 저장된다.
@@ -165,14 +179,18 @@ http://localhost:8080/swagger-ui/index.html
 
 기대 결과:
 
-- 계정 삭제는 기본 화면에서 크게 노출되지 않고, 작은 팝업으로 다른 설정과 분리되어 보인다.
+- 계정 삭제는 작은 팝업으로 다른 설정과 분리되어 보인다.
 - 계정 삭제가 성공한다.
 - 로그인 상태가 초기화된다.
 - 기존 refresh cookie는 더 이상 사용할 수 없다.
 - 삭제된 계정의 옷장, 추천 이력, 이미지 파일이 남아 보호 API에서 조회되지 않는다.
 
-## API 실패 케이스 확인
+## Backend API 실패 케이스 확인
 
+- AI 분석 기능 비활성: `503 CLOTHING_ANALYSIS_DISABLED`
+- AI 분석 provider 장애 또는 timeout: `503 CLOTHING_ANALYSIS_UNAVAILABLE`
+- AI 분석 일일 제한 초과: `429 CLOTHING_ANALYSIS_LIMIT_EXCEEDED`
+- 잘못된 분석 이미지 형식 또는 크기 초과: `400 INVALID_REQUEST`
 - 미인증 password 계정 login: `403 EMAIL_VERIFICATION_REQUIRED`
 - 만료/사용 완료 인증 token confirm: `400 ACCOUNT_TOKEN_INVALID`
 - reset token 재사용: `400 ACCOUNT_TOKEN_INVALID`
@@ -184,8 +202,10 @@ http://localhost:8080/swagger-ui/index.html
 
 ## 완료 기준
 
-- MVP9 navigation 계약이 유지된다.
-- Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면이 데스크톱 1440px과 모바일 390px에서 겹침/잘림 없이 동작한다.
+- MVP10 AI 옷 등록 보조 흐름이 데스크톱 1440px과 모바일 390px에서 겹침/잘림 없이 동작한다.
+- AI 분석은 수동 버튼으로만 실행된다.
+- 기능 비활성 또는 API key 없음 상태에서도 기존 local demo가 동작한다.
+- Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면이 데스크톱/모바일에서 유지된다.
 - MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider 상태, 계정 삭제 UX가 유지된다.
-- 백엔드 HTTP API, DTO, DB schema, 추천 규칙이 변경되지 않는다.
+- 백엔드 인증/API envelope, DB schema, 추천 규칙이 변경되지 않는다.
 - Docker Compose local 환경에서 앱이 정상 실행된다.

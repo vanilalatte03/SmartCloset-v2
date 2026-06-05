@@ -36,12 +36,13 @@ Reasoning effort policy:
 - 동일 인증 사용자 입력과 테스트 데이터에 대해 추천 로직이 항상 결정적으로 동작하게 한다.
 - 100점 세부 점수 구조를 보존한다: weather 35, color 25, wear history 20, recommendation history 10, preference 10.
 - 강제 필터링, OUTER 필수/선택 규칙, 후보 생성 순서, 실패 우선순위, 점수 상/하한 보정, 동점 처리 순서를 docs/RECOMMENDATION_RULES.md 기준 그대로 구현한다.
-- 현재 baseline은 MVP9이며 추천 규칙은 MVP7 `preferenceScore`와 forecastPeriod 계약, MVP8 계정 안정성 계약을 유지한다.
-- `styleTags`와 최근 피드백은 docs/RECOMMENDATION_RULES.md의 MVP9 기준에 따라 `preferenceScore`와 추천 이유에 사용한다.
-- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
+- 현재 baseline은 MVP10이며 추천 규칙은 MVP7 `preferenceScore`와 forecastPeriod 계약, MVP8 계정 안정성 계약, MVP9 UI/UX 기준을 유지한다.
+- `styleTags`와 최근 피드백은 docs/RECOMMENDATION_RULES.md의 MVP10 기준에 따라 `preferenceScore`와 추천 이유에 사용한다.
+- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조는 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
 - forecastPeriod는 weather input 선택에만 사용하고 새 score field를 만들지 않는다.
 - feedbackAdjustment는 최근 14일 snapshot만 사용하고 부정 signal 충돌 우선순위를 지킨다.
 - 이미지 metadata는 점수, 필터링, 동점 처리, 추천 이유에 사용하지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields는 점수, 필터링, 동점 처리, 추천 이유에 사용하지 않는다.
 - 점수 근거와 맞는 템플릿 기반 추천 이유를 3개 이상 5개 이하로 생성한다.
 - OutfitCandidate는 DB Entity가 아니라 도메인 모델 또는 값 객체로 유지한다.
 
@@ -49,6 +50,7 @@ Reasoning effort policy:
 - Controller, Repository, API DTO, Docker, 빌드 파일을 수정하지 않는다.
 - OutfitCandidate용 DB Entity를 만들지 않는다.
 - AI/GPT 추천 문장을 생성하지 않는다.
+- AI 분석 결과 기반 추천 문장을 생성하지 않는다.
 - 점수 계산 로직을 Controller나 Repository로 옮기지 않는다.
 - 부모 소유 작업 흐름에서 docs/RECOMMENDATION_RULES.md가 먼저 갱신되지 않은 한 rainSuitable 또는 material을 강제 필터로 바꾸지 않는다.
 - 피드백 이벤트 로그나 analytics 모델을 추가하지 않는다.

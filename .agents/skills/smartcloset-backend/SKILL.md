@@ -1,6 +1,6 @@
 ---
 name: smartcloset-backend
-description: SmartCloset Spring Boot 4.0.6 백엔드 구현 또는 리뷰 시 사용한다. 인증/계정 안정성, 인증 사용자 API, 규칙 기반 옷차림 추천, KMA 날씨 provider/fallback weather, 사용자 위치 API, 선호도, 옷 이미지 업로드, 추천 피드백/개인화, 테스트, Docker Compose 공유, 문서 동기화를 포함한다.
+description: SmartCloset Spring Boot 4.0.6 백엔드 구현 또는 리뷰 시 사용한다. 인증/계정 안정성, 인증 사용자 API, 규칙 기반 옷차림 추천, KMA 날씨 provider/fallback weather, 사용자 위치 API, 선호도, 옷 이미지 업로드, AI 옷 등록 보조, 추천 피드백/개인화, 테스트, Docker Compose 공유, 문서 동기화를 포함한다.
 ---
 
 # SmartCloset Backend Skill
@@ -27,7 +27,7 @@ SmartCloset 현재 baseline 백엔드/프론트엔드 연동 작업을 구현하
 - 인증/보안/계정 변경: Auth and Account Rules, API Rules, Test Rules
 - 추천 변경: Recommendation Rules, Weather Rules, Preference Rules, Test Rules
 - 위치 변경: Location Rules, Weather Rules, API Rules
-- 옷 이미지 변경: Clothing Image Rules, API Rules, Frontend Rules, Test Rules
+- 옷 이미지/AI 옷 등록 보조 변경: Clothing Image Rules, API Rules, Frontend Rules, Test Rules
 - 프론트 변경: Frontend Rules, API Rules
 - DB/entity 변경: Entity and JPA Rules, 관련 API/Domain Rules
 - 테스트 변경: Test Rules와 변경 대상 도메인 섹션
@@ -37,7 +37,7 @@ Historical Context는 현재 기준이 헷갈릴 때만 참고한다. Historical
 
 ## Current Execution Baseline
 
-SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Spring Boot 4.0.6 서비스다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따르고, 옷장 보관함 복원 확장은 ADR-015를 따른다. 현재 코드 출발점은 MVP8 계정 안정성 완료 상태이며, MVP9 구현은 `phases/9-smartcloset-ui-ux-redesign` step 문서를 따른다.
+SmartCloset의 현재 기준은 MVP10 AI 옷 등록 보조 baseline Spring Boot 4.0.6 서비스다. MVP10 계약은 `docs/PRD.md`와 ADR-016을 따르고, MVP9 UI/UX 기준과 옷장 보관함 복원 확장 ADR-015는 유지한다. 현재 코드 출발점은 MVP9 UI/UX 리디자인 완료 상태이며, MVP10 구현은 `phases/10-smartcloset-ai-clothing-assist` step 문서를 따른다.
 
 다음 현재 요구사항을 기준으로 구현하고 리뷰한다.
 
@@ -66,11 +66,21 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - MVP5 옷 이미지 업로드/교체/조회/삭제, MVP6 styleTags/피드백/개인화, MVP7 위치/날씨 source snapshot을 유지한다.
 - 이미지 업로드/교체/조회/삭제 API는 모두 보호 API다.
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
+- MVP10은 Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`를 사용해 옷 등록 후보를 제안한다.
+- `POST /api/clothes/analyze-image`는 보호 API이며 multipart part `image`를 받는다.
+- AI 분석 기능은 기본 비활성이고 `CLOTHING_ANALYSIS_ENABLED=true`, `SPRING_AI_MODEL_CHAT=openai`, `OPENAI_API_KEY`가 있을 때만 실제 OpenAI 호출이 가능하다.
+- `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 API key 상태에서도 기존 local 실행이 깨지면 안 된다.
+- AI 분석 이미지는 DB나 파일 저장소에 저장하지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields는 DB, 추천 이력, 추천 점수, 추천 이유에 저장하거나 반영하지 않는다.
+- confidence가 낮은 후보 field는 프론트에서 확인 필요 상태로 표시하고, 사용자가 확인/수정한 최종 값만 기존 옷 저장 API로 저장한다.
+- GPT-5 계열 temperature 미지원 가능성을 고려해 temperature를 강제로 설정하지 않는다.
+- 다른 모델로 자동 재시도하지 않는다.
+- user별 AI 분석 daily limit 기본값은 20회다.
 - Docker Compose local 공유 흐름은 유지한다.
-- MVP9는 AWS 배포를 구현하지 않고 프론트 UI/UX 리디자인에 집중한다. AWS 배포와 운영 adapter 구현은 후속 MVP로 연기한다.
-- MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다.
+- MVP10은 AWS 배포를 구현하지 않고 AI 옷 등록 보조에 집중한다. AWS 배포와 운영 adapter 구현은 후속 MVP로 연기한다.
+- MVP10은 DB schema와 추천 점수/필터/tie-break를 변경하지 않는다.
 - ADR-015 옷장 보관함 복원 확장은 기존 `archived` 컬럼을 재사용해 `GET /api/clothes/archived`와 `PATCH /api/clothes/{clothingId}/unarchive`를 추가하며 DB schema와 추천 점수/필터/tie-break를 변경하지 않는다.
-- MVP9 primary navigation은 `추천`, `옷장`, `내 취향`, `위치`, `기록`이며, `계정 설정`은 우측 상단 profile pill/menu에서 진입한다.
+- MVP9/MVP10 primary navigation은 `추천`, `옷장`, `내 취향`, `위치`, `기록`이며, `계정 설정`은 우측 상단 profile pill/menu에서 진입한다.
 
 ## Historical Context
 
@@ -95,7 +105,7 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 
 ## Strict Out of Scope
 
-아래 항목은 MVP9 범위에 추가하지 않는다.
+아래 항목은 MVP10 범위에 추가하지 않는다.
 
 - AWS deployment implementation
 - S3 storage implementation
@@ -112,8 +122,11 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - KMA `getVilageFcst` 외 weather APIs
 - raw KMA response DB persistence
 - browser GPS coordinate DB persistence
-- AI/GPT recommendations
-- AI automatic tagging
+- AI/GPT outfit recommendations
+- AI-generated recommendation reasons
+- user-confirmation-less automatic tagging or save
+- AI analysis result persistence
+- automatic fallback model calls
 - feedback event log analytics
 - multiple images per clothing item
 - image editing/cropping/resizing pipeline
@@ -128,7 +141,7 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 ## API Rules
 
 - 공개 API와 보호 API 표/계약을 분리해서 유지한다.
-- MVP9 공개 API는 MVP8 auth bootstrap endpoint를 유지한다: signup, login, refresh, logout, email verification, password reset, OAuth provider/login/callback.
+- MVP10 공개 API는 MVP8 auth bootstrap endpoint를 유지한다: signup, login, refresh, logout, email verification, password reset, OAuth provider/login/callback.
 - 보호 API는 `Authorization: Bearer {accessToken}`이 필요하다.
 - 공개 `userId` request parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
@@ -139,6 +152,13 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - 추천 생성은 `POST /api/recommendations`다.
 - today recommendation GET endpoint를 추가하거나 문서화하지 않는다.
 - 위치/날씨/추천 API는 MVP7 계약을 유지한다. 옷 API는 ADR-015에 따라 보관함 조회와 보관 해제를 포함한다.
+- AI 옷 등록 보조 API는 `POST /api/clothes/analyze-image` 보호 API 하나다.
+- 분석 API request는 multipart part `image`를 사용한다.
+- 분석 API response는 `analyzable`, `suggestion`, `fieldConfidence`, `reviewRequiredFields`, `lowConfidenceThreshold`를 포함한다.
+- 옷으로 보기 어려운 이미지는 `analyzable=false` 성공 응답으로 처리한다.
+- 분석 기능 비활성은 `CLOTHING_ANALYSIS_DISABLED` `503 Service Unavailable`로 실패한다.
+- 분석 provider 장애 또는 timeout은 `CLOTHING_ANALYSIS_UNAVAILABLE` `503 Service Unavailable`로 실패한다.
+- 분석 일일 제한 초과는 `CLOTHING_ANALYSIS_LIMIT_EXCEEDED` `429 Too Many Requests`로 실패한다.
 - 추천 business failure는 HTTP `422 Unprocessable Entity`를 사용한다.
 
 ## Auth and Account Rules
@@ -180,15 +200,19 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 
 - 옷 1개당 이미지는 최대 1장이다.
 - 기존 옷 등록/수정 JSON API를 multipart로 대체하지 않는다.
+- AI 분석 API도 기존 옷 등록/수정 JSON API를 대체하지 않는다.
 - 이미지 업로드/교체는 `PUT /api/clothes/{clothingId}/image`로 처리한다.
 - 이미지 조회는 `GET /api/clothes/{clothingId}/image`로 처리한다.
 - 이미지 삭제는 `DELETE /api/clothes/{clothingId}/image`로 처리한다.
+- 이미지 분석은 `POST /api/clothes/analyze-image`로 처리한다.
 - 이미지 API는 현재 인증 사용자 소유 옷만 접근할 수 있다.
 - 다른 사용자 옷 또는 존재하지 않는 옷은 `CLOTHING_NOT_FOUND`로 실패한다.
 - 내 옷이지만 이미지가 없으면 `CLOTHING_IMAGE_NOT_FOUND`로 실패한다.
 - 삭제는 이미지가 없어도 성공해야 한다.
 - 파일 bytes는 DB가 아니라 로컬 파일 시스템 또는 Docker Compose volume에 저장한다.
 - DB에는 `clothing_items` 이미지 메타데이터 컬럼만 둔다.
+- 분석 요청의 파일 bytes는 DB나 로컬 파일 시스템에 저장하지 않는다.
+- 분석 결과는 옷 이미지 metadata로 저장하지 않는다.
 - 허용 파일은 5MB 이하 jpg/jpeg/png/webp다.
 - MIME type은 `image/jpeg`, `image/png`, `image/webp`만 허용한다.
 - 원본 파일명을 저장 경로에 사용하지 않는다.
@@ -250,6 +274,13 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - 이미지 조회는 Authorization header가 필요하므로 blob fetch와 object URL을 사용한다.
 - 일반 public `<img src>`로 보호 이미지를 직접 참조하지 않는다.
 - object URL은 cleanup해야 한다.
+- 옷 등록/수정 form은 이미지 선택 후 사용자가 직접 `AI 후보 체크`를 눌렀을 때만 분석 API를 호출한다.
+- `ClothingAnalysisResponse` 타입과 `analyzeClothingImage(accessToken, file)` API 함수를 명시한다.
+- confidence가 낮은 field는 흐림/확인 필요 상태로 표시한다.
+- 사용자가 수정하거나 확인한 field는 확인 필요 상태를 해제한다.
+- 확인 필요 field가 남은 저장은 한 번 더 확인한다.
+- 분석 실패, 기능 비활성, API key 없음 상태에서도 manual form 입력과 저장이 가능해야 한다.
+- 분석 결과는 추천 state나 추천 화면으로 전달하지 않는다.
 - Frontend 동작은 `docs/FRONTEND.md`를 따른다.
 
 ## Recommendation Rules
@@ -265,8 +296,9 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - 추천 상황은 `WORK`, `CASUAL`, `WORKOUT`, `DATE`, `FORMAL`이다.
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - forecastPeriod는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
-- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
+- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조는 추천 점수, 후보 필터링, tie-break, 추천 이유를 변경하지 않는다.
 - scoring, filtering, tie-break, recommendation reason에 image metadata를 사용하지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields를 scoring, filtering, tie-break, recommendation reason에 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
 - Tie-break rule은 deterministic해야 한다.
 
@@ -303,14 +335,15 @@ SmartCloset의 현재 기준은 MVP9 프론트 UI/UX 리디자인 baseline Sprin
 - 현재 사용자 전용 response DTO 예시와 frontend type에서 `userId`를 제거한다.
 - Recommendation creation은 `POST /api/recommendations`로만 문서화한다.
 - Today recommendation GET path가 현재 API 계약으로 나타나면 제거한다.
-- MVP8 계정 안정성 API는 MVP9에서도 유지하며 refresh token 원문을 JSON response에 넣지 않는다고 문서화한다.
+- MVP8 계정 안정성 API는 MVP10에서도 유지하며 refresh token 원문을 JSON response에 넣지 않는다고 문서화한다.
 - 현재 이메일은 `ConsoleEmailSender` 기준이며 SES/SMTP는 제외 범위로 문서화한다.
-- MVP9는 AWS 배포를 후속 MVP로 연기하고 현재 local adapter 경계만 유지한다고 문서화한다.
-- MVP9 frontend UX는 `docs/FRONTEND.md` 기준으로 문서화한다.
+- MVP10은 AWS 배포를 후속 MVP로 연기하고 현재 local adapter 경계만 유지한다고 문서화한다.
+- MVP10 frontend UX와 AI 후보 체크 흐름은 `docs/FRONTEND.md` 기준으로 문서화한다.
 - MVP7 위치 검색은 내부 KMA catalog 기준으로 유지하고 외부 지도/주소 API를 사용하지 않는다.
 - MVP7 브라우저 현재 위치는 좌표 resolve 후보 찾기로만 유지하고 GPS 원문 DB 저장을 추가하지 않는다.
 - MVP7 weather source snapshot은 raw KMA 응답 JSON 없이 provider, KMA/fallback 여부, base/forecast 시각만 문서화한다.
-- Image upload는 MVP5 승인 범위로 유지하지만 AI 자동 태깅, 다중 이미지, S3/CDN 구현, 이미지 기반 추천 점수/이유, EXIF 분석, image moderation은 제외 범위로 문서화한다.
+- Image upload는 MVP5 승인 범위로 유지하고, AI 옷 등록 후보 제안은 MVP10 승인 범위로 문서화한다.
+- 사용자 확인 없는 자동 저장/태깅, 다중 이미지, S3/CDN 구현, 이미지 기반 추천 점수/이유, EXIF 분석, image moderation은 제외 범위로 문서화한다.
 - MVP별 자동 문서 검증 규칙은 `scripts/checks.py`가 아니라 `phases/{phase}/docs-checks.json`에 둔다.
 - 실제 API key, token, password, private key, production secret을 커밋하지 않는다.
 
