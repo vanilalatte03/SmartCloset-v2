@@ -6,6 +6,11 @@ package com.smartcloset.clothing.infrastructure.analysis;
 public class DisabledClothingImageAnalyzer implements ClothingImageAnalyzer {
 
     @Override
+    public boolean isAvailable() {
+        return false;
+    }
+
+    @Override
     public ClothingAnalysisResult analyze(ClothingAnalysisImage image) {
         throw new ClothingImageAnalysisDisabledException("Clothing image analysis is disabled");
     }

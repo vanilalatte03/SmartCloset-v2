@@ -8,6 +8,9 @@ import java.util.Objects;
 
 /**
  * 기존 ClothingRequest에 대응하는 저장 전 후보값이다.
+ *
+ * <p>이 값은 AI 분석 응답으로만 반환되며, 사용자가 확인하거나 수정한 뒤 기존 옷 저장 API를 호출해야
+ * 실제 {@code ClothingItem}으로 저장된다.</p>
  */
 public record ClothingAnalysisSuggestion(
         String name,

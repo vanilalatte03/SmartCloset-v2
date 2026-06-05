@@ -13,6 +13,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * MVP10 범위의 user별 in-memory 분석 호출 제한이다.
+ *
+ * <p>Redis나 영구 저장소를 추가하지 않는 MVP10 결정에 따라 application process 안에서 날짜별 카운트를
+ * 유지한다. 분산/재시작 내구성은 후속 운영 adapter 범위다.</p>
  */
 @Component
 public class ClothingAnalysisDailyLimiter {
@@ -31,6 +34,9 @@ public class ClothingAnalysisDailyLimiter {
         this.clock = clock;
     }
 
+    /**
+     * 현재 날짜의 사용자별 분석 요청 수를 증가시키고 daily limit 초과 시 stable error code로 실패한다.
+     */
     public void checkAndIncrement(Long userId) {
         int dailyLimit = properties.dailyLimit();
         if (dailyLimit < 1) {
