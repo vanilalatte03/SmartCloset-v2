@@ -1,0 +1,135 @@
+{
+  "paths": [
+    "README.md",
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/ERD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/FRONTEND.md",
+    "docs/DEMO_SCENARIO.md",
+    "docs/SHARING_GUIDE.md",
+    "docs/COMMANDS.md",
+    "docs/ADR.md",
+    "docs/adr/016-mvp10-ai-clothing-registration-assist.md",
+    "archive/mvp-9/README.md",
+    ".codex/agents",
+    "phases/10-smartcloset-ai-clothing-assist"
+  ],
+  "skipDirs": [
+    ".git",
+    ".gradle",
+    "build",
+    "node_modules",
+    "__pycache__"
+  ],
+  "skipSuffixes": [
+    ".class",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".webp"
+  ],
+  "required": [
+    {
+      "name": "MVP10 current docs marker",
+      "paths": ["README.md", "docs/PRD.md"],
+      "pattern": "MVP10.*AI.*옷 등록|MVP10.*clothing.*assist"
+    },
+    {
+      "name": "ADR-016 linked",
+      "paths": ["docs/ADR.md"],
+      "pattern": "ADR-016"
+    },
+    {
+      "name": "MVP9 archive retained",
+      "paths": ["archive/mvp-9/README.md"],
+      "pattern": "SmartCloset MVP 9 Archive"
+    },
+    {
+      "name": "Clothing analysis endpoint",
+      "paths": ["docs/API.md", "docs/FRONTEND.md"],
+      "pattern": "POST /api/clothes/analyze-image|analyzeClothingImage"
+    },
+    {
+      "name": "Confidence review contract",
+      "paths": ["docs/API.md", "docs/FRONTEND.md", "docs/PRD.md"],
+      "pattern": "fieldConfidence|reviewRequiredFields|confidence.*확인 필요"
+    },
+    {
+      "name": "Spring AI nano contract",
+      "paths": ["docs/PRD.md", "docs/ARCHITECTURE.md", "docs/SHARING_GUIDE.md", "docs/adr/016-mvp10-ai-clothing-registration-assist.md"],
+      "pattern": "Spring AI.*2\\.0|gpt-5\\.4-nano"
+    },
+    {
+      "name": "Cost guard contract",
+      "paths": ["docs/PRD.md", "docs/ARCHITECTURE.md", "docs/SHARING_GUIDE.md"],
+      "pattern": "CLOTHING_ANALYSIS_ENABLED|일일.*제한|manual|수동"
+    },
+    {
+      "name": "Recommendation remains rule based",
+      "paths": ["README.md", "docs/RECOMMENDATION_RULES.md", "docs/PRD.md"],
+      "pattern": "추천.*규칙 기반|AI.*추천.*사용하지 않는다|AI/GPT 옷차림 추천"
+    }
+  ],
+  "finalRequired": [
+    {
+      "name": "MVP10 QA desktop closet AI assist PASS",
+      "paths": ["docs/qa/mvp10-ai-clothing-assist-qa.md"],
+      "pattern": "\\|\\s*desktop 1440px\\s*\\|\\s*옷장 AI 후보 체크\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP10 QA mobile closet AI assist PASS",
+      "paths": ["docs/qa/mvp10-ai-clothing-assist-qa.md"],
+      "pattern": "\\|\\s*mobile 390px\\s*\\|\\s*옷장 AI 후보 체크\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP10 QA backend analysis PASS",
+      "paths": ["docs/qa/mvp10-ai-clothing-assist-qa.md"],
+      "pattern": "\\|\\s*backend API\\s*\\|\\s*analysis cases\\s*\\|\\s*PASS\\s*\\|"
+    },
+    {
+      "name": "MVP10 QA recommendation unchanged PASS",
+      "paths": ["docs/qa/mvp10-ai-clothing-assist-qa.md"],
+      "pattern": "\\|\\s*recommendation\\s*\\|\\s*AI 분석 전후 추천 불변\\s*\\|\\s*PASS\\s*\\|"
+    }
+  ],
+  "forbidden": [
+    {
+      "name": "forbidden today recommendation GET API",
+      "pattern": "GET /api/recommendations/(today)"
+    },
+    {
+      "name": "public userId query parameter contract",
+      "pattern": "POST /api/recommendations\\?userId|/api/clothes\\?userId|/api/users/location\\?userId"
+    },
+    {
+      "name": "refresh token JSON exposure",
+      "paths": ["README.md", "docs/API.md", "docs/FRONTEND.md", "phases/10-smartcloset-ai-clothing-assist"],
+      "pattern": "refreshToken\"\\s*:"
+    },
+    {
+      "name": "AI recommendation scope creep",
+      "paths": ["README.md", "docs/PRD.md", "docs/API.md", "docs/RECOMMENDATION_RULES.md", "docs/ARCHITECTURE.md", "docs/FRONTEND.md", "phases/10-smartcloset-ai-clothing-assist"],
+      "pattern": "AI/GPT 옷차림 추천.*구현한다|AI-generated 추천 이유.*구현한다|이미지 기반 추천 점수.*구현한다|추천 점수.*AI"
+    },
+    {
+      "name": "analysis persistence scope creep",
+      "paths": ["docs/PRD.md", "docs/API.md", "docs/ERD.md", "docs/ARCHITECTURE.md", "phases/10-smartcloset-ai-clothing-assist"],
+      "pattern": "분석 결과.*DB.*저장한다|analysis.*table|clothing_analysis"
+    },
+    {
+      "name": "forbidden image pipeline expansion",
+      "pattern": "다중 이미지.*구현한다|이미지 편집.*구현한다|EXIF.*구현한다|image moderation.*구현한다"
+    },
+    {
+      "name": "forbidden automatic expensive fallback",
+      "paths": ["docs/PRD.md", "docs/API.md", "docs/ARCHITECTURE.md", "phases/10-smartcloset-ai-clothing-assist"],
+      "pattern": "fallback model.*자동 호출.*(구현|추가|허용)|fallback model.*자동 호출한다|gpt-5\\.4-mini.*자동 호출|gpt-5\\.5.*자동 호출"
+    }
+  ]
+}

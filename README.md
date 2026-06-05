@@ -2,17 +2,18 @@
 
 SmartCloset은 날씨, 위치, 개인 옷장, 취향, 착용 이력을 바탕으로 오늘 입을 옷 조합을 추천하는 백엔드 중심 웹 서비스입니다.
 
-Spring Boot 백엔드 프로젝트로서 단순 CRUD를 넘어 인증/세션, 사용자별 데이터 격리, 외부 날씨 API fallback, 규칙 기반 추천 도메인, 이미지 저장소 경계, Docker Compose 공유 실행까지 하나의 서비스 흐름 안에서 다룹니다. 프론트엔드는 백엔드 API를 실제 사용 흐름으로 검증하고 보여주기 위한 React SPA로 함께 둡니다.
+Spring Boot 백엔드 프로젝트로서 단순 CRUD를 넘어 인증/세션, 사용자별 데이터 격리, 외부 날씨 API fallback, 규칙 기반 추천 도메인, 이미지 저장소 경계, AI-assisted 옷 등록 보조, Docker Compose 공유 실행까지 하나의 서비스 흐름 안에서 다룹니다. 프론트엔드는 백엔드 API를 실제 사용 흐름으로 검증하고 보여주기 위한 React SPA로 함께 둡니다.
 
 ## Overview
 
 SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 이 조합을 추천하는가?"입니다.
 
-추천은 AI/GPT가 아니라 설명 가능하고 테스트 가능한 규칙 기반 로직으로 생성합니다. 사용자는 옷을 등록하고, 위치와 취향을 저장하고, 상황과 예보 시간대를 선택해 추천을 생성한 뒤, 착용 여부와 피드백을 남겨 다음 추천에 반영할 수 있습니다.
+추천은 AI/GPT가 아니라 설명 가능하고 테스트 가능한 규칙 기반 로직으로 생성합니다. MVP10에서 AI는 옷차림 추천이 아니라 사진 기반 옷 등록 후보 제안에만 사용합니다. 사용자는 사진을 넣어 카테고리, 색상, 소재, 기온 범위, 비 적합성, style tag 후보를 빠르게 채운 뒤 confidence가 낮은 필드를 확인하고 저장합니다.
 
 ```text
 회원가입/로그인
   -> 위치, 취향, 옷장 설정
+  -> 사진 기반 AI 옷 등록 후보 체크
   -> KMA 날씨 또는 fallback weather 조회
   -> 규칙 기반 추천 생성
   -> 착용 기록과 피드백 저장
@@ -22,6 +23,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 ## Tech Stack
 
 - Backend: Java 21, Spring Boot 4.0.6, Spring Security, JPA
+- AI assist: Spring AI 2.0 preview, OpenAI `gpt-5.4-nano`
 - Database: MySQL
 - Frontend: React, Vite, TypeScript
 - Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie
@@ -36,6 +38,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | 인증/계정 | JWT access token, DB-backed refresh session, HttpOnly refresh cookie, 이메일 인증, 비밀번호 재설정, Google OAuth | 세션 안정성, token 원문 비저장, 계정 복구/삭제 흐름 |
 | 사용자 데이터 격리 | 공개 `userId` query parameter 제거, 인증 principal 기준 보호 API | 실제 서비스형 multi-user API 설계 |
 | 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
+| 옷 등록 AI 보조 | 보호 이미지 분석 API, Spring AI provider boundary, confidence/review DTO, 비용 제한 | AI를 저장/추천과 분리한 사용자 확인형 보조 흐름 |
 | 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
 | 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
@@ -47,7 +50,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 com.smartcloset
 ├── auth              # signup/login, refresh session, email/password reset, Google OAuth
 ├── user              # current user profile, preferences, location ownership
-├── clothing          # closet CRUD, archive/unarchive, image metadata and storage
+├── clothing          # closet CRUD, archive/unarchive, image storage, AI registration assist
 ├── location          # KMA catalog search and browser coordinate resolve
 ├── weather           # weather provider abstraction, KMA adapter, fallback weather
 ├── recommendation    # outfit candidate generation, scoring, history, feedback
@@ -55,7 +58,7 @@ com.smartcloset
 └── common            # response envelope, exception, shared entity/config
 ```
 
-프론트엔드는 React/Vite/TypeScript SPA입니다. 백엔드 API를 실제 화면에서 검증하기 위한 클라이언트이기도 하며, 현재 MVP9에서는 UI/UX 완성도를 높이는 단계입니다.
+프론트엔드는 React/Vite/TypeScript SPA입니다. 백엔드 API를 실제 화면에서 검증하기 위한 클라이언트이기도 하며, 현재 MVP10에서는 옷 등록/수정 화면에 AI 후보 체크 흐름을 추가합니다.
 
 ## Architecture
 
@@ -68,7 +71,8 @@ Controller -> Application Service -> Domain Service -> Repository / Provider
 - Controller는 HTTP 요청/응답, validation, 인증 principal 추출, DTO mapping을 담당합니다.
 - Application Service는 use case 흐름과 transaction 경계를 조율합니다.
 - Domain Service는 추천 후보 생성, 점수 계산, tie-break, 추천 이유 생성 같은 비즈니스 규칙을 담당합니다.
-- Repository는 persistence만 담당하고, Provider는 KMA weather나 image storage처럼 외부/인프라 경계를 감쌉니다.
+- Provider는 KMA weather, image storage, AI clothing analysis처럼 외부/인프라 경계를 감쌉니다.
+- AI 분석은 `ClothingImageAnalyzer` 경계 뒤에 두고, 추천 domain service에는 연결하지 않습니다.
 
 이 구조를 택한 이유는 추천 점수나 날씨 fallback 같은 핵심 규칙이 Controller 또는 Repository에 섞이면 테스트와 변경이 어려워지기 때문입니다. 현재 상세 구조는 `docs/ARCHITECTURE.md`를 source of truth로 둡니다.
 
@@ -84,7 +88,11 @@ Access token은 bearer token으로 유지하되, refresh token은 HttpOnly cooki
 
 **AI가 아니라 규칙 기반 추천**
 
-추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. 이 프로젝트에서는 "그럴듯한 결과"보다 점수와 이유를 테스트할 수 있는 구조를 더 중요하게 봤습니다.
+추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. MVP10의 AI 분석 결과는 옷 등록 후보를 채우는 데만 쓰이며 추천 점수, 후보 필터링, tie-break, 추천 이유에 관여하지 않습니다.
+
+**사진 기반 옷 등록 보조**
+
+MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 후보와 confidence를 반환합니다. confidence가 낮은 필드는 사용자가 확인하거나 수정해야 하며, 확인된 값만 기존 옷 저장 API로 저장합니다. 관련 결정은 ADR-016입니다.
 
 **KMA provider와 fallback 분리**
 
@@ -92,17 +100,13 @@ Access token은 bearer token으로 유지하되, refresh token은 HttpOnly cooki
 
 **이미지는 DB가 아니라 저장소에 둠**
 
-옷 JSON API를 multipart로 바꾸지 않고 이미지 업로드/조회/삭제를 별도 보호 API로 분리했습니다. 파일 bytes는 파일 시스템 또는 volume에 저장하고 DB에는 metadata만 둡니다. 이후 S3로 옮겨도 application service가 storage interface에만 의존하도록 경계를 뒀습니다.
-
-**배포보다 제품 완성도를 먼저 정리**
-
-원래 MVP9 후보였던 AWS 배포는 후속 MVP로 미루고, 현재는 UI/UX 리디자인을 진행합니다. 이유는 계정/추천/날씨/이미지 기능이 갖춰진 상태에서 사용자가 실제 서비스처럼 이해할 수 있는 화면 완성도가 먼저 필요했기 때문입니다. 관련 결정은 ADR-014입니다.
+옷 JSON API를 multipart로 바꾸지 않고 이미지 업로드/조회/삭제를 별도 보호 API로 분리했습니다. 파일 bytes는 파일 시스템 또는 volume에 저장하고 DB에는 metadata만 둡니다. AI 분석용 이미지는 후보 제안에만 쓰고 저장하지 않습니다.
 
 ## Current MVP
 
-현재 문서 기준은 **MVP9: 프론트 UI/UX 리디자인 MVP**입니다.
+현재 문서 기준은 **MVP10: AI 옷 등록 보조 MVP**입니다.
 
-MVP9는 MVP8 계정 안정성 완료 상태 위에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 완성도를 높입니다. MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않습니다.
+MVP10은 MVP9 UI/UX 리디자인 완료 상태 위에서 사진 업로드 기반 옷 등록 후보 체크를 추가합니다. 사용자는 AI가 제안한 후보 중 confidence가 낮은 필드를 확인/수정한 뒤 기존 저장 흐름으로 옷을 등록합니다. 추천 생성은 계속 규칙 기반으로 유지되며, DB schema와 추천 점수/필터/tie-break는 변경하지 않습니다.
 
 MVP가 바뀔 때 README에서 주로 갱신하는 위치는 이 섹션과 `Documentation`의 MVP-specific 링크입니다. 상세 제품 범위는 `docs/PRD.md`, API 계약은 `docs/API.md`, 추천 규칙은 `docs/RECOMMENDATION_RULES.md`를 우선합니다.
 
@@ -128,6 +132,8 @@ test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
+MVP10 AI 분석은 기본 비활성입니다. 실제 OpenAI 호출을 확인하려면 `docs/SHARING_GUIDE.md`의 AI 옷 등록 보조 환경변수 섹션을 따른다.
+
 자세한 명령과 Docker Compose smoke 절차는 `docs/COMMANDS.md`를 따릅니다.
 
 ## Verification
@@ -136,7 +142,7 @@ docker compose up --build
 
 ```bash
 git diff --check
-python3 scripts/checks.py --docs-check
+python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-assist/docs-checks.json --docs-check
 ```
 
 백엔드 변경:

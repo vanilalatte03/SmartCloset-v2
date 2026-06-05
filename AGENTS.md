@@ -11,7 +11,7 @@
 - 백엔드 구현, 리뷰, 문서 동기화 또는 HTTP API, 인증, 추천, 날씨, 위치, DB/entity, 옷 이미지 저장소 변경이 포함되면 `.agents/skills/smartcloset-backend/SKILL.md`를 먼저 읽는다.
 - 프론트 전용 UI/UX 구현, 리뷰, 문서 동기화는 백엔드 스킬을 강제하지 않고 `docs/FRONTEND.md`를 먼저 확인한다.
 - 프론트 작업이 API 계약, 인증 흐름, 보호 이미지 fetch, DTO shape, 백엔드 파일 변경을 함께 포함하면 관련 SSOT 문서와 `.agents/skills/smartcloset-backend/SKILL.md`를 함께 확인한다.
-- 현재 baseline은 MVP9 프론트 UI/UX 리디자인 문서 전환 상태다. MVP9 계약은 `docs/PRD.md`와 ADR-014를 따르고, 옷장 보관함 복원 확장은 ADR-015를 따른다.
+- 현재 baseline은 MVP10 AI 옷 등록 보조 문서 전환 상태다. MVP10 계약은 `docs/PRD.md`와 ADR-016을 따르고, MVP9 UI/UX 기준과 옷장 보관함 복원 확장 ADR-015는 유지한다.
 - 별도 활성 phase/step이 없으면 새 작업 범위는 사용자 요청과 현재 `README.md`, `docs/` 기준으로 정한다.
 - phase/step 작업은 `phases/{phase}/README.md`와 해당 `stepN.md`의 작업, 인수 기준, 금지사항을 함께 따른다.
 
@@ -24,7 +24,7 @@
 | 백엔드 구조, 저장소, 트랜잭션, 금지 패턴 | `docs/ARCHITECTURE.md` |
 | DB schema, entity/JPA 기준 | `docs/ERD.md` |
 | 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
-| MVP9 프론트 UI/UX 기준 | `docs/FRONTEND.md` |
+| MVP10 AI 옷 등록 보조와 프론트 UX 기준 | `docs/FRONTEND.md` |
 | 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
 | Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
 | 실행 명령과 검증 명령 | `docs/COMMANDS.md` |
@@ -45,7 +45,7 @@
 - 동작이 바뀌면 관련 SSOT 문서도 함께 확인하고 필요한 경우 동기화한다.
 - 공개 HTTP API와 현재 사용자 전용 DTO는 `docs/API.md` 기준을 따르며, 과거 테스트용 `userId` query parameter/field를 되살리지 않는다.
 - Token/action token 원문 저장·노출 금지 기준은 `docs/API.md`와 `.agents/skills/smartcloset-backend/SKILL.md`를 따른다.
-- 추천은 `docs/RECOMMENDATION_RULES.md` 기준의 규칙 기반 추천으로 유지하며, 현재 범위 밖 AI/GPT 추천, 이미지 기반 추천 점수, 자동 태깅을 추가하지 않는다.
+- 추천은 `docs/RECOMMENDATION_RULES.md` 기준의 규칙 기반 추천으로 유지한다. MVP10에서 허용되는 AI는 `POST /api/clothes/analyze-image` 기반 옷 등록 후보 제안뿐이며, AI/GPT 옷차림 추천, AI-generated 추천 이유, 이미지 기반 추천 점수, 사용자 확인 없는 자동 저장/태깅을 추가하지 않는다.
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 - 커밋과 PR은 Codex 앱의 한국어 Conventional Commits / PR 작성 지침을 따른다.
 - 자동 PR 루프는 clean worktree에서만 실행한다.
@@ -67,6 +67,6 @@
 
 ## 서브에이전트
 - 프로젝트 전용 서브에이전트 정의는 `.codex/agents/*.toml`을 기준으로 한다.
-- 서브에이전트는 사용자가 명시적으로 요청했거나, 병렬로 안전하게 분리 가능한 작업일 때만 사용한다.
+- 서브에이전트는 병렬로 안전하게 분리 가능한 작업일 때만 사용한다.
 - 부모 에이전트는 작업 범위와 수정 가능/금지 경로를 명시하고, 최종 통합과 검증을 책임진다.
 - 사용 가능: `smartcloset_scope_reviewer`, `smartcloset_backend_implementer`, `smartcloset_recommendation_rules_engineer`.

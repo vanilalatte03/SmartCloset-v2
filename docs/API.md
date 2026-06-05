@@ -1,10 +1,10 @@
-# API: SmartCloset MVP9 Contract
+# API: SmartCloset MVP10 Contract
 
-이 문서는 SmartCloset MVP9 API 계약과 현재 옷장 보관함 확장 계약을 설명한다. MVP9 자체는 프론트 UI/UX 리디자인 MVP이며 백엔드 HTTP API, request/response DTO, 인증/에러 계약을 변경하지 않는다. ADR-015는 기존 `archived` 컬럼을 재사용해 보관함 조회와 보관 해제 API를 추가한다.
+이 문서는 SmartCloset MVP10 API 계약을 설명한다. MVP10은 사진 기반 AI 옷 등록 보조를 추가하지만, 기존 옷 저장 JSON API, 옷 이미지 저장 API, 추천 API, 인증 API 계약을 대체하지 않는다.
 
-현재 API surface는 MVP8 계정 안정성 완료 계약을 유지한다. MVP8은 기존 인증 사용자 API, MVP5 이미지 API, MVP6 피드백/개인화 API, MVP7 위치/날씨 신뢰도 API 위에 refresh token, 이메일 인증, 비밀번호 재설정, Google login, 계정 삭제 API를 추가했다.
+MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나다. 이 API는 인증 사용자의 multipart image를 분석해 옷 등록 후보와 confidence를 반환하며, 이미지를 저장하거나 추천 결과를 생성하지 않는다.
 
-## MVP9 API 결정
+## MVP10 API 결정
 
 - 공개 `userId` query parameter를 추가하지 않는다.
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
@@ -13,11 +13,12 @@
 - Refresh token 원문, 이메일 인증 token 원문, 비밀번호 재설정 token 원문은 저장하지 않는다.
 - Password signup 직후 access token을 발급하지 않는다.
 - 미인증 password 계정 login은 실패한다.
-- Google verified email은 이메일 인증 완료로 취급한다.
-- Account deletion은 보호 API이며 현재 사용자 데이터만 삭제한다.
-- 추천/날씨/위치/이미지 API 계약은 MVP7 기준을 유지한다.
-- 계정 설정 이름 수정은 현재 사용자 범위의 `PATCH /api/users/me`로 처리한다.
-- MVP9 UI/UX 변경은 추천, 날씨, 위치, 이미지 API path, method, DTO field, error code를 변경하지 않는다. 옷장 보관함 조회와 보관 해제는 ADR-015 범위다.
+- 추천 생성은 계속 `POST /api/recommendations`다.
+- 옷 등록/수정은 계속 JSON `POST /api/clothes`, `PUT /api/clothes/{clothingId}`다.
+- 옷 이미지 업로드/교체는 계속 별도 multipart `PUT /api/clothes/{clothingId}/image`다.
+- AI 분석은 저장 전 후보 제안만 반환한다.
+- AI 분석 결과는 DB, 추천 이력, 옷 이미지 storage에 저장하지 않는다.
+- AI 분석 결과는 추천 점수, 후보 필터링, tie-break, 추천 이유에 사용하지 않는다.
 
 ## 1. 공통 규칙
 
@@ -25,7 +26,7 @@
 - 보호 API는 `Authorization: Bearer {accessToken}` header가 필요하다.
 - Refresh API와 logout은 refresh cookie를 사용할 수 있다.
 - JSON API 요청과 응답의 `Content-Type`은 `application/json`이다.
-- 이미지 업로드 요청은 `multipart/form-data`다.
+- 이미지 업로드와 이미지 분석 요청은 `multipart/form-data`다.
 - 이미지 bytes 조회 응답은 이미지 MIME type을 `Content-Type`으로 반환한다.
 - 날짜/시간은 ISO-8601 문자열로 표현한다.
 - enum 값은 대문자 문자열로 주고받는다.
@@ -90,6 +91,7 @@
 | `GET` | `/api/users/me/preferences` | 현재 사용자 선호도 조회 | `200 OK` |
 | `PUT` | `/api/users/me/preferences` | 현재 사용자 선호도 저장 | `200 OK` |
 | `GET` | `/api/weather/current` | 현재 사용자 위치 기준 날씨 요약과 source 조회 | `200 OK` |
+| `POST` | `/api/clothes/analyze-image` | 옷 사진 기반 등록 후보 분석 | `200 OK` |
 | `POST` | `/api/clothes` | 옷 등록 | `201 Created` |
 | `GET` | `/api/clothes` | 옷 목록 조회 | `200 OK` |
 | `GET` | `/api/clothes/archived` | 보관한 옷 목록 조회 | `200 OK` |
@@ -117,7 +119,7 @@
 }
 ```
 
-회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도, 기본 옷 프리셋 5개를 함께 생성한다. MVP8에서 확정된 password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
+회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도, 기본 옷 프리셋을 함께 생성한다. Password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
 
 ### SignupResponse
 
@@ -171,8 +173,6 @@
 
 Request body는 없다. 서버는 refresh cookie를 읽어 session을 검증하고 token rotation을 수행한다.
 
-성공 응답은 `AuthResponse`이며 새 refresh cookie를 함께 설정한다.
-
 실패:
 
 - refresh cookie 없음: `401 UNAUTHORIZED`
@@ -183,8 +183,6 @@ Request body는 없다. 서버는 refresh cookie를 읽어 session을 검증하�
 `POST /api/auth/logout`
 
 Request body는 없다. 서버는 refresh cookie가 있으면 관련 session을 revoke하고 cookie를 만료한다. refresh cookie가 없거나 이미 revoke된 session이어도 성공한다.
-
-성공 응답:
 
 ```json
 {
@@ -316,7 +314,9 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
 - 기존 같은 email user가 있으면 social account를 link한다.
 - 새 Google user는 password login disabled, email verified 상태로 생성한다.
 
-## 7. Current User API
+## 7. Account API
+
+### CurrentUserResponse
 
 `GET /api/users/me`
 
@@ -335,9 +335,11 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
 }
 ```
 
-`PATCH /api/users/me`
+현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
 
 ### UpdateCurrentUserRequest
+
+`PATCH /api/users/me`
 
 ```json
 {
@@ -349,11 +351,9 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
 - 응답은 `CurrentUserResponse`와 동일하다.
 - 현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
 
-## 8. Account Deletion API
+### AccountDeletionRequest
 
 `DELETE /api/users/me`
-
-### AccountDeletionRequest
 
 Password login enabled 계정:
 
@@ -392,7 +392,184 @@ Google-only 계정:
 - 이미지 파일은 `ClothingImageStorage`를 통해 삭제한다.
 - 삭제 후 기존 access token은 사용자 조회에서 `USER_NOT_FOUND` 또는 인증 실패 성격의 응답으로 더 이상 보호 resource를 읽을 수 없어야 한다.
 
-## 9. 유지 API
+## 8. Clothing API
+
+### ClothingRequest
+
+`POST /api/clothes`, `PUT /api/clothes/{clothingId}`
+
+```json
+{
+  "name": "흰색 셔츠",
+  "category": "TOP",
+  "color": "WHITE",
+  "material": "COTTON",
+  "minTemperature": 18,
+  "maxTemperature": 28,
+  "rainSuitable": false,
+  "styleTags": ["미니멀", "단정"]
+}
+```
+
+규칙:
+
+- `name`은 공백일 수 없고 최대 50자다.
+- `category`는 `TOP`, `BOTTOM`, `OUTER` 중 하나다.
+- `color`는 현재 `ClothingColor` enum 중 하나다.
+- `material`은 현재 `ClothingMaterial` enum 중 하나다.
+- `minTemperature <= maxTemperature`여야 한다.
+- `styleTags`는 `null`이면 빈 배열로 처리하고 각 항목은 최대 30자다.
+- 옷 정보 저장은 JSON API다. 이미지 업로드나 AI 분석 multipart API와 합치지 않는다.
+
+### ClothingResponse
+
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "흰색 셔츠",
+    "category": "TOP",
+    "color": "WHITE",
+    "material": "COTTON",
+    "minTemperature": 18,
+    "maxTemperature": 28,
+    "rainSuitable": false,
+    "styleTags": ["미니멀", "단정"],
+    "archived": false,
+    "image": null,
+    "createdAt": "2026-06-05T12:00:00",
+    "updatedAt": "2026-06-05T12:00:00"
+  }
+}
+```
+
+### Clothing image API
+
+- `PUT /api/clothes/{clothingId}/image`는 multipart part `image`를 받는다.
+- `GET /api/clothes/{clothingId}/image`는 이미지 bytes를 반환한다.
+- `DELETE /api/clothes/{clothingId}/image`는 이미지가 없어도 성공한다.
+- 허용 파일은 5MB 이하 jpg/jpeg/png/webp다.
+- MIME type은 `image/jpeg`, `image/png`, `image/webp`만 허용한다.
+- 원본 파일명은 저장 경로에 사용하지 않는다.
+
+## 9. Clothing Analysis API
+
+### Analyze clothing image
+
+```http
+POST /api/clothes/analyze-image
+Authorization: Bearer {accessToken}
+Content-Type: multipart/form-data
+```
+
+Multipart part:
+
+| Name | Required | Description |
+| --- | --- | --- |
+| `image` | yes | 분석할 옷 사진. 기존 옷 이미지 검증 규칙과 같은 파일 형식을 사용한다. |
+
+성공 응답:
+
+```json
+{
+  "data": {
+    "analyzable": true,
+    "suggestion": {
+      "name": "흰색 셔츠",
+      "category": "TOP",
+      "color": "WHITE",
+      "material": "COTTON",
+      "minTemperature": 18,
+      "maxTemperature": 28,
+      "rainSuitable": false,
+      "styleTags": ["미니멀", "단정"]
+    },
+    "fieldConfidence": {
+      "name": 0.72,
+      "category": 0.94,
+      "color": 0.91,
+      "material": 0.58,
+      "minTemperature": 0.5,
+      "maxTemperature": 0.5,
+      "rainSuitable": 0.62,
+      "styleTags": 0.7
+    },
+    "reviewRequiredFields": [
+      "name",
+      "material",
+      "minTemperature",
+      "maxTemperature",
+      "rainSuitable",
+      "styleTags"
+    ],
+    "lowConfidenceThreshold": 0.75
+  }
+}
+```
+
+옷으로 보기 어려운 사진:
+
+```json
+{
+  "data": {
+    "analyzable": false,
+    "suggestion": null,
+    "fieldConfidence": {},
+    "reviewRequiredFields": [],
+    "lowConfidenceThreshold": 0.75
+  }
+}
+```
+
+DTO 규칙:
+
+- `suggestion`은 저장된 옷이 아니라 기존 `ClothingRequest` field와 같은 후보값이다.
+- `fieldConfidence` 값은 0.0 이상 1.0 이하 숫자다.
+- `reviewRequiredFields`는 confidence가 `lowConfidenceThreshold`보다 낮거나 모델이 확인 필요로 판단한 field 이름이다.
+- `reviewRequiredFields`의 field 이름은 `ClothingRequest` property 이름과 일치한다.
+- 분석 API는 idempotent 저장 API가 아니다. 같은 파일을 여러 번 보내면 비용이 발생할 수 있으므로 프론트는 fingerprint cache를 사용할 수 있다.
+- 분석 API는 이미지를 DB나 파일 저장소에 저장하지 않는다.
+- 분석 결과는 추천 결과, 추천 이력, 추천 점수, 추천 이유에 저장하거나 반영하지 않는다.
+
+## 10. Recommendation API
+
+추천 생성 API:
+
+```http
+POST /api/recommendations
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+```
+
+Request body는 선택이다.
+
+```json
+{
+  "situation": "WORK",
+  "forecastPeriod": "AFTERNOON"
+}
+```
+
+기본값:
+
+- body가 없거나 `situation`이 누락되면 `CASUAL`
+- body가 없거나 `forecastPeriod`가 누락되면 `CURRENT`
+
+추천 이력:
+
+- `GET /api/recommendations?limit={limit}`
+- 기본 `limit=20`, 최소 1, 최대 50
+- 최신순 정렬
+
+착용 완료와 피드백:
+
+- `PATCH /api/recommendations/{recommendationId}/worn`
+- `PUT /api/recommendations/{recommendationId}/feedback`
+- 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.
+
+MVP10 AI 분석 결과는 추천 API request/response field가 아니며 추천 계산에 사용하지 않는다.
+
+## 11. 유지 API
 
 위치, 날씨, 추천 API는 MVP7 계약을 유지한다. 옷 API는 기존 보관 처리에 보관함 조회와 보관 해제를 더해 현재 사용자 소유 옷만 다룬다.
 
@@ -403,16 +580,30 @@ Google-only 계정:
 - `POST /api/recommendations`는 optional `situation`, `forecastPeriod`를 받을 수 있다.
 - `WeatherResponse`와 `RecommendationResponse.weather`는 location/source metadata를 포함한다.
 - 추천 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.
+- `POST /api/clothes/analyze-image`는 유지 API를 대체하지 않고 옷 등록 전 후보 제안만 담당한다.
 
-## 10. Error Codes
+## 12. Error Codes
 
-MVP8에서 추가했고 MVP9에서도 유지하는 error code:
+MVP10에서 추가하는 error code:
 
 | Code | Status | Meaning |
 | --- | --- | --- |
+| `CLOTHING_ANALYSIS_DISABLED` | `503 Service Unavailable` | 옷 사진 분석 기능이 비활성 또는 API key 미설정 |
+| `CLOTHING_ANALYSIS_UNAVAILABLE` | `503 Service Unavailable` | Spring AI/OpenAI provider 호출 실패 또는 timeout |
+| `CLOTHING_ANALYSIS_LIMIT_EXCEEDED` | `429 Too Many Requests` | 사용자별 분석 일일 제한 초과 |
+
+기존 주요 error code:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `INVALID_REQUEST` | `400 Bad Request` | validation 실패 또는 잘못된 multipart image |
+| `UNAUTHORIZED` | `401 Unauthorized` | 인증 필요 |
+| `INVALID_TOKEN` | `401 Unauthorized` | 인증 token 또는 refresh token 오류 |
 | `EMAIL_VERIFICATION_REQUIRED` | `403 Forbidden` | 이메일 인증 전 password login 차단 |
 | `ACCOUNT_TOKEN_INVALID` | `400 Bad Request` | 인증/재설정 token 없음, 만료, 사용 완료, 불일치 |
 | `PASSWORD_LOGIN_DISABLED` | `400 Bad Request` | password login이 없는 계정에서 password flow 사용 |
 | `OAUTH2_PROVIDER_UNAVAILABLE` | `503 Service Unavailable` | Google OAuth 설정 없음 또는 비활성 |
+| `CLOTHING_NOT_FOUND` | `404 Not Found` | 옷 없음 또는 다른 사용자 옷 접근 |
+| `CLOTHING_IMAGE_NOT_FOUND` | `404 Not Found` | 옷 이미지 없음 |
 
-기존 공통 code와 MVP5/MVP6/MVP7 domain failure code는 유지한다.
+추천 business failure code는 기존처럼 `422 Unprocessable Entity`를 사용한다.

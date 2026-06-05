@@ -1,10 +1,12 @@
-# 아키텍처: SmartCloset MVP9
+# 아키텍처: SmartCloset MVP10
 
 ## 전체 아키텍처 개요
 
-SmartCloset MVP9는 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP9의 변경 지점은 프론트 UI/UX다. 현재 옷장 보관함 복원 API/UX 확장은 ADR-015를 따른다.
+SmartCloset MVP10은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP10의 변경 지점은 사진 기반 AI 옷 등록 보조다.
 
-기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조는 유지한다. MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. ADR-015는 DB schema와 추천 규칙 변경 없이 옷 보관함 조회와 보관 해제 API만 추가한다.
+MVP10은 Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`를 `ClothingImageAnalyzer` provider boundary 뒤에 둔다. AI는 옷 등록 후보를 제안할 뿐이며, 옷차림 추천 domain service, 추천 점수, 추천 이유, 추천 이력에는 연결하지 않는다.
+
+기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조와 MVP9 UI/UX 리디자인 흐름은 유지한다. DB schema는 변경하지 않는다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
@@ -33,21 +35,25 @@ com.smartcloset
 ├── location
 ├── weather
 ├── clothing
+│   ├── application
+│   ├── controller
+│   ├── domain
+│   ├── dto
+│   └── infrastructure
+│       ├── image
+│       └── analysis
 └── recommendation
 ```
 
-MVP8에서 추가한 auth/account 개념은 MVP9에서도 유지한다.
+MVP10 clothing analysis 구성 요소:
 
-- `RefreshSession`
-- `RefreshTokenService`
-- `RefreshTokenCookieProperties`
-- `AccountActionToken`
-- `AccountActionTokenPurpose`: `EMAIL_VERIFICATION`, `PASSWORD_RESET`
-- `EmailSender`
-- `ConsoleEmailSender`
-- `SocialAccount`
-- `OAuthProvider`: `GOOGLE`
-- `AccountDeletionService`
+- `ClothingImageAnalyzer`: 옷 사진 분석 provider interface
+- `SpringAiClothingImageAnalyzer`: Spring AI `ChatClient` 기반 OpenAI analyzer
+- `DisabledClothingImageAnalyzer`: 기능 비활성 또는 API key 없음 상태의 local 기본 analyzer
+- `ClothingAnalysisService`: validation, limit, analyzer 호출, DTO mapping 조율
+- `ClothingAnalysisProperties`: 활성 여부, model, timeout, low confidence threshold, daily limit 설정
+- `ClothingAnalysisDailyLimiter`: user별 in-memory 일일 호출 제한
+- `ClothingAnalysisResponse`, `ClothingAnalysisSuggestion`: API response DTO
 
 프론트엔드:
 
@@ -83,35 +89,116 @@ frontend/src
 - `GET /api/auth/oauth2/google`
 - `GET /api/auth/oauth2/callback/google`
 
-그 외 `/api/**` endpoint는 보호 API다.
+그 외 `/api/**` endpoint는 보호 API다. `POST /api/clothes/analyze-image`도 보호 API이며 `Authorization: Bearer {accessToken}`이 필요하다.
 
-모든 사용자 소유 데이터는 인증 principal의 현재 사용자 id로 제한한다.
+모든 사용자 소유 데이터는 인증 principal의 현재 사용자 id로 제한한다. 공개 `userId` query parameter를 되살리지 않는다.
 
-## Refresh session 흐름
-
-```text
-POST /api/auth/login
-  -> AuthController
-  -> AuthService.login
-      -> password 검증
-      -> emailVerified 확인
-      -> JwtTokenProvider.createAccessToken
-      -> RefreshTokenService.issue
-      -> RefreshTokenCookieWriter.write
-```
+## 옷 사진 분석 흐름
 
 ```text
-POST /api/auth/refresh
-  -> AuthController
-  -> RefreshTokenCookieReader.read
-  -> RefreshTokenService.rotate
-      -> hash 조회
-      -> 만료/revoked 검증
-      -> 기존 session revokedAt 기록
-      -> 새 refresh session 생성
-      -> JwtTokenProvider.createAccessToken
-      -> RefreshTokenCookieWriter.write
+POST /api/clothes/analyze-image
+  -> ClothingController
+  -> ClothingAnalysisService.analyze(currentUserId, multipart image)
+      -> 기존 이미지 MIME/size validation 재사용
+      -> user별 daily limit 확인
+      -> ClothingImageAnalyzer.analyze(image resource, mime type)
+      -> structured response 검증
+      -> confidence threshold로 reviewRequiredFields 계산
+  -> ClothingAnalysisResponse 반환
 ```
+
+정책:
+
+- multipart part 이름은 `image`다.
+- 허용 파일은 기존 옷 이미지 API와 같은 5MB 이하 jpg/jpeg/png/webp다.
+- 분석 이미지는 DB나 파일 저장소에 저장하지 않는다.
+- 분석 결과도 DB, 추천 이력, 옷 이미지 metadata에 저장하지 않는다.
+- 옷으로 보기 어려운 사진은 `analyzable=false` 성공 응답으로 처리한다.
+- `suggestion`은 기존 `ClothingRequest` field와 같은 후보값이다.
+- `fieldConfidence` 값은 0.0 이상 1.0 이하 숫자다.
+- `reviewRequiredFields`는 confidence가 threshold보다 낮거나 모델이 확인 필요로 판단한 field 이름이다.
+- provider 장애, timeout, 비활성, limit 초과는 `docs/API.md`의 error code를 따른다.
+
+## Spring AI provider boundary
+
+Spring AI는 OpenAI 호출을 감싸는 adapter로만 사용한다.
+
+기본 설정:
+
+```yaml
+spring:
+  ai:
+    model:
+      chat: ${SPRING_AI_MODEL_CHAT:none}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${CLOTHING_ANALYSIS_MODEL:gpt-5.4-nano}
+
+smartcloset:
+  clothing:
+    analysis:
+      enabled: ${CLOTHING_ANALYSIS_ENABLED:false}
+      low-confidence-threshold: ${CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD:0.75}
+      daily-limit: ${CLOTHING_ANALYSIS_DAILY_LIMIT:20}
+      timeout-seconds: ${CLOTHING_ANALYSIS_TIMEOUT_SECONDS:10}
+```
+
+정책:
+
+- `CLOTHING_ANALYSIS_ENABLED=false`가 기본값이다.
+- `SPRING_AI_MODEL_CHAT=none`과 빈 API key 상태에서도 앱 시작과 기존 기능이 깨지지 않아야 한다.
+- 실제 OpenAI 호출은 기능 활성, chat model 활성, API key 존재가 모두 충족될 때만 가능하다.
+- 기본 모델은 `gpt-5.4-nano`다.
+- GPT-5 계열 temperature 미지원 가능성을 고려해 temperature를 강제로 설정하지 않는다.
+- 다른 모델로 자동 재시도하지 않는다.
+- 응답은 짧은 structured output으로 제한한다.
+- system/user prompt에는 저장 가능한 후보 field와 enum 후보만 전달한다.
+
+## 비용 방어
+
+MVP10은 사용자가 사진을 선택했다고 자동으로 OpenAI를 호출하지 않는다.
+
+- 분석은 프론트의 수동 `AI 후보 체크` command에서만 실행한다.
+- user별 in-memory daily limit 기본값은 20회다.
+- 프론트는 파일 fingerprint 기준으로 같은 파일의 마지막 분석 결과를 재사용할 수 있다.
+- provider 장애 시 더 비싼 모델로 자동 재시도하지 않는다.
+- API key와 실제 secret은 코드와 문서 예시에 커밋하지 않는다.
+
+## 저장 경계
+
+옷 저장은 기존 JSON API를 유지한다.
+
+```text
+POST /api/clothes
+PUT /api/clothes/{clothingId}
+```
+
+옷 이미지는 기존 별도 보호 multipart API를 유지한다.
+
+```text
+PUT /api/clothes/{clothingId}/image
+GET /api/clothes/{clothingId}/image
+DELETE /api/clothes/{clothingId}/image
+```
+
+AI 분석은 저장 API가 아니다. 사용자가 확인/수정한 최종 form 값만 기존 옷 JSON 저장 API로 저장하고, 이미지 저장은 기존 이미지 API로 분리한다.
+
+## 기존 계정/auth 흐름 유지
+
+MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
+
+- `RefreshSession`
+- `RefreshTokenService`
+- `RefreshTokenCookieProperties`
+- `AccountActionToken`
+- `AccountActionTokenPurpose`: `EMAIL_VERIFICATION`, `PASSWORD_RESET`
+- `EmailSender`
+- `ConsoleEmailSender`
+- `SocialAccount`
+- `OAuthProvider`: `GOOGLE`
+- `AccountDeletionService`
 
 정책:
 
@@ -120,119 +207,22 @@ POST /api/auth/refresh
 - Refresh token rotation은 매 refresh 요청마다 수행한다.
 - Reused/revoked token은 `INVALID_TOKEN`으로 실패한다.
 - Logout은 멱등이며 cookie를 만료한다.
-- Cookie 설정은 properties/env에서 읽는다.
-
-## Email verification 흐름
-
-```text
-POST /api/auth/signup
-  -> AuthService.signup
-      -> User.createPasswordUser(emailVerified=false)
-      -> default presets seed
-      -> AccountActionTokenService.issue(EMAIL_VERIFICATION)
-      -> EmailSender.sendEmailVerification
-```
-
-```text
-POST /api/auth/email-verification/confirm
-  -> AccountActionTokenService.consume
-  -> User.markEmailVerified
-```
-
-정책:
-
 - Password signup은 access token을 발급하지 않는다.
 - 미인증 password 계정은 login할 수 없다.
 - Token 원문은 저장하지 않고 hash만 저장한다.
-- Token은 만료와 single-use를 적용한다.
-- MVP8 구현체는 `ConsoleEmailSender`다.
-
-## Password reset 흐름
-
-```text
-POST /api/auth/password-reset/request
-  -> AccountActionTokenService.issue(PASSWORD_RESET)
-  -> EmailSender.sendPasswordReset
-```
-
-```text
-POST /api/auth/password-reset/confirm
-  -> AccountActionTokenService.consume
-  -> User.changePasswordHash
-  -> RefreshSessionService.revokeAll(userId)
-```
-
-정책:
-
-- Reset request 응답은 계정 존재 여부를 노출하지 않는다.
-- Password login disabled 계정은 password reset confirm 대상이 아니다.
-- Reset 성공 시 기존 refresh sessions를 revoke한다.
-
-## Google OAuth 흐름
-
-```text
-GET /api/auth/oauth2/providers
-  -> Google client 설정 존재 여부 확인
-```
-
-```text
-GET /api/auth/oauth2/google
-  -> OAuth state 생성
-  -> HttpOnly state cookie 설정
-  -> Google authorization redirect
-
-GET /api/auth/oauth2/callback/google
-  -> callback state와 state cookie 매칭
-  -> Google profile 검증
-  -> SocialAccount find/link/create
-  -> User create or load
-  -> refresh cookie 발급
-  -> frontend callback URL redirect
-```
-
-정책:
-
 - Google provider 설정이 없으면 provider status는 disabled다.
-- Google email은 verified email이어야 한다.
-- OAuth callback state가 state cookie와 일치해야 한다.
-- 기존 같은 email user가 있으면 social account를 link한다.
-- 새 Google user는 password login disabled, email verified 상태로 생성한다.
-- OAuth redirect/base URL은 properties/env로 설정한다.
-
-## Account deletion 흐름
-
-```text
-DELETE /api/users/me
-  -> AccountController
-  -> AccountDeletionService.deleteAccount(userId, request)
-      -> password 확인 또는 confirmation 확인
-      -> 삭제할 image stored filename 수집
-      -> recommendation result items / wear histories / recommendations 삭제
-      -> clothing items 삭제
-      -> refresh sessions / action tokens / social accounts 삭제
-      -> user 삭제
-      -> ClothingImageStorage.delete(filename)
-```
-
-정책:
-
-- 삭제는 현재 사용자 소유 데이터만 대상으로 한다.
-- Password login enabled 계정은 현재 password 검증이 필요하다.
-- Google-only 계정은 `confirmation=DELETE`를 요구한다.
-- DB 삭제와 파일 삭제 보상 정책은 구현 단계에서 테스트 가능하게 정한다.
-- 이미지 삭제는 `ClothingImageStorage` 인터페이스만 호출한다.
+- 계정 삭제는 현재 사용자 소유 데이터와 이미지 파일을 즉시 hard delete한다.
 
 ## 후속 배포 adapter boundary
 
-MVP9는 AWS 배포를 구현하지 않는다. 원래 MVP9 후보였던 AWS 배포는 후속 MVP로 연기한다.
+MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 기존 adapter boundary를 유지한다.
 
 - `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다.
 - 후속 MVP에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
 - `ClothingImageStorage`는 기존 local file 구현을 유지한다.
 - 후속 MVP에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
-- Cookie, CORS, OAuth URL은 properties/env로 분리한다.
-- `local` profile은 Docker Compose 기본 실행 경로로 유지하고, future `prod` profile은 별도 properties/env와 adapter bean으로 추가한다.
-- local profile과 Docker Compose 경로는 계속 동작해야 한다.
+- Cookie, CORS, OAuth URL, AI 분석 설정은 properties/env로 분리한다.
+- `local` profile은 Docker Compose 기본 실행 경로로 유지한다.
 
 ## 기존 domain 흐름 유지
 
@@ -242,6 +232,8 @@ MVP9는 AWS 배포를 구현하지 않는다. 원래 MVP9 후보였던 AWS 배�
 - 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.
 - 옷 이미지 API는 보호 API이며 blob fetch에 Authorization header가 필요하다.
 - 추천 피드백 PUT은 전체 교체이고 누락 필드는 `null`이다.
+- AI 분석 결과는 recommendation domain service 입력이 아니다.
+- Image metadata도 scoring, filtering, tie-break, recommendation reason에 사용하지 않는다.
 
 ## 트랜잭션 경계
 
@@ -253,14 +245,22 @@ MVP9는 AWS 배포를 구현하지 않는다. 원래 MVP9 후보였던 AWS 배�
 - Password reset confirm: action token consume + password update + refresh revoke write transaction
 - OAuth callback: user/social account upsert + refresh issue write transaction
 - Account deletion: current user owned data delete write transaction, image file cleanup은 명시적 보상 정책 필요
-- 기존 위치/날씨/추천/이미지 transaction 정책은 MVP7 기준 유지
+- Clothing create/update: current user owned data write transaction
+- Clothing image upload/delete: metadata write transaction과 file cleanup 정책 분리
+- Clothing image analysis: 인증 사용자 확인, validation, limit 확인, provider 호출을 수행하되 옷/추천 DB row를 만들지 않는다.
 
 ## 금지사항
 
-- AWS 배포 구현을 추가하지 않는다. 이유: MVP9는 프론트 UI/UX 리디자인이며 AWS는 후속 MVP 범위다.
-- S3 구현체를 추가하지 않는다. 이유: MVP9는 `ClothingImageStorage` 경계만 보존한다.
+- AWS 배포 구현을 추가하지 않는다. 이유: MVP10은 AI 옷 등록 보조 MVP이며 AWS는 후속 범위다.
+- S3 구현체를 추가하지 않는다. 이유: 현재는 `ClothingImageStorage` 경계만 보존한다.
 - SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 `ConsoleEmailSender` 기준이다.
-- Redis를 추가하지 않는다. 이유: refresh session은 DB-backed로 검증한다.
-- 추천 점수 계산을 변경하지 않는다. 이유: MVP9는 UI/UX 리디자인 범위다.
+- Redis를 추가하지 않는다. 이유: refresh session과 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
+- AI/GPT 옷차림 추천을 추가하지 않는다. 이유: 추천은 규칙 기반 계약이다.
+- AI-generated 추천 이유를 추가하지 않는다. 이유: 추천 이유는 template 기반이다.
+- 이미지 기반 추천 score, filtering, tie-break를 추가하지 않는다. 이유: 이미지와 분석 결과는 등록 보조 전용이다.
+- 사용자 확인 없는 자동 저장이나 자동 태깅을 추가하지 않는다. 이유: 최종 저장값은 사용자가 확인해야 한다.
+- 분석 이미지를 저장하지 않는다. 이유: MVP10은 후보 제안만 다룬다.
+- 분석 결과 전용 DB 구조를 추가하지 않는다. 이유: DB schema 변경은 MVP10 범위 밖이다.
+- 다른 모델로 자동 재시도하는 흐름을 추가하지 않는다. 이유: 비용 예측 가능성을 유지해야 한다.
 - 공개 `userId` query parameter를 추가하지 않는다. 이유: 인증 사용자 API 계약과 충돌한다.
 - Refresh token 원문을 DB 또는 JSON 응답에 저장/노출하지 않는다. 이유: 계정 안정성 핵심 보안 계약이다.

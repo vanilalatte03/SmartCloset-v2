@@ -1,6 +1,14 @@
 spring:
   application:
     name: smartcloset
+  ai:
+    model:
+      chat: ${SPRING_AI_MODEL_CHAT:none}
+    openai:
+      api-key: "${OPENAI_API_KEY:}"
+      chat:
+        options:
+          model: ${CLOTHING_ANALYSIS_MODEL:gpt-5.4-nano}
   servlet:
     multipart:
       max-file-size: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
@@ -63,6 +71,11 @@ smartcloset:
     image:
       storage-dir: ${CLOTHING_IMAGE_STORAGE_DIR:./uploads/clothing-images}
       max-size-bytes: ${CLOTHING_IMAGE_MAX_SIZE_BYTES:5242880}
+    analysis:
+      enabled: ${CLOTHING_ANALYSIS_ENABLED:false}
+      low-confidence-threshold: ${CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD:0.75}
+      daily-limit: ${CLOTHING_ANALYSIS_DAILY_LIMIT:20}
+      timeout-seconds: ${CLOTHING_ANALYSIS_TIMEOUT_SECONDS:10}
   weather:
     fallback-enabled: ${WEATHER_FALLBACK_ENABLED:true}
     kma:
