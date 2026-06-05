@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "spring-ai-config-boundary",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-05T21:07:19+0900",
+      "summary": "Spring AI 2.0 preview OpenAI starter와 옷 분석 비활성 기본 properties binding/test를 추가했다.",
+      "completed_at": "2026-06-05T21:13:35+0900"
     },
     {
       "step": 2,
