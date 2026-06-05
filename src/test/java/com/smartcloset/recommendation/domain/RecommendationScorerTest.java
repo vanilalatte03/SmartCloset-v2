@@ -344,6 +344,52 @@ class RecommendationScorerTest {
     }
 
     @Test
+    void prefersLightOuterAtEighteenDegreesWhenAvailable() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 24, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 24, false);
+        ClothingItem outer = clothing(3, user, ClothingCategory.OUTER, ClothingColor.GRAY, ClothingMaterial.COTTON, 10, 20, false);
+        WeatherCondition weather = WeatherCondition.of(18, WeatherType.CLOUDY, false, false);
+        WeatherSuitabilityFilter filter = new WeatherSuitabilityFilter();
+        OutfitCandidateGenerator generator = new OutfitCandidateGenerator();
+
+        ScoredOutfitCandidate best = scorer.selectBest(scorer.scoreAll(
+                generator.generate(filter.filter(List.of(top, bottom, outer), weather), weather),
+                weather,
+                List.of(),
+                List.of(),
+                requestedAt
+        ), weather);
+
+        assertThat(best.candidate().hasOuter()).isTrue();
+        assertThat(best.candidate().outer()).isSameAs(outer);
+    }
+
+    @Test
+    void usesOuterAsTieBreakAtEighteenDegrees() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 24, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 24, false);
+        ClothingItem outer = clothing(3, user, ClothingCategory.OUTER, ClothingColor.GRAY, ClothingMaterial.COTTON, 10, 20, false);
+        RecommendationScore sameScore = RecommendationScore.of(80, 30, 20, 20, 10, 0);
+        ScoredOutfitCandidate withoutOuter = new ScoredOutfitCandidate(
+                OutfitCandidate.withoutOuter(top, bottom, 0),
+                sameScore
+        );
+        ScoredOutfitCandidate withOuter = new ScoredOutfitCandidate(
+                OutfitCandidate.withOuter(top, bottom, outer, 1),
+                sameScore
+        );
+
+        ScoredOutfitCandidate best = scorer.selectBest(
+                List.of(withoutOuter, withOuter),
+                WeatherCondition.of(18, WeatherType.CLOUDY, false, false)
+        );
+
+        assertThat(best.candidate().hasOuter()).isTrue();
+    }
+
+    @Test
     void returnsSameBestRecommendationForSameInput() {
         User user = user(1);
         List<ClothingItem> clothes = List.of(

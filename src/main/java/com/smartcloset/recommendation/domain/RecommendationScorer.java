@@ -397,7 +397,7 @@ public class RecommendationScorer {
         int score;
         if (weather.temperature() <= 12) {
             score = candidate.hasOuter() ? 8 : 0;
-        } else if (weather.temperature() <= 16) {
+        } else if (weather.temperature() <= 18) {
             score = candidate.hasOuter() ? 7 : 5;
         } else {
             score = candidate.hasOuter() ? 5 : 7;
@@ -578,7 +578,7 @@ public class RecommendationScorer {
         if (left.hasOuter() == right.hasOuter()) {
             return 0;
         }
-        boolean preferOuter = weather != null && weather.temperature() <= 16;
+        boolean preferOuter = weather != null && weather.temperature() <= 18;
         if (left.hasOuter() == preferOuter) {
             return -1;
         }

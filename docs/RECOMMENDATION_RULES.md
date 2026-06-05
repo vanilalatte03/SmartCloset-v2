@@ -66,6 +66,10 @@ Request body는 선택이다.
 - KMA 실패 또는 서비스키 미설정 시 fallback weather를 사용할 수 있다.
 - Fallback weather는 `temperature=12`, `weatherType=CLOUDY`, `rainy=false`, `windy=false`다.
 - Raw KMA 응답 JSON은 추천 domain, DB, API response에 저장하거나 노출하지 않는다.
+- 아우터 정책은 다음 경계를 따른다.
+  - `12°C` 이하는 아우터가 필수이며 추천 가능한 아우터가 없으면 실패한다.
+  - `13°C..18°C`는 아우터가 필수는 아니지만, 추천 가능한 아우터가 있으면 weather score와 tie-break에서 아우터 포함 후보를 선호한다.
+  - `19°C` 이상은 가벼운 상하의-only 후보를 선호하되, 각 옷의 온도 범위를 통과한 아우터 후보도 점수 경쟁에는 참여할 수 있다.
 
 ## 위치/날씨 source snapshot
 
