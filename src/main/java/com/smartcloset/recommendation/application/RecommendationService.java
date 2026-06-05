@@ -59,6 +59,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+/**
+ * 추천 생성, 이력 조회, 착용/피드백 기록을 조율하는 application service다.
+ *
+ * <p>Controller는 HTTP와 DTO만 담당하고, 이 서비스가 사용자 소유 데이터 조회,
+ * 날씨 snapshot 확보, 후보 생성/점수화, 결과 저장을 하나의 use case로 묶는다.</p>
+ */
 @Service
 public class RecommendationService {
 
@@ -105,14 +111,24 @@ public class RecommendationService {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
+    /**
+     * 추천 요청 body가 없는 기존 경로에서 기본 상황과 현재 예보 시간대를 사용한다.
+     */
     public RecommendationResponse createRecommendation(Long userId) {
         return createRecommendation(userId, RecommendationSituation.CASUAL, ForecastPeriod.CURRENT);
     }
 
+    /**
+     * 예보 시간대가 없는 추천 요청에서 현재 날씨 입력을 사용한다.
+     */
     public RecommendationResponse createRecommendation(Long userId, RecommendationSituation situation) {
         return createRecommendation(userId, situation, ForecastPeriod.CURRENT);
     }
 
+    /**
+     * 날씨 조회는 외부 API 호출 가능성이 있어 transaction 밖에서 먼저 수행한다.
+     * 이후 저장이 필요한 추천 생성 단계만 명시적인 TransactionTemplate 안으로 넣는다.
+     */
     public RecommendationResponse createRecommendation(
             Long userId,
             RecommendationSituation situation,
@@ -144,6 +160,7 @@ public class RecommendationService {
         List<String> preferredStyleTags = preferenceJsonMapper.readStyleTags(user.getStyleTagsJson());
 
         try {
+            // 추천 파이프라인: 날씨 필터 -> 후보 생성 -> 점수화 -> 결정적 tie-break -> 이유 생성 -> snapshot 저장.
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, condition);
             List<OutfitCandidate> candidates = outfitCandidateGenerator.generate(filteredClothes, condition);
             List<ScoredOutfitCandidate> scoredCandidates = recommendationScorer.scoreAll(
@@ -175,6 +192,9 @@ public class RecommendationService {
         }
     }
 
+    /**
+     * 최신순 recommendation id를 먼저 고른 뒤, 필요한 item/worn 정보를 batch 조회해 N+1을 피한다.
+     */
     @Transactional(readOnly = true)
     public List<RecommendationResponse> getRecommendationHistory(Long userId, Integer limit) {
         int resolvedLimit = validateHistoryLimit(limit);
@@ -199,6 +219,9 @@ public class RecommendationService {
                 .toList();
     }
 
+    /**
+     * 같은 추천을 여러 번 착용 완료해도 기존 WearHistory를 재사용해 API를 멱등하게 유지한다.
+     */
     @Transactional
     public RecommendationWornResponse markWorn(Long userId, Long recommendationId) {
         User user = findUser(userId);
@@ -223,6 +246,9 @@ public class RecommendationService {
         return RecommendationWornResponse.of(recommendationResult.getId(), wearHistory.getWornAt());
     }
 
+    /**
+     * 추천 피드백 PUT 계약에 맞춰 누락된 body나 필드는 null로 해석해 기존 값을 전체 교체한다.
+     */
     @Transactional
     public RecommendationFeedbackResponse replaceFeedback(
             Long userId,
@@ -282,6 +308,9 @@ public class RecommendationService {
         return resultItems;
     }
 
+    /**
+     * 점수 계산에는 최근 착용 여부만 필요하므로 entity 대신 계산 전용 snapshot으로 축약한다.
+     */
     private List<WearHistorySnapshot> findWearHistorySnapshots(Long userId, LocalDateTime requestedAt) {
         List<WearHistory> wearHistories = wearHistoryRepository.findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
                 userId,
@@ -304,6 +333,9 @@ public class RecommendationService {
                 .toList();
     }
 
+    /**
+     * 추천 이력 페널티와 피드백 보정은 서로 다른 기간을 보므로 id를 합친 뒤 순서를 보존해 조회한다.
+     */
     private List<RecommendationHistorySnapshot> findRecommendationHistories(Long userId, LocalDateTime requestedAt) {
         List<Long> lastSevenDaysIds = recommendationResultRepository
                 .findIdsByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(userId, requestedAt.minusDays(7));
@@ -357,6 +389,9 @@ public class RecommendationService {
                 .toList();
     }
 
+    /**
+     * 결과 id별 빈 리스트를 먼저 만들어, 옷이 없는 예외 상황에서도 응답 순서와 key를 보존한다.
+     */
     private Map<Long, List<RecommendationResultItem>> findItemsByRecommendationResultIds(List<Long> orderedResultIds) {
         if (orderedResultIds.isEmpty()) {
             return Map.of();

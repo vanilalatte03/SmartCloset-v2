@@ -2,6 +2,7 @@ export const maxStyleTagLength = 30;
 
 export function getStyleTagKey(tag: string): string {
   const trimmed = tag.trim();
+  // ASCII 태그는 대소문자 차이를 무시하고, 한글 태그는 입력 표기를 그대로 비교한다.
   return /^[\x00-\x7F]+$/.test(trimmed) ? trimmed.toLowerCase() : trimmed;
 }
 
@@ -21,6 +22,7 @@ export function normalizeStyleTags(tags: string[]): string[] {
     }
 
     seen.add(key);
+    // 화면 표시는 사용자가 처음 입력한 trimmed 값을 유지한다.
     normalized.push(trimmed);
   }
 

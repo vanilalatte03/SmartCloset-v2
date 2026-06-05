@@ -28,6 +28,9 @@ type RefreshAccessTokenHandler = () => Promise<string | null>;
 let refreshAccessTokenHandler: RefreshAccessTokenHandler | null = null;
 let refreshAccessTokenPromise: Promise<string | null> | null = null;
 
+/**
+ * 앱 최상단 세션 상태가 access token 재발급 방법을 API client에 주입한다.
+ */
 export function setRefreshAccessTokenHandler(handler: RefreshAccessTokenHandler | null) {
   refreshAccessTokenHandler = handler;
   if (!handler) {
@@ -41,6 +44,7 @@ function refreshAccessTokenOnce(): Promise<string | null> {
   }
 
   if (!refreshAccessTokenPromise) {
+    // 여러 보호 API가 동시에 401을 받아도 refresh 요청은 하나만 보내고 같은 Promise를 공유한다.
     refreshAccessTokenPromise = refreshAccessTokenHandler().finally(() => {
       refreshAccessTokenPromise = null;
     });
@@ -100,6 +104,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   ) {
     const nextAccessToken = await refreshAccessTokenOnce();
     if (nextAccessToken) {
+      // JSON API는 새 access token으로 한 번만 재시도해 무한 refresh loop를 막는다.
       const retryResponse = await send(path, nextAccessToken, requestInit);
       const retryPayload = await parseJson(retryResponse);
       return unwrapApiResponse<T>(retryResponse, retryPayload);
@@ -164,6 +169,7 @@ export async function fetchWithAuthRetry(
     return response;
   }
 
+  // 이미지 blob처럼 JSON wrapper가 아닌 응답도 같은 refresh 정책을 쓸 수 있게 분리했다.
   return fetchWithAccessToken(path, nextAccessToken, init);
 }
 

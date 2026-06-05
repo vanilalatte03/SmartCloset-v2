@@ -99,6 +99,7 @@ export function LocationPanel({
 
     try {
       const nextOptions = await searchLocations(accessToken, submittedKeyword);
+      // 서버 catalog 결과를 그대로 쓰되, 프론트에서 검색어와 더 가까운 항목을 먼저 보여준다.
       setOptions(sortLocationOptionsForKeyword(nextOptions, submittedKeyword));
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -185,6 +186,7 @@ export function LocationPanel({
       (position) => {
         const { latitude, longitude } = position.coords;
 
+        // 브라우저 좌표는 후보 조회 요청에만 쓰고, 저장은 사용자가 고른 locationCode로만 진행한다.
         resolveLocation(accessToken, { latitude, longitude })
           .then((response) => {
             setResolveOptions(response.candidates);
@@ -560,6 +562,7 @@ function sortLocationOptionsForKeyword(
 }
 
 function getLocationSearchRank(option: LocationOptionResponse, keyword: string): number {
+  // "역삼동"처럼 동 단위 검색은 region3를 우선 보되, 시/구 이름 검색도 단계적으로 fallback한다.
   const isNeighborhoodSearch = keyword.endsWith('동') && !keyword.endsWith('동구');
   const neighborhoodName = option.region3
     ? normalizeLocationSearchText(option.region3)

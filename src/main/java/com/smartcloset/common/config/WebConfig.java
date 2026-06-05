@@ -14,6 +14,9 @@ public class WebConfig implements WebMvcConfigurer {
         this.corsProperties = corsProperties;
     }
 
+    /**
+     * /api/** MVC 요청에 대해 설정 파일 기반 CORS origin과 credential 허용 여부를 적용한다.
+     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")

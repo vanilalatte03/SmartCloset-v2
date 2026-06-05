@@ -20,6 +20,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * SmartCloset access token을 직접 생성하고 검증하는 HS256 JWT provider다.
+ *
+ * <p>현재 계약상 claim은 subject(user id), email, role과 표준 iat/exp만 사용한다.</p>
+ */
 @Component
 public class JwtTokenProvider {
 
@@ -50,6 +55,9 @@ public class JwtTokenProvider {
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
+    /**
+     * 현재 사용자 principal을 2시간짜리 bearer access token으로 직렬화한다.
+     */
     public String createAccessToken(CurrentUserPrincipal principal) {
         Objects.requireNonNull(principal, "principal must not be null");
 
@@ -70,6 +78,9 @@ public class JwtTokenProvider {
         return signingInput + "." + sign(signingInput);
     }
 
+    /**
+     * header, signature, 만료, 필수 claim을 모두 검증한 뒤 Spring Security principal로 복원한다.
+     */
     public CurrentUserPrincipal parseAccessToken(String token) {
         Objects.requireNonNull(token, "token must not be null");
 
@@ -85,6 +96,7 @@ public class JwtTokenProvider {
 
         String signingInput = parts[0] + "." + parts[1];
         String expectedSignature = sign(signingInput);
+        // 서명 비교는 timing leak을 줄이기 위해 MessageDigest.isEqual을 사용한다.
         if (!MessageDigest.isEqual(
                 expectedSignature.getBytes(StandardCharsets.US_ASCII),
                 parts[2].getBytes(StandardCharsets.US_ASCII))) {

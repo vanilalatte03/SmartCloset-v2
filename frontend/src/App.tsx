@@ -89,6 +89,7 @@ const connectionLabels: Record<ConnectionState, string> = {
 };
 
 function App() {
+  // Access token은 refresh cookie와 달리 브라우저 저장소에 남기지 않고 memory state에만 둔다.
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<SessionState>('restoring');
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(null);
@@ -102,6 +103,9 @@ function App() {
   const [error, setError] = useState<ErrorResponse | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  /**
+   * 인증 관련 state를 한 번에 초기화해 logout, 만료, 계정 삭제 흐름이 같은 화면 상태로 수렴하게 한다.
+   */
   const clearSession = useCallback((nextState: SessionState = 'anonymous') => {
     setAccessToken(null);
     setCurrentUser(null);
@@ -124,6 +128,10 @@ function App() {
     });
   }, [clearSession]);
 
+  /**
+   * access token으로 현재 사용자와 추천 기준 위치를 함께 로드한다.
+   * user가 이미 있으면 refresh 응답을 재사용해 불필요한 /me 호출을 줄인다.
+   */
   const loadCurrentSession = useCallback(async (token: string, user?: CurrentUserResponse) => {
     setConnectionState('checking');
     setError(null);
@@ -146,6 +154,9 @@ function App() {
     }
   }, [handleAuthExpired]);
 
+  /**
+   * API client가 401 재시도 때 호출하는 세션 복구 함수다.
+   */
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     try {
       const response = await refreshSession();
@@ -162,6 +173,7 @@ function App() {
   }, [handleAuthExpired]);
 
   useEffect(() => {
+    // 전역 API client에 현재 React state를 갱신할 수 있는 refresh handler를 연결한다.
     setRefreshAccessTokenHandler(refreshAccessToken);
 
     return () => {
@@ -172,6 +184,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
+    // 앱 진입 시 HttpOnly refresh cookie만으로 세션을 복구할 수 있는지 확인한다.
     refreshSession()
       .then((response) => {
         if (cancelled) {
@@ -237,6 +250,7 @@ function App() {
 
   const handleNavigate = useCallback((view: AppView, options?: AppNavigationOptions) => {
     if (view === 'closet') {
+      // 추천 실패 CTA에서 옷장으로 이동하면 필요한 카테고리를 바로 열어준다.
       setClosetInitialCategory(options?.closetCategory ?? null);
     } else {
       setClosetInitialCategory(null);

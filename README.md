@@ -1,154 +1,112 @@
 # SmartCloset
 
-현재 문서 기준은 **MVP9: 프론트 UI/UX 리디자인 MVP**입니다. MVP9는 MVP8 계정 안정성 완료 상태 위에서 `tmp/design-preview`와 `docs/design/mvp9/`의 화면 시안을 강하게 참고해 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 완성도를 높이는 단계입니다.
+SmartCloset은 날씨, 위치, 개인 옷장, 취향, 착용 이력을 바탕으로 오늘 입을 옷 조합을 추천하는 백엔드 중심 웹 서비스입니다.
 
-원래 MVP9 후보였던 AWS 배포는 후속 MVP로 연기합니다. 현재 구현 source of truth는 루트 `README.md`와 `docs/` 아래 문서, ADR-014, 그리고 보관함 복원 결정을 담은 ADR-015입니다.
+Spring Boot 백엔드 프로젝트로서 단순 CRUD를 넘어 인증/세션, 사용자별 데이터 격리, 외부 날씨 API fallback, 규칙 기반 추천 도메인, 이미지 저장소 경계, Docker Compose 공유 실행까지 하나의 서비스 흐름 안에서 다룹니다. 프론트엔드는 백엔드 API를 실제 사용 흐름으로 검증하고 보여주기 위한 React SPA로 함께 둡니다.
 
-## 현재 Baseline
+## Overview
 
-- Spring Boot 4.0.6, Java 21, MySQL, React+Vite+TypeScript SPA를 사용한다.
-- Spring Security + JWT Bearer access token 인증을 유지한다.
-- MVP8 계정 안정성 기능은 완료 baseline으로 유지한다.
-- Access token은 JSON 응답의 bearer token으로 유지하되, 프론트는 memory state에 보관하고 refresh cookie로 세션을 복구한다.
-- Refresh token은 HttpOnly cookie로만 전달하고 JSON 응답에는 포함하지 않는다.
-- Password signup은 이메일 인증 필요 상태를 반환하고 access token을 발급하지 않는다.
-- 미인증 password 계정은 login할 수 없다.
-- Google provider 상태, Google login, 비밀번호 재설정, 계정 삭제 UX를 유지한다.
-- 공개 HTTP API는 `userId` query parameter를 받지 않는다.
-- 현재 사용자 전용 response DTO는 `userId`를 노출하지 않는다.
-- 사용자별 옷장, 위치, 선호도, 추천 이력, 착용 이력, 추천 피드백을 분리한다.
-- 추천 생성은 `POST /api/recommendations`만 사용한다.
-- 추천 이력은 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
-- 현재 날씨 요약은 `GET /api/weather/current` 보호 API로 조회한다.
-- MVP5 이미지 업로드/교체/조회/삭제, MVP6 피드백/개인화, MVP7 위치/날씨 source snapshot 계약을 유지한다.
-- MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않는다. 현재 옷 API는 ADR-015에 따라 보관함 조회와 보관 해제를 추가한다.
-- Docker Compose local 공유 방식을 유지한다.
+SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 이 조합을 추천하는가?"입니다.
 
-## MVP9 목표
+추천은 AI/GPT가 아니라 설명 가능하고 테스트 가능한 규칙 기반 로직으로 생성합니다. 사용자는 옷을 등록하고, 위치와 취향을 저장하고, 상황과 예보 시간대를 선택해 추천을 생성한 뒤, 착용 여부와 피드백을 남겨 다음 추천에 반영할 수 있습니다.
 
-사용자가 기능 완성도뿐 아니라 화면 완성도에서도 SmartCloset을 실제 서비스처럼 느낄 수 있게 만든다.
+```text
+회원가입/로그인
+  -> 위치, 취향, 옷장 설정
+  -> KMA 날씨 또는 fallback weather 조회
+  -> 규칙 기반 추천 생성
+  -> 착용 기록과 피드백 저장
+  -> 추천 이력 확인
+```
 
-### 포함 범위
+## Tech Stack
 
-- MVP8 계정 안정성 archive 작성
-- MVP9 docs/ADR/agent baseline 전환
-- `tmp/design-preview` 기반 디자인 reference를 `docs/design/mvp9/`에 보관
-- Auth 화면 리디자인
-- 추천 dashboard 리디자인
-- 옷장 목록과 옷 등록/수정 UX 리디자인
-- 내 취향 화면 swatch/chip/toggle 중심 리디자인
-- 위치 검색과 현재 위치 후보 찾기 UX 리디자인
-- 기록 calendar/timeline UX 리디자인
-- Profile pill/menu 기반 계정 설정 진입
-- 계정 설정 화면 리디자인
-- 데스크톱 1440px, 모바일 390px 기준 반응형 QA
-- `frontend` build와 phase docs-check 검증
+- Backend: Java 21, Spring Boot 4.0.6, Spring Security, JPA
+- Database: MySQL
+- Frontend: React, Vite, TypeScript
+- Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie
+- Weather: KMA `getVilageFcst`, local fallback provider
+- Storage: local file system, Docker Compose volume
+- Tooling: Gradle, Docker Compose, project docs-check scripts
 
-### 제외 범위
+## Backend Highlights
 
-- AWS 배포 구현
-- S3 구현체
-- SES/SMTP 실제 발송 구현체
-- Secrets Manager
-- CD 자동화
-- Redis
-- 백엔드 API/DTO 변경(ADR-015 보관함 복원 API 제외)
-- DB schema 변경
-- 추천 점수/필터/tie-break 변경
-- AI/GPT 추천
-- AI 자동 태깅
-- native mobile app 또는 PWA 배포
+| 영역 | 구현 포인트 | 설계에서 드러나는 것 |
+| --- | --- | --- |
+| 인증/계정 | JWT access token, DB-backed refresh session, HttpOnly refresh cookie, 이메일 인증, 비밀번호 재설정, Google OAuth | 세션 안정성, token 원문 비저장, 계정 복구/삭제 흐름 |
+| 사용자 데이터 격리 | 공개 `userId` query parameter 제거, 인증 principal 기준 보호 API | 실제 서비스형 multi-user API 설계 |
+| 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
+| 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
+| 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
+| 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
+| 운영 공유 | MySQL, backend, frontend, image volume을 Docker Compose로 실행 | 로컬 재현성과 데모 가능성 |
 
-## 프론트 UX 기준
+## Domain Structure
 
-- 로그인 후 기본 view는 `추천`이다.
-- 데스크톱 primary navigation은 상단 탭이다.
-- 모바일 primary navigation은 하단 탭이다.
-- primary nav는 `추천`, `옷장`, `내 취향`, `위치`, `기록`으로 고정한다.
-- `계정 설정`은 주 navigation tab이 아니라 우측 상단 profile pill/menu에서 진입한다.
-- 추천 화면은 날씨, 위치, 상황, 예보 시간대, 옷장 준비 상태, 최근 이력을 한 화면에서 스캔할 수 있어야 한다.
-- 추천 결과는 점수표보다 옷 조합과 "오늘 입기 좋은 이유"를 먼저 보여준다.
-- 옷 이미지가 있으면 추천, 옷장, 기록에서 우선 표시하고, 없으면 기존 fallback visual을 사용한다.
-- 색상은 swatch, 소재와 style tag는 chip/toggle 중심 control로 표시한다.
-- 위치 화면은 외부 지도 없이 내부 KMA catalog 검색과 브라우저 좌표 resolve 후보 선택만 제공한다.
-- 카드 radius는 8px 이하로 유지하고, 카드 안에 카드가 중첩되는 느낌을 피한다.
-- 390px 모바일 폭에서 버튼, 카드, 입력 텍스트가 겹치거나 잘리지 않아야 한다.
+```text
+com.smartcloset
+├── auth              # signup/login, refresh session, email/password reset, Google OAuth
+├── user              # current user profile, preferences, location ownership
+├── clothing          # closet CRUD, archive/unarchive, image metadata and storage
+├── location          # KMA catalog search and browser coordinate resolve
+├── weather           # weather provider abstraction, KMA adapter, fallback weather
+├── recommendation    # outfit candidate generation, scoring, history, feedback
+├── security          # JWT, authentication filter, security configuration
+└── common            # response envelope, exception, shared entity/config
+```
 
-상세 기준은 `docs/FRONTEND.md`와 `docs/design/mvp9/README.md`를 따른다.
+프론트엔드는 React/Vite/TypeScript SPA입니다. 백엔드 API를 실제 화면에서 검증하기 위한 클라이언트이기도 하며, 현재 MVP9에서는 UI/UX 완성도를 높이는 단계입니다.
 
-## API 요약
+## Architecture
 
-공개 API:
+SmartCloset은 HTTP, use case orchestration, domain rule, persistence/provider 책임을 분리합니다.
 
-- `POST /api/auth/signup`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `POST /api/auth/email-verification/request`
-- `POST /api/auth/email-verification/confirm`
-- `POST /api/auth/password-reset/request`
-- `POST /api/auth/password-reset/confirm`
-- `GET /api/auth/oauth2/providers`
-- `GET /api/auth/oauth2/google`
-- `GET /api/auth/oauth2/callback/google`
+```text
+Controller -> Application Service -> Domain Service -> Repository / Provider
+```
 
-보호 API:
+- Controller는 HTTP 요청/응답, validation, 인증 principal 추출, DTO mapping을 담당합니다.
+- Application Service는 use case 흐름과 transaction 경계를 조율합니다.
+- Domain Service는 추천 후보 생성, 점수 계산, tie-break, 추천 이유 생성 같은 비즈니스 규칙을 담당합니다.
+- Repository는 persistence만 담당하고, Provider는 KMA weather나 image storage처럼 외부/인프라 경계를 감쌉니다.
 
-- `GET /api/users/me`
-- `PATCH /api/users/me`
-- `DELETE /api/users/me`
-- `GET /api/locations?keyword={keyword}`
-- `POST /api/locations/resolve`
-- `GET /api/users/me/location`
-- `PUT /api/users/me/location`
-- `GET /api/users/me/preferences`
-- `PUT /api/users/me/preferences`
-- `GET /api/weather/current`
-- `POST /api/clothes`
-- `GET /api/clothes`
-- `GET /api/clothes/archived`
-- `GET /api/clothes/{clothingId}`
-- `PUT /api/clothes/{clothingId}`
-- `PATCH /api/clothes/{clothingId}/archive`
-- `PATCH /api/clothes/{clothingId}/unarchive`
-- `PUT /api/clothes/{clothingId}/image`
-- `GET /api/clothes/{clothingId}/image`
-- `DELETE /api/clothes/{clothingId}/image`
-- `POST /api/recommendations`
-- `GET /api/recommendations?limit={limit}`
-- `PATCH /api/recommendations/{recommendationId}/worn`
-- `PUT /api/recommendations/{recommendationId}/feedback`
+이 구조를 택한 이유는 추천 점수나 날씨 fallback 같은 핵심 규칙이 Controller 또는 Repository에 섞이면 테스트와 변경이 어려워지기 때문입니다. 현재 상세 구조는 `docs/ARCHITECTURE.md`를 source of truth로 둡니다.
 
-MVP9 자체는 API surface를 변경하지 않는다. 현재 옷장 보관함 복원 API는 ADR-015를 따르며, 세부 계약은 `docs/API.md`를 따른다.
+## Key Decisions
 
-## 세션과 계정 정책
+**인증 사용자 API로 전환**
 
-- Refresh token은 서버가 생성한 random token이며 DB에는 hash만 저장한다.
-- Refresh token cookie는 HttpOnly이고, cookie name/max age/Secure/SameSite/domain/path는 properties/env로 설정한다.
-- Access token은 bearer JSON 응답으로 유지하되 프론트 저장 위치는 memory state다.
-- 새로고침 또는 앱 시작 시 `POST /api/auth/refresh`로 세션을 복구한다.
-- 보호 API가 401을 반환하면 프론트는 refresh를 한 번 시도하고 원 요청을 한 번만 재시도한다.
-- refresh까지 실패하면 access token을 제거하고 로그인 화면에 세션 만료 안내를 표시한다.
-- 이메일 저장 체크박스는 이메일 주소 문자열만 저장하며 비밀번호와 token 저장 용도로 사용하지 않는다.
-- 미인증 password 계정은 로그인할 수 없다.
-- Google 계정은 Google이 verified email을 반환한 경우 이메일 인증 완료로 취급한다.
-- 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는다.
-- 계정 삭제는 soft delete가 아니라 즉시 하드 삭제다.
+초기 MVP의 테스트용 `userId` query parameter를 제거하고, Spring Security principal 기준으로 현재 사용자를 식별합니다. 이 결정은 사용자별 옷장, 위치, 취향, 추천 이력을 실제 서비스처럼 격리하기 위한 기반입니다. 관련 결정은 ADR-008에 정리되어 있습니다.
 
-## 추천 규칙
+**Access token + HttpOnly refresh cookie**
 
-추천은 계속 AI/GPT가 아닌 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
+Access token은 bearer token으로 유지하되, refresh token은 HttpOnly cookie로만 전달하고 DB에는 hash만 저장합니다. 새로고침 복구, token rotation, logout revoke, 만료 UX를 다루기 위해 MVP8에서 DB-backed refresh session을 추가했습니다. 관련 결정은 ADR-013을 따릅니다.
 
-- 총점은 100점이며 기존 score field를 유지한다.
-- `weatherScore=35`, `colorScore=25`, `wearHistoryScore=20`, `recommendationHistoryScore=10`, `preferenceScore=10`이다.
-- MVP6의 상황, styleTags, 최근 피드백 기반 `preferenceScore` 계약은 유지한다.
-- MVP7의 위치/source snapshot과 `forecastPeriod` 계약은 유지한다.
-- MVP8 계정 기능과 MVP9 UI/UX 변경은 추천 점수, 후보 필터링, 추천 이유를 변경하지 않는다.
-- 이미지 존재 여부는 계속 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
+**AI가 아니라 규칙 기반 추천**
 
-상세 기준은 `docs/RECOMMENDATION_RULES.md`를 따른다.
+추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. 이 프로젝트에서는 "그럴듯한 결과"보다 점수와 이유를 테스트할 수 있는 구조를 더 중요하게 봤습니다.
 
-## 실행
+**KMA provider와 fallback 분리**
+
+실제 날씨 추천을 위해 KMA 단기예보 `getVilageFcst`를 사용하지만, API key 미설정, 네트워크 실패, NODATA, 응답 누락이 있어도 Docker Compose 데모가 깨지지 않도록 fallback provider를 유지합니다. 관련 결정은 ADR-006, ADR-012에 있습니다.
+
+**이미지는 DB가 아니라 저장소에 둠**
+
+옷 JSON API를 multipart로 바꾸지 않고 이미지 업로드/조회/삭제를 별도 보호 API로 분리했습니다. 파일 bytes는 파일 시스템 또는 volume에 저장하고 DB에는 metadata만 둡니다. 이후 S3로 옮겨도 application service가 storage interface에만 의존하도록 경계를 뒀습니다.
+
+**배포보다 제품 완성도를 먼저 정리**
+
+원래 MVP9 후보였던 AWS 배포는 후속 MVP로 미루고, 현재는 UI/UX 리디자인을 진행합니다. 이유는 계정/추천/날씨/이미지 기능이 갖춰진 상태에서 사용자가 실제 서비스처럼 이해할 수 있는 화면 완성도가 먼저 필요했기 때문입니다. 관련 결정은 ADR-014입니다.
+
+## Current MVP
+
+현재 문서 기준은 **MVP9: 프론트 UI/UX 리디자인 MVP**입니다.
+
+MVP9는 MVP8 계정 안정성 완료 상태 위에서 Auth, 추천, 옷장, 내 취향, 위치, 기록, 계정 설정 화면의 완성도를 높입니다. MVP9 자체는 백엔드 HTTP API, DTO, DB schema, 추천 점수/필터/tie-break를 변경하지 않습니다.
+
+MVP가 바뀔 때 README에서 주로 갱신하는 위치는 이 섹션과 `Documentation`의 MVP-specific 링크입니다. 상세 제품 범위는 `docs/PRD.md`, API 계약은 `docs/API.md`, 추천 규칙은 `docs/RECOMMENDATION_RULES.md`를 우선합니다.
+
+## Getting Started
 
 로컬 백엔드:
 
@@ -167,62 +125,47 @@ Docker Compose:
 
 ```bash
 test -f .env || cp .env.example .env
-docker compose down -v
 docker compose up --build
 ```
 
-## 검증 명령
+자세한 명령과 Docker Compose smoke 절차는 `docs/COMMANDS.md`를 따릅니다.
 
-문서 전환 검증:
+## Verification
 
-```bash
-git diff --check
-python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
-```
-
-MVP9 구현 phase 검증:
+문서 변경:
 
 ```bash
 git diff --check
-(cd frontend && npm run build)
-python3 scripts/checks.py --docs-check-config phases/9-smartcloset-ui-ux-redesign/docs-checks.json --docs-check
+python3 scripts/checks.py --docs-check
 ```
 
-Docker Compose smoke:
+백엔드 변경:
 
 ```bash
-docker compose down -v
-test -f .env || cp .env.example .env
-docker compose up --build -d
-curl -fsS http://localhost:8080/v3/api-docs >/dev/null
-curl -fsS http://localhost:5173 >/dev/null
-docker compose down
+./gradlew test
+./gradlew build
 ```
 
-## 문서 기준
+프론트 변경:
 
-| 영역 | 문서 |
+```bash
+cd frontend
+npm run build
+```
+
+## Documentation
+
+| 영역 | Source of truth |
 | --- | --- |
-| 제품 목표와 MVP 범위 | `docs/PRD.md` |
-| HTTP API와 DTO | `docs/API.md` |
-| 추천 규칙과 점수 | `docs/RECOMMENDATION_RULES.md` |
-| 백엔드 구조와 트랜잭션 | `docs/ARCHITECTURE.md` |
-| DB schema | `docs/ERD.md` |
-| 프론트 타입과 UX | `docs/FRONTEND.md` |
-| 디자인 reference | `docs/design/mvp9/README.md` |
-| 데모 시나리오 | `docs/DEMO_SCENARIO.md` |
-| Docker Compose 공유 | `docs/SHARING_GUIDE.md` |
-| 명령 모음 | `docs/COMMANDS.md` |
+| 제품 목표, MVP 범위, 포함/제외 | `docs/PRD.md` |
+| HTTP API, 인증 경계, DTO, 에러 코드 | `docs/API.md` |
+| 추천 후보, 점수, tie-break, 추천 이유 | `docs/RECOMMENDATION_RULES.md` |
+| 백엔드 구조, 저장소, 트랜잭션 | `docs/ARCHITECTURE.md` |
+| DB schema, entity/JPA 기준 | `docs/ERD.md` |
+| 프론트 타입, API client, UX, 반응형 기준 | `docs/FRONTEND.md` |
+| MVP9 디자인 reference | `docs/design/mvp9/README.md` |
+| 데모와 수동 검증 | `docs/DEMO_SCENARIO.md` |
+| Docker Compose 공유와 환경변수 | `docs/SHARING_GUIDE.md` |
+| 실행 명령과 검증 명령 | `docs/COMMANDS.md` |
 | MVP 변경 체크리스트 | `docs/MVP_CHANGE_CHECKLIST.md` |
-| 결정 기록 | `docs/ADR.md`, `docs/adr/` |
-
-## Archive
-
-완료된 MVP 문맥은 `archive/` 아래의 최소 요약으로만 유지합니다. 구현 기준은 현재 `README.md`와 `docs/` 아래 문서입니다.
-
-- MVP6 archive: `archive/mvp-6/README.md`
-- MVP6 phase 기록: `phases/6-smartcloset-feedback-personalization/README.md`
-- MVP7 archive: `archive/mvp-7/README.md`
-- MVP7 phase 기록: `phases/7-smartcloset-location-weather-trust/README.md`
-- MVP8 archive: `archive/mvp-8/README.md`
-- MVP8 phase 기록: `phases/8-smartcloset-account-stability/README.md`
+| 결정 기록과 변경 이력 | `docs/ADR.md`, `docs/adr/` |

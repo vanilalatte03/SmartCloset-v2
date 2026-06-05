@@ -19,6 +19,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 계정 삭제 요청을 hard delete로 처리한다.
+ *
+ * <p>사용자 소유 DB row를 먼저 삭제하고 flush가 성공한 뒤 이미지 파일을 지워,
+ * DB 실패 때문에 계정 데이터는 남았는데 이미지가 사라지는 상황을 피한다.</p>
+ */
 @Service
 public class AccountDeletionService {
 
@@ -59,6 +65,9 @@ public class AccountDeletionService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * password 계정은 비밀번호 확인이 필요하고, Google-only 계정은 DELETE 문구 확인만 요구한다.
+     */
     @Transactional
     public AccountDeletionResponse deleteAccount(Long currentUserId, AccountDeletionRequest request) {
         User user = userRepository.findById(currentUserId)
@@ -67,6 +76,7 @@ public class AccountDeletionService {
 
         List<String> imageFilenames = clothingItemRepository.findImageStoredFilenamesByUserId(currentUserId);
 
+        // FK 의존성이 있는 자식 row부터 지우고 마지막에 user row를 삭제한다.
         wearHistoryRepository.deleteByUserId(currentUserId);
         recommendationResultItemRepository.deleteByRecommendationResultUserId(currentUserId);
         recommendationResultRepository.deleteByUserId(currentUserId);
@@ -77,6 +87,7 @@ public class AccountDeletionService {
         userRepository.delete(user);
         userRepository.flush();
 
+        // 파일 시스템은 DB처럼 rollback되지 않으므로, DB 삭제가 flush된 성공 경로에서만 파일을 정리한다.
         imageFilenames.forEach(clothingImageStorage::delete);
         return AccountDeletionResponse.success();
     }

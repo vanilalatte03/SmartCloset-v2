@@ -201,6 +201,7 @@ function ensureNamedImageFile(file: File): File {
     return file;
   }
 
+  // 클립보드 이미지처럼 filename이 없는 File도 서버 확장자 검증을 통과할 수 있게 이름을 붙인다.
   return new File([file], `smartcloset-image.${extension}`, {
     type: file.type,
     lastModified: file.lastModified,
@@ -307,6 +308,7 @@ function ClothingThumbnail({
       return undefined;
     }
 
+    // 보호 이미지는 Authorization header가 필요하므로 blob으로 받은 뒤 object URL을 만든다.
     getClothingImageBlob(accessToken, item.image.url)
       .then((blob) => {
         if (!active) {
@@ -329,6 +331,7 @@ function ClothingThumbnail({
     return () => {
       active = false;
       if (nextObjectUrl) {
+        // object URL은 브라우저 메모리를 점유하므로 thumbnail 변경/언마운트 시 반드시 해제한다.
         URL.revokeObjectURL(nextObjectUrl);
       }
     };
@@ -537,6 +540,7 @@ export function ClosetPanel({
     setMobileEditorOpen(false);
     scrollToTopOnMobile();
     if (!archivedLoaded) {
+      // 보관함은 처음 열 때만 별도 API를 호출해 기본 옷장 화면의 초기 로드를 가볍게 유지한다.
       void loadArchivedClothes();
     }
   };
@@ -669,6 +673,7 @@ export function ClosetPanel({
         const updated = await updateClothing(accessToken, editingId, requestBody);
         let imageUpdated = updated;
         try {
+          // 옷 기본 정보 저장과 이미지 변경은 별도 API라, 이미지 실패 시에도 텍스트 수정 결과를 보존한다.
           if (deleteImageRequested) {
             imageUpdated = await deleteClothingImage(accessToken, editingId);
           }
@@ -688,6 +693,7 @@ export function ClosetPanel({
         const created = await createClothing(accessToken, requestBody);
         if (selectedImageFile) {
           try {
+            // 새 옷은 먼저 id를 만든 뒤 그 id로 이미지 API를 호출해야 한다.
             const imageUpdated = await uploadClothingImage(
               accessToken,
               created.id,
@@ -742,6 +748,7 @@ export function ClosetPanel({
 
     try {
       await archiveClothing(accessToken, item.id);
+      // UI에서는 즉시 목록을 옮기고, 이후 loadClothes로 서버 상태를 다시 맞춘다.
       setClothes((current) => current.filter((candidate) => candidate.id !== item.id));
       if (archivedLoaded) {
         setArchivedClothes((current) =>

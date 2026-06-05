@@ -2,6 +2,11 @@ package com.smartcloset.weather.infrastructure.kma;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * KMA 날씨 provider와 fallback 동작에 필요한 외부 설정을 바인딩한다.
+ *
+ * <p>Service key가 없거나 provider가 실패할 때 fallback 사용 여부를 이 설정으로 결정한다.</p>
+ */
 @ConfigurationProperties(prefix = "smartcloset.weather")
 public class KmaWeatherProperties {
 

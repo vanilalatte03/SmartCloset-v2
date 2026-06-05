@@ -10,6 +10,11 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+/**
+ * Google OAuth2 code를 access token으로 교환하고 verified profile을 조회하는 외부 provider client다.
+ *
+ * <p>Provider 통신 실패는 내부 세부 오류 대신 공통 OAuth provider unavailable 오류로 변환한다.</p>
+ */
 @Component
 public class GoogleOAuthClient {
 
@@ -23,6 +28,9 @@ public class GoogleOAuthClient {
         this.restClient = restClient;
     }
 
+    /**
+     * Google authorization code를 교환해 access token을 얻고, 해당 token으로 사용자 profile을 조회한다.
+     */
     public GoogleUserProfile fetchUserProfile(String code, GoogleOAuthProperties properties) {
         GoogleOAuthProperties.Google google = properties.google();
         try {

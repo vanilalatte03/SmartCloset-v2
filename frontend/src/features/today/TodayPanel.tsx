@@ -238,6 +238,7 @@ export function TodayPanel({
     setPreferencesError(null);
     setClothesError(null);
 
+    // 선호도와 옷장 준비도는 독립적이므로 하나가 실패해도 다른 결과를 계속 표시한다.
     const [preferencesResult, clothesResult] = await Promise.allSettled([
       getUserPreferences(accessToken),
       getClothes(accessToken),
@@ -325,6 +326,7 @@ export function TodayPanel({
       const nextError = toErrorResponse(caught, '추천을 만들지 못했습니다.');
       const nextFailureCta = toRecommendationFailureCta(nextError);
       if (nextFailureCta) {
+        // 추천 실패 중 사용자 행동으로 해결 가능한 경우는 에러 박스 대신 CTA로 옷장/위치 화면을 안내한다.
         setRecommendationFailure(nextFailureCta);
         setRecommendationError(null);
       } else {
@@ -417,6 +419,7 @@ export function TodayPanel({
     ? `색상 ${preferences.preferredColors.length}개, 소재 ${preferences.preferredMaterials.length}개 확인`
     : '기본값이라도 한 번 확인하면 완료됩니다.';
 
+  // 첫 추천에 필요한 최소 준비 조건을 화면 이동 CTA와 함께 계산한다.
   const checklistItems: ChecklistItem[] = [
     {
       id: 'location',

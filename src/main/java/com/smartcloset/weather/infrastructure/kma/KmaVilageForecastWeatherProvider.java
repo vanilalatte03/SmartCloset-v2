@@ -27,6 +27,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+/**
+ * KMA 단기예보를 SmartCloset의 {@link WeatherProvider} 계약으로 변환하는 primary provider다.
+ *
+ * <p>서비스 키가 없거나 KMA 호출/매핑이 실패하면 설정에 따라 {@link StaticWeatherProvider}로
+ * fallback하며, 추천 이력에는 KMA 사용 여부와 fallback 여부만 snapshot으로 남긴다.</p>
+ */
 @Component
 @Primary
 public class KmaVilageForecastWeatherProvider implements WeatherProvider {
@@ -137,6 +143,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         }
     }
 
+    /**
+     * fallback도 실제 사용자 위치 snapshot을 유지한다. 바뀌는 것은 날씨 값과 source metadata뿐이다.
+     */
     private WeatherSnapshot fallbackOrThrow(
             Long userId,
             UserLocationSnapshot location,
@@ -159,6 +168,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 
+    /**
+     * KMA 응답이 없을 때도 forecastPeriod별 표시 시간이 일관되도록 source forecast time을 만든다.
+     */
     private LocalDateTime fallbackForecastDateTime(ForecastPeriod forecastPeriod) {
         ZonedDateTime nowKst = ZonedDateTime.now(clock)
                 .withZoneSameInstant(KmaForecastBaseTimeCalculator.KST_ZONE);
@@ -179,6 +191,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         return truncatedToHour.plusHours(1);
     }
 
+    /**
+     * 캐시는 사용자 위치, 발표 시각, 예보 시간대, provider 설정이 모두 같을 때만 재사용한다.
+     */
     private record WeatherCacheKey(
             Long userId,
             String locationCode,

@@ -148,6 +148,7 @@ export function AuthenticatedClothingThumbnail({
       return undefined;
     }
 
+    // 이미지 API도 보호 API라 access token을 붙여 blob으로 받은 뒤 임시 object URL로 렌더링한다.
     getClothingImageBlob(accessToken, image.url)
       .then((blob) => {
         if (!active) {
@@ -170,6 +171,7 @@ export function AuthenticatedClothingThumbnail({
     return () => {
       active = false;
       if (nextObjectUrl) {
+        // object URL은 자동 해제되지 않으므로 다른 이미지로 바뀌거나 unmount될 때 정리한다.
         URL.revokeObjectURL(nextObjectUrl);
       }
     };

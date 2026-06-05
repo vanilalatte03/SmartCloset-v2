@@ -47,6 +47,9 @@ public record UserLocationSnapshot(
         }
     }
 
+    /**
+     * User entity의 저장 위치 필드를 provider와 추천 이력이 사용할 snapshot으로 고정한다.
+     */
     public static UserLocationSnapshot from(User user) {
         Objects.requireNonNull(user, "user must not be null");
         return new UserLocationSnapshot(

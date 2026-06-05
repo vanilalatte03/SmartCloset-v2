@@ -25,6 +25,12 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 추천이 만들어진 순간의 결과와 판단 근거를 저장한다.
+ *
+ * <p>날씨, 위치, source metadata, 점수, 이유는 나중에 사용자의 위치나 옷 정보가 바뀌어도
+ * 과거 추천 이력이 흔들리지 않도록 snapshot 형태로 보관한다.</p>
+ */
 @Entity
 @Table(
         name = "recommendation_results",
@@ -168,6 +174,7 @@ public class RecommendationResult extends BaseTimeEntity {
         WeatherLocationSnapshot requiredLocation = requiredWeather.location();
         WeatherSource requiredSource = requiredWeather.source();
         RecommendationScore requiredScore = Objects.requireNonNull(score, "score must not be null");
+        // RecommendationResult는 과거 기록이므로 현재 domain object 참조 대신 값 snapshot을 풀어 저장한다.
         this.weatherTemperature = requiredCondition.temperature();
         this.weatherType = requiredCondition.weatherType();
         this.rainy = requiredCondition.rainy();
@@ -195,6 +202,9 @@ public class RecommendationResult extends BaseTimeEntity {
         this.worn = false;
     }
 
+    /**
+     * 현재 추천 생성 use case에서 날씨와 위치/source snapshot을 포함한 결과 entity를 만든다.
+     */
     public static RecommendationResult create(
             User user,
             RecommendationSituation situation,
@@ -206,6 +216,9 @@ public class RecommendationResult extends BaseTimeEntity {
         return new RecommendationResult(user, situation, forecastPeriod, weather, score, reasonsJson);
     }
 
+    /**
+     * forecast period가 없는 기존 테스트/호환 경로에서 CURRENT를 기본값으로 사용한다.
+     */
     public static RecommendationResult create(
             User user,
             RecommendationSituation situation,
@@ -216,6 +229,9 @@ public class RecommendationResult extends BaseTimeEntity {
         return create(user, situation, ForecastPeriod.CURRENT, defaultWeatherSnapshot(weather), score, reasonsJson);
     }
 
+    /**
+     * 상황이 없는 기존 테스트/호환 경로에서 CASUAL을 기본값으로 사용한다.
+     */
     public static RecommendationResult create(
             User user,
             WeatherCondition weather,
@@ -240,10 +256,16 @@ public class RecommendationResult extends BaseTimeEntity {
         );
     }
 
+    /**
+     * 추천 결과 snapshot에 착용 완료 상태를 표시한다.
+     */
     public void markWorn() {
         this.worn = true;
     }
 
+    /**
+     * 피드백 PUT은 전체 교체 API라서 두 필드가 모두 null이면 clear로 해석한다.
+     */
     public void replaceFeedback(
             RecommendationFeedbackSentiment sentimentFeedback,
             RecommendationThermalFeedback thermalFeedback,
@@ -258,12 +280,18 @@ public class RecommendationResult extends BaseTimeEntity {
         this.feedbackUpdatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
     }
 
+    /**
+     * 감정/체감온도 피드백과 갱신 시각을 모두 제거한다.
+     */
     public void clearFeedback() {
         this.sentimentFeedback = null;
         this.thermalFeedback = null;
         this.feedbackUpdatedAt = null;
     }
 
+    /**
+     * 추천 결과에 하나 이상의 피드백 값이 남아 있는지 확인한다.
+     */
     public boolean hasFeedback() {
         return sentimentFeedback != null || thermalFeedback != null;
     }

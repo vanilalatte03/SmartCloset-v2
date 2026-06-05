@@ -21,12 +21,12 @@ com.smartcloset
 │   ├── domain
 │   ├── dto
 │   ├── infrastructure
-│   └── presentation
+│   └── controller
 ├── account
 │   ├── application
 │   ├── domain
 │   ├── dto
-│   └── presentation
+│   └── controller
 ├── common
 ├── security
 ├── user

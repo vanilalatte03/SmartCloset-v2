@@ -12,6 +12,11 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Local/demo 실행에서 기본 사용자와 최소 옷장 데이터를 준비하는 bootstrap initializer다.
+ *
+ * <p>공개 API 계약을 위한 seed-user shortcut이 아니라 애플리케이션 시작 시 데모 데이터를 보정하는 역할만 한다.</p>
+ */
 @Component
 public class SeedDataInitializer implements ApplicationRunner {
 
@@ -25,6 +30,9 @@ public class SeedDataInitializer implements ApplicationRunner {
         this.clothingItemRepository = clothingItemRepository;
     }
 
+    /**
+     * 애플리케이션 시작 시 demo user 위치와 최소 옷장 데이터를 보정한다.
+     */
     @Override
     @Transactional
     public void run(ApplicationArguments args) {

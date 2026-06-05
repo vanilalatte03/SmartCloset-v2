@@ -105,6 +105,7 @@ export function PreferencesPanel({
   const displayPreferenceStyleTagEntries = getDisplayStyleTagEntries(preferences.styleTags);
   const selectedTagLabel =
     displayPreferenceStyleTags[0] ?? '태그';
+  // savedPreferences는 마지막 서버 저장값이라, 현재 편집값과 비교해 "저장 예정" 상태를 표시한다.
   const colorSummaryStatusLabel = getSaveStatusLabel(
     areArraysEqual(preferences.preferredColors, savedPreferences.preferredColors)
   );

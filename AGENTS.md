@@ -2,6 +2,7 @@
 
 ## 역할
 - 이 파일은 Codex 작업 라우터다. 제품/기술 계약의 본문은 루트 `README.md`와 `docs/` 아래 현재 문서를 따른다.
+- `README.md`는 백엔드 프로젝트 소개, 기술 스택, 도메인/아키텍처 요약, 주요 결정 이유, 실행 안내, 현재 MVP 포인터를 담당한다. MVP별 상세 계약은 전용 `docs/` 문서를 우선한다.
 - 구현 세부 규칙을 이 파일에 복사하지 않는다. 세부 규칙이 필요하면 아래 SSOT 문서를 확인한다.
 - `archive/`는 과거 MVP 참고용이며 구현 source of truth가 아니다. `archive/`에는 MVP별 전체 문서 복사본을 두지 않고 최소 요약만 둔다.
 
@@ -42,6 +43,9 @@
 ## Codex 작업 규칙
 - 변경은 현재 요청과 현재 phase/step 범위 안에서만 수행한다.
 - 동작이 바뀌면 관련 SSOT 문서도 함께 확인하고 필요한 경우 동기화한다.
+- 공개 HTTP API와 현재 사용자 전용 DTO는 `docs/API.md` 기준을 따르며, 과거 테스트용 `userId` query parameter/field를 되살리지 않는다.
+- Token/action token 원문 저장·노출 금지 기준은 `docs/API.md`와 `.agents/skills/smartcloset-backend/SKILL.md`를 따른다.
+- 추천은 `docs/RECOMMENDATION_RULES.md` 기준의 규칙 기반 추천으로 유지하며, 현재 범위 밖 AI/GPT 추천, 이미지 기반 추천 점수, 자동 태깅을 추가하지 않는다.
 - 민감정보(API key, token, password, private key)는 코드와 문서에 커밋하지 않는다.
 - 커밋과 PR은 Codex 앱의 한국어 Conventional Commits / PR 작성 지침을 따른다.
 - 자동 PR 루프는 clean worktree에서만 실행한다.

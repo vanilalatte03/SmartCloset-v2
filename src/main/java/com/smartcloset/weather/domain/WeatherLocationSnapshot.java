@@ -26,6 +26,9 @@ public record WeatherLocationSnapshot(
         Objects.requireNonNull(source, "source must not be null");
     }
 
+    /**
+     * 사용자 위치 snapshot을 날씨 응답/이력에 저장할 위치 snapshot으로 변환한다.
+     */
     public static WeatherLocationSnapshot from(UserLocationSnapshot location) {
         Objects.requireNonNull(location, "location must not be null");
         return new WeatherLocationSnapshot(

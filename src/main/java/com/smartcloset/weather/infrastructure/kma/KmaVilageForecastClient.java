@@ -15,6 +15,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+/**
+ * data.go.kr KMA getVilageFcst HTTP API client다.
+ *
+ * <p>이 클래스는 외부 응답을 {@link KmaForecastItem} 리스트로 파싱하는 책임만 맡고,
+ * 날씨 의미 해석은 {@link KmaWeatherConditionMapper}에 위임한다.</p>
+ */
 @Component
 public class KmaVilageForecastClient implements KmaForecastClient {
 
@@ -40,6 +46,9 @@ public class KmaVilageForecastClient implements KmaForecastClient {
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
     }
 
+    /**
+     * KMA HTTP 응답을 호출, status 검증, JSON parsing까지 수행해 forecast item 목록으로 반환한다.
+     */
     @Override
     public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid) {
         Objects.requireNonNull(baseTime, "baseTime must not be null");
@@ -50,6 +59,9 @@ public class KmaVilageForecastClient implements KmaForecastClient {
         return parseItems(response.body());
     }
 
+    /**
+     * KMA API는 path와 query parameter가 고정되어 있어 base date/time과 grid만 바꿔 호출한다.
+     */
     URI buildUri(KmaForecastBaseTime baseTime, KmaGrid grid) {
         return UriComponentsBuilder.fromUriString(properties.baseUrl())
                 .pathSegment(GET_VILAGE_FCST_PATH)
@@ -134,6 +146,7 @@ public class KmaVilageForecastClient implements KmaForecastClient {
         }
 
         List<KmaForecastItem> items = new ArrayList<>();
+        // 결과가 1건일 때 KMA 응답이 object로 내려올 수 있어 array/object를 모두 받는다.
         if (itemNode.isArray()) {
             for (JsonNode item : itemNode) {
                 items.add(toForecastItem(item));

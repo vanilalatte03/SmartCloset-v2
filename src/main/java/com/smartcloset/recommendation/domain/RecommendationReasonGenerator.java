@@ -12,8 +12,17 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 추천 점수의 주요 근거를 사용자가 읽을 수 있는 문장으로 변환한다.
+ *
+ * <p>이 클래스는 템플릿 기반 설명만 만든다. 추천 이유가 점수 계산과 어긋나지 않도록
+ * {@link RecommendationScorer}의 조건과 같은 판단 기준을 반복해서 사용한다.</p>
+ */
 public class RecommendationReasonGenerator {
 
+    /**
+     * 개인화 입력이 없는 기존 추천 이유 생성 경로는 CASUAL 상황과 빈 선호 tag를 사용한다.
+     */
     public List<String> generate(
             OutfitCandidate candidate,
             RecommendationScore score,
@@ -34,6 +43,9 @@ public class RecommendationReasonGenerator {
         );
     }
 
+    /**
+     * 점수, 날씨, 이력, 상황, 선호 tag를 바탕으로 중복 없는 추천 이유를 최대 5개 생성한다.
+     */
     public List<String> generate(
             OutfitCandidate candidate,
             RecommendationScore score,
@@ -57,6 +69,7 @@ public class RecommendationReasonGenerator {
         reasons.add(colorReason(candidate));
         reasons.add(historyReason(score));
 
+        // 기본 3개 이유 뒤에 개인화/소재/피드백 이유를 보충하고 중복 문장은 제거한다.
         userStyleTagReason(candidate, preferredStyleTags).ifPresent(reasons::add);
         situationReason(candidate, situation).ifPresent(reasons::add);
         feedbackReason(candidate, recommendationHistories, requestedAt, weather).ifPresent(reasons::add);
@@ -69,6 +82,9 @@ public class RecommendationReasonGenerator {
                 .toList();
     }
 
+    /**
+     * 날씨 설명은 추천 성공 여부와 가장 직접적으로 연결되므로 항상 하나 이상 제공한다.
+     */
     private String weatherReason(OutfitCandidate candidate, WeatherCondition weather) {
         int temperature = weather.temperature();
         if (temperature <= 12 && candidate.hasOuter()) {
@@ -180,6 +196,9 @@ public class RecommendationReasonGenerator {
         return java.util.Optional.empty();
     }
 
+    /**
+     * 최근 피드백이 현재 후보와 겹칠 때만 이유로 노출한다.
+     */
     private java.util.Optional<String> feedbackReason(
             OutfitCandidate candidate,
             List<RecommendationHistorySnapshot> recommendationHistories,
@@ -198,6 +217,7 @@ public class RecommendationReasonGenerator {
             if (!overlaps) {
                 continue;
             }
+            // 온도 피드백은 당시 기온과 현재 기온이 비슷할 때만 같은 문제로 간주한다.
             if (history.sentimentFeedback() == RecommendationFeedbackSentiment.DISLIKED
                     || (history.thermalFeedback() == RecommendationThermalFeedback.TOO_COLD
                     && weather.temperature() <= history.weatherTemperature() + 3)
@@ -275,6 +295,9 @@ public class RecommendationReasonGenerator {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * 추천 상황을 사용자가 직접 입력한 태그와 같은 key 체계로 바꿔 비교한다.
+     */
     private Set<String> situationStyleTagKeys(RecommendationSituation situation) {
         RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
         return switch (resolvedSituation) {

@@ -6,6 +6,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
+/**
+ * Refresh token을 응답 cookie에 쓰거나 만료시키는 infrastructure helper다.
+ *
+ * <p>Cookie 속성은 환경별 설정으로 분리하고, token 원문은 JSON response에 넣지 않는다.</p>
+ */
 @Component
 public class RefreshTokenCookieWriter {
 
@@ -15,10 +20,16 @@ public class RefreshTokenCookieWriter {
         this.properties = properties;
     }
 
+    /**
+     * refresh token 원문을 HttpOnly cookie로 내려보낸다.
+     */
     public void write(HttpServletResponse response, String refreshToken) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie(refreshToken, properties.maxAge()).toString());
     }
 
+    /**
+     * 동일한 cookie 이름에 max-age 0을 설정해 브라우저 refresh cookie를 만료시킨다.
+     */
     public void expire(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie("", Duration.ZERO).toString());
     }

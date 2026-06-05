@@ -57,6 +57,7 @@ export function login(body: LoginRequest): Promise<AuthResponse> {
 }
 
 export function refreshSession(): Promise<AuthResponse> {
+  // refresh endpoint 자체가 401이면 세션 복구 실패이므로 다시 refresh를 시도하지 않는다.
   return request<AuthResponse>('/api/auth/refresh', {
     method: 'POST',
     credentials: 'include',
@@ -65,6 +66,7 @@ export function refreshSession(): Promise<AuthResponse> {
 }
 
 export function logout(): Promise<LogoutResponse> {
+  // logout은 refresh cookie 정리가 목적이므로 access token 없이 cookie credentials만 보낸다.
   return request<LogoutResponse>('/api/auth/logout', {
     method: 'POST',
     credentials: 'include',
@@ -174,6 +176,7 @@ export function updateUserLocation(
   accessToken: string,
   requestOrLocationCode: UpdateUserLocationRequest | string
 ): Promise<UserLocationResponse> {
+  // 예전 호출부의 string 인자를 유지하면서, source를 담는 새 request shape도 함께 지원한다.
   const body =
     typeof requestOrLocationCode === 'string'
       ? { locationCode: requestOrLocationCode }
@@ -285,6 +288,7 @@ export async function uploadClothingImage(
   const formData = new FormData();
   formData.append('image', file);
 
+  // multipart 요청은 브라우저가 boundary를 설정해야 하므로 Content-Type을 직접 넣지 않는다.
   const response = await fetchWithAuthRetry(`/api/clothes/${clothingId}/image`, accessToken, {
     method: 'PUT',
     headers: {
@@ -323,6 +327,7 @@ export async function getClothingImageBlob(
   accessToken: string,
   imageUrl: string
 ): Promise<Blob> {
+  // 보호 이미지 URL은 <img src>로 직접 열 수 없어서 Authorization header를 붙여 blob으로 가져온다.
   const response = await fetchWithAuthRetry(imageUrl, accessToken);
 
   if (!response.ok) {
