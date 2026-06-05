@@ -2,6 +2,7 @@ import { ApiClientError, apiBaseUrl, fetchWithAuthRetry, request } from './clien
 import type {
   AccountDeletionRequest,
   AccountDeletionResponse,
+  ClothingAnalysisResponse,
   AuthResponse,
   ClothingArchiveResponse,
   ClothingRequest,
@@ -237,6 +238,37 @@ export function updateClothing(
     accessToken,
     body: JSON.stringify(body),
   });
+}
+
+export async function analyzeClothingImage(
+  accessToken: string,
+  file: File
+): Promise<ClothingAnalysisResponse> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetchWithAuthRetry('/api/clothes/analyze-image', accessToken, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new ApiClientError(response.status, await parseImageErrorResponse(response));
+  }
+
+  const payload = (await response.json()) as { data?: ClothingAnalysisResponse };
+  if (!payload.data) {
+    throw new ApiClientError(response.status, {
+      code: 'INVALID_RESPONSE',
+      message: 'SmartCloset 분석 API 응답 형식이 올바르지 않습니다.',
+      details: [],
+    });
+  }
+
+  return payload.data;
 }
 
 export function archiveClothing(

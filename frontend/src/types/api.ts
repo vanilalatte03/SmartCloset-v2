@@ -137,6 +137,35 @@ export type ClothingRequest = {
   styleTags: string[];
 };
 
+export type ClothingAnalysisField =
+  | 'name'
+  | 'category'
+  | 'color'
+  | 'material'
+  | 'minTemperature'
+  | 'maxTemperature'
+  | 'rainSuitable'
+  | 'styleTags';
+
+export type ClothingAnalysisSuggestion = {
+  name: string;
+  category: ClothingCategory;
+  color: ClothingColor;
+  material: ClothingMaterial;
+  minTemperature: number;
+  maxTemperature: number;
+  rainSuitable: boolean;
+  styleTags: string[];
+};
+
+export type ClothingAnalysisResponse = {
+  analyzable: boolean;
+  suggestion: ClothingAnalysisSuggestion | null;
+  fieldConfidence: Partial<Record<ClothingAnalysisField, number>>;
+  reviewRequiredFields: ClothingAnalysisField[];
+  lowConfidenceThreshold: number;
+};
+
 export type ClothingImageResponse = {
   url: string;
   contentType: 'image/jpeg' | 'image/png' | 'image/webp';
