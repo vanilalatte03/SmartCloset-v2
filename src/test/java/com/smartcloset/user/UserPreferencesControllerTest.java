@@ -143,7 +143,7 @@ class UserPreferencesControllerTest {
     }
 
     @Test
-    void rejectsInvalidEnumValueAsInvalidRequest() throws Exception {
+    void rejectsInvalidEnumValueAsInvalidEnumValue() throws Exception {
         User user = userRepository.save(User.createSeedUser("preferences-invalid-enum-user"));
         String request = """
                 {
@@ -158,7 +158,7 @@ class UserPreferencesControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("INVALID_FORMAT"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -181,7 +181,7 @@ class UserPreferencesControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(blankTagRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
                 .andExpect(jsonPath("$.details").isArray());
 
         mockMvc.perform(put("/api/users/me/preferences")
@@ -189,7 +189,7 @@ class UserPreferencesControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tooLongTagRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 

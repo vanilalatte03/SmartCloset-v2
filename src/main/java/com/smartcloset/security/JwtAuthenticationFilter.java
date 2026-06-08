@@ -60,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (!userRepository.existsById(principal.userId())) {
                 // 계정 삭제 후 남은 access token은 USER_NOT_FOUND로 끊어 stale session을 방지한다.
                 SecurityContextHolder.clearContext();
-                errorResponseWriter.write(response, ErrorCode.USER_NOT_FOUND);
+                errorResponseWriter.write(request, response, ErrorCode.USER_NOT_FOUND);
                 return;
             }
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -72,7 +72,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (JwtTokenException exception) {
             SecurityContextHolder.clearContext();
-            errorResponseWriter.write(response, ErrorCode.INVALID_TOKEN);
+            errorResponseWriter.write(request, response, ErrorCode.INVALID_TOKEN, exception);
         }
     }
 

@@ -178,7 +178,7 @@ class CurrentUserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", " "))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"));
 
         Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getName()).isEqualTo("blank-name");
     }

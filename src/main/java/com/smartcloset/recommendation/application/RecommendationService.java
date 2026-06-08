@@ -466,7 +466,7 @@ public class RecommendationService {
     private int validateHistoryLimit(Integer limit) {
         int resolvedLimit = limit == null ? DEFAULT_HISTORY_LIMIT : limit;
         if (resolvedLimit < MIN_HISTORY_LIMIT || resolvedLimit > MAX_HISTORY_LIMIT) {
-            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+            throw new SmartClosetException(ErrorCode.INVALID_PAGINATION);
         }
         return resolvedLimit;
     }

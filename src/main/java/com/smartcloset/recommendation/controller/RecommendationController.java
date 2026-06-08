@@ -99,12 +99,12 @@ public class RecommendationController {
             return null;
         }
         if (limit.isBlank()) {
-            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+            throw new SmartClosetException(ErrorCode.INVALID_PAGINATION);
         }
         try {
             return Integer.valueOf(limit);
         } catch (NumberFormatException exception) {
-            throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+            throw new SmartClosetException(ErrorCode.INVALID_PAGINATION);
         }
     }
 

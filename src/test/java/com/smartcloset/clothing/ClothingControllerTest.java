@@ -296,8 +296,8 @@ class ClothingControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-                .andExpect(jsonPath("$.message").value("요청 값이 올바르지 않습니다."))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
+                .andExpect(jsonPath("$.message").value("요청 본문 검증에 실패했습니다."))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -312,7 +312,7 @@ class ClothingControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -327,7 +327,7 @@ class ClothingControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
                 .andExpect(jsonPath("$.details[0].field").value("rainSuitable"));
     }
 
@@ -645,7 +645,7 @@ class ClothingControllerTest {
                         })
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("MISSING_SERVLET_REQUEST_PART"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
