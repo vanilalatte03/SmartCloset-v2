@@ -93,6 +93,12 @@ frontend/src
 
 모든 사용자 소유 데이터는 인증 principal의 현재 사용자 id로 제한한다. 공개 `userId` query parameter를 되살리지 않는다.
 
+## 오류 처리와 운영 로그
+
+Controller 이후로 전파된 HTTP API 예외는 `GlobalExceptionHandler`가 `ErrorCode` 기반 JSON 실패 응답으로 변환한다. Spring Security filter 단계의 인증/인가 실패는 `SecurityErrorResponseWriter`가 같은 실패 응답 구조로 변환한다.
+
+실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message는 로그에 남기지 않는다.
+
 ## 옷 사진 분석 흐름
 
 ```text

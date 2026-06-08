@@ -187,9 +187,9 @@ class LocationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"latitude":91,"longitude":126.7707}
-                                """))
+                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("METHOD_ARGUMENT_NOT_VALID"))
                 .andExpect(jsonPath("$.details[0].field").value("latitude"));
     }
 

@@ -33,6 +33,8 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 - JSON 성공 응답은 항상 `data` 필드를 가진다.
 - JSON 실패 응답은 항상 `code`, `message`, `details` 필드를 가진다.
 - `details`는 항상 배열이다.
+- 실패 응답을 만든 서버 로그는 `code`, `status`, `method`, `path`, exception class, 고정된 error message를 남긴다.
+- 서버 로그에는 request body, Authorization header, cookie, query string, raw exception message를 남기지 않는다.
 
 ### 공통 성공 응답
 
@@ -48,8 +50,8 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 
 ```json
 {
-  "code": "INVALID_REQUEST",
-  "message": "요청 값이 올바르지 않습니다.",
+  "code": "METHOD_ARGUMENT_NOT_VALID",
+  "message": "요청 본문 검증에 실패했습니다.",
   "details": [
     {
       "field": "email",
@@ -596,7 +598,19 @@ MVP10에서 추가하는 error code:
 
 | Code | Status | Meaning |
 | --- | --- | --- |
-| `INVALID_REQUEST` | `400 Bad Request` | validation 실패 또는 잘못된 multipart image |
+| `INVALID_REQUEST` | `400 Bad Request` | 도메인별 일반 요청 오류 또는 잘못된 image validation |
+| `METHOD_ARGUMENT_NOT_VALID` | `400 Bad Request` | `MethodArgumentNotValidException`: request body DTO validation 실패 |
+| `HANDLER_METHOD_VALIDATION` | `400 Bad Request` | `HandlerMethodValidationException`: controller method parameter validation 실패 |
+| `CONSTRAINT_VIOLATION` | `400 Bad Request` | `ConstraintViolationException`: Bean Validation constraint violation |
+| `MISSING_SERVLET_REQUEST_PARAMETER` | `400 Bad Request` | `MissingServletRequestParameterException`: 필수 request parameter 누락 |
+| `MISSING_SERVLET_REQUEST_PART` | `400 Bad Request` | `MissingServletRequestPartException`: 필수 multipart part 누락 |
+| `METHOD_ARGUMENT_TYPE_MISMATCH` | `400 Bad Request` | `MethodArgumentTypeMismatchException`: query/path parameter type mismatch |
+| `HTTP_MESSAGE_NOT_READABLE` | `400 Bad Request` | `HttpMessageNotReadableException`: 읽을 수 없는 JSON request body |
+| `INVALID_FORMAT` | `400 Bad Request` | `InvalidFormatException`: JSON request body 값 형식 오류 |
+| `ILLEGAL_ARGUMENT` | `400 Bad Request` | `IllegalArgumentException`: 도메인/서비스 입력 인자 오류 |
+| `MAX_UPLOAD_SIZE_EXCEEDED` | `400 Bad Request` | `MaxUploadSizeExceededException`: 업로드 크기 제한 초과 |
+| `MULTIPART_EXCEPTION` | `400 Bad Request` | `MultipartException`: 기타 multipart 요청 오류 |
+| `INVALID_PAGINATION` | `400 Bad Request` | 추천 이력 조회 pagination/limit 값 오류 |
 | `UNAUTHORIZED` | `401 Unauthorized` | 인증 필요 |
 | `INVALID_TOKEN` | `401 Unauthorized` | 인증 token 또는 refresh token 오류 |
 | `EMAIL_VERIFICATION_REQUIRED` | `403 Forbidden` | 이메일 인증 전 password login 차단 |

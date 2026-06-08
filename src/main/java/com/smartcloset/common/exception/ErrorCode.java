@@ -9,6 +9,18 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
+    METHOD_ARGUMENT_NOT_VALID(HttpStatus.BAD_REQUEST, "요청 본문 검증에 실패했습니다."),
+    HANDLER_METHOD_VALIDATION(HttpStatus.BAD_REQUEST, "요청 메서드 파라미터 검증에 실패했습니다."),
+    CONSTRAINT_VIOLATION(HttpStatus.BAD_REQUEST, "요청 제약 조건 검증에 실패했습니다."),
+    MISSING_SERVLET_REQUEST_PARAMETER(HttpStatus.BAD_REQUEST, "필수 요청 파라미터가 누락되었습니다."),
+    MISSING_SERVLET_REQUEST_PART(HttpStatus.BAD_REQUEST, "필수 multipart part가 누락되었습니다."),
+    METHOD_ARGUMENT_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "요청 파라미터 타입이 올바르지 않습니다."),
+    HTTP_MESSAGE_NOT_READABLE(HttpStatus.BAD_REQUEST, "요청 본문을 읽을 수 없습니다."),
+    INVALID_FORMAT(HttpStatus.BAD_REQUEST, "요청 본문 값 형식이 올바르지 않습니다."),
+    ILLEGAL_ARGUMENT(HttpStatus.BAD_REQUEST, "요청 인자가 올바르지 않습니다."),
+    MAX_UPLOAD_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "업로드 가능한 파일 크기를 초과했습니다."),
+    MULTIPART_EXCEPTION(HttpStatus.BAD_REQUEST, "multipart 요청이 올바르지 않습니다."),
+    INVALID_PAGINATION(HttpStatus.BAD_REQUEST, "페이지 번호 또는 크기가 올바르지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "인증 토큰이 올바르지 않습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),

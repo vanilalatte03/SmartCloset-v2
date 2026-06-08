@@ -242,7 +242,7 @@ class RecommendationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"forecastPeriod\":\"LUNCH\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("INVALID_FORMAT"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -255,7 +255,7 @@ class RecommendationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"situation\":\"TRAVEL\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.code").value("INVALID_FORMAT"))
                 .andExpect(jsonPath("$.details").isArray());
     }
 
@@ -671,25 +671,25 @@ class RecommendationControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .param("limit", "0"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
 
         mockMvc.perform(get("/api/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .param("limit", "51"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
 
         mockMvc.perform(get("/api/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .param("limit", "many"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
 
         mockMvc.perform(get("/api/recommendations")
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(targetUser))
                         .param("limit", ""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
     }
 
     @Test
