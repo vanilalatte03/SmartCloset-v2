@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
 @ActiveProfiles("test")
@@ -55,6 +56,9 @@ class GoogleOAuthServiceTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
@@ -68,6 +72,7 @@ class GoogleOAuthServiceTest {
                 defaultClothingPresetSeeder,
                 refreshTokenService,
                 jwtTokenProvider,
+                transactionManager,
                 Clock.fixed(Instant.parse("2026-05-27T03:00:00Z"), ZoneOffset.UTC)
         );
     }
@@ -154,7 +159,9 @@ class GoogleOAuthServiceTest {
                         "http://localhost:8080/api/auth/oauth2/callback/google",
                         "https://accounts.google.com/o/oauth2/v2/auth",
                         "https://oauth2.googleapis.com/token",
-                        "https://openidconnect.googleapis.com/v1/userinfo"
+                        "https://openidconnect.googleapis.com/v1/userinfo",
+                        null,
+                        null
                 )
         );
     }

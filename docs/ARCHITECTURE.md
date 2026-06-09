@@ -249,7 +249,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Logout: refresh session revoke write transaction 또는 멱등 no-op
 - Email verification confirm: action token consume + user update write transaction
 - Password reset confirm: action token consume + password update + refresh revoke write transaction
-- OAuth callback: user/social account upsert + refresh issue write transaction
+- OAuth callback: Google provider 호출은 transaction 밖에서 수행하고, user/social account upsert + refresh issue만 write transaction
 - Account deletion: current user owned data delete write transaction, image file cleanup은 명시적 보상 정책 필요
 - Clothing create/update: current user owned data write transaction
 - Clothing image upload/delete: metadata write transaction과 file cleanup 정책 분리

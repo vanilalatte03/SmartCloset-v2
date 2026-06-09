@@ -3,7 +3,9 @@ package com.smartcloset.auth.infrastructure;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -20,7 +22,14 @@ public class GoogleOAuthClient {
 
     private final RestClient restClient;
 
-    public GoogleOAuthClient() {
+    @Autowired
+    public GoogleOAuthClient(GoogleOAuthProperties properties) {
+        this(RestClient.builder()
+                .requestFactory(requestFactory(properties.google()))
+                .build());
+    }
+
+    protected GoogleOAuthClient() {
         this(RestClient.create());
     }
 
@@ -71,5 +80,16 @@ public class GoogleOAuthClient {
             throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
         }
         return code;
+    }
+
+    private static SimpleClientHttpRequestFactory requestFactory(GoogleOAuthProperties.Google google) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(google == null
+                ? GoogleOAuthProperties.DEFAULT_CONNECT_TIMEOUT
+                : google.connectTimeout());
+        requestFactory.setReadTimeout(google == null
+                ? GoogleOAuthProperties.DEFAULT_READ_TIMEOUT
+                : google.readTimeout());
+        return requestFactory;
     }
 }
