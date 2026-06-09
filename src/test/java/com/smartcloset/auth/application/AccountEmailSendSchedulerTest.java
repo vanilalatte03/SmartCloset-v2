@@ -9,11 +9,13 @@ import com.smartcloset.auth.dto.PasswordResetRequest;
 import com.smartcloset.auth.dto.SignupRequest;
 import com.smartcloset.auth.infrastructure.EmailSender;
 import com.smartcloset.auth.repository.AccountActionTokenRepository;
+import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,9 @@ class AccountEmailSendSchedulerTest {
     private AccountActionTokenRepository accountActionTokenRepository;
 
     @Autowired
+    private ClothingItemRepository clothingItemRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -50,12 +55,27 @@ class AccountEmailSendSchedulerTest {
     @Autowired
     private RecordingEmailSender emailSender;
 
+    private final List<String> createdEmails = new ArrayList<>();
     private TransactionTemplate transactionTemplate;
 
     @BeforeEach
     void setUp() {
         transactionTemplate = new TransactionTemplate(transactionManager);
         emailSender.clear();
+    }
+
+    @AfterEach
+    void cleanupCommittedRows() {
+        transactionTemplate.executeWithoutResult(status -> {
+            for (String email : createdEmails) {
+                userRepository.findByEmail(email).ifPresent(user -> {
+                    accountActionTokenRepository.deleteByUserId(user.getId());
+                    clothingItemRepository.deleteByUserId(user.getId());
+                    userRepository.delete(user);
+                });
+            }
+        });
+        createdEmails.clear();
     }
 
     @Test
@@ -150,7 +170,9 @@ class AccountEmailSendSchedulerTest {
     }
 
     private String uniqueEmail(String prefix) {
-        return prefix + "-" + UUID.randomUUID() + "@example.com";
+        String email = prefix + "-" + UUID.randomUUID() + "@example.com";
+        createdEmails.add(email);
+        return email;
     }
 
     @TestConfiguration
