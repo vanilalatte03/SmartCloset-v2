@@ -167,7 +167,7 @@ smartcloset:
 MVP10은 사용자가 사진을 선택했다고 자동으로 OpenAI를 호출하지 않는다.
 
 - 분석은 프론트의 수동 `AI 후보 체크` command에서만 실행한다.
-- user별 in-memory daily limit 기본값은 20회다.
+- user별 in-memory daily limit 기본값은 20회이며, 날짜가 바뀌면 이전 날짜 counter를 process-local map에서 정리한다.
 - 프론트는 파일 fingerprint 기준으로 같은 파일의 마지막 분석 결과를 재사용할 수 있다.
 - provider 장애 시 더 비싼 모델로 자동 재시도하지 않는다.
 - API key와 실제 secret은 코드와 문서 예시에 커밋하지 않는다.

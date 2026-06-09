@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -23,6 +24,7 @@ public class ClothingAnalysisDailyLimiter {
     private final ClothingAnalysisProperties properties;
     private final Clock clock;
     private final ConcurrentMap<DailyLimitKey, AtomicInteger> counters = new ConcurrentHashMap<>();
+    private final AtomicReference<LocalDate> lastCleanupDate = new AtomicReference<>(LocalDate.MIN);
 
     @Autowired
     public ClothingAnalysisDailyLimiter(ClothingAnalysisProperties properties) {
@@ -38,16 +40,65 @@ public class ClothingAnalysisDailyLimiter {
      * 현재 날짜의 사용자별 분석 요청 수를 증가시키고 daily limit 초과 시 stable error code로 실패한다.
      */
     public void checkAndIncrement(Long userId) {
+        LocalDate today = LocalDate.now(clock);
+        cleanupExpiredCounters(today);
+
         int dailyLimit = properties.dailyLimit();
         if (dailyLimit < 1) {
             throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
         }
 
-        DailyLimitKey key = new DailyLimitKey(userId, LocalDate.now(clock));
-        int count = counters.computeIfAbsent(key, ignored -> new AtomicInteger()).incrementAndGet();
-        if (count > dailyLimit) {
-            throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
+        while (true) {
+            DailyLimitKey key = new DailyLimitKey(userId, latestObservedDate(today));
+            AtomicInteger counter = counters.computeIfAbsent(key, ignored -> new AtomicInteger());
+            int count = counter.incrementAndGet();
+            if (removeIfExpiredByCompletedCleanup(key, counter)) {
+                today = LocalDate.now(clock);
+                cleanupExpiredCounters(today);
+                continue;
+            }
+            if (count > dailyLimit) {
+                throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
+            }
+            return;
         }
+    }
+
+    int counterSize() {
+        return counters.size();
+    }
+
+    boolean hasCounterFor(Long userId, LocalDate date) {
+        return counters.containsKey(new DailyLimitKey(userId, date));
+    }
+
+    private void cleanupExpiredCounters(LocalDate today) {
+        while (true) {
+            LocalDate lastCleanup = lastCleanupDate.get();
+            if (!today.isAfter(lastCleanup)) {
+                return;
+            }
+            if (lastCleanupDate.compareAndSet(lastCleanup, today)) {
+                break;
+            }
+        }
+        counters.keySet().removeIf(key -> key.date().isBefore(today));
+    }
+
+    private LocalDate latestObservedDate(LocalDate today) {
+        LocalDate lastCleanup = lastCleanupDate.get();
+        if (today.isBefore(lastCleanup)) {
+            return lastCleanup;
+        }
+        return today;
+    }
+
+    private boolean removeIfExpiredByCompletedCleanup(DailyLimitKey key, AtomicInteger counter) {
+        if (key.date().isBefore(lastCleanupDate.get())) {
+            counters.remove(key, counter);
+            return true;
+        }
+        return false;
     }
 
     private record DailyLimitKey(Long userId, LocalDate date) {
