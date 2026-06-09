@@ -18,6 +18,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 이메일 인증과 비밀번호 재설정에 쓰는 single-use 토큰을 관리한다.
@@ -76,6 +77,7 @@ public class AccountActionTokenService {
     /**
      * 목적별 TTL을 적용한 새 계정 액션 토큰을 발급한다.
      */
+    @Transactional
     public IssuedAccountActionToken issue(User user, AccountActionTokenPurpose purpose) {
         String token = generateToken();
         String tokenHash = hash(token);
@@ -86,11 +88,12 @@ public class AccountActionTokenService {
     }
 
     /**
-     * 토큰 목적, 만료, 사용 여부를 한 번에 검증하고 사용 처리한다.
+     * 토큰 목적, 만료, 사용 여부를 한 transaction 안에서 검증하고 사용 처리한다.
      */
+    @Transactional
     public User consume(String token, AccountActionTokenPurpose purpose) {
         String tokenHash = hash(token);
-        AccountActionToken accountActionToken = accountActionTokenRepository.findByTokenHash(tokenHash)
+        AccountActionToken accountActionToken = accountActionTokenRepository.findByTokenHashForConsume(tokenHash)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.ACCOUNT_TOKEN_INVALID));
         LocalDateTime now = now();
         if (!accountActionToken.canConsume(purpose, now)) {
