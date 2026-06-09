@@ -2,6 +2,7 @@ package com.smartcloset.auth.application;
 
 import com.smartcloset.auth.domain.OAuthProvider;
 import com.smartcloset.auth.domain.SocialAccount;
+import com.smartcloset.auth.dto.AuthResponse;
 import com.smartcloset.auth.dto.OAuthProvidersResponse;
 import com.smartcloset.auth.infrastructure.GoogleOAuthClient;
 import com.smartcloset.auth.infrastructure.GoogleOAuthProperties;
@@ -13,6 +14,7 @@ import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
+import com.smartcloset.user.domain.UserRole;
 import com.smartcloset.user.dto.CurrentUserResponse;
 import com.smartcloset.user.repository.UserRepository;
 import java.net.URI;
@@ -24,7 +26,8 @@ import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -47,6 +50,7 @@ public class GoogleOAuthService {
     private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     @Autowired
@@ -57,10 +61,11 @@ public class GoogleOAuthService {
             UserRepository userRepository,
             DefaultClothingPresetSeeder defaultClothingPresetSeeder,
             RefreshTokenService refreshTokenService,
-            JwtTokenProvider jwtTokenProvider
+            JwtTokenProvider jwtTokenProvider,
+            PlatformTransactionManager transactionManager
     ) {
         this(properties, googleOAuthClient, socialAccountRepository, userRepository, defaultClothingPresetSeeder,
-                refreshTokenService, jwtTokenProvider, Clock.systemUTC());
+                refreshTokenService, jwtTokenProvider, transactionManager, Clock.systemUTC());
     }
 
     GoogleOAuthService(
@@ -71,6 +76,7 @@ public class GoogleOAuthService {
             DefaultClothingPresetSeeder defaultClothingPresetSeeder,
             RefreshTokenService refreshTokenService,
             JwtTokenProvider jwtTokenProvider,
+            PlatformTransactionManager transactionManager,
             Clock clock
     ) {
         this.properties = properties;
@@ -80,6 +86,7 @@ public class GoogleOAuthService {
         this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
         this.refreshTokenService = refreshTokenService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -123,21 +130,34 @@ public class GoogleOAuthService {
     /**
      * authorization code를 Google profile로 교환한 뒤 SmartCloset 세션 token 쌍을 발급한다.
      */
-    @Transactional
     public RefreshTokenBundle callback(String code) {
         ensureGoogleEnabled();
         GoogleUserProfile profile = googleOAuthClient.fetchUserProfile(code, properties);
+        validateVerifiedProfile(profile);
+        GoogleOAuthSession session = Objects.requireNonNull(transactionTemplate.execute(status ->
+                issueGoogleSession(profile)
+        ));
+        CurrentUserPrincipal principal = new CurrentUserPrincipal(session.userId(), session.email(), session.role());
+        String accessToken = jwtTokenProvider.createAccessToken(principal);
+        return new RefreshTokenBundle(
+                AuthResponse.bearer(
+                        accessToken,
+                        session.currentUser()
+                ),
+                session.refreshToken()
+        );
+    }
+
+    private GoogleOAuthSession issueGoogleSession(GoogleUserProfile profile) {
         User user = findOrCreateVerifiedGoogleUser(profile);
         defaultClothingPresetSeeder.seedIfEmpty(user);
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
-        CurrentUserPrincipal principal = new CurrentUserPrincipal(user.getId(), user.getEmail(), user.getRole());
-        String accessToken = jwtTokenProvider.createAccessToken(principal);
         List<String> providers = authProvidersForGoogleUser(user);
-        return new RefreshTokenBundle(
-                com.smartcloset.auth.dto.AuthResponse.bearer(
-                        accessToken,
-                        CurrentUserResponse.from(user, providers)
-                ),
+        return new GoogleOAuthSession(
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                CurrentUserResponse.from(user, providers),
                 refreshToken.refreshToken()
         );
     }
@@ -150,7 +170,6 @@ public class GoogleOAuthService {
     }
 
     private User findOrCreateVerifiedGoogleUser(GoogleUserProfile profile) {
-        validateVerifiedProfile(profile);
         return socialAccountRepository.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, profile.sub())
                 .map(SocialAccount::getUser)
                 .orElseGet(() -> linkByEmailOrCreate(profile));
@@ -205,5 +224,14 @@ public class GoogleOAuthService {
         if (!properties.googleEnabled()) {
             throw new SmartClosetException(ErrorCode.OAUTH2_PROVIDER_UNAVAILABLE);
         }
+    }
+
+    private record GoogleOAuthSession(
+            Long userId,
+            String email,
+            UserRole role,
+            CurrentUserResponse currentUser,
+            String refreshToken
+    ) {
     }
 }

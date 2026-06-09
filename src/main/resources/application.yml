@@ -67,6 +67,8 @@ smartcloset:
         authorization-uri: "${GOOGLE_OAUTH_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}"
         token-uri: "${GOOGLE_OAUTH_TOKEN_URI:https://oauth2.googleapis.com/token}"
         user-info-uri: "${GOOGLE_OAUTH_USER_INFO_URI:https://openidconnect.googleapis.com/v1/userinfo}"
+        connect-timeout: ${GOOGLE_OAUTH_CONNECT_TIMEOUT:3s}
+        read-timeout: ${GOOGLE_OAUTH_READ_TIMEOUT:5s}
   clothing:
     image:
       storage-dir: ${CLOTHING_IMAGE_STORAGE_DIR:./uploads/clothing-images}

@@ -1,5 +1,6 @@
 package com.smartcloset.auth.infrastructure;
 
+import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -15,6 +16,8 @@ public record GoogleOAuthProperties(
 ) {
 
     private static final List<String> SCOPES = List.of("openid", "email", "profile");
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    public static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(5);
 
     public boolean googleEnabled() {
         return google != null
@@ -37,7 +40,22 @@ public record GoogleOAuthProperties(
             String redirectUri,
             String authorizationUri,
             String tokenUri,
-            String userInfoUri
+            String userInfoUri,
+            Duration connectTimeout,
+            Duration readTimeout
     ) {
+
+        public Google {
+            connectTimeout = timeoutOrDefault(connectTimeout, DEFAULT_CONNECT_TIMEOUT, "connectTimeout");
+            readTimeout = timeoutOrDefault(readTimeout, DEFAULT_READ_TIMEOUT, "readTimeout");
+        }
+    }
+
+    private static Duration timeoutOrDefault(Duration value, Duration defaultValue, String name) {
+        Duration resolved = value == null ? defaultValue : value;
+        if (resolved.isZero() || resolved.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return resolved;
     }
 }

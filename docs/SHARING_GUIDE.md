@@ -108,6 +108,8 @@ CLOTHING_ANALYSIS_TIMEOUT_SECONDS=10
 GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/oauth2/callback/google
+GOOGLE_OAUTH_CONNECT_TIMEOUT=3s
+GOOGLE_OAUTH_READ_TIMEOUT=5s
 FRONTEND_AUTH_CALLBACK_URL=http://localhost:5173/auth/callback
 OAUTH_STATE_COOKIE_NAME=smartcloset.oauth2State
 OAUTH_STATE_COOKIE_SECURE=false
@@ -131,6 +133,7 @@ VITE_API_BASE_URL=http://localhost:8080
 | `REFRESH_TOKEN_TTL_DAYS` | refresh session 만료 기준 |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
+| `GOOGLE_OAUTH_CONNECT_TIMEOUT`, `GOOGLE_OAUTH_READ_TIMEOUT` | Google token/userinfo provider 호출 timeout |
 | `FRONTEND_AUTH_CALLBACK_URL` | OAuth 성공 후 frontend callback URL |
 | `OAUTH_STATE_COOKIE_*` | Google OAuth state cookie name, secure, SameSite, domain, path, max age 설정 |
 | `CORS_ALLOWED_ORIGINS` | credential 요청을 허용할 frontend origin 목록 |
