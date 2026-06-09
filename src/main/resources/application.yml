@@ -85,3 +85,5 @@ smartcloset:
       nx: ${KMA_NX:60}
       ny: ${KMA_NY:127}
       base-url: "${KMA_BASE_URL:http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}"
+      cache-ttl: ${KMA_CACHE_TTL:2m}
+      cache-max-size: ${KMA_CACHE_MAX_SIZE:256}

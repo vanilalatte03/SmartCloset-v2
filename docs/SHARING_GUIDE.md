@@ -92,6 +92,8 @@ KMA_SERVICE_KEY=
 KMA_NX=60
 KMA_NY=127
 KMA_BASE_URL=http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
+KMA_CACHE_TTL=2m
+KMA_CACHE_MAX_SIZE=256
 WEATHER_FALLBACK_ENABLED=true
 
 CLOTHING_IMAGE_STORAGE_DIR=/data/smartcloset/clothing-images
@@ -139,6 +141,7 @@ VITE_API_BASE_URL=http://localhost:8080
 | `CORS_ALLOWED_ORIGINS` | credential 요청을 허용할 frontend origin 목록 |
 | `CORS_ALLOW_CREDENTIALS` | refresh cookie 요청을 위한 CORS credentials 허용 여부 |
 | `KMA_SERVICE_KEY` | 공공데이터포털에서 발급받은 인증키. 커밋 금지 |
+| `KMA_CACHE_TTL`, `KMA_CACHE_MAX_SIZE` | KMA 날씨 process-local cache의 TTL과 entry 상한. 기본 `2m`, `256` |
 | `WEATHER_FALLBACK_ENABLED` | KMA 실패 시 fallback 사용 여부. 기본 `true` |
 | `CLOTHING_IMAGE_STORAGE_DIR` | app container 내부 이미지 저장 경로 |
 | `CLOTHING_ANALYSIS_ENABLED` | 옷 사진 AI 분석 기능 활성 여부. 기본 `false` |

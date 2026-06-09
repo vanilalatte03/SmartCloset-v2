@@ -1,5 +1,6 @@
 package com.smartcloset.weather.infrastructure.kma;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -13,6 +14,8 @@ public class KmaWeatherProperties {
     public static final String DEFAULT_BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0";
     public static final int DEFAULT_NX = 60;
     public static final int DEFAULT_NY = 127;
+    public static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(2);
+    public static final int DEFAULT_CACHE_MAX_SIZE = 256;
 
     private final Kma kma = new Kma();
 
@@ -32,6 +35,14 @@ public class KmaWeatherProperties {
 
     public String baseUrl() {
         return kma.baseUrl;
+    }
+
+    public Duration cacheTtl() {
+        return kma.cacheTtl;
+    }
+
+    public int cacheMaxSize() {
+        return kma.cacheMaxSize;
     }
 
     public boolean fallbackEnabled() {
@@ -59,6 +70,10 @@ public class KmaWeatherProperties {
         private int ny = DEFAULT_NY;
 
         private String baseUrl = DEFAULT_BASE_URL;
+
+        private Duration cacheTtl = DEFAULT_CACHE_TTL;
+
+        private int cacheMaxSize = DEFAULT_CACHE_MAX_SIZE;
 
         public String getServiceKey() {
             return serviceKey;
@@ -90,6 +105,22 @@ public class KmaWeatherProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+
+        public Duration getCacheTtl() {
+            return cacheTtl;
+        }
+
+        public void setCacheTtl(Duration cacheTtl) {
+            this.cacheTtl = cacheTtl == null ? DEFAULT_CACHE_TTL : cacheTtl;
+        }
+
+        public int getCacheMaxSize() {
+            return cacheMaxSize;
+        }
+
+        public void setCacheMaxSize(int cacheMaxSize) {
+            this.cacheMaxSize = cacheMaxSize;
         }
     }
 }

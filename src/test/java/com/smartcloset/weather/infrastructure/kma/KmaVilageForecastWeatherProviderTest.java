@@ -136,6 +136,64 @@ class KmaVilageForecastWeatherProviderTest {
     }
 
     @Test
+    void removesExpiredEntriesBeforeCachingNewWeather() {
+        MutableClock mutableClock = MutableClock.fixed("2026-05-21T14:15:00+09:00");
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(
+                properties("test-service-key", true),
+                client,
+                mutableClock
+        );
+
+        provider.getCurrentWeather(1L);
+        provider.getWeather(1L, ForecastPeriod.AFTERNOON);
+        assertThat(provider.cacheEntryCount()).isEqualTo(2);
+
+        mutableClock.advance(Duration.ofMinutes(2));
+        provider.getWeather(1L, ForecastPeriod.EVENING);
+
+        assertThat(provider.cacheEntryCount()).isEqualTo(1);
+        assertThat(client.callCount()).isEqualTo(3);
+    }
+
+    @Test
+    void evictsOldestCacheEntryWhenMaxSizeIsExceeded() {
+        KmaWeatherProperties properties = properties("test-service-key", true);
+        properties.getKma().setCacheMaxSize(1);
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(properties, client);
+
+        provider.getCurrentWeather(1L);
+        provider.getWeather(1L, ForecastPeriod.AFTERNOON);
+        provider.getCurrentWeather(1L);
+
+        assertThat(provider.cacheEntryCount()).isEqualTo(1);
+        assertThat(client.callCount()).isEqualTo(3);
+    }
+
+    @Test
+    void reusesCachedWeatherAcrossUsersForSameGridAndKeepsEachLocationSnapshot() {
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(
+                properties("test-service-key", true),
+                client,
+                new StaticWeatherProvider(),
+                new UserAwareLocationReader(),
+                clock
+        );
+
+        WeatherSnapshot firstWeather = provider.getCurrentWeather(1L);
+        WeatherSnapshot secondWeather = provider.getCurrentWeather(2L);
+
+        assertThat(client.callCount()).isEqualTo(1);
+        assertThat(secondWeather.condition()).isEqualTo(firstWeather.condition());
+        assertThat(firstWeather.location().code()).isEqualTo("BUSAN_MANUAL");
+        assertThat(firstWeather.location().source()).isEqualTo(LocationSource.MANUAL_SEARCH);
+        assertThat(secondWeather.location().code()).isEqualTo("BUSAN_BROWSER");
+        assertThat(secondWeather.location().source()).isEqualTo(LocationSource.BROWSER_GEOLOCATION);
+    }
+
+    @Test
     void doesNotReuseCachedWeatherWhenLocationChanges() {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         MutableUserLocationReader locationReader = new MutableUserLocationReader(busanLocation());
@@ -163,7 +221,7 @@ class KmaVilageForecastWeatherProviderTest {
     }
 
     @Test
-    void doesNotReuseCachedWeatherWhenLocationSourceChangesForSameGrid() {
+    void reusesCachedWeatherWhenOnlyLocationMetadataChangesForSameGrid() {
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         MutableUserLocationReader locationReader = new MutableUserLocationReader(new UserLocationSnapshot(
                 1L,
@@ -202,7 +260,7 @@ class KmaVilageForecastWeatherProviderTest {
         ));
         WeatherSnapshot secondWeather = provider.getCurrentWeather(1L);
 
-        assertThat(client.callCount()).isEqualTo(2);
+        assertThat(client.callCount()).isEqualTo(1);
         assertThat(firstWeather.location().source()).isEqualTo(LocationSource.MANUAL_SEARCH);
         assertThat(secondWeather.location().source()).isEqualTo(LocationSource.BROWSER_GEOLOCATION);
     }
@@ -245,6 +303,23 @@ class KmaVilageForecastWeatherProviderTest {
 
         assertFallbackWeather(fallbackWeather);
         assertInternalServerError(provider);
+    }
+
+    @Test
+    void rejectsInvalidCacheConfiguration() {
+        KmaWeatherProperties zeroTtlProperties = properties("test-service-key", true);
+        zeroTtlProperties.getKma().setCacheTtl(Duration.ZERO);
+
+        assertThatThrownBy(() -> newProvider(zeroTtlProperties, FakeKmaForecastClient.returning(completeGroup())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cache ttl");
+
+        KmaWeatherProperties zeroSizeProperties = properties("test-service-key", true);
+        zeroSizeProperties.getKma().setCacheMaxSize(0);
+
+        assertThatThrownBy(() -> newProvider(zeroSizeProperties, FakeKmaForecastClient.returning(completeGroup())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cache max size");
     }
 
     @Test
@@ -457,6 +532,41 @@ class KmaVilageForecastWeatherProviderTest {
         @Override
         public UserLocationSnapshot getRequiredLocationSnapshot(Long userId) {
             return location;
+        }
+    }
+
+    private static final class UserAwareLocationReader implements UserLocationReader {
+
+        @Override
+        public UserLocationSnapshot getRequiredLocationSnapshot(Long userId) {
+            if (userId == 2L) {
+                return new UserLocationSnapshot(
+                        userId,
+                        "BUSAN_BROWSER",
+                        "부산광역시 브라우저",
+                        "부산광역시 브라우저",
+                        "부산광역시",
+                        null,
+                        null,
+                        98,
+                        76,
+                        LocationSource.BROWSER_GEOLOCATION,
+                        LocalDateTime.parse("2026-05-21T13:01:00")
+                );
+            }
+            return new UserLocationSnapshot(
+                    userId,
+                    "BUSAN_MANUAL",
+                    "부산광역시 수동",
+                    "부산광역시 수동",
+                    "부산광역시",
+                    null,
+                    null,
+                    98,
+                    76,
+                    LocationSource.MANUAL_SEARCH,
+                    LocalDateTime.parse("2026-05-21T13:00:00")
+            );
         }
     }
 
