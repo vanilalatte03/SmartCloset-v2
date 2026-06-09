@@ -43,6 +43,7 @@ import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherSnapshot;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -224,9 +225,8 @@ public class RecommendationService {
      */
     @Transactional
     public RecommendationWornResponse markWorn(Long userId, Long recommendationId) {
-        User user = findUser(userId);
         RecommendationResult recommendationResult = recommendationResultRepository
-                .findByIdAndUserId(recommendationId, userId)
+                .findByIdAndUserIdForWorn(recommendationId, userId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.RECOMMENDATION_NOT_FOUND));
 
         Optional<WearHistory> existingWearHistory = wearHistoryRepository.findByRecommendationResultId(
@@ -238,10 +238,11 @@ public class RecommendationService {
         }
 
         recommendationResult.markWorn();
+        LocalDateTime wornAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         WearHistory wearHistory = wearHistoryRepository.save(WearHistory.record(
-                user,
+                recommendationResult.getUser(),
                 recommendationResult,
-                LocalDateTime.now()
+                wornAt
         ));
         return RecommendationWornResponse.of(recommendationResult.getId(), wearHistory.getWornAt());
     }

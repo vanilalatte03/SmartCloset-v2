@@ -1,19 +1,33 @@
 package com.smartcloset.recommendation.repository;
 
 import com.smartcloset.recommendation.domain.RecommendationResult;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RecommendationResultRepository extends JpaRepository<RecommendationResult, Long> {
 
     Optional<RecommendationResult> findByIdAndUserId(Long id, Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select result
+            from RecommendationResult result
+            where result.id = :id
+              and result.user.id = :userId
+            """)
+    Optional<RecommendationResult> findByIdAndUserIdForWorn(
+            @Param("id") Long id,
+            @Param("userId") Long userId
+    );
 
     @Query("""
             select r.id
