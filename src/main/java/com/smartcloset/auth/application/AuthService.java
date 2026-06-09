@@ -13,7 +13,6 @@ import com.smartcloset.auth.dto.PasswordResetRequest;
 import com.smartcloset.auth.dto.PasswordResetRequestedResponse;
 import com.smartcloset.auth.dto.SignupRequest;
 import com.smartcloset.auth.dto.SignupResponse;
-import com.smartcloset.auth.infrastructure.EmailSender;
 import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
@@ -41,7 +40,7 @@ public class AuthService {
     private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
     private final RefreshTokenService refreshTokenService;
     private final AccountActionTokenService accountActionTokenService;
-    private final EmailSender emailSender;
+    private final AccountEmailSendScheduler accountEmailSendScheduler;
     private final AuthProviderService authProviderService;
 
     public AuthService(
@@ -51,7 +50,7 @@ public class AuthService {
             DefaultClothingPresetSeeder defaultClothingPresetSeeder,
             RefreshTokenService refreshTokenService,
             AccountActionTokenService accountActionTokenService,
-            EmailSender emailSender,
+            AccountEmailSendScheduler accountEmailSendScheduler,
             AuthProviderService authProviderService
     ) {
         this.userRepository = userRepository;
@@ -60,7 +59,7 @@ public class AuthService {
         this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
         this.refreshTokenService = refreshTokenService;
         this.accountActionTokenService = accountActionTokenService;
-        this.emailSender = emailSender;
+        this.accountEmailSendScheduler = accountEmailSendScheduler;
         this.authProviderService = authProviderService;
     }
 
@@ -194,12 +193,12 @@ public class AuthService {
     private void issueEmailVerification(User user) {
         AccountActionTokenService.IssuedAccountActionToken token =
                 accountActionTokenService.issue(user, AccountActionTokenPurpose.EMAIL_VERIFICATION);
-        emailSender.sendEmailVerification(user.getEmail(), token.token());
+        accountEmailSendScheduler.sendEmailVerificationAfterCommit(user.getEmail(), token.token());
     }
 
     private void issuePasswordReset(User user) {
         AccountActionTokenService.IssuedAccountActionToken token =
                 accountActionTokenService.issue(user, AccountActionTokenPurpose.PASSWORD_RESET);
-        emailSender.sendPasswordReset(user.getEmail(), token.token());
+        accountEmailSendScheduler.sendPasswordResetAfterCommit(user.getEmail(), token.token());
     }
 }
