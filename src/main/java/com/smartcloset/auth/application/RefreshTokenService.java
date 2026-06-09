@@ -16,6 +16,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Refresh token 원문을 발급/회전하되 DB에는 HMAC hash만 저장한다.
@@ -66,6 +67,7 @@ public class RefreshTokenService {
     /**
      * 새 refresh session을 생성하고 raw token은 호출자에게만 반환한다.
      */
+    @Transactional
     public IssuedRefreshToken issue(User user) {
         String refreshToken = generateToken();
         String tokenHash = hash(refreshToken);
@@ -78,32 +80,43 @@ public class RefreshTokenService {
     /**
      * 현재 token을 revoke하고 새 token hash를 replacedByTokenHash에 남겨 재사용 추적이 가능하게 한다.
      */
+    @Transactional
     public RotatedRefreshToken rotate(String refreshToken) {
         String currentHash = hash(refreshToken);
-        RefreshSession currentSession = refreshSessionRepository.findByTokenHash(currentHash)
+        RefreshSession currentSession = refreshSessionRepository.findByTokenHashForRotation(currentHash)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.INVALID_TOKEN));
         LocalDateTime now = now();
         if (!currentSession.isActive(now)) {
             throw new SmartClosetException(ErrorCode.INVALID_TOKEN);
         }
 
-        IssuedRefreshToken next = issue(currentSession.getUser());
-        currentSession.replace(next.tokenHash(), now);
-        return new RotatedRefreshToken(currentSession.getUser(), next.refreshToken());
+        String nextRefreshToken = generateToken();
+        String nextTokenHash = hash(nextRefreshToken);
+        currentSession.replace(nextTokenHash, now);
+        RefreshSession nextSession = RefreshSession.issue(
+                currentSession.getUser(),
+                nextTokenHash,
+                now,
+                now.plusDays(ttlDays)
+        );
+        refreshSessionRepository.save(nextSession);
+        return new RotatedRefreshToken(currentSession.getUser(), nextRefreshToken);
     }
 
     /**
      * token hash가 존재할 때만 revoke해 logout endpoint의 멱등성을 유지한다.
      */
+    @Transactional
     public void revokeIfPresent(String refreshToken) {
         String tokenHash = hash(refreshToken);
-        refreshSessionRepository.findByTokenHash(tokenHash)
+        refreshSessionRepository.findByTokenHashForRotation(tokenHash)
                 .ifPresent(session -> session.revoke(now()));
     }
 
     /**
      * 비밀번호 재설정이나 계정 보안 이벤트 후 사용자의 모든 활성 refresh session을 폐기한다.
      */
+    @Transactional
     public void revokeAll(User user) {
         LocalDateTime revokedAt = now();
         refreshSessionRepository.findByUserIdAndRevokedAtIsNull(user.getId())
