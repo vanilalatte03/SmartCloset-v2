@@ -226,7 +226,7 @@ public class RecommendationService {
     public RecommendationWornResponse markWorn(Long userId, Long recommendationId) {
         User user = findUser(userId);
         RecommendationResult recommendationResult = recommendationResultRepository
-                .findByIdAndUserId(recommendationId, userId)
+                .findByIdAndUserIdForWorn(recommendationId, userId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.RECOMMENDATION_NOT_FOUND));
 
         Optional<WearHistory> existingWearHistory = wearHistoryRepository.findByRecommendationResultId(
