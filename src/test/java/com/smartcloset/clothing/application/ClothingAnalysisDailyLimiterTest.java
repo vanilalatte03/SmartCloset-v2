@@ -112,6 +112,27 @@ class ClothingAnalysisDailyLimiterTest {
         assertThat(limiter.hasCounterFor(1L, LocalDate.parse("2026-06-09"))).isTrue();
     }
 
+    @Test
+    void staleDateAfterCleanupUsesLatestObservedDateLimit() {
+        ClothingAnalysisProperties properties = new ClothingAnalysisProperties();
+        properties.setDailyLimit(1);
+        MutableClock clock = MutableClock.fixed("2026-06-08T10:00:00+09:00");
+        ClothingAnalysisDailyLimiter limiter = new ClothingAnalysisDailyLimiter(properties, clock);
+        limiter.checkAndIncrement(1L);
+
+        clock.advance(Duration.ofDays(1));
+        limiter.checkAndIncrement(2L);
+        clock.advance(Duration.ofDays(-1));
+
+        limiter.checkAndIncrement(1L);
+
+        assertThatThrownBy(() -> limiter.checkAndIncrement(1L))
+                .isInstanceOfSatisfying(SmartClosetException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED));
+        assertThat(limiter.hasCounterFor(1L, LocalDate.parse("2026-06-08"))).isFalse();
+        assertThat(limiter.hasCounterFor(1L, LocalDate.parse("2026-06-09"))).isTrue();
+    }
+
     private Callable<LimitAttempt> limitAttempt(
             ClothingAnalysisDailyLimiter limiter,
             CountDownLatch ready,

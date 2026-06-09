@@ -48,12 +48,19 @@ public class ClothingAnalysisDailyLimiter {
             throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
         }
 
-        DailyLimitKey key = new DailyLimitKey(userId, today);
-        AtomicInteger counter = counters.computeIfAbsent(key, ignored -> new AtomicInteger());
-        int count = counter.incrementAndGet();
-        removeIfExpiredByCompletedCleanup(key, counter);
-        if (count > dailyLimit) {
-            throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
+        while (true) {
+            DailyLimitKey key = new DailyLimitKey(userId, latestObservedDate(today));
+            AtomicInteger counter = counters.computeIfAbsent(key, ignored -> new AtomicInteger());
+            int count = counter.incrementAndGet();
+            if (removeIfExpiredByCompletedCleanup(key, counter)) {
+                today = LocalDate.now(clock);
+                cleanupExpiredCounters(today);
+                continue;
+            }
+            if (count > dailyLimit) {
+                throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED);
+            }
+            return;
         }
     }
 
@@ -66,17 +73,32 @@ public class ClothingAnalysisDailyLimiter {
     }
 
     private void cleanupExpiredCounters(LocalDate today) {
-        LocalDate lastCleanup = lastCleanupDate.get();
-        if (!today.isAfter(lastCleanup) || !lastCleanupDate.compareAndSet(lastCleanup, today)) {
-            return;
+        while (true) {
+            LocalDate lastCleanup = lastCleanupDate.get();
+            if (!today.isAfter(lastCleanup)) {
+                return;
+            }
+            if (lastCleanupDate.compareAndSet(lastCleanup, today)) {
+                break;
+            }
         }
         counters.keySet().removeIf(key -> key.date().isBefore(today));
     }
 
-    private void removeIfExpiredByCompletedCleanup(DailyLimitKey key, AtomicInteger counter) {
+    private LocalDate latestObservedDate(LocalDate today) {
+        LocalDate lastCleanup = lastCleanupDate.get();
+        if (today.isBefore(lastCleanup)) {
+            return lastCleanup;
+        }
+        return today;
+    }
+
+    private boolean removeIfExpiredByCompletedCleanup(DailyLimitKey key, AtomicInteger counter) {
         if (key.date().isBefore(lastCleanupDate.get())) {
             counters.remove(key, counter);
+            return true;
         }
+        return false;
     }
 
     private record DailyLimitKey(Long userId, LocalDate date) {
