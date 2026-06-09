@@ -21,6 +21,9 @@ import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.dto.CurrentUserResponse;
 import com.smartcloset.user.repository.UserRepository;
+import java.util.Locale;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,14 +75,68 @@ public class AuthService {
             throw new SmartClosetException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        User user = userRepository.save(User.createPasswordSignup(
-                request.email(),
-                passwordEncoder.encode(request.password()),
-                request.name()
-        ));
+        User user = savePasswordSignupUser(request);
         defaultClothingPresetSeeder.seedIfEmpty(user);
         issueEmailVerification(user);
         return SignupResponse.emailVerificationRequired(user.getEmail());
+    }
+
+    private User savePasswordSignupUser(SignupRequest request) {
+        User user = User.createPasswordSignup(
+                request.email(),
+                passwordEncoder.encode(request.password()),
+                request.name()
+        );
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            if (isUsersEmailUniqueViolation(exception)) {
+                throw new SmartClosetException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+            throw exception;
+        }
+    }
+
+    private boolean isUsersEmailUniqueViolation(DataIntegrityViolationException exception) {
+        ConstraintViolationException constraintViolation = findCause(exception, ConstraintViolationException.class);
+        if (constraintViolation != null && containsUsersEmailConstraint(constraintViolation.getConstraintName())) {
+            return true;
+        }
+
+        String violationText = exceptionMessages(exception);
+        return violationText.contains("uk_users_email")
+                || (violationText.contains("users")
+                && violationText.contains("email")
+                && (violationText.contains("unique") || violationText.contains("duplicate")));
+    }
+
+    private boolean containsUsersEmailConstraint(String constraintName) {
+        return constraintName != null
+                && constraintName.toLowerCase(Locale.ROOT).contains("uk_users_email");
+    }
+
+    private <T extends Throwable> T findCause(Throwable exception, Class<T> causeType) {
+        Throwable current = exception;
+        while (current != null) {
+            if (causeType.isInstance(current)) {
+                return causeType.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private String exceptionMessages(Throwable exception) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = exception;
+        while (current != null) {
+            builder.append(current.getClass().getName()).append(' ');
+            if (current.getMessage() != null) {
+                builder.append(current.getMessage()).append(' ');
+            }
+            current = current.getCause();
+        }
+        return builder.toString().toLowerCase(Locale.ROOT);
     }
 
     /**
