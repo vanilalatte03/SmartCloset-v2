@@ -20,7 +20,7 @@ DB에는 recommendation result당 착용 이력을 하나만 허용하는 unique
 
 착용 완료 흐름은 다음 순서를 유지한다.
 
-1. 현재 사용자 소유 recommendation result row를 write lock으로 조회한다.
+1. 현재 사용자 소유 recommendation result row를 transaction의 첫 DB read에서 write lock으로 조회한다.
 2. 기존 `WearHistory`가 있으면 recommendation result를 `worn=true`로 유지하고 기존 `wornAt`을 반환한다.
 3. 기존 `WearHistory`가 없으면 recommendation result를 `worn=true`로 변경한다.
 4. 새 `WearHistory`를 저장하고 저장된 `wornAt`을 반환한다.

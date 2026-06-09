@@ -225,7 +225,6 @@ public class RecommendationService {
      */
     @Transactional
     public RecommendationWornResponse markWorn(Long userId, Long recommendationId) {
-        User user = findUser(userId);
         RecommendationResult recommendationResult = recommendationResultRepository
                 .findByIdAndUserIdForWorn(recommendationId, userId)
                 .orElseThrow(() -> new SmartClosetException(ErrorCode.RECOMMENDATION_NOT_FOUND));
@@ -241,7 +240,7 @@ public class RecommendationService {
         recommendationResult.markWorn();
         LocalDateTime wornAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         WearHistory wearHistory = wearHistoryRepository.save(WearHistory.record(
-                user,
+                recommendationResult.getUser(),
                 recommendationResult,
                 wornAt
         ));
