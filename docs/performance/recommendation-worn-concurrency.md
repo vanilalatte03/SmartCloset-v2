@@ -24,6 +24,7 @@ DB에는 recommendation result당 착용 이력을 하나만 허용하는 unique
 2. 기존 `WearHistory`가 있으면 recommendation result를 `worn=true`로 유지하고 기존 `wornAt`을 반환한다.
 3. 기존 `WearHistory`가 없으면 recommendation result를 `worn=true`로 변경한다.
 4. 새 `WearHistory`를 저장하고 저장된 `wornAt`을 반환한다.
+   이때 신규 `wornAt`은 DB `DATETIME(6)` precision과 맞도록 microsecond 단위로 맞춘다.
 5. 같은 recommendation id로 대기하던 concurrent 요청은 첫 transaction commit 이후 기존 `WearHistory`를 조회하고 같은 `wornAt`으로 성공 응답을 반환한다.
 
 ## 성능 영향
