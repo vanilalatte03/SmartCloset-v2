@@ -392,6 +392,8 @@ Google-only 계정:
 - 현재 사용자 소유 데이터만 삭제한다.
 - DB 삭제 대상은 user, clothing items, recommendation results/items, wear histories, refresh sessions, account action tokens, social accounts다.
 - 이미지 파일은 `ClothingImageStorage`를 통해 삭제한다.
+- 삭제 성공 응답은 logout과 같은 refresh cookie 이름/path/domain/SameSite/Secure 설정으로 `Max-Age=0` 만료 `Set-Cookie` header를 내려준다.
+- confirmation 오류, 비밀번호 불일치 등 삭제 실패 응답은 refresh cookie 만료 header를 내려주지 않는다.
 - 삭제 후 기존 access token은 사용자 조회에서 `USER_NOT_FOUND` 또는 인증 실패 성격의 응답으로 더 이상 보호 resource를 읽을 수 없어야 한다.
 
 ## 8. Clothing API

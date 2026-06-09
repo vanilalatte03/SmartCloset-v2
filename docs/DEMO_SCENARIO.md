@@ -182,7 +182,7 @@ http://localhost:8080/swagger-ui/index.html
 - 계정 삭제는 작은 팝업으로 다른 설정과 분리되어 보인다.
 - 계정 삭제가 성공한다.
 - 로그인 상태가 초기화된다.
-- 기존 refresh cookie는 더 이상 사용할 수 없다.
+- 기존 refresh cookie는 서버 응답으로 만료되어 더 이상 사용할 수 없다.
 - 삭제된 계정의 옷장, 추천 이력, 이미지 파일이 남아 보호 API에서 조회되지 않는다.
 
 ## Backend API 실패 케이스 확인
