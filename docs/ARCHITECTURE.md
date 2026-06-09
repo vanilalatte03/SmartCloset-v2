@@ -234,6 +234,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 
 - 위치 검색과 좌표 resolve는 MVP7 계약을 유지한다.
 - Weather provider는 KMA `getVilageFcst`와 fallback만 사용한다.
+- KMA provider cache는 process-local bounded TTL cache이며, 날씨 값/source만 공유하고 사용자 위치 snapshot은 응답 시점에 합성한다.
 - 추천 생성은 `POST /api/recommendations`이며 optional `situation`, `forecastPeriod`를 받는다.
 - 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.
 - 옷 이미지 API는 보호 API이며 blob fetch에 Authorization header가 필요하다.

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.smartcloset.weather.application.WeatherProvider;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
         "KMA_NX=61",
         "KMA_NY=128",
         "KMA_BASE_URL=http://example.test/kma",
+        "KMA_CACHE_TTL=5m",
+        "KMA_CACHE_MAX_SIZE=512",
         "WEATHER_FALLBACK_ENABLED=false"
 })
 class KmaWeatherPropertiesApplicationContextTest {
@@ -38,6 +41,8 @@ class KmaWeatherPropertiesApplicationContextTest {
         assertThat(properties.nx()).isEqualTo(61);
         assertThat(properties.ny()).isEqualTo(128);
         assertThat(properties.baseUrl()).isEqualTo("http://example.test/kma");
+        assertThat(properties.cacheTtl()).isEqualTo(Duration.ofMinutes(5));
+        assertThat(properties.cacheMaxSize()).isEqualTo(512);
         assertThat(properties.fallbackEnabled()).isFalse();
     }
 

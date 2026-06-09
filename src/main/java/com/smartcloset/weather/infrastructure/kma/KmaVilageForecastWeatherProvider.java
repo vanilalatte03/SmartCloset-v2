@@ -2,23 +2,23 @@ package com.smartcloset.weather.infrastructure.kma;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
-import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.application.WeatherProvider;
 import com.smartcloset.weather.domain.ForecastPeriod;
+import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherLocationSnapshot;
 import com.smartcloset.weather.domain.WeatherSnapshot;
 import com.smartcloset.weather.domain.WeatherSource;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,7 +37,6 @@ import org.springframework.stereotype.Component;
 @Primary
 public class KmaVilageForecastWeatherProvider implements WeatherProvider {
 
-    private static final Duration WEATHER_CACHE_TTL = Duration.ofMinutes(2);
     private static final DateTimeFormatter FORECAST_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter FORECAST_TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
 
@@ -84,6 +83,12 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         this.fallbackProvider = Objects.requireNonNull(fallbackProvider, "fallbackProvider must not be null");
         this.userLocationReader = Objects.requireNonNull(userLocationReader, "userLocationReader must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        if (properties.cacheTtl().isZero() || properties.cacheTtl().isNegative()) {
+            throw new IllegalArgumentException("KMA weather cache ttl must be positive");
+        }
+        if (properties.cacheMaxSize() <= 0) {
+            throw new IllegalArgumentException("KMA weather cache max size must be positive");
+        }
     }
 
     @Override
@@ -92,7 +97,6 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         KmaForecastBaseTime baseTime = baseTimeCalculator.calculate(clock);
         ForecastPeriod resolvedForecastPeriod = forecastPeriod == null ? ForecastPeriod.CURRENT : forecastPeriod;
         WeatherCacheKey cacheKey = WeatherCacheKey.from(
-                userId,
                 location,
                 baseTime,
                 resolvedForecastPeriod,
@@ -100,20 +104,22 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                 properties.fallbackEnabled()
         );
         Instant now = clock.instant();
+        removeExpiredEntries(now);
         WeatherCacheEntry cachedWeather = weatherCache.get(cacheKey);
         if (cachedWeather != null) {
             if (now.isBefore(cachedWeather.expiresAt())) {
-                return cachedWeather.weather();
+                return weatherSnapshot(cachedWeather.weather(), location);
             }
             weatherCache.remove(cacheKey, cachedWeather);
         }
 
-        WeatherSnapshot weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod);
-        weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(WEATHER_CACHE_TTL)));
-        return weather;
+        CachedWeather weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod);
+        weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(properties.cacheTtl()), now));
+        trimCache(cacheKey);
+        return weatherSnapshot(weather, location);
     }
 
-    private WeatherSnapshot fetchWeather(
+    private CachedWeather fetchWeather(
             Long userId,
             UserLocationSnapshot location,
             KmaForecastBaseTime baseTime,
@@ -128,9 +134,8 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         try {
             List<KmaForecastItem> items = client.getVilageForecast(baseTime, grid);
             KmaMappedWeather mappedWeather = mapper.map(items, ZonedDateTime.now(clock), forecastPeriod);
-            return new WeatherSnapshot(
+            return new CachedWeather(
                     mappedWeather.condition(),
-                    WeatherLocationSnapshot.from(location),
                     WeatherSource.kma(
                             baseTime.baseDate(),
                             baseTime.baseTime(),
@@ -146,7 +151,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     /**
      * fallback도 실제 사용자 위치 snapshot을 유지한다. 바뀌는 것은 날씨 값과 source metadata뿐이다.
      */
-    private WeatherSnapshot fallbackOrThrow(
+    private CachedWeather fallbackOrThrow(
             Long userId,
             UserLocationSnapshot location,
             KmaForecastBaseTime baseTime,
@@ -154,9 +159,8 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     ) {
         if (properties.fallbackEnabled()) {
             LocalDateTime forecastDateTime = fallbackForecastDateTime(forecastPeriod);
-            return new WeatherSnapshot(
+            return new CachedWeather(
                     fallbackProvider.getCurrentWeather(userId).condition(),
-                    WeatherLocationSnapshot.from(location),
                     WeatherSource.fallback(
                             baseTime.baseDate(),
                             baseTime.baseTime(),
@@ -166,6 +170,44 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             );
         }
         throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    private WeatherSnapshot weatherSnapshot(CachedWeather weather, UserLocationSnapshot location) {
+        return new WeatherSnapshot(
+                weather.condition(),
+                WeatherLocationSnapshot.from(location),
+                weather.source()
+        );
+    }
+
+    private void removeExpiredEntries(Instant now) {
+        weatherCache.forEach((key, entry) -> {
+            if (!now.isBefore(entry.expiresAt())) {
+                weatherCache.remove(key, entry);
+            }
+        });
+    }
+
+    private void trimCache(WeatherCacheKey protectedKey) {
+        int maxSize = properties.cacheMaxSize();
+        int excess = weatherCache.size() - maxSize;
+        if (excess <= 0) {
+            return;
+        }
+
+        weatherCache.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(protectedKey))
+                .sorted(Comparator
+                        .comparing((Map.Entry<WeatherCacheKey, WeatherCacheEntry> entry) -> entry.getValue().expiresAt())
+                        .thenComparing(entry -> entry.getValue().cachedAt()))
+                .limit(excess)
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(weatherCache::remove);
+    }
+
+    int cacheEntryCount() {
+        return weatherCache.size();
     }
 
     /**
@@ -192,16 +234,13 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     }
 
     /**
-     * 캐시는 사용자 위치, 발표 시각, 예보 시간대, provider 설정이 모두 같을 때만 재사용한다.
+     * 캐시는 KMA grid, 발표 시각, 예보 시간대, provider 설정이 모두 같을 때만 재사용한다.
+     *
+     * <p>사용자별 위치 snapshot은 캐시 값이 아니라 반환 시점에 합성해 같은 grid의 날씨 값을 공유한다.</p>
      */
     private record WeatherCacheKey(
-            Long userId,
-            String locationCode,
-            String locationName,
-            String locationFullName,
             int nx,
             int ny,
-            LocationSource locationSource,
             String baseDate,
             String baseTime,
             ForecastPeriod forecastPeriod,
@@ -210,18 +249,12 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     ) {
 
         private WeatherCacheKey {
-            Objects.requireNonNull(userId, "userId must not be null");
-            Objects.requireNonNull(locationCode, "locationCode must not be null");
-            Objects.requireNonNull(locationName, "locationName must not be null");
-            Objects.requireNonNull(locationFullName, "locationFullName must not be null");
-            Objects.requireNonNull(locationSource, "locationSource must not be null");
             Objects.requireNonNull(baseDate, "baseDate must not be null");
             Objects.requireNonNull(baseTime, "baseTime must not be null");
             Objects.requireNonNull(forecastPeriod, "forecastPeriod must not be null");
         }
 
         private static WeatherCacheKey from(
-                Long userId,
                 UserLocationSnapshot location,
                 KmaForecastBaseTime baseTime,
                 ForecastPeriod forecastPeriod,
@@ -229,13 +262,8 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                 boolean fallbackEnabled
         ) {
             return new WeatherCacheKey(
-                    userId,
-                    location.code(),
-                    location.name(),
-                    location.fullName(),
                     location.nx(),
                     location.ny(),
-                    location.source(),
                     baseTime.baseDate(),
                     baseTime.baseTime(),
                     forecastPeriod,
@@ -245,11 +273,20 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         }
     }
 
-    private record WeatherCacheEntry(WeatherSnapshot weather, Instant expiresAt) {
+    private record CachedWeather(WeatherCondition condition, WeatherSource source) {
+
+        private CachedWeather {
+            Objects.requireNonNull(condition, "condition must not be null");
+            Objects.requireNonNull(source, "source must not be null");
+        }
+    }
+
+    private record WeatherCacheEntry(CachedWeather weather, Instant expiresAt, Instant cachedAt) {
 
         private WeatherCacheEntry {
             Objects.requireNonNull(weather, "weather must not be null");
             Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+            Objects.requireNonNull(cachedAt, "cachedAt must not be null");
         }
     }
 }
