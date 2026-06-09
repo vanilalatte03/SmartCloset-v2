@@ -126,17 +126,20 @@ public class DefaultClothingPresetSeeder {
 
     private final ClothingItemRepository clothingItemRepository;
     private final ClothingImageStorage clothingImageStorage;
+    private final ClothingImageCleanupScheduler clothingImageCleanupScheduler;
     private final ResourceLoader resourceLoader;
     private final ClothingStyleTagMapper clothingStyleTagMapper;
 
     public DefaultClothingPresetSeeder(
             ClothingItemRepository clothingItemRepository,
             ClothingImageStorage clothingImageStorage,
+            ClothingImageCleanupScheduler clothingImageCleanupScheduler,
             ResourceLoader resourceLoader,
             ClothingStyleTagMapper clothingStyleTagMapper
     ) {
         this.clothingItemRepository = clothingItemRepository;
         this.clothingImageStorage = clothingImageStorage;
+        this.clothingImageCleanupScheduler = clothingImageCleanupScheduler;
         this.resourceLoader = resourceLoader;
         this.clothingStyleTagMapper = clothingStyleTagMapper;
     }
@@ -161,6 +164,7 @@ public class DefaultClothingPresetSeeder {
                 byte[] imageBytes = readPresetImage(preset.imageFilename());
                 StoredClothingImage storedImage = clothingImageStorage.store(imageBytes, IMAGE_EXTENSION);
                 storedFilenames.add(storedImage.storedFilename());
+                clothingImageCleanupScheduler.deleteAfterRollback(storedImage.storedFilename());
 
                 ClothingItem clothingItem = ClothingItem.create(
                         requiredUser,

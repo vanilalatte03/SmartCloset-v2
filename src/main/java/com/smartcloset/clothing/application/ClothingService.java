@@ -32,6 +32,7 @@ public class ClothingService {
     private final UserRepository userRepository;
     private final ClothingImageValidator clothingImageValidator;
     private final ClothingImageStorage clothingImageStorage;
+    private final ClothingImageCleanupScheduler clothingImageCleanupScheduler;
     private final ClothingStyleTagMapper clothingStyleTagMapper;
 
     public ClothingService(
@@ -39,12 +40,14 @@ public class ClothingService {
             UserRepository userRepository,
             ClothingImageValidator clothingImageValidator,
             ClothingImageStorage clothingImageStorage,
+            ClothingImageCleanupScheduler clothingImageCleanupScheduler,
             ClothingStyleTagMapper clothingStyleTagMapper
     ) {
         this.clothingItemRepository = clothingItemRepository;
         this.userRepository = userRepository;
         this.clothingImageValidator = clothingImageValidator;
         this.clothingImageStorage = clothingImageStorage;
+        this.clothingImageCleanupScheduler = clothingImageCleanupScheduler;
         this.clothingStyleTagMapper = clothingStyleTagMapper;
     }
 
@@ -147,8 +150,7 @@ public class ClothingService {
     /**
      * 이미지 파일을 먼저 저장한 뒤 DB metadata를 갱신한다.
      *
-     * <p>DB flush가 실패하면 방금 저장한 파일을 지워 orphan file을 줄이고, 성공한 뒤에만
-     * 이전 파일을 삭제해 기존 이미지를 잃지 않게 한다.</p>
+     * <p>새 파일은 rollback 때 보상 삭제하고, 이전 파일은 commit 이후에만 삭제한다.</p>
      */
     @Transactional
     public ClothingResponse uploadClothingImage(Long currentUserId, Long clothingId, MultipartFile image) {
@@ -157,6 +159,7 @@ public class ClothingService {
         ValidatedClothingImage validatedImage = clothingImageValidator.validate(image);
         StoredClothingImage storedImage = clothingImageStorage.store(image, validatedImage.extension());
         String previousStoredFilename = clothingItem.getImageStoredFilename();
+        clothingImageCleanupScheduler.deleteAfterRollback(storedImage.storedFilename());
 
         try {
             clothingItem.updateImageMetadata(
@@ -167,11 +170,11 @@ public class ClothingService {
             );
             clothingItemRepository.flush();
         } catch (RuntimeException exception) {
-            clothingImageStorage.delete(storedImage.storedFilename());
+            clothingImageCleanupScheduler.deleteNowAddingSuppressed(storedImage.storedFilename(), exception);
             throw exception;
         }
 
-        clothingImageStorage.delete(previousStoredFilename);
+        clothingImageCleanupScheduler.deleteAfterCommit(previousStoredFilename);
         return ClothingResponse.from(clothingItem, clothingStyleTagMapper);
     }
 
@@ -192,15 +195,16 @@ public class ClothingService {
     }
 
     /**
-     * 저장소 파일 삭제와 DB 이미지 메타데이터 clear를 함께 수행하며 이미지가 없어도 성공한다.
+     * DB 이미지 메타데이터를 먼저 clear하고 commit 이후 저장소 파일을 삭제한다.
      */
     @Transactional
     public ClothingResponse deleteClothingImage(Long currentUserId, Long clothingId) {
         findUser(currentUserId);
         ClothingItem clothingItem = findClothingOwnedByUser(clothingId, currentUserId);
         String storedFilename = clothingItem.getImageStoredFilename();
-        clothingImageStorage.delete(storedFilename);
         clothingItem.clearImageMetadata();
+        clothingItemRepository.flush();
+        clothingImageCleanupScheduler.deleteAfterCommit(storedFilename);
         return ClothingResponse.from(clothingItem, clothingStyleTagMapper);
     }
 

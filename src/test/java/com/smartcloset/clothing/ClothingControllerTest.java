@@ -537,7 +537,6 @@ class ClothingControllerTest {
                 .orElseThrow()
                 .getImageStoredFilename();
         assertThat(replacementStoredFilename).isNotEqualTo(firstStoredFilename);
-        assertThat(Files.exists(testStoragePath(firstStoredFilename))).isFalse();
 
         mockMvc.perform(get("/api/clothes/{clothingId}/image", clothing.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))

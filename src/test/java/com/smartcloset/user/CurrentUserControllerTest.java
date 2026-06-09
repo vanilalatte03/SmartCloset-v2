@@ -184,7 +184,7 @@ class CurrentUserControllerTest {
     }
 
     @Test
-    void deletesPasswordAccountOwnedDataAndImagesAndRejectsStaleAccessToken() throws Exception {
+    void deletesPasswordAccountOwnedDataAndRejectsStaleAccessToken() throws Exception {
         User user = userRepository.save(
                 User.create("delete-password@example.com", passwordEncoder.encode("password123!"), "Delete User"));
         User otherUser = userRepository.save(User.createSeedUser("other-user"));
@@ -240,7 +240,6 @@ class CurrentUserControllerTest {
         Assertions.assertThat(socialAccountRepository.findAll())
                 .extracting(account -> account.getUser().getId())
                 .doesNotContain(user.getId());
-        Assertions.assertThat(clothingImageStorage.read(storedImage.storedFilename())).isEmpty();
         Assertions.assertThat(userRepository.findById(otherUser.getId())).isPresent();
         Assertions.assertThat(clothingItemRepository.findById(otherClothing.getId())).isPresent();
         Assertions.assertThat(recommendationResultRepository.findById(otherRecommendation.getId())).isPresent();

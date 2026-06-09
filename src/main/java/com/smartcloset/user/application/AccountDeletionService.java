@@ -3,7 +3,7 @@ package com.smartcloset.user.application;
 import com.smartcloset.auth.repository.AccountActionTokenRepository;
 import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.auth.repository.SocialAccountRepository;
-import com.smartcloset.clothing.infrastructure.file.ClothingImageStorage;
+import com.smartcloset.clothing.application.ClothingImageCleanupScheduler;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
@@ -22,8 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 계정 삭제 요청을 hard delete로 처리한다.
  *
- * <p>사용자 소유 DB row를 먼저 삭제하고 flush가 성공한 뒤 이미지 파일을 지워,
- * DB 실패 때문에 계정 데이터는 남았는데 이미지가 사라지는 상황을 피한다.</p>
+ * <p>사용자 소유 DB row를 먼저 삭제하고 commit 이후 이미지 파일을 지워, DB rollback 때문에
+ * 계정 데이터는 남았는데 이미지가 사라지는 상황을 피한다.</p>
  */
 @Service
 public class AccountDeletionService {
@@ -38,7 +38,7 @@ public class AccountDeletionService {
     private final RefreshSessionRepository refreshSessionRepository;
     private final AccountActionTokenRepository accountActionTokenRepository;
     private final SocialAccountRepository socialAccountRepository;
-    private final ClothingImageStorage clothingImageStorage;
+    private final ClothingImageCleanupScheduler clothingImageCleanupScheduler;
     private final PasswordEncoder passwordEncoder;
 
     public AccountDeletionService(
@@ -50,7 +50,7 @@ public class AccountDeletionService {
             RefreshSessionRepository refreshSessionRepository,
             AccountActionTokenRepository accountActionTokenRepository,
             SocialAccountRepository socialAccountRepository,
-            ClothingImageStorage clothingImageStorage,
+            ClothingImageCleanupScheduler clothingImageCleanupScheduler,
             PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
@@ -61,7 +61,7 @@ public class AccountDeletionService {
         this.refreshSessionRepository = refreshSessionRepository;
         this.accountActionTokenRepository = accountActionTokenRepository;
         this.socialAccountRepository = socialAccountRepository;
-        this.clothingImageStorage = clothingImageStorage;
+        this.clothingImageCleanupScheduler = clothingImageCleanupScheduler;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -87,8 +87,7 @@ public class AccountDeletionService {
         userRepository.delete(user);
         userRepository.flush();
 
-        // 파일 시스템은 DB처럼 rollback되지 않으므로, DB 삭제가 flush된 성공 경로에서만 파일을 정리한다.
-        imageFilenames.forEach(clothingImageStorage::delete);
+        imageFilenames.forEach(clothingImageCleanupScheduler::deleteAfterCommit);
         return AccountDeletionResponse.success();
     }
 
