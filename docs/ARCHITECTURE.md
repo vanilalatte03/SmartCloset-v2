@@ -243,7 +243,9 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 
 ## 트랜잭션 경계
 
-- Signup: user/default presets/action token 생성 write transaction, email sending은 transaction 이후 또는 실패 보상 가능 구조
+- Signup: user/default presets/action token 생성 write transaction, email sending은 `afterCommit` 예약으로 commit 이후 실행
+- Email verification request: 미인증 user lookup + action token 생성 write transaction, email sending은 `afterCommit` 예약으로 commit 이후 실행
+- Password reset request: password-enabled user lookup + action token 생성 write transaction, email sending은 `afterCommit` 예약으로 commit 이후 실행
 - Login: user read, refresh session issue write transaction
 - Refresh: refresh session rotation write transaction
 - Logout: refresh session revoke write transaction 또는 멱등 no-op
