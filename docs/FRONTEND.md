@@ -118,6 +118,7 @@ MVP10에서 추가한다:
 Refresh cookie 요청:
 
 - `fetch`에 `credentials: 'include'`를 사용한다.
+- 계정 삭제 요청도 성공 응답의 refresh cookie 만료 `Set-Cookie`를 브라우저가 반영할 수 있도록 credentials를 포함한다.
 - `AuthResponse`에 refresh token string이 없음을 전제로 한다.
 
 이미지 blob fetch:
@@ -334,6 +335,7 @@ UX 기준:
 - Password login enabled 계정은 현재 비밀번호 입력을 요구한다.
 - Google-only 계정은 confirmation만 요구한다.
 - 삭제 성공 후 local auth state를 초기화하고 로그인 화면으로 이동한다.
+- 삭제 성공 응답의 refresh cookie 만료 header가 브라우저에 반영되도록 삭제 API 호출에는 credentials를 포함한다.
 - 삭제 실패 시 공통 error banner를 사용한다.
 - 계정 삭제 팝업은 다른 설정 화면 위에 시각적으로 분리해서 표시한다.
 

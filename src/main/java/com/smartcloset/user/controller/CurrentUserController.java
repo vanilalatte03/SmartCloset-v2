@@ -1,5 +1,6 @@
 package com.smartcloset.user.controller;
 
+import com.smartcloset.auth.infrastructure.RefreshTokenCookieWriter;
 import com.smartcloset.common.response.ApiResponse;
 import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.user.application.AccountDeletionService;
@@ -8,6 +9,7 @@ import com.smartcloset.user.dto.AccountDeletionRequest;
 import com.smartcloset.user.dto.AccountDeletionResponse;
 import com.smartcloset.user.dto.CurrentUserResponse;
 import com.smartcloset.user.dto.UpdateCurrentUserRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,10 +30,16 @@ public class CurrentUserController {
 
     private final CurrentUserService currentUserService;
     private final AccountDeletionService accountDeletionService;
+    private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
-    public CurrentUserController(CurrentUserService currentUserService, AccountDeletionService accountDeletionService) {
+    public CurrentUserController(
+            CurrentUserService currentUserService,
+            AccountDeletionService accountDeletionService,
+            RefreshTokenCookieWriter refreshTokenCookieWriter
+    ) {
         this.currentUserService = currentUserService;
         this.accountDeletionService = accountDeletionService;
+        this.refreshTokenCookieWriter = refreshTokenCookieWriter;
     }
 
     /**
@@ -59,8 +67,11 @@ public class CurrentUserController {
     @DeleteMapping
     public ApiResponse<AccountDeletionResponse> deleteCurrentUser(
             @AuthenticationPrincipal CurrentUserPrincipal principal,
-            @Valid @RequestBody AccountDeletionRequest request
+            @Valid @RequestBody AccountDeletionRequest request,
+            HttpServletResponse response
     ) {
-        return ApiResponse.of(accountDeletionService.deleteAccount(principal.userId(), request));
+        AccountDeletionResponse deletionResponse = accountDeletionService.deleteAccount(principal.userId(), request);
+        refreshTokenCookieWriter.expire(response);
+        return ApiResponse.of(deletionResponse);
     }
 }

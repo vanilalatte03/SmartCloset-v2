@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +14,7 @@ import com.smartcloset.auth.application.RefreshTokenService;
 import com.smartcloset.auth.domain.AccountActionTokenPurpose;
 import com.smartcloset.auth.domain.OAuthProvider;
 import com.smartcloset.auth.domain.SocialAccount;
+import com.smartcloset.auth.infrastructure.RefreshTokenCookieProperties;
 import com.smartcloset.auth.repository.AccountActionTokenRepository;
 import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.auth.repository.SocialAccountRepository;
@@ -37,7 +39,9 @@ import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
+import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +53,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
@@ -92,6 +97,9 @@ class CurrentUserControllerTest {
 
     @Autowired
     private RefreshTokenService refreshTokenService;
+
+    @Autowired
+    private RefreshTokenCookieProperties refreshTokenCookieProperties;
 
     @Autowired
     private AccountActionTokenService accountActionTokenService;
@@ -199,7 +207,7 @@ class CurrentUserControllerTest {
                 RecommendationResultItem.of(otherRecommendation, otherClothing, OutfitSlot.TOP));
         wearHistoryRepository.save(WearHistory.record(user, recommendation, LocalDateTime.now()));
         wearHistoryRepository.save(WearHistory.record(otherUser, otherRecommendation, LocalDateTime.now()));
-        refreshTokenService.issue(user);
+        RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
         accountActionTokenService.issue(user, AccountActionTokenPurpose.PASSWORD_RESET);
         socialAccountRepository.save(SocialAccount.link(
                 user,
@@ -210,7 +218,7 @@ class CurrentUserControllerTest {
         ));
         String token = accessToken(user);
 
-        mockMvc.perform(delete("/api/users/me")
+        MvcResult deletionResult = mockMvc.perform(delete("/api/users/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -218,7 +226,10 @@ class CurrentUserControllerTest {
                                 "password", "password123!"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.deleted").value(true));
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andReturn();
+
+        assertRefreshCookieExpired(deletionResult);
 
         Assertions.assertThat(userRepository.findById(user.getId())).isEmpty();
         Assertions.assertThat(clothingItemRepository.findById(clothing.getId())).isEmpty();
@@ -253,6 +264,11 @@ class CurrentUserControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(refreshTokenCookieProperties.name(), refreshToken.refreshToken())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
     }
 
     @Test
@@ -261,7 +277,7 @@ class CurrentUserControllerTest {
                 User.create("delete-wrong-password@example.com", passwordEncoder.encode("password123!"),
                         "Password User"));
 
-        mockMvc.perform(delete("/api/users/me")
+        MvcResult deletionResult = mockMvc.perform(delete("/api/users/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -269,9 +285,11 @@ class CurrentUserControllerTest {
                                 "password", "wrong-password"
                         ))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andReturn();
 
         Assertions.assertThat(userRepository.findById(user.getId())).isPresent();
+        assertRefreshCookieNotExpired(deletionResult);
     }
 
     @Test
@@ -285,31 +303,35 @@ class CurrentUserControllerTest {
                 LocalDateTime.now()
         ));
 
-        mockMvc.perform(delete("/api/users/me")
+        MvcResult deletionResult = mockMvc.perform(delete("/api/users/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("confirmation", "DELETE"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.deleted").value(true));
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andReturn();
 
         Assertions.assertThat(userRepository.findById(user.getId())).isEmpty();
         Assertions.assertThat(socialAccountRepository.findAll())
                 .extracting(account -> account.getUser().getId())
                 .doesNotContain(user.getId());
+        assertRefreshCookieExpired(deletionResult);
     }
 
     @Test
     void deleteAccountRequiresExactDeleteConfirmation() throws Exception {
         User user = userRepository.save(User.createGoogleUser("google-confirmation@example.com", "Google Confirm"));
 
-        mockMvc.perform(delete("/api/users/me")
+        MvcResult deletionResult = mockMvc.perform(delete("/api/users/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("confirmation", "delete"))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andReturn();
 
         Assertions.assertThat(userRepository.findById(user.getId())).isPresent();
+        assertRefreshCookieNotExpired(deletionResult);
     }
 
     private String accessToken(User user) {
@@ -318,6 +340,21 @@ class CurrentUserControllerTest {
                 user.getEmail(),
                 user.getRole()
         ));
+    }
+
+    private void assertRefreshCookieExpired(MvcResult result) {
+        Assertions.assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+                .anySatisfy(cookie -> Assertions.assertThat(cookie)
+                        .contains(refreshTokenCookieProperties.name() + "=")
+                        .contains("Max-Age=0")
+                        .contains("Path=" + refreshTokenCookieProperties.path())
+                        .contains("HttpOnly"));
+    }
+
+    private void assertRefreshCookieNotExpired(MvcResult result) {
+        List<String> setCookieHeaders = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+        Assertions.assertThat(setCookieHeaders)
+                .noneMatch(cookie -> cookie.startsWith(refreshTokenCookieProperties.name() + "="));
     }
 
     private ClothingItem clothing(User user, String name) {
