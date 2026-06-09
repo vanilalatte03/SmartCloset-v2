@@ -8,12 +8,15 @@ MVP8 계정 안정성 계약은 계정 삭제 후 현재 사용자 데이터, re
 
 `DELETE /api/users/me` 성공 경로는 DB refresh session을 삭제했지만, 브라우저의 HttpOnly refresh cookie를 만료하지 않았다. 프론트는 HttpOnly cookie를 직접 삭제할 수 없으므로 계정 삭제 직후에도 stale cookie가 남아 다음 refresh 시도에서 불필요한 `401` 흐름이 발생할 수 있었다.
 
+또한 로컬/Docker 기본 프론트 실행은 `localhost:5173`에서 백엔드 `localhost:8080`을 호출하는 cross-origin 구성이다. 이 경우 삭제 API wrapper가 `credentials: 'include'`를 포함하지 않으면 서버가 내려준 refresh cookie 만료 `Set-Cookie`를 브라우저가 반영하지 못한다.
+
 ## 변경
 
 - `CurrentUserController`가 `RefreshTokenCookieWriter`를 주입받는다.
 - 계정 삭제 service가 성공 응답을 반환한 뒤에만 `RefreshTokenCookieWriter.expire(response)`를 호출한다.
 - cookie 만료는 logout과 동일한 writer를 사용하므로 name, path, domain, SameSite, Secure 설정을 공유한다.
 - confirmation 오류, 비밀번호 불일치, 사용자 없음 등 삭제 실패 경로에서는 controller가 expire 호출까지 도달하지 않아 refresh cookie 만료 header를 내려주지 않는다.
+- 프론트 `deleteAccount` API wrapper는 삭제 성공 응답의 cookie 만료 header를 브라우저가 적용할 수 있도록 `credentials: 'include'`를 포함한다.
 
 ## 계약 유지
 
@@ -22,6 +25,7 @@ MVP8 계정 안정성 계약은 계정 삭제 후 현재 사용자 데이터, re
 - refresh token 원문은 JSON response, DB, 로그에 노출하지 않는다.
 - 삭제 후 기존 access token은 `USER_NOT_FOUND`로 실패한다.
 - 삭제 후 기존 refresh cookie로 refresh를 시도해도 session이 복구되지 않는다.
+- 프론트 계정 삭제 호출은 access token Authorization header와 refresh cookie credentials를 함께 사용한다.
 
 ## 검증
 
@@ -31,4 +35,6 @@ MVP8 계정 안정성 계약은 계정 삭제 후 현재 사용자 데이터, re
   - password 불일치 실패 응답에는 refresh cookie 만료 header가 없다.
   - confirmation 오류 실패 응답에는 refresh cookie 만료 header가 없다.
   - 삭제 후 기존 access token은 `USER_NOT_FOUND`로 실패한다.
-  - 삭제 후 기존 refresh cookie로 `POST /api/auth/refresh`를 호출해도 `UNAUTHORIZED`로 실패한다.
+  - 삭제 후 기존 refresh cookie로 `POST /api/auth/refresh`를 호출해도 `401 INVALID_TOKEN`으로 실패한다.
+- `npm run build`
+  - `deleteAccount` wrapper의 credentials 추가 후 TypeScript/Vite build가 통과한다.

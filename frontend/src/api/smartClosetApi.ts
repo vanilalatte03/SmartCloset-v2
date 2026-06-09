@@ -134,9 +134,11 @@ export function deleteAccount(
   accessToken: string,
   body: AccountDeletionRequest
 ): Promise<AccountDeletionResponse> {
+  // 계정 삭제 성공 응답의 refresh cookie 만료 Set-Cookie를 브라우저가 반영해야 한다.
   return request<AccountDeletionResponse>('/api/users/me', {
     method: 'DELETE',
     accessToken,
+    credentials: 'include',
     body: JSON.stringify(body),
   });
 }
