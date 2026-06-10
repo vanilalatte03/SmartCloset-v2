@@ -230,6 +230,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Cookie, CORS, OAuth URL, AI 분석 설정은 properties/env로 분리한다.
 - `local` profile은 Docker Compose 기본 실행 경로로 유지한다.
 - demo user와 최소 옷장 seed initializer는 `local`/`demo` profile과 `smartcloset.seed.enabled=true` 조건에서만 활성화한다. default/prod profile 기동은 seed 데이터를 자동 생성하지 않는다.
+- `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않고, Swagger UI/API docs를 기본 비활성화한다.
 
 ## 기존 domain 흐름 유지
 
