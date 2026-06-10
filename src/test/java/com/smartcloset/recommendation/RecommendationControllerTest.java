@@ -20,8 +20,13 @@ import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.location.domain.LocationOption;
 import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.recommendation.domain.OutfitSlot;
+import com.smartcloset.recommendation.domain.RecommendationFeedbackSentiment;
 import com.smartcloset.recommendation.domain.RecommendationResult;
 import com.smartcloset.recommendation.domain.RecommendationResultItem;
+import com.smartcloset.recommendation.domain.RecommendationScore;
+import com.smartcloset.recommendation.domain.RecommendationSituation;
+import com.smartcloset.recommendation.domain.RecommendationThermalFeedback;
+import com.smartcloset.recommendation.domain.WearHistory;
 import com.smartcloset.recommendation.repository.RecommendationResultItemRepository;
 import com.smartcloset.recommendation.repository.RecommendationResultRepository;
 import com.smartcloset.recommendation.repository.WearHistoryRepository;
@@ -30,6 +35,7 @@ import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import com.smartcloset.weather.domain.ForecastPeriod;
+import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -693,6 +699,51 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void recommendationCreationUsesBoundedScoringHistoryWindows() throws Exception {
+        User user = createUserWithP0Closet("history-window-user", "[\"NAVY\"]", "[\"WOOL\"]", "[]");
+        ClothingItem activeTop = findActiveClothingByCategory(user, ClothingCategory.TOP);
+        ClothingItem activeBottom = findActiveClothingByCategory(user, ClothingCategory.BOTTOM);
+        ClothingItem activeOuter = findActiveClothingByCategory(user, ClothingCategory.OUTER);
+        ClothingItem archivedTop = createArchivedClothing(user, "이력 전용 상의", ClothingCategory.TOP);
+        ClothingItem archivedBottom = createArchivedClothing(user, "이력 전용 하의", ClothingCategory.BOTTOM);
+        ClothingItem archivedOuter = createArchivedClothing(user, "이력 전용 아우터", ClothingCategory.OUTER);
+        LocalDateTime baseTime = LocalDateTime.now().minusSeconds(1);
+
+        createHistoricalRecommendation(
+                user,
+                activeTop,
+                activeBottom,
+                activeOuter,
+                baseTime.minusMinutes(60),
+                baseTime.minusMinutes(60),
+                RecommendationFeedbackSentiment.DISLIKED,
+                RecommendationThermalFeedback.TOO_COLD
+        );
+        for (int minutesAgo = 50; minutesAgo >= 1; minutesAgo--) {
+            createHistoricalRecommendation(
+                    user,
+                    archivedTop,
+                    archivedBottom,
+                    archivedOuter,
+                    baseTime.minusMinutes(minutesAgo),
+                    baseTime.minusMinutes(minutesAgo),
+                    RecommendationFeedbackSentiment.LIKED,
+                    null
+            );
+        }
+        recommendationResultRepository.flush();
+        recommendationResultItemRepository.flush();
+        wearHistoryRepository.flush();
+
+        mockMvc.perform(post("/api/recommendations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken(user)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.score.wearHistoryScore").value(20))
+                .andExpect(jsonPath("$.data.score.recommendationHistoryScore").value(10))
+                .andExpect(jsonPath("$.data.score.preferenceScore").value(4));
+    }
+
+    @Test
     void recommendationHistoryReturnsPersistedWeatherSnapshotAfterUserLocationChanges() throws Exception {
         User user = createUserWithP0Closet("history-weather-snapshot-user");
         long recommendationId = createRecommendation(user);
@@ -738,6 +789,49 @@ class RecommendationControllerTest {
                 .get("data")
                 .get("recommendationId")
                 .asLong();
+    }
+
+    private void createHistoricalRecommendation(
+            User user,
+            ClothingItem top,
+            ClothingItem bottom,
+            ClothingItem outer,
+            LocalDateTime wornAt,
+            LocalDateTime feedbackUpdatedAt,
+            RecommendationFeedbackSentiment sentimentFeedback,
+            RecommendationThermalFeedback thermalFeedback
+    ) {
+        RecommendationResult recommendationResult = RecommendationResult.create(
+                user,
+                RecommendationSituation.CASUAL,
+                WeatherCondition.of(12, WeatherType.CLOUDY, false, false),
+                RecommendationScore.of(80, 30, 20, 20, 10, 0),
+                "[]"
+        );
+        recommendationResult.replaceFeedback(sentimentFeedback, thermalFeedback, feedbackUpdatedAt);
+        RecommendationResult saved = recommendationResultRepository.save(recommendationResult);
+        recommendationResultItemRepository.saveAll(List.of(
+                RecommendationResultItem.of(saved, top, OutfitSlot.TOP),
+                RecommendationResultItem.of(saved, bottom, OutfitSlot.BOTTOM),
+                RecommendationResultItem.of(saved, outer, OutfitSlot.OUTER)
+        ));
+        saved.markWorn();
+        wearHistoryRepository.save(WearHistory.record(user, saved, wornAt));
+    }
+
+    private ClothingItem createArchivedClothing(User user, String name, ClothingCategory category) {
+        ClothingItem item = ClothingItem.create(
+                user,
+                name,
+                category,
+                ClothingColor.GRAY,
+                ClothingMaterial.POLYESTER,
+                0,
+                20,
+                false
+        );
+        item.archive();
+        return clothingItemRepository.save(item);
     }
 
     private String bearerToken(User user) {

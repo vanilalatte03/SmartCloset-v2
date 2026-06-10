@@ -134,6 +134,15 @@ Style tag 비교:
 - 추천 이력은 `GET /api/recommendations?limit={limit}`로 조회한다.
 - 기본 `limit=20`, 최소 1, 최대 50이다.
 - 최신순으로 정렬한다.
+- 추천 생성 내부 점수 계산 이력은 기간 조건과 row 상한을 함께 적용한다.
+
+| 내부 이력 입력 | 기간 | 최신순 상한 |
+| --- | --- | --- |
+| 착용 이력 | 최근 7일 | 50건 |
+| 추천 이력 | 최근 7일 | 50건 |
+| 추천 이력 보강 | 전체 기간 최신순 | 5건 |
+| 피드백 이력 | 최근 14일 | 50건 |
+
 - 착용 완료는 `PATCH /api/recommendations/{recommendationId}/worn`이며 idempotent하다.
 - 추천 피드백은 `PUT /api/recommendations/{recommendationId}/feedback`이다.
 - 피드백 PUT은 전체 교체이며 누락 필드는 `null`로 간주한다.
