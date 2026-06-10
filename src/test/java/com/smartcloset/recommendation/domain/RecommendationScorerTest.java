@@ -423,6 +423,52 @@ class RecommendationScorerTest {
         assertThat(first.score()).isEqualTo(second.score());
     }
 
+    @Test
+    void streamingBestSelectionMatchesMaterializedSelectionForOuterPolicies() {
+        User user = user(1);
+        List<ClothingItem> clothes = List.of(
+                clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 30, false),
+                clothing(3, user, ClothingCategory.OUTER, ClothingColor.NAVY, ClothingMaterial.WOOL, -10, 12, false),
+                clothing(4, user, ClothingCategory.OUTER, ClothingColor.GRAY, ClothingMaterial.COTTON, 10, 20, false),
+                clothing(5, user, ClothingCategory.TOP, ClothingColor.BLUE, ClothingMaterial.COTTON, 0, 30, false),
+                clothing(6, user, ClothingCategory.BOTTOM, ClothingColor.BEIGE, ClothingMaterial.DENIM, 0, 30, false)
+        );
+        WeatherSuitabilityFilter filter = new WeatherSuitabilityFilter();
+        OutfitCandidateGenerator generator = new OutfitCandidateGenerator();
+
+        for (WeatherCondition weather : List.of(
+                WeatherCondition.of(12, WeatherType.CLOUDY, false, false),
+                WeatherCondition.of(18, WeatherType.CLOUDY, false, false),
+                WeatherCondition.of(25, WeatherType.SUNNY, false, false)
+        )) {
+            WeatherFilteredClothes filtered = filter.filter(clothes, weather);
+            ScoredOutfitCandidate materializedBest = scorer.selectBest(scorer.scoreAll(
+                    generator.generate(filtered, weather),
+                    weather,
+                    List.of(),
+                    List.of(),
+                    requestedAt
+            ), weather);
+            ScoredOutfitCandidate[] streamingBest = new ScoredOutfitCandidate[1];
+
+            generator.forEach(filtered, weather, candidate -> {
+                ScoredOutfitCandidate scored = new ScoredOutfitCandidate(
+                        candidate,
+                        scorer.score(candidate, weather, List.of(), List.of(), requestedAt)
+                );
+                streamingBest[0] = streamingBest[0] == null
+                        ? scored
+                        : scorer.betterOf(scored, streamingBest[0], weather);
+            });
+
+            assertThat(streamingBest[0].candidate().top().getId()).isEqualTo(materializedBest.candidate().top().getId());
+            assertThat(streamingBest[0].candidate().bottom().getId()).isEqualTo(materializedBest.candidate().bottom().getId());
+            assertThat(streamingBest[0].candidate().outer()).isEqualTo(materializedBest.candidate().outer());
+            assertThat(streamingBest[0].score()).isEqualTo(materializedBest.score());
+        }
+    }
+
     private int colorScore(ClothingColor topColor, ClothingColor bottomColor) {
         User user = user(1);
         return scorer.calculateColorScore(candidate(

@@ -161,11 +161,10 @@ public class RecommendationService {
         List<String> preferredStyleTags = preferenceJsonMapper.readStyleTags(user.getStyleTagsJson());
 
         try {
-            // 추천 파이프라인: 날씨 필터 -> 후보 생성 -> 점수화 -> 결정적 tie-break -> 이유 생성 -> snapshot 저장.
+            // 추천 파이프라인: 날씨 필터 -> 후보 스트리밍 점수화 -> 결정적 tie-break -> 이유 생성 -> snapshot 저장.
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, condition);
-            List<OutfitCandidate> candidates = outfitCandidateGenerator.generate(filteredClothes, condition);
-            List<ScoredOutfitCandidate> scoredCandidates = recommendationScorer.scoreAll(
-                    candidates,
+            ScoredOutfitCandidate best = selectBestCandidate(
+                    filteredClothes,
                     condition,
                     wearHistories,
                     recommendationHistories,
@@ -175,7 +174,6 @@ public class RecommendationService {
                     preferredStyleTags,
                     situation
             );
-            ScoredOutfitCandidate best = recommendationScorer.selectBest(scoredCandidates, condition);
             List<String> reasons = recommendationReasonGenerator.generate(
                     best.candidate(),
                     best.score(),
@@ -191,6 +189,38 @@ public class RecommendationService {
         } catch (RecommendationFailureException exception) {
             throw toSmartClosetException(exception);
         }
+    }
+
+    private ScoredOutfitCandidate selectBestCandidate(
+            WeatherFilteredClothes filteredClothes,
+            WeatherCondition condition,
+            List<WearHistorySnapshot> wearHistories,
+            List<RecommendationHistorySnapshot> recommendationHistories,
+            LocalDateTime requestedAt,
+            List<ClothingColor> preferredColors,
+            List<ClothingMaterial> preferredMaterials,
+            List<String> preferredStyleTags,
+            RecommendationSituation situation
+    ) {
+        ScoredOutfitCandidate[] best = new ScoredOutfitCandidate[1];
+        outfitCandidateGenerator.forEach(filteredClothes, condition, candidate -> {
+            ScoredOutfitCandidate scored = new ScoredOutfitCandidate(
+                    candidate,
+                    recommendationScorer.score(
+                            candidate,
+                            condition,
+                            wearHistories,
+                            recommendationHistories,
+                            requestedAt,
+                            preferredColors,
+                            preferredMaterials,
+                            preferredStyleTags,
+                            situation
+                    )
+            );
+            best[0] = best[0] == null ? scored : recommendationScorer.betterOf(scored, best[0], condition);
+        });
+        return Objects.requireNonNull(best[0], "best candidate must not be null");
     }
 
     /**
