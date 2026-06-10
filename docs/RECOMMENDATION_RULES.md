@@ -4,7 +4,7 @@
 
 SmartCloset MVP10의 추천은 AI/GPT 추천이 아니라 설명 가능하고 테스트 가능한 규칙 기반 추천이다.
 
-MVP10은 사진 기반 AI 옷 등록 보조 MVP이며 추천 점수, 후보 생성, tie-break를 변경하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약, MVP9 UI/UX 기준을 그대로 유지한다. 추천 이유는 기존 template 기반 원칙을 유지한다.
+MVP10은 사진 기반 AI 옷 등록 보조 MVP이며 score field, tie-break, 추천 이유 template을 유지한다. 큰 옷장의 계산 시간을 예측 가능하게 하기 위해 날씨 필터 이후 category별 후보 pool 예산을 적용할 수 있지만, 이 예산은 사진 분석 결과나 이미지 metadata를 사용하지 않는다. MVP6의 상황, 옷별 `styleTags`, 최근 추천 피드백 기반 `preferenceScore`, MVP7의 `forecastPeriod`와 위치/날씨 source snapshot, MVP8 계정 안정성 계약, MVP9 UI/UX 기준을 그대로 유지한다.
 
 ## MVP10 결정
 
@@ -18,7 +18,7 @@ MVP10은 사진 기반 AI 옷 등록 보조 MVP이며 추천 점수, 후보 생�
 - 예보 시간대는 `CURRENT`, `MORNING`, `AFTERNOON`, `EVENING`이다.
 - `forecastPeriod`는 weather input 선택에만 관여하며 score field를 새로 만들지 않는다.
 - 위치/source snapshot은 추천 근거 표시와 이력 신뢰도에만 사용한다.
-- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조는 추천 후보 필터링과 tie-break에 영향을 주지 않는다.
+- MVP8 계정 기능, MVP9 UI/UX 변경, MVP10 AI 옷 등록 보조는 추천 후보 예산 선정과 tie-break에 영향을 주지 않는다.
 - Image metadata는 추천 점수, 후보 필터링, tie-break, 추천 이유에 사용하지 않는다.
 - AI 분석 결과, confidence, reviewRequiredFields는 추천 입력으로 사용하지 않는다.
 - Recommendation reason은 template 기반이며 AI-generated가 아니다.
@@ -46,6 +46,20 @@ Request body는 선택이다.
 
 - body가 없거나 `situation`이 누락되면 `CASUAL`
 - body가 없거나 `forecastPeriod`가 누락되면 `CURRENT`
+
+## 추천 계산 후보 예산
+
+추천 계산은 사용자 옷장 크기를 제한하지 않는다. 대신 날씨 필터를 통과한 뒤 조합을 만들기 전에 category별 계산 후보 pool에 상한을 둔다.
+
+- 상의, 하의, 아우터 pool은 각각 최대 32개까지 추천 계산에 참여한다.
+- 후보가 32개 이하인 category는 기존 날씨 필터 결과 순서를 그대로 유지한다.
+- 후보가 32개를 초과한 category는 아래 deterministic 기준으로 32개를 선정한 뒤, 생성 순서는 기존처럼 id 오름차순을 유지한다.
+- 선정 기준은 날씨 적합성, 사용자 선호 색상/소재/styleTags, 상황 styleTags, 최근 착용/추천 이력 다양성, id 오름차순 fallback이다.
+- 날씨 적합성은 현재 기온이 옷의 min/max 범위 안에서 얼마나 중심에 가까운지, 비 적합성, 소재의 더위/추위/비 적합성을 본다.
+- 최근 착용 또는 최근 추천에 포함된 옷은 후보 pool 선정에서 불리하다.
+- 이미지 metadata, AI 분석 결과, confidence, reviewRequiredFields는 후보 pool 선정에 사용하지 않는다.
+
+후보 예산은 대형 옷장에서 API 지연과 CPU 사용량을 예측 가능하게 하기 위한 계산 정책이다. 후보 pool이 상한을 넘는 경우 전체 exhaustive search와 다른 추천 결과가 나올 수 있지만, 같은 입력에서는 항상 같은 후보 pool과 같은 추천 결과를 반환해야 한다.
 
 ## 점수 체계
 
@@ -143,6 +157,7 @@ MVP10 구현 후 추천 규칙 검증은 아래를 증명해야 한다.
 - 총점 100점 체계와 세부 score field가 유지된다.
 - 위치/source snapshot은 점수 field를 추가하지 않는다.
 - 사용자 위치 변경 후 과거 추천 snapshot은 바뀌지 않는다.
-- 이미지 metadata는 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
-- AI 분석 결과, confidence, reviewRequiredFields는 점수, 후보 필터링, tie-break, 추천 이유에 영향을 주지 않는다.
+- 이미지 metadata는 점수, 후보 pool 선정, tie-break, 추천 이유에 영향을 주지 않는다.
+- AI 분석 결과, confidence, reviewRequiredFields는 점수, 후보 pool 선정, tie-break, 추천 이유에 영향을 주지 않는다.
+- 대형 옷장에서 category별 후보 예산이 적용되어도 같은 입력의 후보 pool과 추천 결과는 deterministic하다.
 - 계정 삭제 구현 후 삭제된 사용자 추천 이력은 더 이상 조회되지 않는다.

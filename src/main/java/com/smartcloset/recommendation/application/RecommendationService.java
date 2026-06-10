@@ -13,6 +13,7 @@ import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.OutfitCandidateGenerator;
 import com.smartcloset.recommendation.domain.OutfitSlot;
+import com.smartcloset.recommendation.domain.RecommendationCandidateBudgeter;
 import com.smartcloset.recommendation.domain.RecommendationFailureException;
 import com.smartcloset.recommendation.domain.RecommendationFeedbackSentiment;
 import com.smartcloset.recommendation.domain.RecommendationHistorySnapshot;
@@ -86,6 +87,7 @@ public class RecommendationService {
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WeatherSuitabilityFilter weatherSuitabilityFilter = new WeatherSuitabilityFilter();
+    private final RecommendationCandidateBudgeter recommendationCandidateBudgeter = new RecommendationCandidateBudgeter();
     private final OutfitCandidateGenerator outfitCandidateGenerator = new OutfitCandidateGenerator();
     private final RecommendationScorer recommendationScorer = new RecommendationScorer();
     private final RecommendationReasonGenerator recommendationReasonGenerator = new RecommendationReasonGenerator();
@@ -161,10 +163,21 @@ public class RecommendationService {
         List<String> preferredStyleTags = preferenceJsonMapper.readStyleTags(user.getStyleTagsJson());
 
         try {
-            // 추천 파이프라인: 날씨 필터 -> 후보 스트리밍 점수화 -> 결정적 tie-break -> 이유 생성 -> snapshot 저장.
+            // 추천 파이프라인: 날씨 필터 -> 후보 예산 적용 -> 스트리밍 점수화 -> 결정적 tie-break -> snapshot 저장.
             WeatherFilteredClothes filteredClothes = weatherSuitabilityFilter.filter(activeClothes, condition);
-            ScoredOutfitCandidate best = selectBestCandidate(
+            WeatherFilteredClothes budgetedClothes = recommendationCandidateBudgeter.apply(
                     filteredClothes,
+                    condition,
+                    wearHistories,
+                    recommendationHistories,
+                    requestedAt,
+                    preferredColors,
+                    preferredMaterials,
+                    preferredStyleTags,
+                    situation
+            );
+            ScoredOutfitCandidate best = selectBestCandidate(
+                    budgetedClothes,
                     condition,
                     wearHistories,
                     recommendationHistories,

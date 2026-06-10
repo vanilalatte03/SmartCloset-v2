@@ -88,7 +88,7 @@ Access token은 bearer token으로 유지하되, refresh token은 HttpOnly cooki
 
 **AI가 아니라 규칙 기반 추천**
 
-추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. MVP10의 AI 분석 결과는 옷 등록 후보를 채우는 데만 쓰이며 추천 점수, 후보 필터링, tie-break, 추천 이유에 관여하지 않습니다.
+추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. 대형 옷장은 날씨 필터 이후 category별 후보 pool 예산으로 계산량을 제한합니다. MVP10의 AI 분석 결과는 옷 등록 후보를 채우는 데만 쓰이며 추천 점수, 후보 pool 선정, tie-break, 추천 이유에 관여하지 않습니다.
 
 **사진 기반 옷 등록 보조**
 
@@ -106,7 +106,7 @@ MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 �
 
 현재 문서 기준은 **MVP10: AI 옷 등록 보조 MVP**입니다.
 
-MVP10은 MVP9 UI/UX 리디자인 완료 상태 위에서 사진 업로드 기반 옷 등록 후보 체크를 추가합니다. 사용자는 AI가 제안한 후보 중 confidence가 낮은 필드를 확인/수정한 뒤 기존 저장 흐름으로 옷을 등록합니다. 추천 생성은 계속 규칙 기반으로 유지되며, DB schema와 추천 점수/필터/tie-break는 변경하지 않습니다.
+MVP10은 MVP9 UI/UX 리디자인 완료 상태 위에서 사진 업로드 기반 옷 등록 후보 체크를 추가합니다. 사용자는 AI가 제안한 후보 중 confidence가 낮은 필드를 확인/수정한 뒤 기존 저장 흐름으로 옷을 등록합니다. 추천 생성은 계속 규칙 기반으로 유지되며, DB schema와 추천 점수/tie-break는 변경하지 않습니다. 후보 pool 예산은 사진 분석 결과와 이미지 metadata를 사용하지 않는 성능 정책입니다.
 
 MVP가 바뀔 때 README에서 주로 갱신하는 위치는 이 섹션과 `Documentation`의 MVP-specific 링크입니다. 상세 제품 범위는 `docs/PRD.md`, API 계약은 `docs/API.md`, 추천 규칙은 `docs/RECOMMENDATION_RULES.md`를 우선합니다.
 
