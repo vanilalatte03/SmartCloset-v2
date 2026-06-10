@@ -8,7 +8,6 @@ import com.smartcloset.auth.infrastructure.GoogleOAuthClient;
 import com.smartcloset.auth.infrastructure.GoogleOAuthProperties;
 import com.smartcloset.auth.infrastructure.GoogleUserProfile;
 import com.smartcloset.auth.repository.SocialAccountRepository;
-import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.CurrentUserPrincipal;
@@ -50,7 +49,7 @@ public class GoogleOAuthService {
     private final GoogleOAuthClient googleOAuthClient;
     private final SocialAccountRepository socialAccountRepository;
     private final UserRepository userRepository;
-    private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private final AccountOnboardingService accountOnboardingService;
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final TransactionTemplate transactionTemplate;
@@ -62,12 +61,12 @@ public class GoogleOAuthService {
             GoogleOAuthClient googleOAuthClient,
             SocialAccountRepository socialAccountRepository,
             UserRepository userRepository,
-            DefaultClothingPresetSeeder defaultClothingPresetSeeder,
+            AccountOnboardingService accountOnboardingService,
             RefreshTokenService refreshTokenService,
             JwtTokenProvider jwtTokenProvider,
             PlatformTransactionManager transactionManager
     ) {
-        this(properties, googleOAuthClient, socialAccountRepository, userRepository, defaultClothingPresetSeeder,
+        this(properties, googleOAuthClient, socialAccountRepository, userRepository, accountOnboardingService,
                 refreshTokenService, jwtTokenProvider, transactionManager, Clock.systemUTC());
     }
 
@@ -76,7 +75,7 @@ public class GoogleOAuthService {
             GoogleOAuthClient googleOAuthClient,
             SocialAccountRepository socialAccountRepository,
             UserRepository userRepository,
-            DefaultClothingPresetSeeder defaultClothingPresetSeeder,
+            AccountOnboardingService accountOnboardingService,
             RefreshTokenService refreshTokenService,
             JwtTokenProvider jwtTokenProvider,
             PlatformTransactionManager transactionManager,
@@ -86,7 +85,7 @@ public class GoogleOAuthService {
         this.googleOAuthClient = googleOAuthClient;
         this.socialAccountRepository = socialAccountRepository;
         this.userRepository = userRepository;
-        this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
+        this.accountOnboardingService = accountOnboardingService;
         this.refreshTokenService = refreshTokenService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -167,7 +166,6 @@ public class GoogleOAuthService {
 
     private GoogleOAuthSession issueGoogleSession(GoogleUserProfile profile) {
         User user = findOrCreateVerifiedGoogleUser(profile);
-        defaultClothingPresetSeeder.seedIfEmpty(user);
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
         List<String> providers = authProvidersForGoogleUser(user);
         return new GoogleOAuthSession(
@@ -201,7 +199,11 @@ public class GoogleOAuthService {
                     existing.markEmailVerified();
                     return existing;
                 })
-                .orElseGet(() -> userRepository.save(User.createGoogleUser(profile.email(), profileName(profile))));
+                .orElseGet(() -> {
+                    User created = userRepository.save(User.createGoogleUser(profile.email(), profileName(profile)));
+                    accountOnboardingService.seedDefaultClothesForNewAccountAfterCommit(created);
+                    return created;
+                });
         socialAccountRepository.save(SocialAccount.link(
                 user,
                 OAuthProvider.GOOGLE,

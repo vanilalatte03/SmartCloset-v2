@@ -28,8 +28,9 @@ OAuth callback은 Google authorization code를 access token/profile로 교환한
 2. Google authorization code 교환과 profile 조회를 transaction 밖에서 수행한다.
 3. profile의 `sub`, `email`, `emailVerified`를 transaction 밖에서 검증한다.
 4. 검증된 profile만 `TransactionTemplate` 안으로 전달한다.
-5. write transaction 안에서 user/social account를 조회하거나 생성하고, 기본 옷 seed를 보정하며, refresh session을 발급한다.
-6. transaction commit 이후 callback response에 필요한 access token과 refresh cookie 원문을 반환한다.
+5. write transaction 안에서 user/social account를 조회하거나 생성하고 refresh session을 발급한다.
+6. 새 Google user의 기본 옷 seed는 transaction commit 이후 신규 계정 온보딩 경계에서 별도로 실행한다.
+7. transaction commit 이후 callback response에 필요한 access token과 refresh cookie 원문을 반환한다.
 
 Google provider HTTP client는 `smartcloset.security.oauth2.google.connect-timeout`, `smartcloset.security.oauth2.google.read-timeout`을 사용한다.
 
@@ -42,7 +43,7 @@ provider timeout이나 HTTP transport 장애는 기존과 같이 `OAUTH2_PROVIDE
 ## 성능 영향
 Google provider가 느려져도 provider 호출 시간은 DB transaction 보유 시간에 더해지지 않는다.
 
-DB write transaction은 verified profile을 받은 뒤 user/social account upsert, 기본 옷 seed 보정, refresh session 발급 구간에만 열린다. 따라서 provider 지연은 Google callback HTTP 요청 전체 시간에는 영향을 줄 수 있지만, DB connection/transaction 점유 시간과 lock 대기 위험을 직접 늘리지 않는다.
+DB write transaction은 verified profile을 받은 뒤 user/social account upsert와 refresh session 발급 구간에만 열린다. 기본 옷 seed는 Issue `#180` 이후 commit 이후 온보딩 경계로 분리됐다. 따라서 provider 지연과 preset image/storage 비용은 OAuth DB write transaction 보유 시간에 직접 더해지지 않는다.
 
 timeout 값은 Duration property로 바인딩되므로 운영 환경에서 provider 품질과 네트워크 특성에 맞게 조정할 수 있다. timeout이 발생하면 callback은 기존 OAuth provider unavailable 오류 계약으로 빠르게 실패한다.
 

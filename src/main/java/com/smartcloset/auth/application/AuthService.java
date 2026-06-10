@@ -13,7 +13,6 @@ import com.smartcloset.auth.dto.PasswordResetRequest;
 import com.smartcloset.auth.dto.PasswordResetRequestedResponse;
 import com.smartcloset.auth.dto.SignupRequest;
 import com.smartcloset.auth.dto.SignupResponse;
-import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.CurrentUserPrincipal;
@@ -40,7 +39,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private final AccountOnboardingService accountOnboardingService;
     private final RefreshTokenService refreshTokenService;
     private final AccountActionTokenService accountActionTokenService;
     private final AccountEmailSendScheduler accountEmailSendScheduler;
@@ -50,7 +49,7 @@ public class AuthService {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
-            DefaultClothingPresetSeeder defaultClothingPresetSeeder,
+            AccountOnboardingService accountOnboardingService,
             RefreshTokenService refreshTokenService,
             AccountActionTokenService accountActionTokenService,
             AccountEmailSendScheduler accountEmailSendScheduler,
@@ -59,7 +58,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.defaultClothingPresetSeeder = defaultClothingPresetSeeder;
+        this.accountOnboardingService = accountOnboardingService;
         this.refreshTokenService = refreshTokenService;
         this.accountActionTokenService = accountActionTokenService;
         this.accountEmailSendScheduler = accountEmailSendScheduler;
@@ -76,7 +75,7 @@ public class AuthService {
         }
 
         User user = savePasswordSignupUser(request);
-        defaultClothingPresetSeeder.seedIfEmpty(user);
+        accountOnboardingService.seedDefaultClothesForNewAccountAfterCommit(user);
         issueEmailVerification(user);
         return SignupResponse.emailVerificationRequired(user.getEmail());
     }
@@ -155,7 +154,6 @@ public class AuthService {
         if (!user.isEmailVerified()) {
             throw new SmartClosetException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
         }
-        defaultClothingPresetSeeder.seedIfEmpty(user);
         return authResponse(user);
     }
 
@@ -178,7 +176,6 @@ public class AuthService {
     public RefreshTokenBundle refresh(String refreshToken) {
         RefreshTokenService.RotatedRefreshToken rotated = refreshTokenService.rotate(refreshToken);
         User user = rotated.user();
-        defaultClothingPresetSeeder.seedIfEmpty(user);
         return new RefreshTokenBundle(authResponse(user), rotated.refreshToken());
     }
 

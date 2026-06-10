@@ -15,7 +15,7 @@
 ## Before
 기존 구조의 위험 요소는 다음과 같았다.
 
-- 회원가입 흐름에서 user, 기본 옷 preset, email verification token을 저장한 뒤 commit 전에 메일 발송을 시도했다.
+- 회원가입 흐름에서 user, 기본 옷 preset, email verification token을 저장한 뒤 commit 전에 메일 발송을 시도했다. Issue `#180` 이후 현재 구조에서는 기본 옷 preset도 commit 이후 신규 계정 온보딩 경계에서 별도로 실행한다.
 - 이메일 인증 재요청과 비밀번호 재설정 요청도 action token 저장 후 commit 전에 `EmailSender`를 호출했다.
 - commit 실패나 rollback이 발생하면 사용자는 DB에 존재하지 않는 token을 받을 수 있었다.
 - sender 예외가 transaction 안에서 발생하면 DB write와 외부 side effect 정책이 뒤섞일 수 있었다.
@@ -24,7 +24,7 @@
 ## After
 개선 후 계정 메일 흐름은 DB write와 발송 side effect를 분리한다.
 
-1. `AuthService`는 기존처럼 write transaction 안에서 user/default presets/action token을 생성한다.
+1. `AuthService`는 write transaction 안에서 user/action token을 생성한다. 기본 옷 preset은 Issue `#180` 이후 별도 after-commit 온보딩 경계에서 생성한다.
 2. token 원문은 DB에 저장하지 않고 after-commit 예약 작업에만 전달한다.
 3. `AccountEmailSendScheduler`가 Spring `TransactionSynchronization.afterCommit`에 발송 작업을 등록한다.
 4. transaction commit이 성공한 뒤에만 `EmailSender`가 호출된다.
@@ -36,7 +36,7 @@
 ## 성능 영향
 메일 발송은 DB commit 이후 실행되므로 provider 지연이나 sender 장애가 user/action token write transaction 보유 시간을 늘리지 않는다.
 
-DB transaction은 user 생성, 기본 옷 preset 생성, action token 저장 같은 영속성 변경 구간에만 집중된다. sender가 느리거나 실패하더라도 이미 commit된 DB 상태는 rollback되지 않는다.
+DB transaction은 user 생성과 action token 저장 같은 인증 핵심 영속성 변경 구간에 집중된다. sender나 신규 계정 기본 옷 온보딩이 느리거나 실패하더라도 이미 commit된 DB 상태는 rollback되지 않는다.
 
 현재 local profile에서는 console logging 비용만 분리되지만, 운영 sender가 붙는 후속 MVP에서도 auth application service는 `EmailSender` interface와 after-commit scheduler 경계를 유지할 수 있다.
 

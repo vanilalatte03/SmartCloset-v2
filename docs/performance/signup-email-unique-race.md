@@ -2,7 +2,7 @@
 
 ## 배경
 
-회원가입 API는 이미 존재하는 이메일에 대해 `409 EMAIL_ALREADY_EXISTS`를 반환한다. Password signup은 이메일 인증 전까지 access token을 발급하지 않고, user row, 기본 옷 프리셋, 이메일 인증 action token을 하나의 트랜잭션 안에서 만든다.
+회원가입 API는 이미 존재하는 이메일에 대해 `409 EMAIL_ALREADY_EXISTS`를 반환한다. Password signup은 이메일 인증 전까지 access token을 발급하지 않고, user row와 이메일 인증 action token을 하나의 트랜잭션 안에서 만든다. 기본 옷 프리셋은 Issue `#180` 이후 commit 성공 뒤 신규 계정 온보딩 경계에서 별도 transaction으로 준비한다.
 
 ## 문제
 
@@ -15,7 +15,7 @@
 - signup user 저장을 `saveAndFlush`로 바꿔 `users.email` unique 충돌을 signup 트랜잭션 안에서 포착한다.
 - `uk_users_email` constraint 또는 users/email unique·duplicate 메시지로 확인되는 충돌만 `EMAIL_ALREADY_EXISTS`로 변환한다.
 - 무관한 `DataIntegrityViolationException`은 그대로 전파해 다른 DB 무결성 문제를 이메일 중복으로 숨기지 않는다.
-- user 저장 flush가 성공한 뒤에만 기본 옷 프리셋과 이메일 인증 action token을 생성한다.
+- user 저장 flush가 성공한 뒤에만 이메일 인증 action token을 생성하고, 기본 옷 프리셋 온보딩을 after-commit 작업으로 예약한다.
 
 ## 계약 유지
 
@@ -29,8 +29,8 @@
 - `AuthServiceUniqueViolationTest`
   - `users.email` unique 충돌로 보이는 flush 실패를 `EMAIL_ALREADY_EXISTS`로 변환한다.
   - 무관한 DB 무결성 실패는 `EMAIL_ALREADY_EXISTS`로 변환하지 않는다.
-  - flush 실패 시 기본 옷 프리셋, action token, 메일 예약이 호출되지 않는다.
+  - flush 실패 시 기본 옷 온보딩, action token, 메일 예약이 호출되지 않는다.
 - `AuthSignupConcurrencyTest`
   - 동일 이메일 동시 signup 두 요청 중 하나만 성공한다.
   - 패배한 요청은 `EMAIL_ALREADY_EXISTS`로 실패한다.
-  - 성공한 user에만 기본 옷 프리셋 5개와 이메일 인증 action token 1개가 남는다.
+  - 성공한 user에만 기본 옷 프리셋 5개와 이메일 인증 action token 1개가 남는다. 기본 옷 프리셋은 commit 이후 온보딩 경계에서 생성된다.
