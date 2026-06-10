@@ -229,6 +229,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - 후속 MVP에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
 - Cookie, CORS, OAuth URL, AI 분석 설정은 properties/env로 분리한다.
 - `local` profile은 Docker Compose 기본 실행 경로로 유지한다.
+- demo user와 최소 옷장 seed initializer는 `local`/`demo` profile과 `smartcloset.seed.enabled=true` 조건에서만 활성화한다. default/prod profile 기동은 seed 데이터를 자동 생성하지 않는다.
 
 ## 기존 domain 흐름 유지
 

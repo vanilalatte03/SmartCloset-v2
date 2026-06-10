@@ -9,6 +9,8 @@ import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>공개 API 계약을 위한 seed-user shortcut이 아니라 애플리케이션 시작 시 데모 데이터를 보정하는 역할만 한다.</p>
  */
 @Component
+@Profile({"local", "demo"})
+@ConditionalOnProperty(prefix = "smartcloset.seed", name = "enabled", havingValue = "true")
 public class SeedDataInitializer implements ApplicationRunner {
 
     private static final Long DEMO_USER_ID = 1L;
