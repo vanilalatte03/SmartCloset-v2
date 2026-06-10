@@ -319,6 +319,7 @@ Google client id/secret/redirect 설정이 없으면 `enabled=false`, `loginUrl=
 - Google profile의 email은 verified email이어야 한다.
 - 기존 같은 email user가 있으면 social account를 link한다.
 - 새 Google user는 password login disabled, email verified 상태로 생성한다.
+- 같은 Google 계정 또는 같은 email callback이 동시에 들어와 unique 충돌이 발생하면 이미 생성된 user/social account를 재조회해 정상 로그인으로 수렴한다.
 
 ## 7. Account API
 

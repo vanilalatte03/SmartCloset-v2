@@ -23,8 +23,11 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -134,9 +137,7 @@ public class GoogleOAuthService {
         ensureGoogleEnabled();
         GoogleUserProfile profile = googleOAuthClient.fetchUserProfile(code, properties);
         validateVerifiedProfile(profile);
-        GoogleOAuthSession session = Objects.requireNonNull(transactionTemplate.execute(status ->
-                issueGoogleSession(profile)
-        ));
+        GoogleOAuthSession session = issueGoogleSessionWithUniqueConflictRecovery(profile);
         CurrentUserPrincipal principal = new CurrentUserPrincipal(session.userId(), session.email(), session.role());
         String accessToken = jwtTokenProvider.createAccessToken(principal);
         return new RefreshTokenBundle(
@@ -146,6 +147,22 @@ public class GoogleOAuthService {
                 ),
                 session.refreshToken()
         );
+    }
+
+    private GoogleOAuthSession issueGoogleSessionWithUniqueConflictRecovery(GoogleUserProfile profile) {
+        try {
+            return issueGoogleSessionInTransaction(profile);
+        } catch (RuntimeException exception) {
+            DataIntegrityViolationException violation = findCause(exception, DataIntegrityViolationException.class);
+            if (violation == null || !isOAuthUpsertUniqueViolation(violation)) {
+                throw exception;
+            }
+            return issueGoogleSessionInTransaction(profile);
+        }
+    }
+
+    private GoogleOAuthSession issueGoogleSessionInTransaction(GoogleUserProfile profile) {
+        return Objects.requireNonNull(transactionTemplate.execute(status -> issueGoogleSession(profile)));
     }
 
     private GoogleOAuthSession issueGoogleSession(GoogleUserProfile profile) {
@@ -193,6 +210,57 @@ public class GoogleOAuthService {
                 LocalDateTime.now(clock)
         ));
         return user;
+    }
+
+    private boolean isOAuthUpsertUniqueViolation(DataIntegrityViolationException exception) {
+        ConstraintViolationException constraintViolation = findCause(exception, ConstraintViolationException.class);
+        if (constraintViolation != null && containsOAuthUpsertConstraint(constraintViolation.getConstraintName())) {
+            return true;
+        }
+
+        String violationText = exceptionMessages(exception);
+        return violationText.contains("uk_users_email")
+                || violationText.contains("uk_social_accounts_provider_user")
+                || (violationText.contains("users")
+                && violationText.contains("email")
+                && (violationText.contains("unique") || violationText.contains("duplicate")))
+                || (violationText.contains("social_accounts")
+                && violationText.contains("provider")
+                && violationText.contains("provider_user")
+                && (violationText.contains("unique") || violationText.contains("duplicate")));
+    }
+
+    private boolean containsOAuthUpsertConstraint(String constraintName) {
+        if (constraintName == null) {
+            return false;
+        }
+        String normalized = constraintName.toLowerCase(Locale.ROOT);
+        return normalized.contains("uk_users_email")
+                || normalized.contains("uk_social_accounts_provider_user");
+    }
+
+    private <T extends Throwable> T findCause(Throwable exception, Class<T> causeType) {
+        Throwable current = exception;
+        while (current != null) {
+            if (causeType.isInstance(current)) {
+                return causeType.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private String exceptionMessages(Throwable exception) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = exception;
+        while (current != null) {
+            builder.append(current.getClass().getName()).append(' ');
+            if (current.getMessage() != null) {
+                builder.append(current.getMessage()).append(' ');
+            }
+            current = current.getCause();
+        }
+        return builder.toString().toLowerCase(Locale.ROOT);
     }
 
     private List<String> authProvidersForGoogleUser(User user) {
