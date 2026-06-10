@@ -46,7 +46,8 @@ public interface RecommendationResultRepository extends JpaRepository<Recommenda
             """)
     List<Long> findIdsByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
             @Param("userId") Long userId,
-            @Param("createdAt") LocalDateTime createdAt
+            @Param("createdAt") LocalDateTime createdAt,
+            Pageable pageable
     );
 
     @Query("""
@@ -58,7 +59,8 @@ public interface RecommendationResultRepository extends JpaRepository<Recommenda
             """)
     List<Long> findIdsByUserIdAndFeedbackUpdatedAtGreaterThanEqualOrderByFeedbackUpdatedAtDesc(
             @Param("userId") Long userId,
-            @Param("feedbackUpdatedAt") LocalDateTime feedbackUpdatedAt
+            @Param("feedbackUpdatedAt") LocalDateTime feedbackUpdatedAt,
+            Pageable pageable
     );
 
     List<RecommendationResult> findByIdIn(Collection<Long> ids);

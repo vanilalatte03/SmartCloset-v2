@@ -73,6 +73,10 @@ public class RecommendationService {
     private static final int DEFAULT_HISTORY_LIMIT = 20;
     private static final int MIN_HISTORY_LIMIT = 1;
     private static final int MAX_HISTORY_LIMIT = 50;
+    private static final int SCORING_WEAR_HISTORY_LIMIT = 50;
+    private static final int SCORING_RECOMMENDATION_HISTORY_LIMIT = 50;
+    private static final int SCORING_FEEDBACK_HISTORY_LIMIT = 50;
+    private static final int RECENT_RECOMMENDATION_FALLBACK_LIMIT = 5;
     private static final TypeReference<List<String>> REASONS_TYPE = new TypeReference<>() {
     };
 
@@ -358,7 +362,8 @@ public class RecommendationService {
     private List<WearHistorySnapshot> findWearHistorySnapshots(Long userId, LocalDateTime requestedAt) {
         List<WearHistory> wearHistories = wearHistoryRepository.findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
                 userId,
-                requestedAt.minusDays(7)
+                requestedAt.minusDays(7),
+                PageRequest.of(0, SCORING_WEAR_HISTORY_LIMIT)
         );
         List<Long> orderedResultIds = wearHistories.stream()
                 .map(history -> history.getRecommendationResult().getId())
@@ -382,15 +387,20 @@ public class RecommendationService {
      */
     private List<RecommendationHistorySnapshot> findRecommendationHistories(Long userId, LocalDateTime requestedAt) {
         List<Long> lastSevenDaysIds = recommendationResultRepository
-                .findIdsByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(userId, requestedAt.minusDays(7));
+                .findIdsByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                        userId,
+                        requestedAt.minusDays(7),
+                        PageRequest.of(0, SCORING_RECOMMENDATION_HISTORY_LIMIT)
+                );
         List<Long> recentFiveIds = recommendationResultRepository.findIdsByUserIdOrderByCreatedAtDesc(
                 userId,
-                PageRequest.of(0, 5)
+                PageRequest.of(0, RECENT_RECOMMENDATION_FALLBACK_LIMIT)
         );
         List<Long> feedbackIds = recommendationResultRepository
                 .findIdsByUserIdAndFeedbackUpdatedAtGreaterThanEqualOrderByFeedbackUpdatedAtDesc(
                         userId,
-                        requestedAt.minusDays(14)
+                        requestedAt.minusDays(14),
+                        PageRequest.of(0, SCORING_FEEDBACK_HISTORY_LIMIT)
                 );
 
         // Preserve previous recommendation-history priority, then include the MVP6 feedback window.

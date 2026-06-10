@@ -20,6 +20,7 @@ import com.smartcloset.security.CurrentUserPrincipal;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -133,12 +134,13 @@ class RecommendationWornConcurrencyTest {
             assertThat(attempt.wornAt()).isNotBlank();
         });
         String savedWornAt = attempts.get(0).wornAt();
+        LocalDateTime savedWornAtValue = LocalDateTime.parse(savedWornAt);
         assertThat(attempts)
                 .extracting(WornAttempt::wornAt)
                 .containsOnly(savedWornAt);
         assertThat(wearHistoryRepository.findByRecommendationResultIdIn(List.of(recommendationId)))
                 .singleElement()
-                .satisfies(history -> assertThat(history.getWornAt().toString()).isEqualTo(savedWornAt));
+                .satisfies(history -> assertThat(history.getWornAt()).isEqualTo(savedWornAtValue));
         RecommendationResult saved = recommendationResultRepository.findById(recommendationId).orElseThrow();
         assertThat(saved.isWorn()).isTrue();
     }

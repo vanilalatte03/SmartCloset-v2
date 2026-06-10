@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -28,7 +29,8 @@ public interface WearHistoryRepository extends JpaRepository<WearHistory, Long> 
             """)
     List<WearHistory> findByUserIdAndWornAtGreaterThanEqualOrderByWornAtDesc(
             @Param("userId") Long userId,
-            @Param("wornAt") LocalDateTime wornAt
+            @Param("wornAt") LocalDateTime wornAt,
+            Pageable pageable
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
