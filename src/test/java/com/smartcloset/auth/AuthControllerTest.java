@@ -101,7 +101,6 @@ class AuthControllerTest {
         assertThat(saved.getPreferredMaterialsJson()).isEqualTo("[]");
         assertThat(saved.getStyleTagsJson()).isEqualTo("[]");
 
-        assertThat(clothingItemRepository.countByUserId(saved.getId())).isEqualTo(5);
         assertThat(accountActionTokenRepository.findAll())
                 .singleElement()
                 .satisfies(token -> {
@@ -168,7 +167,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.user.userId").doesNotExist())
                 .andReturn();
 
-        assertThat(clothingItemRepository.countByUserId(user.getId())).isEqualTo(5);
+        assertThat(clothingItemRepository.countByUserId(user.getId())).isZero();
         Cookie refreshCookie = loginResult.getResponse().getCookie("smartcloset.refreshToken");
         assertThat(refreshCookie).isNotNull();
         assertThat(refreshCookie.getValue()).isNotBlank();
@@ -190,7 +189,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
-        assertThat(clothingItemRepository.countByUserId(user.getId())).isEqualTo(5);
+        assertThat(clothingItemRepository.countByUserId(user.getId())).isZero();
     }
 
     @Test
@@ -311,7 +310,8 @@ class AuthControllerTest {
 
     @Test
     void refreshRotatesRefreshCookieAndReturnsNewAccessTokenWithoutRefreshTokenBody() throws Exception {
-        userRepository.save(User.create("refresh@example.com", passwordEncoder.encode("password123!"), "Refresh User"));
+        User user = userRepository.save(
+                User.create("refresh@example.com", passwordEncoder.encode("password123!"), "Refresh User"));
         MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -335,6 +335,7 @@ class AuthControllerTest {
         assertThat(rotatedRefreshCookie).isNotNull();
         assertThat(rotatedRefreshCookie.getValue()).isNotBlank();
         assertThat(rotatedRefreshCookie.getValue()).isNotEqualTo(originalRefreshToken);
+        assertThat(clothingItemRepository.countByUserId(user.getId())).isZero();
         assertThat(refreshSessionRepository.findAll())
                 .hasSize(2)
                 .anySatisfy(session -> {

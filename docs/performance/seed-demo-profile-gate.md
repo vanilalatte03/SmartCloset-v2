@@ -4,7 +4,7 @@
 
 이 문서는 local/demo 실행 편의를 위한 `SeedDataInitializer`가 default/prod runtime에서 실행되지 않도록 제한한 운영 안전 개선 기록이다.
 
-이 문서는 ADR이 아니며 공개 API, DB schema, 회원가입/Google 로그인 후 기본 옷 preset seed 흐름을 변경하지 않는다. 관련 GitHub Issue는 `#176`이고, 구현은 PR `#184`에서 merge했다.
+이 문서는 ADR이 아니며 공개 API, DB schema, 회원가입/Google 신규 계정 온보딩의 기본 옷 preset seed 흐름을 변경하지 않는다. 관련 GitHub Issue는 `#176`이고, 구현은 PR `#184`에서 merge했다.
 
 ## 문제
 
@@ -34,7 +34,7 @@
 - `SMARTCLOSET_SEED_ENABLED=false`이면 local/demo profile에서도 seed initializer를 비활성화할 수 있다.
 - default/prod profile은 `SMARTCLOSET_SEED_ENABLED=true`가 있어도 local/demo profile이 아니면 seed initializer를 등록하지 않는다.
 - 이미 생성된 seed/demo 데이터에 대한 자동 삭제나 destructive cleanup은 추가하지 않는다.
-- 신규 회원가입, 로그인, refresh, Google OAuth session 생성에서 사용하는 `DefaultClothingPresetSeeder` 경로는 변경하지 않는다.
+- 신규 회원가입과 새 Google user 생성 이후 온보딩에서 사용하는 `DefaultClothingPresetSeeder` 경로는 변경하지 않는다. Issue `#180` 이후 login/refresh는 기본 옷 seed를 수행하지 않는다.
 - 공개 API와 인증/인가 계약을 변경하지 않는다.
 
 ## 운영 영향
@@ -53,7 +53,7 @@ seed demo gate는 다음 기준을 지킨다.
 - Docker Compose 기본 실행은 local profile과 seed enabled 상태를 유지한다.
 - 운영 profile에 seed property가 실수로 주입되어도 local/demo profile이 아니면 seed initializer가 실행되지 않는다.
 - seed 안전장치는 이미 저장된 운영 데이터를 자동 삭제하지 않는다.
-- auth signup/OAuth 기본 옷 preset seeding과 혼동해 `DefaultClothingPresetSeeder`를 profile gate 뒤로 옮기면 안 된다.
+- 신규 계정 온보딩의 기본 옷 preset seeding과 혼동해 `DefaultClothingPresetSeeder`를 profile gate 뒤로 옮기면 안 된다.
 
 ## 검증
 

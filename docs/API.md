@@ -121,7 +121,7 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 }
 ```
 
-회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도, 기본 옷 프리셋을 함께 생성한다. Password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
+회원가입 시 서버는 기본 위치 `SEOUL`, 위치 source `MANUAL_SEARCH`, 빈 선호도로 user를 생성한다. 기본 옷 프리셋은 signup transaction commit 이후 신규 계정 온보딩 경계에서 준비한다. Password signup은 이메일 인증 전에는 access token을 발급하지 않는다.
 
 실패:
 

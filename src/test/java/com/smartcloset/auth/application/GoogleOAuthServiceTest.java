@@ -15,7 +15,6 @@ import com.smartcloset.auth.infrastructure.GoogleOAuthProperties;
 import com.smartcloset.auth.infrastructure.GoogleUserProfile;
 import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.auth.repository.SocialAccountRepository;
-import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.JwtTokenProvider;
@@ -57,7 +56,7 @@ class GoogleOAuthServiceTest {
     private UserRepository userRepository;
 
     @Autowired
-    private DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private AccountOnboardingService accountOnboardingService;
 
     @Autowired
     private RefreshTokenService refreshTokenService;
@@ -82,7 +81,7 @@ class GoogleOAuthServiceTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider,
                 transactionManager,
@@ -164,6 +163,49 @@ class GoogleOAuthServiceTest {
     }
 
     @Test
+    void callbackSchedulesDefaultClothingOnboardingWhenGoogleUserIsCreated() {
+        FakeGoogleOAuthClient googleOAuthClient = new FakeGoogleOAuthClient();
+        GoogleUserProfile profile = new GoogleUserProfile(
+                "google-sub-new-onboarding",
+                "google-new-onboarding@example.com",
+                true,
+                "Google New Onboarding"
+        );
+        googleOAuthClient.profile("new-onboarding-code", profile);
+        SocialAccountRepository socialAccountRepository = mock(SocialAccountRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        AccountOnboardingService accountOnboardingService = mock(AccountOnboardingService.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+        JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
+        User created = User.createGoogleUser(profile.email(), profile.name());
+        ReflectionTestUtils.setField(created, "id", 18001L);
+        when(socialAccountRepository.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, profile.sub()))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail(profile.email())).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenReturn(created);
+        when(refreshTokenService.issue(created)).thenReturn(new RefreshTokenService.IssuedRefreshToken(
+                "new-user-refresh-token",
+                "new-user-refresh-token-hash"
+        ));
+        when(jwtTokenProvider.createAccessToken(any())).thenReturn("new-user-access-token");
+        GoogleOAuthService service = newGoogleOAuthService(
+                googleOAuthClient,
+                socialAccountRepository,
+                userRepository,
+                accountOnboardingService,
+                refreshTokenService,
+                jwtTokenProvider
+        );
+
+        RefreshTokenBundle bundle = service.callback("new-onboarding-code");
+
+        assertThat(bundle.authResponse().accessToken()).isEqualTo("new-user-access-token");
+        assertThat(bundle.authResponse().user().authProviders()).containsExactly("GOOGLE");
+        assertThat(bundle.refreshToken()).isEqualTo("new-user-refresh-token");
+        verify(accountOnboardingService).seedDefaultClothesForNewAccountAfterCommit(created);
+    }
+
+    @Test
     void callbackRetriesAsLoginWhenSocialAccountUniqueConflictOccurs() {
         FakeGoogleOAuthClient googleOAuthClient = new FakeGoogleOAuthClient();
         GoogleUserProfile profile = new GoogleUserProfile(
@@ -175,7 +217,7 @@ class GoogleOAuthServiceTest {
         googleOAuthClient.profile("social-conflict-code", profile);
         SocialAccountRepository socialAccountRepository = mock(SocialAccountRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
-        DefaultClothingPresetSeeder defaultClothingPresetSeeder = mock(DefaultClothingPresetSeeder.class);
+        AccountOnboardingService accountOnboardingService = mock(AccountOnboardingService.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
         User existing = User.createGoogleUser(profile.email(), profile.name());
@@ -202,7 +244,7 @@ class GoogleOAuthServiceTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider
         );
@@ -212,7 +254,7 @@ class GoogleOAuthServiceTest {
         assertThat(bundle.authResponse().accessToken()).isEqualTo("retry-access-token");
         assertThat(bundle.authResponse().user().authProviders()).containsExactly("GOOGLE");
         assertThat(bundle.refreshToken()).isEqualTo("retry-refresh-token");
-        verify(defaultClothingPresetSeeder).seedIfEmpty(existing);
+        verify(accountOnboardingService, never()).seedDefaultClothesForNewAccountAfterCommit(any());
         verify(refreshTokenService).issue(existing);
     }
 
@@ -228,7 +270,7 @@ class GoogleOAuthServiceTest {
         googleOAuthClient.profile("email-conflict-code", profile);
         SocialAccountRepository socialAccountRepository = mock(SocialAccountRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
-        DefaultClothingPresetSeeder defaultClothingPresetSeeder = mock(DefaultClothingPresetSeeder.class);
+        AccountOnboardingService accountOnboardingService = mock(AccountOnboardingService.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
         User existing = User.createGoogleUser(profile.email(), profile.name());
@@ -258,7 +300,7 @@ class GoogleOAuthServiceTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider
         );
@@ -267,7 +309,7 @@ class GoogleOAuthServiceTest {
 
         assertThat(bundle.authResponse().accessToken()).isEqualTo("email-retry-access-token");
         assertThat(bundle.refreshToken()).isEqualTo("email-retry-refresh-token");
-        verify(defaultClothingPresetSeeder).seedIfEmpty(existing);
+        verify(accountOnboardingService, never()).seedDefaultClothesForNewAccountAfterCommit(any());
         verify(refreshTokenService).issue(existing);
         verify(socialAccountRepository).save(any(SocialAccount.class));
     }
@@ -284,7 +326,7 @@ class GoogleOAuthServiceTest {
         googleOAuthClient.profile("unrelated-conflict-code", profile);
         SocialAccountRepository socialAccountRepository = mock(SocialAccountRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
-        DefaultClothingPresetSeeder defaultClothingPresetSeeder = mock(DefaultClothingPresetSeeder.class);
+        AccountOnboardingService accountOnboardingService = mock(AccountOnboardingService.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
         User existing = User.createGoogleUser(profile.email(), profile.name());
@@ -298,7 +340,7 @@ class GoogleOAuthServiceTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider
         );
@@ -306,7 +348,7 @@ class GoogleOAuthServiceTest {
         assertThatThrownBy(() -> service.callback("unrelated-conflict-code"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("fk_refresh_sessions_user");
-        verify(defaultClothingPresetSeeder, never()).seedIfEmpty(any());
+        verify(accountOnboardingService, never()).seedDefaultClothesForNewAccountAfterCommit(any());
         verify(refreshTokenService, never()).issue(any());
     }
 
@@ -314,7 +356,7 @@ class GoogleOAuthServiceTest {
             GoogleOAuthClient googleOAuthClient,
             SocialAccountRepository socialAccountRepository,
             UserRepository userRepository,
-            DefaultClothingPresetSeeder defaultClothingPresetSeeder,
+            AccountOnboardingService accountOnboardingService,
             RefreshTokenService refreshTokenService,
             JwtTokenProvider jwtTokenProvider
     ) {
@@ -323,7 +365,7 @@ class GoogleOAuthServiceTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider,
                 new NoOpTransactionManager(),

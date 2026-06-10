@@ -9,7 +9,6 @@ import com.smartcloset.auth.infrastructure.GoogleOAuthProperties;
 import com.smartcloset.auth.infrastructure.GoogleUserProfile;
 import com.smartcloset.auth.repository.RefreshSessionRepository;
 import com.smartcloset.auth.repository.SocialAccountRepository;
-import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.security.JwtTokenProvider;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.user.repository.UserRepository;
@@ -42,7 +41,7 @@ class GoogleOAuthConcurrencyTest {
     private UserRepository userRepository;
 
     @Autowired
-    private DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private AccountOnboardingService accountOnboardingService;
 
     @Autowired
     private RefreshTokenService refreshTokenService;
@@ -73,7 +72,7 @@ class GoogleOAuthConcurrencyTest {
                 googleOAuthClient,
                 socialAccountRepository,
                 userRepository,
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 refreshTokenService,
                 jwtTokenProvider,
                 transactionManager,

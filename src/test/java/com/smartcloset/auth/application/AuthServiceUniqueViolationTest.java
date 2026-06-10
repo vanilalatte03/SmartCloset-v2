@@ -8,7 +8,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.smartcloset.auth.dto.SignupRequest;
-import com.smartcloset.clothing.application.DefaultClothingPresetSeeder;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.security.JwtTokenProvider;
@@ -23,7 +22,7 @@ class AuthServiceUniqueViolationTest {
 
     private UserRepository userRepository;
     private PasswordEncoder passwordEncoder;
-    private DefaultClothingPresetSeeder defaultClothingPresetSeeder;
+    private AccountOnboardingService accountOnboardingService;
     private AccountActionTokenService accountActionTokenService;
     private AccountEmailSendScheduler accountEmailSendScheduler;
     private AuthService authService;
@@ -32,14 +31,14 @@ class AuthServiceUniqueViolationTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        defaultClothingPresetSeeder = mock(DefaultClothingPresetSeeder.class);
+        accountOnboardingService = mock(AccountOnboardingService.class);
         accountActionTokenService = mock(AccountActionTokenService.class);
         accountEmailSendScheduler = mock(AccountEmailSendScheduler.class);
         authService = new AuthService(
                 userRepository,
                 passwordEncoder,
                 mock(JwtTokenProvider.class),
-                defaultClothingPresetSeeder,
+                accountOnboardingService,
                 mock(RefreshTokenService.class),
                 accountActionTokenService,
                 accountEmailSendScheduler,
@@ -60,7 +59,7 @@ class AuthServiceUniqueViolationTest {
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS));
 
-        verifyNoInteractions(defaultClothingPresetSeeder, accountActionTokenService, accountEmailSendScheduler);
+        verifyNoInteractions(accountOnboardingService, accountActionTokenService, accountEmailSendScheduler);
     }
 
     @Test
@@ -74,6 +73,6 @@ class AuthServiceUniqueViolationTest {
 
         assertThatThrownBy(() -> authService.signup(request)).isSameAs(unrelated);
 
-        verifyNoInteractions(defaultClothingPresetSeeder, accountActionTokenService, accountEmailSendScheduler);
+        verifyNoInteractions(accountOnboardingService, accountActionTokenService, accountEmailSendScheduler);
     }
 }
