@@ -240,7 +240,8 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - 옷 이미지 API는 보호 API이며 blob fetch에 Authorization header가 필요하다.
 - 추천 피드백 PUT은 전체 교체이고 누락 필드는 `null`이다.
 - AI 분석 결과는 recommendation domain service 입력이 아니다.
-- Image metadata도 scoring, filtering, tie-break, recommendation reason에 사용하지 않는다.
+- Image metadata도 scoring, 후보 pool 선정, tie-break, recommendation reason에 사용하지 않는다.
+- 대형 옷장 추천 계산은 날씨 필터 이후 category별 후보 pool 예산으로 조합 수를 제한한다.
 
 ## 트랜잭션 경계
 

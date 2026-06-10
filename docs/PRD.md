@@ -49,6 +49,7 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 - 사용자 소유 옷장, 위치, 선호도, 추천 이력, 착용 이력, 추천 피드백은 인증 사용자별로 분리한다.
 - 추천 생성 API는 `POST /api/recommendations`다.
 - 추천 이력 조회 API는 `GET /api/recommendations?limit={limit}`이며 기본 20, 최소 1, 최대 50, 최신순이다.
+- 대형 옷장 추천 계산은 날씨 필터 이후 category별 후보 pool 예산을 적용할 수 있으며, 이 정책은 사진 분석 결과와 이미지 metadata를 사용하지 않는다.
 - 현재 날씨 요약 API는 `GET /api/weather/current`이며 보호 API다.
 - MVP5 이미지 API, MVP6 피드백/개인화, MVP7 위치/날씨 source snapshot, MVP8 계정 안정성, MVP9 UI/UX 리디자인 기능은 유지한다.
 - Docker Compose local 공유 흐름을 유지한다.
@@ -141,7 +142,7 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 - 사용자 확인 없는 자동 저장
 - 분석 결과 DB 저장
 - DB schema 변경
-- 추천 점수/필터/tie-break 변경
+- AI 분석 또는 이미지 metadata 기반 추천 점수/필터/tie-break 변경
 - 추천 이력 schema 변경
 - 다중 이미지 업로드
 - 이미지 편집/cropping/resizing/compression pipeline
@@ -168,7 +169,8 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 - confidence가 낮은 필드는 프론트에서 흐림/확인 필요 상태로 보인다.
 - 사용자가 확인/수정한 값만 기존 옷 JSON 저장 API로 저장된다.
 - 기존 이미지 저장은 `PUT /api/clothes/{clothingId}/image`로 유지된다.
-- 추천 생성, 추천 점수, 후보 필터링, tie-break, 추천 이유가 변경되지 않는다.
+- 추천 생성, 추천 점수, tie-break, 추천 이유가 변경되지 않는다.
+- 추천 후보 pool 예산은 사진 분석 결과와 이미지 metadata 없이 deterministic하게 적용된다.
 - DB schema가 변경되지 않는다.
 - desktop 1440px과 mobile 390px에서 옷 등록 AI 후보 체크 UI가 겹치거나 잘리지 않는다.
 
