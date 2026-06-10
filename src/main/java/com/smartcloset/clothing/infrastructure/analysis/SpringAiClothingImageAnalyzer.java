@@ -132,12 +132,18 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, Aut
             throw malformedOutput("Missing suggestion for analyzable image");
         }
 
-        return ClothingAnalysisResult.analyzable(
-                response.suggestion.toSuggestion(),
-                toConfidence(response.fieldConfidence),
-                toFields(response.reviewRequiredFields),
-                properties.lowConfidenceThreshold()
-        );
+        try {
+            return ClothingAnalysisResult.analyzable(
+                    response.suggestion.toSuggestion(),
+                    toConfidence(response.fieldConfidence),
+                    toFields(response.reviewRequiredFields),
+                    properties.lowConfidenceThreshold()
+            );
+        } catch (ClothingImageAnalysisUnavailableException exception) {
+            throw exception;
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw malformedOutput("Invalid analyzable response", exception);
+        }
     }
 
     /**
@@ -180,6 +186,13 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, Aut
 
     private ClothingImageAnalysisUnavailableException malformedOutput(String message) {
         return new ClothingImageAnalysisUnavailableException("Malformed clothing image analysis output: " + message);
+    }
+
+    private ClothingImageAnalysisUnavailableException malformedOutput(String message, Throwable cause) {
+        return new ClothingImageAnalysisUnavailableException(
+                "Malformed clothing image analysis output: " + message,
+                cause
+        );
     }
 
     /**
