@@ -5,6 +5,7 @@ import com.smartcloset.weather.domain.WeatherCondition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * 날씨 필터를 통과한 옷 목록으로 가능한 상의/하의/아우터 조합을 만든다.
@@ -18,28 +19,42 @@ public class OutfitCandidateGenerator {
      * 날씨 조건상 아우터가 필수인 경우에는 아우터 포함 후보만, 그 외에는 상하의 후보도 함께 생성한다.
      */
     public List<OutfitCandidate> generate(WeatherFilteredClothes clothes, WeatherCondition weather) {
+        List<OutfitCandidate> candidates = new ArrayList<>();
+        forEach(clothes, weather, candidates::add);
+        return List.copyOf(candidates);
+    }
+
+    /**
+     * 전체 후보 목록을 만들지 않고 생성 순서대로 후보를 하나씩 전달한다.
+     */
+    public void forEach(
+            WeatherFilteredClothes clothes,
+            WeatherCondition weather,
+            Consumer<OutfitCandidate> candidateConsumer
+    ) {
         Objects.requireNonNull(clothes, "clothes must not be null");
         Objects.requireNonNull(weather, "weather must not be null");
+        Objects.requireNonNull(candidateConsumer, "candidateConsumer must not be null");
 
-        List<OutfitCandidate> candidates = new ArrayList<>();
         int generationOrder = 0;
+        boolean generated = false;
 
         for (ClothingItem top : clothes.tops()) {
             for (ClothingItem bottom : clothes.bottoms()) {
                 if (!WeatherSuitabilityFilter.isOuterRequired(weather)) {
-                    candidates.add(OutfitCandidate.withoutOuter(top, bottom, generationOrder++));
+                    candidateConsumer.accept(OutfitCandidate.withoutOuter(top, bottom, generationOrder++));
+                    generated = true;
                 }
                 // 추운 날에는 WeatherSuitabilityFilter가 아우터 존재를 보장하므로 아우터 포함 후보만 남는다.
                 for (ClothingItem outer : clothes.outers()) {
-                    candidates.add(OutfitCandidate.withOuter(top, bottom, outer, generationOrder++));
+                    candidateConsumer.accept(OutfitCandidate.withOuter(top, bottom, outer, generationOrder++));
+                    generated = true;
                 }
             }
         }
 
-        if (candidates.isEmpty()) {
+        if (!generated) {
             throw new RecommendationFailureException(RecommendationFailureCode.INSUFFICIENT_CLOSET_ITEMS);
         }
-
-        return List.copyOf(candidates);
     }
 }

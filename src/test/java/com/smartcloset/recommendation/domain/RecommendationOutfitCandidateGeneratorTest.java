@@ -11,6 +11,7 @@ import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.user.domain.User;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherType;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -53,5 +54,20 @@ class RecommendationOutfitCandidateGeneratorTest {
         assertThat(candidates.get(0).hasOuter()).isFalse();
         assertThat(candidates.get(1).hasOuter()).isTrue();
         assertThat(candidates).extracting(OutfitCandidate::generationOrder).containsExactly(0, 1);
+    }
+
+    @Test
+    void visitsCandidatesInGeneratedOrderWithoutRequiringCallerToBuildFullList() {
+        User user = user(1);
+        ClothingItem top = clothing(1, user, ClothingCategory.TOP, ClothingColor.WHITE, ClothingMaterial.COTTON, 0, 25, false);
+        ClothingItem bottom = clothing(2, user, ClothingCategory.BOTTOM, ClothingColor.BLACK, ClothingMaterial.DENIM, 0, 25, false);
+        ClothingItem outer = clothing(3, user, ClothingCategory.OUTER, ClothingColor.NAVY, ClothingMaterial.NYLON, 5, 18, true);
+        WeatherFilteredClothes clothes = new WeatherFilteredClothes(List.of(top), List.of(bottom), List.of(outer));
+        WeatherCondition weather = WeatherCondition.of(15, WeatherType.CLOUDY, false, false);
+        List<OutfitCandidate> visited = new ArrayList<>();
+
+        generator.forEach(clothes, weather, visited::add);
+
+        assertThat(visited).containsExactlyElementsOf(generator.generate(clothes, weather));
     }
 }

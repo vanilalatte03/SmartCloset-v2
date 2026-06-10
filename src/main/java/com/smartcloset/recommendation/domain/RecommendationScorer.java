@@ -196,6 +196,19 @@ public class RecommendationScorer {
     }
 
     /**
+     * 두 후보 중 기존 tie-break 기준상 더 나은 후보를 반환한다.
+     */
+    public ScoredOutfitCandidate betterOf(
+            ScoredOutfitCandidate left,
+            ScoredOutfitCandidate right,
+            WeatherCondition weather
+    ) {
+        Objects.requireNonNull(left, "left must not be null");
+        Objects.requireNonNull(right, "right must not be null");
+        return compareBest(left, right, weather) <= 0 ? left : right;
+    }
+
+    /**
      * 기온 범위 통과를 기본점으로 두고, 아우터/비/소재 적합성으로 날씨 점수를 보정한다.
      */
     int calculateWeatherScore(OutfitCandidate candidate, WeatherCondition weather) {
