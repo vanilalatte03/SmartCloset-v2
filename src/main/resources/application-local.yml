@@ -1,0 +1,3 @@
+smartcloset:
+  seed:
+    enabled: ${SMARTCLOSET_SEED_ENABLED:true}
