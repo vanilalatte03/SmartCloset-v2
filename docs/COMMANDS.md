@@ -71,6 +71,8 @@ docker compose down
 
 Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. demo user와 최소 옷장 seed는 `local`/`demo` profile에서 `SMARTCLOSET_SEED_ENABLED=true`일 때만 생성된다. MVP10 AI 분석은 기본 비활성이며, `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 Compose 실행이 가능해야 한다.
 
+`prod` profile은 local placeholder `JWT_SECRET`과 Hibernate `ddl-auto=update`를 fail-fast로 막고, Swagger UI/API docs를 기본 비활성화한다. 운영 배포용 migration tool, AWS adapter, RDS/Secrets Manager 구성은 MVP10 범위 밖이다.
+
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 
 - `desktop 1440px | 옷장 AI 후보 체크 | PASS`

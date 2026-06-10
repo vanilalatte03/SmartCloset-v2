@@ -143,6 +143,8 @@ VITE_API_BASE_URL=http://localhost:8080
 | `OAUTH_STATE_COOKIE_*` | Google OAuth state cookie name, secure, SameSite, domain, path, max age 설정 |
 | `CORS_ALLOWED_ORIGINS` | credential 요청을 허용할 frontend origin 목록 |
 | `CORS_ALLOW_CREDENTIALS` | refresh cookie 요청을 위한 CORS credentials 허용 여부 |
+| `SPRINGDOC_API_DOCS_ENABLED` | OpenAPI JSON 노출 여부. local 기본값은 `true`, prod profile 기본값은 `false` |
+| `SPRINGDOC_SWAGGER_UI_ENABLED` | Swagger UI 노출 여부. local 기본값은 `true`, prod profile 기본값은 `false` |
 | `KMA_SERVICE_KEY` | 공공데이터포털에서 발급받은 인증키. 커밋 금지 |
 | `KMA_CACHE_TTL`, `KMA_CACHE_MAX_SIZE` | KMA 날씨 process-local cache의 TTL과 entry 상한. 기본 `2m`, `256` |
 | `WEATHER_FALLBACK_ENABLED` | KMA 실패 시 fallback 사용 여부. 기본 `true` |
@@ -230,7 +232,8 @@ MVP10 공유 문서에는 AWS 구현을 포함하지 않는다. 후속 MVP에서
 - Cookie/CORS/OAuth redirect/base URL은 env로 바꿀 수 있어야 한다.
 - AI 분석 설정과 secret은 env로만 주입해야 한다.
 - `SPRING_PROFILES_ACTIVE=local`은 Docker Compose 기본값으로 유지하고, demo seed initializer는 `local`/`demo` profile과 `SMARTCLOSET_SEED_ENABLED=true` 조건에서만 활성화한다.
-- future `prod` profile은 별도 env와 운영 adapter bean으로 추가하며 demo seed initializer를 활성화하지 않는다.
+- `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않으며, Swagger UI/API docs를 기본 비활성화한다.
+- future AWS 배포 profile은 별도 env와 운영 adapter bean으로 추가하며 demo seed initializer를 활성화하지 않는다.
 - local Docker Compose 실행은 prod profile 추가 후에도 유지되어야 한다.
 
 ## 제외 범위 확인

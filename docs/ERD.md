@@ -26,7 +26,8 @@ MVP10 DB baseline은 MVP8 계정 안정성 완료 schema와 MVP9 UI/UX 리디자
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
 - JSON 값은 구현 단순성을 위해 Entity에서 `String`으로 보관한다.
-- 운영 DB migration 전략은 현재 기존처럼 Hibernate `ddl-auto=update`와 로컬 Docker Compose volume 초기화 기준으로 검증한다.
+- 로컬/Docker Compose DB 검증은 기존처럼 Hibernate `ddl-auto=update`와 volume 초기화 기준을 유지한다.
+- `prod` profile은 migration tool을 도입하지 않지만 Hibernate `ddl-auto` 기본값을 `validate`로 두고, `update/create/create-drop` 계열 자동 schema 변경을 허용하지 않는다.
 
 ## 2. Mermaid ERD
 
