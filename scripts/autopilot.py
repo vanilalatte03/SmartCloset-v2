@@ -204,79 +204,14 @@ class AutopilotRunner:
         "git grep ",
         "! git grep ",
     )
+    # 테스트 fixture가 금지 키워드 문자열을 포함하는 파일들. 스캐너 코드 자체는
+    # 키워드를 갖지 않으므로 (.codex/scope-rules.json으로 외부화) 제외하지 않는다.
     FORBIDDEN_SCAN_EXCLUDED_PATHS = (
-        "scripts/autopilot.py",
         "scripts/test_autopilot.py",
+        "scripts/test_checks.py",
     )
     FORBIDDEN_SCAN_EXCLUDED_PREFIXES = (
         "issues/",
-    )
-    # Legacy built-in scope allowances. New phases should ship a
-    # phases/<phase>/scope-rules.json instead of adding constants here.
-    MVP8_ACCOUNT_STABILITY_PHASE = "8-smartcloset-account-stability"
-    MVP9_UI_UX_PHASE = "9-smartcloset-ui-ux-redesign"
-    MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP = {
-        "refresh token 범위가 추가되었습니다.": frozenset(range(8)),
-        "이메일 인증 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
-        "비밀번호 재설정 범위가 추가되었습니다.": frozenset((0, 2, 5, 7)),
-        "소셜 로그인 범위가 추가되었습니다.": frozenset((0, 3, 5, 7)),
-    }
-    ACCOUNT_STABILITY_SCOPE_MESSAGES = frozenset(
-        (
-            "refresh token 범위가 추가되었습니다.",
-            "이메일 인증 범위가 추가되었습니다.",
-            "비밀번호 재설정 범위가 추가되었습니다.",
-            "소셜 로그인 범위가 추가되었습니다.",
-        )
-    )
-    MVP9_ACCOUNT_MAINTENANCE_STEP_NAMES = frozenset(
-        (
-            "mvp9-docs-archive",
-            "app-shell-auth-redesign",
-            "account-settings",
-            "docs-qa",
-        )
-    )
-    MVP9_ACCOUNT_MAINTENANCE_MARKERS = (
-        "유지",
-        "기존",
-        "상태",
-        "표시",
-        "provider",
-        "제공자",
-        "버튼",
-        "ux",
-        "계약",
-        "흐름",
-        "안내",
-        "확인",
-        "진입",
-        "보여",
-        "keep",
-        "preserve",
-        "status",
-        "display",
-    )
-    MVP9_ACCOUNT_EXPANSION_MARKERS = (
-        "구현",
-        "추가",
-        "도입",
-        "신규",
-        "새로",
-        "발급",
-        "저장",
-        "저장한다",
-        "저장하도록",
-        "생성",
-        "생성한다",
-        "만든다",
-        "implement",
-        "add ",
-        "introduce",
-        "new ",
-        "issue ",
-        "store ",
-        "create ",
     )
     HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
     STEP_OUTPUT_RE = re.compile(r"^phases/[^/]+/step\d+-output\.json$")
@@ -310,6 +245,7 @@ class AutopilotRunner:
         self.allow_no_checks = allow_no_checks
         self.root = Path(root)
         self._scope_rules_cache: dict | None = None
+        self._global_scope_rules_cache: dict | None = None
 
     # --- command helpers ---
 
@@ -856,86 +792,73 @@ class AutopilotRunner:
     def _forbidden_messages(self, line: str) -> list[str]:
         messages: list[str] = []
         lowered = line.lower()
-        forbidden_today_get = "GET " + "/api/recommendations/today"
-        if forbidden_today_get in line:
-            messages.append("금지 API `" + forbidden_today_get + "`가 추가되었습니다.")
-        if "refresh token" in lowered or "refreshtoken" in lowered or "리프레시 토큰" in line:
-            messages.append("refresh token 범위가 추가되었습니다.")
-        if "social login" in lowered or "소셜 로그인" in line:
-            messages.append("소셜 로그인 범위가 추가되었습니다.")
-        if "email verification" in lowered or "이메일 인증" in line:
-            messages.append("이메일 인증 범위가 추가되었습니다.")
-        if "password reset" in lowered or "비밀번호 재설정" in line:
-            messages.append("비밀번호 재설정 범위가 추가되었습니다.")
-        if (
-            "외부 Weather API" in line
-            and any(word in line for word in ("필수", "구현", "호출", "연동"))
-            and "getVilageFcst" not in line
-            and "기상청" not in line
-        ):
-            messages.append("외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.")
-        if "AWS" in line and any(word in line for word in ("필수", "구현", "배포")):
-            messages.append("AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.")
-        if (
-            any(term in line for term in ("CD 자동화", "CD 배포"))
-            or "cd automation" in lowered
-            or "cd deployment" in lowered
-        ) and any(word in line for word in ("필수", "구현", "배포", "자동화")):
-            messages.append("CD 자동화 범위가 추가되었습니다.")
-        if any(term in line for term in ("AI/GPT", "GPT 추천", "AI 추천")):
-            messages.append("AI/GPT 추천 범위가 추가되었습니다.")
-        if "AI 자동 태깅" in line or "ai automatic tagging" in lowered:
-            messages.append("AI 자동 태깅 범위가 추가되었습니다.")
-        if "Redis" in line:
-            messages.append("Redis 범위가 추가되었습니다.")
-        if "다중 이미지" in line or "multiple image" in lowered or "multiple images" in lowered:
-            messages.append("다중 이미지 범위가 추가되었습니다.")
-        if any(term in line for term in ("이미지 편집", "이미지 크롭", "이미지 리사이즈", "이미지 압축")):
-            messages.append("이미지 편집/크롭/리사이즈/압축 범위가 추가되었습니다.")
-        if any(term in lowered for term in ("image editing", "image cropping", "image resizing", "image compression")):
-            messages.append("이미지 편집/크롭/리사이즈/압축 범위가 추가되었습니다.")
-        if "S3" in line or "CDN" in line or "external image hosting" in lowered or "외부 image hosting" in line:
-            messages.append("S3/CDN/external image hosting 범위가 추가되었습니다.")
-        if (
-            "이미지 기반 추천 점수" in line
-            or "이미지 기반 추천 이유" in line
-            or "image-based recommendation scoring" in lowered
-            or "image-based recommendation reason" in lowered
-        ):
-            messages.append("이미지 기반 추천 점수/이유 범위가 추가되었습니다.")
-        if any(term in lowered for term in ("external address", "external map", "map api", "address api")):
-            messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
-        if "외부 주소" in line or "외부 지도" in line or "지도 API" in line or "주소 API" in line:
-            messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
-
-        for rule in self._scope_rule_entries("extraForbidden"):
-            rule_message = rule.get("message")
-            if not isinstance(rule_message, str) or not rule_message:
+        for rule in self._forbidden_rules():
+            message = rule.get("message")
+            if not isinstance(message, str) or not message:
                 continue
-            any_substrings = self._scope_rule_strings(rule, "anySubstrings")
-            any_lowered = self._scope_rule_strings(rule, "anyLowered")
-            if any(s in line for s in any_substrings) or any(s in lowered for s in any_lowered):
-                messages.append(rule_message)
-
+            if self._rule_matches_line(rule, line, lowered):
+                messages.append(message)
         return messages
 
+    def _rule_matches_line(self, rule: dict, line: str, lowered: str) -> bool:
+        trigger_any = self._scope_rule_strings(rule, "anySubstrings")
+        trigger_lowered = self._scope_rule_strings(rule, "anyLowered")
+        if not (
+            any(s in line for s in trigger_any)
+            or any(s in lowered for s in trigger_lowered)
+        ):
+            return False
+
+        requires_any = self._scope_rule_strings(rule, "requiresAnySubstrings")
+        requires_lowered = self._scope_rule_strings(rule, "requiresAnyLowered")
+        if (requires_any or requires_lowered) and not (
+            any(s in line for s in requires_any)
+            or any(s in lowered for s in requires_lowered)
+        ):
+            return False
+
+        excludes_any = self._scope_rule_strings(rule, "excludesAnySubstrings")
+        excludes_lowered = self._scope_rule_strings(rule, "excludesAnyLowered")
+        if any(s in line for s in excludes_any) or any(s in lowered for s in excludes_lowered):
+            return False
+
+        return True
+
+    def _forbidden_rules(self) -> list[dict]:
+        return [
+            *self._rule_entries(self._global_scope_rules(), "forbidden"),
+            *self._rule_entries(self._scope_rules(), "extraForbidden"),
+        ]
+
     def _scope_rules(self) -> dict:
-        """phases/<phase>/scope-rules.json — 코드 수정 없이 phase별 규칙을 정의한다."""
+        """phases/<phase>/scope-rules.json — phase별 금지/허용 규칙."""
         if self._scope_rules_cache is None:
-            path = self.root / "phases" / self.phase / SCOPE_RULES_FILENAME
-            rules: dict = {}
-            if path.exists():
-                try:
-                    loaded = json.loads(path.read_text(encoding="utf-8"))
-                    if isinstance(loaded, dict):
-                        rules = loaded
-                except (OSError, json.JSONDecodeError) as exc:
-                    raise AutopilotError(f"{path} 파싱 실패: {exc}") from exc
-            self._scope_rules_cache = rules
+            self._scope_rules_cache = self._load_scope_rules_file(
+                self.root / "phases" / self.phase / SCOPE_RULES_FILENAME
+            )
         return self._scope_rules_cache
 
-    def _scope_rule_entries(self, key: str) -> list[dict]:
-        entries = self._scope_rules().get(key, [])
+    def _global_scope_rules(self) -> dict:
+        """.codex/scope-rules.json — 모든 phase에 적용되는 금지 규칙."""
+        if self._global_scope_rules_cache is None:
+            self._global_scope_rules_cache = self._load_scope_rules_file(
+                self.root / ".codex" / SCOPE_RULES_FILENAME
+            )
+        return self._global_scope_rules_cache
+
+    @staticmethod
+    def _load_scope_rules_file(path: Path) -> dict:
+        if not path.exists():
+            return {}
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AutopilotError(f"{path} 파싱 실패: {exc}") from exc
+        return loaded if isinstance(loaded, dict) else {}
+
+    @staticmethod
+    def _rule_entries(config: dict, key: str) -> list[dict]:
+        entries = config.get(key, [])
         if not isinstance(entries, list):
             return []
         return [entry for entry in entries if isinstance(entry, dict)]
@@ -947,65 +870,27 @@ class AutopilotRunner:
             return []
         return [value for value in values if isinstance(value, str)]
 
-    def _is_config_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
+    def _is_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
         lowered = line.lower()
         step_number = self._step_number_from(step)
-        for rule in self._scope_rule_entries("allowedScopeMessages"):
+        step_name = step.get("name") if isinstance(step, dict) else None
+        for rule in self._rule_entries(self._scope_rules(), "allowedScopeMessages"):
             if rule.get("message") != message:
                 continue
             steps = rule.get("steps")
             if isinstance(steps, list) and step_number is not None and step_number not in steps:
+                continue
+            step_names = self._scope_rule_strings(rule, "stepNames")
+            if step_names and (not isinstance(step_name, str) or step_name not in step_names):
+                continue
+            forbids = self._scope_rule_strings(rule, "forbidsAnyLowered")
+            if forbids and any(marker in lowered for marker in forbids):
                 continue
             requires = self._scope_rule_strings(rule, "requiresAnyLowered")
             if requires and not any(marker in lowered for marker in requires):
                 continue
             return True
         return False
-
-    def _is_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
-        if self._is_config_allowed_scope_message(message, line, step):
-            return True
-
-        if self.phase == self.MVP9_UI_UX_PHASE:
-            return self._is_allowed_mvp9_account_maintenance_message(message, line, step)
-
-        if self.phase != self.MVP8_ACCOUNT_STABILITY_PHASE:
-            return False
-
-        allowed_steps = self.MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP.get(message)
-        if allowed_steps is None:
-            return False
-
-        step_number = self._step_number_from(step)
-        if step_number is not None and step_number not in allowed_steps:
-            return False
-
-        if message == "소셜 로그인 범위가 추가되었습니다.":
-            lowered = line.lower()
-            return "google" in lowered or "oauth" in lowered
-
-        return True
-
-    def _is_allowed_mvp9_account_maintenance_message(
-        self, message: str, line: str, step: dict | None
-    ) -> bool:
-        if message not in self.ACCOUNT_STABILITY_SCOPE_MESSAGES:
-            return False
-
-        if not self._is_mvp9_account_maintenance_step(step):
-            return False
-
-        lowered = line.lower()
-        if any(marker in lowered for marker in self.MVP9_ACCOUNT_EXPANSION_MARKERS):
-            return False
-
-        return any(marker in lowered for marker in self.MVP9_ACCOUNT_MAINTENANCE_MARKERS)
-
-    def _is_mvp9_account_maintenance_step(self, step: dict | None) -> bool:
-        if not isinstance(step, dict):
-            return False
-        name = step.get("name")
-        return isinstance(name, str) and name in self.MVP9_ACCOUNT_MAINTENANCE_STEP_NAMES
 
     @staticmethod
     def _step_number_from(step: dict | None) -> int | None:
@@ -1031,6 +916,8 @@ class AutopilotRunner:
     def _skip_forbidden_scan_file(self, path: str) -> bool:
         return (
             path in self.FORBIDDEN_SCAN_EXCLUDED_PATHS
+            # scope-rules.json은 정의상 금지 키워드를 담으므로 스캔에서 제외한다.
+            or Path(path).name == SCOPE_RULES_FILENAME
             or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
             or self.STEP_OUTPUT_RE.match(path) is not None
         )
@@ -1092,7 +979,7 @@ class AutopilotRunner:
             return None
         if not content:
             return None
-        return self._try_parse_review_candidate(content)
+        return self._review_from_text(content)
 
     def _codex_review_prompt(self, step: dict) -> str:
         step_num = step.get("step", "?")
@@ -1116,68 +1003,85 @@ class AutopilotRunner:
         )
 
     def _parse_review_result(self, stdout: str) -> ReviewResult | None:
-        candidates = list(reversed([line.strip() for line in stdout.splitlines() if line.strip()]))
-        if stdout.strip():
-            candidates.append(stdout.strip())
+        """codex exec --json JSONL 스트림에서 마지막 agent 메시지의 JSON 결과를 읽는다.
 
-        for candidate in candidates:
-            parsed = self._try_parse_review_candidate(candidate)
-            if parsed is not None:
-                return parsed
-        return None
-
-    def _try_parse_review_candidate(self, candidate: str) -> ReviewResult | None:
-        try:
-            data = json.loads(candidate)
-        except json.JSONDecodeError:
-            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
-            if not match:
-                match = re.search(r"(\{.*\})", candidate, re.DOTALL)
-            if not match:
-                return None
+        `--output-last-message` 파일이 우선이고, 이 파서는 그 fallback이다.
+        알려진 이벤트 형태(item/message/msg 노드의 text·message·content[].text)만
+        본다. 임의 키 재귀 탐색은 하지 않는다.
+        """
+        result: ReviewResult | None = None
+        for raw in stdout.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
             try:
-                data = json.loads(match.group(1))
+                event = json.loads(line)
             except json.JSONDecodeError:
-                return None
+                continue
+            if not isinstance(event, dict):
+                continue
+            parsed = self._review_from_payload(event)
+            for text in self._agent_message_texts(event):
+                parsed = self._review_from_text(text) or parsed
+            if parsed is not None:
+                result = parsed
+        if result is not None:
+            return result
+        # JSONL이 아닌 단일(또는 pretty-printed) JSON 출력 fallback.
+        return self._review_from_text(stdout)
 
-        return self._try_parse_review_payload(data)
+    @staticmethod
+    def _agent_message_texts(event: dict) -> list[str]:
+        texts: list[str] = []
+        for key in ("item", "message", "msg"):
+            node = event.get(key)
+            if not isinstance(node, dict):
+                continue
+            for text_key in ("text", "message"):
+                value = node.get(text_key)
+                if isinstance(value, str) and value.strip():
+                    texts.append(value)
+            content = node.get("content")
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if isinstance(part, dict):
+                    value = part.get("text")
+                    if isinstance(value, str) and value.strip():
+                        texts.append(value)
+        return texts
 
-    def _try_parse_review_payload(self, payload: object) -> ReviewResult | None:
-        if isinstance(payload, str):
-            return self._try_parse_review_candidate(payload)
-        if isinstance(payload, list):
-            for item in reversed(payload):
-                nested = self._try_parse_review_payload(item)
-                if nested is not None:
-                    return nested
+    def _review_from_text(self, text: str) -> ReviewResult | None:
+        candidate = text.strip()
+        if not candidate:
             return None
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
+        if not match:
+            match = re.search(r"(\{.*\})", candidate, re.DOTALL)
+        if match:
+            candidate = match.group(1)
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+        return self._review_from_payload(payload)
+
+    @staticmethod
+    def _review_from_payload(payload: object) -> ReviewResult | None:
         if not isinstance(payload, dict):
             return None
-
         passed = payload.get("pass", payload.get("passed"))
         if isinstance(passed, str):
             passed = passed.lower() in {"true", "pass", "passed", "ok"}
-        if isinstance(passed, bool):
-            findings = payload.get("findings", [])
-            if isinstance(findings, str):
-                findings = [findings]
-            if not isinstance(findings, list):
-                findings = [str(findings)]
-            summary = str(payload.get("summary", ""))
-            return ReviewResult(passed, [str(item) for item in findings], summary, codex_passed=passed)
-
-        for key in ("result", "message", "content", "final", "text", "value", "output", "item"):
-            value = payload.get(key)
-            if isinstance(value, (str, dict, list)):
-                nested = self._try_parse_review_payload(value)
-                if nested is not None:
-                    return nested
-        for value in payload.values():
-            if isinstance(value, (str, dict, list)):
-                nested = self._try_parse_review_payload(value)
-                if nested is not None:
-                    return nested
-        return None
+        if not isinstance(passed, bool):
+            return None
+        findings = payload.get("findings", [])
+        if isinstance(findings, str):
+            findings = [findings]
+        if not isinstance(findings, list):
+            findings = [str(findings)]
+        summary = str(payload.get("summary", ""))
+        return ReviewResult(passed, [str(item) for item in findings], summary, codex_passed=passed)
 
     # --- issue recording ---
 

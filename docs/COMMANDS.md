@@ -42,7 +42,9 @@ autopilot 운영 옵션과 안전장치:
 - 동시 실행은 `.codex/autopilot.lock`으로 차단한다(stale lock은 자동 회수).
 - step 문서의 인수 기준 명령은 실행 전에 `guard.py` 위험 명령 정책을 통과해야 하고, `execute.py`도 codex의 completed 보고 후 인수 기준을 직접 재실행해 검증한다.
 - PR은 `gh pr checks --watch`로 원격 체크 통과를 확인한 뒤에만 squash merge한다. "no checks reported"는 ready 직후 체크 런 생성 전 레이스일 수 있어 60초 grace 동안 재확인하고, 그래도 없으면 체크 없는 저장소로 판단해 진행한다. CI가 없는 저장소는 `--allow-no-checks`로 grace 대기를 생략한다.
-- phase별 금지/허용 범위 규칙은 `phases/<phase>/scope-rules.json`(`extraForbidden`, `allowedScopeMessages`)으로 코드 수정 없이 확장한다.
+- 금지 범위 규칙은 전부 데이터로 관리한다: 전역 규칙은 `.codex/scope-rules.json`(`forbidden`), phase별 확장/허용은 `phases/<phase>/scope-rules.json`(`extraForbidden`, `allowedScopeMessages` — `steps`/`stepNames`/`requiresAnyLowered`/`forbidsAnyLowered`). 스캐너 코드에는 키워드가 없으므로 autopilot.py 자체는 스캔 대상이고, scope-rules.json 파일만 이름 기준으로 제외된다.
+- stop 훅의 기본 검사는 lint만 실행한다. test/build까지 돌리려면 `.codex/project-profile.json`의 `stageChecks.stop`으로 확장한다.
+- `execute.py`는 phase README/step 문서가 참조하는 `docs/*.md`만 step 프롬프트에 첨부한다(참조가 없으면 전체 첨부, `guardrailDocs` 프로필 키가 있으면 그 목록이 우선).
 
 ## 문서 전환 검증 명령
 

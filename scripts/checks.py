@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_CHECK_NAMES = ("lint", "test", "build", "frontend-build")
 FINAL_ONLY_CHECK_NAMES = ("harness-test", "docs-check")
 CHECK_NAMES = (*BASE_CHECK_NAMES, *FINAL_ONLY_CHECK_NAMES)
+STOP_STAGE_CHECK_NAMES = ("lint",)
 STAGES = ("manual", "pre-commit", "stop", "final")
 PLACEHOLDER_MARKERS = ("<", ">", "{", "}", "...", "TODO", "TBD")
 DEFAULT_CHECK_TIMEOUT = 1800
@@ -217,7 +218,14 @@ def detect_commands(root: Path = ROOT) -> dict[str, list[CheckCommand]]:
 
 
 def check_names_for_stage(stage: str, root: Path = ROOT) -> tuple[str, ...]:
-    default = CHECK_NAMES if stage == "final" else BASE_CHECK_NAMES
+    if stage == "final":
+        default = CHECK_NAMES
+    elif stage == "stop":
+        # stop 훅은 에이전트가 멈출 때마다 실행되므로 기본은 lint만 돌린다.
+        # test/build까지 돌리려면 stageChecks로 명시적으로 확장한다.
+        default = STOP_STAGE_CHECK_NAMES
+    else:
+        default = BASE_CHECK_NAMES
 
     # Per-stage overrides keep heavy stages (e.g. stop hooks) configurable:
     # .codex/project-profile.json -> {"stageChecks": {"stop": ["lint"]}}

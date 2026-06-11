@@ -224,6 +224,42 @@ class TestLoadGuardrails:
             result = inst._load_guardrails()
         assert result == ""
 
+    def test_referenced_docs_limit_attachment(self, executor, tmp_project):
+        (executor._phase_dir / "step2.md").write_text(
+            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요."
+        )
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+
+        assert "# Architecture" in result
+        assert "# Guide" not in result
+        assert "직접 읽어라" in result
+        # 핵심 섹션은 그대로 유지된다.
+        assert "# Rules" in result
+        assert "# Phase README" in result
+
+    def test_unreferenced_phase_falls_back_to_all_docs(self, executor, tmp_project):
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+
+        assert "# Architecture" in result
+        assert "# Guide" in result
+
+    def test_guardrail_docs_profile_overrides_references(self, executor, tmp_project):
+        (executor._phase_dir / "step2.md").write_text(
+            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요."
+        )
+        codex_dir = tmp_project / ".codex"
+        codex_dir.mkdir()
+        (codex_dir / "project-profile.json").write_text(
+            json.dumps({"guardrailDocs": ["docs/guide.md"]})
+        )
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+
+        assert "# Guide" in result
+        assert "# Architecture" not in result
+
 
 # ---------------------------------------------------------------------------
 # _build_step_context
