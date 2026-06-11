@@ -1,5 +1,6 @@
 {
   "projectName": "SmartCloset",
+  "templateVersion": "2026.06.12",
   "profile": "spring-boot-gradle",
   "guardMode": "soft",
   "commands": {
@@ -7,13 +8,28 @@
     "lint": [],
     "test": [],
     "build": [],
+    "frontend-build": [],
+    "harness-test": [],
+    "docs-check": [],
     "review": []
   },
+  "stageChecks": {},
+  "guardrailDocs": [],
+  "reviewDocs": [
+    "docs/API.md",
+    "docs/RECOMMENDATION_RULES.md",
+    "docs/FRONTEND.md"
+  ],
+  "projectSkillFiles": [
+    ".agents/skills/smartcloset-backend/SKILL.md"
+  ],
   "sourceRoots": [
     "src/main/java",
-    "src/main/resources"
+    "src/main/resources",
+    "frontend/src"
   ],
   "testRoots": [
-    "src/test/java"
+    "src/test/java",
+    "scripts/tests"
   ]
 }

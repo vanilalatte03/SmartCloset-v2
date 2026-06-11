@@ -21,14 +21,14 @@ git config core.hooksPath .githooks
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
-| harness-test | `python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py` | yes | Harness 운영 스크립트 회귀 테스트 |
+| harness-test | `python3 -m pytest scripts/tests` | yes | Harness 운영 스크립트 회귀 테스트 |
 | docs-check | `python3 scripts/checks.py --docs-check --include-final-docs` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
 | compose-config | `docker compose config --quiet` | no | Docker Compose 파일 구문과 서비스 구성 확인 |
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
 | compose-down | `docker compose down` | yes | Docker Compose 중지 |
 | compose-reset | `docker compose down -v` | yes | Docker Compose 중지 및 DB/image volume 초기화 |
-| review | `python3 scripts/doctor.py` | no | 템플릿과 프로젝트 운영 상태 점검 |
-| autopilot-test | `python3 -m pytest scripts/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
+| review | `python3 scripts/doctor.py --instance` | no | 템플릿과 프로젝트 운영 상태 점검 |
+| autopilot-test | `python3 -m pytest scripts/tests/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
 | autopilot | `python3 scripts/autopilot.py 10-smartcloset-ai-clothing-assist --base main --max-review-fixes 2 --unsafe` | no | MVP10 step별 PR 생성, 자체 리뷰, 이슈 기록, 자동 병합 루프 |
 
@@ -109,7 +109,7 @@ MVP 범위나 baseline을 바꿀 때 전체 확인 대상은 `docs/MVP_CHANGE_CH
 
 ```bash
 python3 scripts/checks.py --stage final
-python3 -m pytest scripts/test_checks.py scripts/test_execute.py scripts/test_autopilot.py scripts/test_guard.py
+python3 -m pytest scripts/tests
 python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-assist/docs-checks.json --docs-check
 ```
 

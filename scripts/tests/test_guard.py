@@ -1,9 +1,7 @@
 import json
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).parent))
 import guard
 
 
@@ -43,7 +41,6 @@ def test_rm_without_both_flags_is_allowed():
 
 
 def test_rm_flags_split_across_segments_are_not_joined():
-    # 세그먼트(;, &&, |)를 넘어서 r/f가 합쳐지면 안 된다.
     assert guard.danger_reason("rm -r build && rm -f stale.lock") is None
 
 
@@ -83,6 +80,14 @@ def test_python_source_matches_tests_layout(tmp_path):
     test_path.write_text("def test_ok(): pass")
 
     assert guard.has_matching_test("src/service.py", tmp_path)
+
+
+def test_python_script_source_matches_scripts_tests_layout(tmp_path):
+    test_path = tmp_path / "scripts" / "tests" / "test_autopilot.py"
+    test_path.parent.mkdir(parents=True)
+    test_path.write_text("def test_ok(): pass")
+
+    assert guard.has_matching_test("scripts/autopilot.py", tmp_path)
 
 
 def test_docs_and_phase_paths_are_skipped():

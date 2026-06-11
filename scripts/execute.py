@@ -3,20 +3,21 @@
 Harness Step Executor — phase 내 step을 순차 실행하고 자가 교정한다.
 
 Usage:
-    python3 scripts/execute.py <phase-dir> [--push] [--branch <branch-name>]
+    python scripts/execute.py <phase-dir> [--push] [--branch <branch-name>]
 """
+
+from __future__ import annotations
 
 import argparse
 import contextlib
 import json
-import os
 import re
 import subprocess
 import sys
 import threading
 import time
 import types
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -25,13 +26,17 @@ import guard
 from codex_common import (
     ALLOWED_CODEX_EFFORTS,
     CODEX_EXEC_TIMEOUT,
-    codex_effort_config,
+    CODEX_ENV_CONFIG,
+    codex_base_cmd,
+    configure_utf8_stdio,
     read_acceptance_commands,
+    resolve_codex_bin,
     validate_codex_effort,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CODEX_EFFORT = "medium"
+CODEX_BIN = resolve_codex_bin()
 
 
 @contextlib.contextmanager
@@ -70,13 +75,20 @@ class StepExecutor:
     CHORE_MSG = "chore: {phase} {num}단계 실행 기록 정리"
     COMPLETION_MSG = "chore: {phase} 완료 상태 기록"
     TZ = timezone(timedelta(hours=9))
+    DOC_REFERENCE_RE = re.compile(r"docs/[A-Za-z0-9_\-./]+\.md")
 
-    def __init__(self, phase_dir_name: str, *, auto_push: bool = False,
-                 unsafe: bool = False, branch_name: Optional[str] = None,
-                 step_number: Optional[int] = None,
-                 next_step_only: bool = False,
-                 codex_effort: str = DEFAULT_CODEX_EFFORT,
-                 allow_xhigh: bool = False):
+    def __init__(
+        self,
+        phase_dir_name: str,
+        *,
+        auto_push: bool = False,
+        unsafe: bool = False,
+        branch_name: Optional[str] = None,
+        step_number: Optional[int] = None,
+        next_step_only: bool = False,
+        codex_effort: str = DEFAULT_CODEX_EFFORT,
+        allow_xhigh: bool = False,
+    ):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
@@ -178,7 +190,7 @@ class StepExecutor:
 
         r = self._run_git("rev-parse", "--abbrev-ref", "HEAD")
         if r.returncode != 0:
-            print(f"  ERROR: git을 사용할 수 없거나 git repo가 아닙니다.")
+            print("  ERROR: git을 사용할 수 없거나 git repo가 아닙니다.")
             print(f"  {r.stderr.strip()}")
             sys.exit(1)
 
@@ -191,7 +203,7 @@ class StepExecutor:
         if r.returncode != 0:
             print(f"  ERROR: 브랜치 '{branch}' checkout 실패.")
             print(f"  {r.stderr.strip()}")
-            print(f"  Hint: 변경사항을 stash하거나 commit한 후 다시 시도하세요.")
+            print("  Hint: 변경사항을 stash하거나 commit한 후 다시 시도하세요.")
             sys.exit(1)
 
         print(f"  Branch: {branch}")
@@ -241,14 +253,15 @@ class StepExecutor:
         sections = []
         agents_md = ROOT / "AGENTS.md"
         if agents_md.exists():
-            sections.append(f"## 프로젝트 규칙 (AGENTS.md)\n\n{agents_md.read_text()}")
+            sections.append(f"## 프로젝트 규칙 (AGENTS.md)\n\n{agents_md.read_text(encoding='utf-8')}")
         phase_dir = getattr(self, "_phase_dir", None)
         phase_readme = phase_dir / "README.md" if phase_dir is not None else None
         if phase_readme is not None and phase_readme.exists():
             sections.append(
                 f"## 현재 Phase README ({getattr(self, '_phase_dir_name', phase_readme.parent.name)}/README.md)\n\n"
-                f"{phase_readme.read_text()}"
+                f"{phase_readme.read_text(encoding='utf-8')}"
             )
+
         # 첨부 문서 선택 우선순위:
         # 1. .codex/project-profile.json의 guardrailDocs (명시 고정 목록)
         # 2. phase README/step 문서가 참조하는 docs/*.md만 (기본 — 프롬프트 크기 통제)
@@ -260,13 +273,13 @@ class StepExecutor:
                     continue
                 doc = ROOT / rel
                 if doc.is_file():
-                    sections.append(f"## {rel}\n\n{doc.read_text()}")
+                    sections.append(f"## {rel}\n\n{doc.read_text(encoding='utf-8')}")
             return "\n\n---\n\n".join(sections) if sections else ""
 
         referenced = self._referenced_doc_paths()
         if referenced:
             for rel in referenced:
-                sections.append(f"## {rel}\n\n{(ROOT / rel).read_text()}")
+                sections.append(f"## {rel}\n\n{(ROOT / rel).read_text(encoding='utf-8')}")
             sections.append(
                 "## 추가 문서\n\n"
                 "여기 첨부되지 않은 docs/*.md와 docs/adr/*.md는 필요할 때 직접 읽어라."
@@ -276,14 +289,12 @@ class StepExecutor:
         docs_dir = ROOT / "docs"
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
-                sections.append(f"## {doc.stem}\n\n{doc.read_text()}")
+                sections.append(f"## {doc.stem}\n\n{doc.read_text(encoding='utf-8')}")
             adr_dir = docs_dir / "adr"
             if adr_dir.is_dir():
                 for doc in sorted(adr_dir.glob("*.md")):
-                    sections.append(f"## adr/{doc.stem}\n\n{doc.read_text()}")
+                    sections.append(f"## adr/{doc.stem}\n\n{doc.read_text(encoding='utf-8')}")
         return "\n\n---\n\n".join(sections) if sections else ""
-
-    DOC_REFERENCE_RE = re.compile(r"docs/[A-Za-z0-9_\-./]+\.md")
 
     def _referenced_doc_paths(self) -> list[str]:
         """phase README와 step 문서가 참조하는 docs 경로(존재하는 것만)를 모은다."""
@@ -333,16 +344,20 @@ class StepExecutor:
             return ""
         return "## 이전 Step 산출물\n\n" + "\n".join(lines) + "\n\n"
 
-    def _build_preamble(self, guardrails: str, step_context: str,
-                        command_context: str = "",
-                        prev_error: Optional[str] = None) -> str:
+    def _build_preamble(
+        self,
+        guardrails: str,
+        step_context: str,
+        command_context: str = "",
+        prev_error: Optional[str] = None,
+    ) -> str:
         commit_example = self.FEAT_MSG.format(
             phase=self._phase_name, num="N", name="<step-name>"
         )
         retry_section = ""
         if prev_error:
             retry_section = (
-                f"\n## ⚠ 이전 시도 실패 — 아래 에러를 반드시 참고하여 수정하라\n\n"
+                "\n## 이전 시도 실패 - 아래 에러를 반드시 참고하여 수정하라\n\n"
                 f"{prev_error}\n\n---\n\n"
             )
         return (
@@ -350,16 +365,16 @@ class StepExecutor:
             f"{guardrails}\n\n---\n\n"
             f"{step_context}{retry_section}"
             f"{command_context}"
-            f"## 작업 규칙\n\n"
-            f"1. 이전 step에서 작성된 코드를 확인하고 일관성을 유지하라.\n"
-            f"2. 이 step에 명시된 작업만 수행하라. 추가 기능이나 파일을 만들지 마라.\n"
-            f"3. 기존 테스트를 깨뜨리지 마라.\n"
-            f"4. AC(Acceptance Criteria)와 프로젝트 검증 명령을 직접 실행하라.\n"
+            "## 작업 규칙\n\n"
+            "1. 이전 step에서 작성된 코드를 확인하고 일관성을 유지하라.\n"
+            "2. 이 step에 명시된 작업만 수행하라. 추가 기능이나 파일을 만들지 마라.\n"
+            "3. 기존 테스트를 깨뜨리지 마라.\n"
+            "4. AC(Acceptance Criteria)와 프로젝트 검증 명령을 직접 실행하라.\n"
             f"5. /phases/{self._phase_dir_name}/index.json의 해당 step status를 업데이트하라:\n"
-            f"   - AC 통과 → \"completed\" + \"summary\" 필드에 이 step의 산출물을 한 줄로 요약\n"
-            f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
-            f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
-            f"6. 모든 변경사항을 커밋하라:\n"
+            '   - AC 통과 -> "completed" + "summary" 필드에 이 step의 산출물을 한 줄로 요약\n'
+            f'   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 -> "error" + "error_message" 기록\n'
+            '   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) -> "blocked" + "blocked_reason" 기록 후 즉시 중단\n'
+            "6. 모든 변경사항을 커밋하라:\n"
             f"   {commit_example}\n\n---\n\n"
         )
 
@@ -373,8 +388,8 @@ class StepExecutor:
             print(f"  ERROR: {step_file} not found")
             sys.exit(1)
 
-        prompt = preamble + step_file.read_text()
-        cmd = ["codex", "exec", "--json", *codex_effort_config(self._codex_effort)]
+        prompt = preamble + step_file.read_text(encoding="utf-8")
+        cmd = codex_base_cmd(self._codex_effort)
         if self._unsafe:
             cmd.append("--dangerously-bypass-approvals-and-sandbox")
         # 프롬프트는 argv 대신 stdin으로 전달해서 ARG_MAX 한계를 피한다.
@@ -382,14 +397,19 @@ class StepExecutor:
         try:
             result = subprocess.run(
                 cmd,
-                cwd=self._root, capture_output=True, text=True,
-                timeout=CODEX_EXEC_TIMEOUT, input=prompt,
+                input=prompt,
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=CODEX_EXEC_TIMEOUT,
             )
             returncode, stdout, stderr = result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as exc:
             returncode = 124
-            stdout = (exc.stdout or b"").decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            stderr = f"codex exec이 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않아 중단했습니다."
+            stdout = self._timeout_output(exc.stdout)
+            stderr = self._timeout_output(exc.stderr)
+            timeout_msg = f"codex exec이 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않아 중단했습니다."
+            stderr = "\n".join(part for part in (stderr, timeout_msg) if part)
 
         if returncode != 0:
             print(f"\n  WARN: Codex가 비정상 종료됨 (code {returncode})")
@@ -397,9 +417,11 @@ class StepExecutor:
                 print(f"  stderr: {stderr[:500]}")
 
         output = {
-            "step": step_num, "name": step_name,
+            "step": step_num,
+            "name": step_name,
             "exitCode": returncode,
-            "stdout": stdout, "stderr": stderr,
+            "stdout": stdout,
+            "stderr": stderr,
         }
         out_path = self._phase_dir / f"step{step_num}-output.json"
         with open(out_path, "w", encoding="utf-8") as f:
@@ -407,14 +429,22 @@ class StepExecutor:
 
         return output
 
+    @staticmethod
+    def _timeout_output(value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, bytes):
+            return value.decode("utf-8", "replace")
+        return str(value)
+
     # --- 헤더 & 검증 ---
 
     def _print_header(self):
         print(f"\n{'='*60}")
-        print(f"  Harness Step Executor")
+        print("  Harness Step Executor")
         print(f"  Phase: {self._phase_name} | Steps: {self._total}")
         if self._auto_push:
-            print(f"  Auto-push: enabled")
+            print("  Auto-push: enabled")
         print(f"{'='*60}")
 
     def _check_blockers(self):
@@ -423,12 +453,12 @@ class StepExecutor:
             if s["status"] == "error":
                 print(f"\n  ✗ Step {s['step']} ({s['name']}) failed.")
                 print(f"  Error: {s.get('error_message', 'unknown')}")
-                print(f"  Fix and reset status to 'pending' to retry.")
+                print("  Fix and reset status to 'pending' to retry.")
                 sys.exit(1)
             if s["status"] == "blocked":
                 print(f"\n  ⏸ Step {s['step']} ({s['name']}) blocked.")
                 print(f"  Reason: {s.get('blocked_reason', 'unknown')}")
-                print(f"  Resolve and reset status to 'pending' to retry.")
+                print("  Resolve and reset status to 'pending' to retry.")
                 sys.exit(2)
             if s["status"] != "pending":
                 break
@@ -505,7 +535,7 @@ class StepExecutor:
                         s.pop("error_message", None)
                 self._write_json(self._index_file, index)
                 prev_error = err_msg
-                print(f"  ↻ Step {step_num}: retry {attempt}/{self.MAX_RETRIES} — {err_msg}")
+                print(f"  ↻ Step {step_num}: retry {attempt}/{self.MAX_RETRIES} - {err_msg}")
             else:
                 for s in index["steps"]:
                     if s["step"] == step_num:
@@ -602,9 +632,7 @@ class StepExecutor:
             except subprocess.TimeoutExpired:
                 return f"`{command}`가 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않았습니다."
             if result.returncode != 0:
-                output = "\n".join(
-                    part for part in (result.stdout.strip(), result.stderr.strip()) if part
-                )
+                output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
                 return f"`{command}` 실패 (exit {result.returncode}): {output[:1200]}"
         return None
 
@@ -678,7 +706,8 @@ class StepExecutor:
         print(f"{'='*60}")
 
 
-def main():
+def main(argv: list[str] | None = None):
+    configure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Harness Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
@@ -688,12 +717,14 @@ def main():
     parser.add_argument("--next-step-only", action="store_true", help="Run only the next pending step")
     parser.add_argument(
         "--codex-effort",
+        "--reasoning-effort",
+        dest="codex_effort",
         choices=ALLOWED_CODEX_EFFORTS,
         default=DEFAULT_CODEX_EFFORT,
         help="Reasoning effort for codex exec step implementation calls",
     )
     parser.add_argument("--allow-xhigh", action="store_true", help="Allow xhigh reasoning effort")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.step is not None and args.next_step_only:
         parser.error("--step and --next-step-only cannot be used together")
