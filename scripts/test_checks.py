@@ -87,16 +87,11 @@ def test_collect_checks_merges_providers_per_name(tmp_path):
     ]
 
 
-def test_stage_checks_profile_override_limits_stop_stage(tmp_path):
+def test_stop_stage_defaults_to_lint_only(tmp_path):
     codex = tmp_path / ".codex"
     codex.mkdir()
     (codex / "project-profile.json").write_text(
-        json.dumps(
-            {
-                "commands": {"lint": ["custom lint"], "test": ["custom test"]},
-                "stageChecks": {"stop": ["lint"]},
-            }
-        )
+        json.dumps({"commands": {"lint": ["custom lint"], "test": ["custom test"]}})
     )
 
     stop_selected = checks.collect_checks(tmp_path, "stop")
@@ -104,6 +99,23 @@ def test_stage_checks_profile_override_limits_stop_stage(tmp_path):
 
     assert [command.name for command in stop_selected] == ["lint"]
     assert [command.name for command in manual_selected] == ["lint", "test"]
+
+
+def test_stage_checks_profile_override_expands_stop_stage(tmp_path):
+    codex = tmp_path / ".codex"
+    codex.mkdir()
+    (codex / "project-profile.json").write_text(
+        json.dumps(
+            {
+                "commands": {"lint": ["custom lint"], "test": ["custom test"]},
+                "stageChecks": {"stop": ["lint", "test"]},
+            }
+        )
+    )
+
+    stop_selected = checks.collect_checks(tmp_path, "stop")
+
+    assert [command.name for command in stop_selected] == ["lint", "test"]
 
 
 def test_manual_stage_excludes_final_only_docs_check(tmp_path):

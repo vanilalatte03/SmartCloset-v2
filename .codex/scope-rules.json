@@ -1,0 +1,83 @@
+{
+  "forbidden": [
+    {
+      "message": "금지 API `GET /api/recommendations/today`가 추가되었습니다.",
+      "anySubstrings": ["GET /api/recommendations/today"]
+    },
+    {
+      "message": "refresh token 범위가 추가되었습니다.",
+      "anySubstrings": ["리프레시 토큰"],
+      "anyLowered": ["refresh token", "refreshtoken"]
+    },
+    {
+      "message": "소셜 로그인 범위가 추가되었습니다.",
+      "anySubstrings": ["소셜 로그인"],
+      "anyLowered": ["social login"]
+    },
+    {
+      "message": "이메일 인증 범위가 추가되었습니다.",
+      "anySubstrings": ["이메일 인증"],
+      "anyLowered": ["email verification"]
+    },
+    {
+      "message": "비밀번호 재설정 범위가 추가되었습니다.",
+      "anySubstrings": ["비밀번호 재설정"],
+      "anyLowered": ["password reset"]
+    },
+    {
+      "message": "외부 Weather API가 MVP 필수/구현 대상으로 추가되었습니다.",
+      "anySubstrings": ["외부 Weather API"],
+      "requiresAnySubstrings": ["필수", "구현", "호출", "연동"],
+      "excludesAnySubstrings": ["getVilageFcst", "기상청"]
+    },
+    {
+      "message": "AWS 배포가 MVP 필수/구현 대상으로 추가되었습니다.",
+      "anySubstrings": ["AWS"],
+      "requiresAnySubstrings": ["필수", "구현", "배포"]
+    },
+    {
+      "message": "CD 자동화 범위가 추가되었습니다.",
+      "anySubstrings": ["CD 자동화", "CD 배포"],
+      "anyLowered": ["cd automation", "cd deployment"],
+      "requiresAnySubstrings": ["필수", "구현", "배포", "자동화"]
+    },
+    {
+      "message": "AI/GPT 추천 범위가 추가되었습니다.",
+      "anySubstrings": ["AI/GPT", "GPT 추천", "AI 추천"]
+    },
+    {
+      "message": "AI 자동 태깅 범위가 추가되었습니다.",
+      "anySubstrings": ["AI 자동 태깅"],
+      "anyLowered": ["ai automatic tagging"]
+    },
+    {
+      "message": "Redis 범위가 추가되었습니다.",
+      "anySubstrings": ["Redis"]
+    },
+    {
+      "message": "다중 이미지 범위가 추가되었습니다.",
+      "anySubstrings": ["다중 이미지"],
+      "anyLowered": ["multiple image", "multiple images"]
+    },
+    {
+      "message": "이미지 편집/크롭/리사이즈/압축 범위가 추가되었습니다.",
+      "anySubstrings": ["이미지 편집", "이미지 크롭", "이미지 리사이즈", "이미지 압축"],
+      "anyLowered": ["image editing", "image cropping", "image resizing", "image compression"]
+    },
+    {
+      "message": "S3/CDN/external image hosting 범위가 추가되었습니다.",
+      "anySubstrings": ["S3", "CDN", "외부 image hosting"],
+      "anyLowered": ["external image hosting"]
+    },
+    {
+      "message": "이미지 기반 추천 점수/이유 범위가 추가되었습니다.",
+      "anySubstrings": ["이미지 기반 추천 점수", "이미지 기반 추천 이유"],
+      "anyLowered": ["image-based recommendation scoring", "image-based recommendation reason"]
+    },
+    {
+      "message": "외부 주소/지도 API 범위가 추가되었습니다.",
+      "anySubstrings": ["외부 주소", "외부 지도", "지도 API", "주소 API"],
+      "anyLowered": ["external address", "external map", "map api", "address api"]
+    }
+  ]
+}

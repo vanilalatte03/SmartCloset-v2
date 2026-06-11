@@ -10,6 +10,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -248,8 +249,10 @@ class StepExecutor:
                 f"## 현재 Phase README ({getattr(self, '_phase_dir_name', phase_readme.parent.name)}/README.md)\n\n"
                 f"{phase_readme.read_text()}"
             )
-        # .codex/project-profile.json의 guardrailDocs로 첨부 문서를 선별하면
-        # 문서가 늘어나도 step 프롬프트 크기를 통제할 수 있다. 미설정 시 전체 첨부.
+        # 첨부 문서 선택 우선순위:
+        # 1. .codex/project-profile.json의 guardrailDocs (명시 고정 목록)
+        # 2. phase README/step 문서가 참조하는 docs/*.md만 (기본 — 프롬프트 크기 통제)
+        # 3. 참조가 하나도 없으면 docs 전체 (안전 fallback)
         profile_docs = checks.load_project_profile(ROOT).get("guardrailDocs")
         if isinstance(profile_docs, list) and profile_docs:
             for rel in profile_docs:
@@ -260,6 +263,16 @@ class StepExecutor:
                     sections.append(f"## {rel}\n\n{doc.read_text()}")
             return "\n\n---\n\n".join(sections) if sections else ""
 
+        referenced = self._referenced_doc_paths()
+        if referenced:
+            for rel in referenced:
+                sections.append(f"## {rel}\n\n{(ROOT / rel).read_text()}")
+            sections.append(
+                "## 추가 문서\n\n"
+                "여기 첨부되지 않은 docs/*.md와 docs/adr/*.md는 필요할 때 직접 읽어라."
+            )
+            return "\n\n---\n\n".join(sections)
+
         docs_dir = ROOT / "docs"
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
@@ -269,6 +282,26 @@ class StepExecutor:
                 for doc in sorted(adr_dir.glob("*.md")):
                     sections.append(f"## adr/{doc.stem}\n\n{doc.read_text()}")
         return "\n\n---\n\n".join(sections) if sections else ""
+
+    DOC_REFERENCE_RE = re.compile(r"docs/[A-Za-z0-9_\-./]+\.md")
+
+    def _referenced_doc_paths(self) -> list[str]:
+        """phase README와 step 문서가 참조하는 docs 경로(존재하는 것만)를 모은다."""
+        phase_dir = getattr(self, "_phase_dir", None)
+        if phase_dir is None or not phase_dir.is_dir():
+            return []
+        sources = [phase_dir / "README.md", *sorted(phase_dir.glob("step*.md"))]
+        referenced: list[str] = []
+        seen: set[str] = set()
+        for source in sources:
+            if not source.exists():
+                continue
+            for rel in self.DOC_REFERENCE_RE.findall(source.read_text(encoding="utf-8")):
+                if rel in seen or not (ROOT / rel).is_file():
+                    continue
+                seen.add(rel)
+                referenced.append(rel)
+        return sorted(referenced)
 
     def _load_command_context(self) -> str:
         selected = checks.collect_checks(ROOT, "manual")

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,14 +10,28 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import autopilot as ap
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 def cp(cmd=None, returncode=0, stdout="", stderr=""):
     return subprocess.CompletedProcess(cmd or [], returncode, stdout, stderr)
 
 
+def _install_phase_scope_rules(tmp_repo, phase):
+    """실제 저장소의 phase scope-rules.json을 테스트 repo에 복사한다."""
+    src = REPO_ROOT / "phases" / phase / "scope-rules.json"
+    dst_dir = tmp_repo / "phases" / phase
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src, dst_dir / "scope-rules.json")
+
+
 @pytest.fixture
 def tmp_repo(tmp_path):
     (tmp_path / "issues").mkdir()
+    codex_dir = tmp_path / ".codex"
+    codex_dir.mkdir()
+    # 전역 금지 규칙은 실제 저장소 파일을 그대로 사용해 동작 일치를 검증한다.
+    shutil.copy(REPO_ROOT / ".codex" / "scope-rules.json", codex_dir / "scope-rules.json")
     phase_dir = tmp_path / "phases" / "1-smartcloset-mvp"
     phase_dir.mkdir(parents=True)
     (phase_dir / "index.json").write_text(
@@ -642,10 +657,10 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
         assert args[:2] == ("diff", "--unified=0")
         return cp(
             stdout="\n".join([
-                "diff --git a/scripts/autopilot.py b/scripts/autopilot.py",
-                "+++ b/scripts/autopilot.py",
+                "diff --git a/phases/1-smartcloset-mvp/scope-rules.json b/phases/1-smartcloset-mvp/scope-rules.json",
+                "+++ b/phases/1-smartcloset-mvp/scope-rules.json",
                 "@@ -1,0 +1,1 @@",
-                f'+            if "{forbidden_today_get}" in line:',
+                f'+    "anySubstrings": ["{forbidden_today_get}", "Redis"],',
                 "diff --git a/issues/1-smartcloset-mvp/issue-1.md b/issues/1-smartcloset-mvp/issue-1.md",
                 "+++ b/issues/1-smartcloset-mvp/issue-1.md",
                 "@@ -1,0 +1,1 @@",
@@ -727,6 +742,7 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
     assert not any("docs/AUTH.md" in finding for finding in findings)
     assert not any("README.md" in finding for finding in findings)
     assert not any("step6-output.json" in finding for finding in findings)
+    assert not any("scope-rules.json" in finding for finding in findings)
     assert not any("getVilageFcst" in finding for finding in findings)
     assert not any("로그인/회원가입" in finding for finding in findings)
     assert not any("Spring Security" in finding for finding in findings)
@@ -734,6 +750,7 @@ def test_forbidden_diff_ignores_negated_docs_and_flags_added_scope(runner):
 
 
 def test_forbidden_diff_allows_mvp8_step0_account_scope(tmp_repo):
+    _install_phase_scope_rules(tmp_repo, "8-smartcloset-account-stability")
     runner = ap.AutopilotRunner("8-smartcloset-account-stability", root=tmp_repo)
 
     def fake_git(*args, check=True):
@@ -763,6 +780,7 @@ def test_forbidden_diff_allows_mvp8_step0_account_scope(tmp_repo):
 
 
 def test_forbidden_diff_keeps_mvp8_future_step_scope_blocked(tmp_repo):
+    _install_phase_scope_rules(tmp_repo, "8-smartcloset-account-stability")
     runner = ap.AutopilotRunner("8-smartcloset-account-stability", root=tmp_repo)
 
     def fake_git(*args, check=True):
@@ -789,6 +807,7 @@ def test_forbidden_diff_keeps_mvp8_future_step_scope_blocked(tmp_repo):
 
 
 def test_forbidden_diff_allows_mvp9_account_maintenance_context(tmp_repo):
+    _install_phase_scope_rules(tmp_repo, "9-smartcloset-ui-ux-redesign")
     runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
 
     def fake_git(*args, check=True):
@@ -813,6 +832,7 @@ def test_forbidden_diff_allows_mvp9_account_maintenance_context(tmp_repo):
 
 
 def test_forbidden_diff_blocks_mvp9_account_maintenance_context_outside_account_steps(tmp_repo):
+    _install_phase_scope_rules(tmp_repo, "9-smartcloset-ui-ux-redesign")
     runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
 
     def fake_git(*args, check=True):
@@ -838,6 +858,7 @@ def test_forbidden_diff_blocks_mvp9_account_maintenance_context_outside_account_
 
 
 def test_forbidden_diff_blocks_mvp9_account_scope_expansion(tmp_repo):
+    _install_phase_scope_rules(tmp_repo, "9-smartcloset-ui-ux-redesign")
     runner = ap.AutopilotRunner("9-smartcloset-ui-ux-redesign", root=tmp_repo)
 
     def fake_git(*args, check=True):

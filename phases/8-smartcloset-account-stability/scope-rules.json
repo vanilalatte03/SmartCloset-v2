@@ -1,0 +1,21 @@
+{
+  "allowedScopeMessages": [
+    {
+      "message": "refresh token 범위가 추가되었습니다.",
+      "steps": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
+    {
+      "message": "이메일 인증 범위가 추가되었습니다.",
+      "steps": [0, 2, 5, 7]
+    },
+    {
+      "message": "비밀번호 재설정 범위가 추가되었습니다.",
+      "steps": [0, 2, 5, 7]
+    },
+    {
+      "message": "소셜 로그인 범위가 추가되었습니다.",
+      "steps": [0, 3, 5, 7],
+      "requiresAnyLowered": ["google", "oauth"]
+    }
+  ]
+}
