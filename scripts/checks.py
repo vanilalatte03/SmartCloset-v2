@@ -19,6 +19,7 @@ FINAL_ONLY_CHECK_NAMES = ("harness-test", "docs-check")
 CHECK_NAMES = (*BASE_CHECK_NAMES, *FINAL_ONLY_CHECK_NAMES)
 STAGES = ("manual", "pre-commit", "stop", "final")
 PLACEHOLDER_MARKERS = ("<", ">", "{", "}", "...", "TODO", "TBD")
+DEFAULT_CHECK_TIMEOUT = 1800
 DOCS_CHECK_CONFIG_NAME = "docs-checks.json"
 ACTIVE_PHASE_STATUSES = {"pending", "error", "blocked"}
 
@@ -198,7 +199,7 @@ def _detect_python(root: Path, result: dict[str, list[CheckCommand]]):
 
     has_uv = shutil.which("uv") is not None
     has_ruff = shutil.which("ruff") is not None
-    python_test = "uv run pytest" if has_uv and (root / "pyproject.toml").exists() else "python -m pytest"
+    python_test = "uv run pytest" if has_uv and (root / "pyproject.toml").exists() else "python3 -m pytest"
     _append(result, "test", python_test, "detected:python")
 
     if has_uv and (root / "pyproject.toml").exists():
@@ -215,10 +216,19 @@ def detect_commands(root: Path = ROOT) -> dict[str, list[CheckCommand]]:
     return result
 
 
-def check_names_for_stage(stage: str) -> tuple[str, ...]:
-    if stage == "final":
-        return CHECK_NAMES
-    return BASE_CHECK_NAMES
+def check_names_for_stage(stage: str, root: Path = ROOT) -> tuple[str, ...]:
+    default = CHECK_NAMES if stage == "final" else BASE_CHECK_NAMES
+
+    # Per-stage overrides keep heavy stages (e.g. stop hooks) configurable:
+    # .codex/project-profile.json -> {"stageChecks": {"stop": ["lint"]}}
+    stage_checks = load_project_profile(root).get("stageChecks")
+    if not isinstance(stage_checks, dict):
+        return default
+    configured = stage_checks.get(stage)
+    if not isinstance(configured, list):
+        return default
+    selected = tuple(name for name in configured if name in CHECK_NAMES)
+    return selected or default
 
 
 def _flatten(commands: dict[str, list[CheckCommand]], names: Iterable[str] = CHECK_NAMES) -> list[CheckCommand]:
@@ -226,13 +236,14 @@ def _flatten(commands: dict[str, list[CheckCommand]], names: Iterable[str] = CHE
 
 
 def collect_checks(root: Path = ROOT, stage: str = "manual") -> list[CheckCommand]:
-    names = check_names_for_stage(stage)
+    names = check_names_for_stage(stage, root)
+    merged: dict[str, list[CheckCommand]] = {}
     for provider in (commands_from_profile, commands_from_docs, detect_commands):
-        commands = provider(root)
-        checks = _flatten(commands, names)
-        if checks:
-            return checks
-    return []
+        for name, commands in provider(root).items():
+            # First provider that defines a check name wins for that name only,
+            # so a profile that pins `test` does not silence docs/detected `build`.
+            merged.setdefault(name, commands)
+    return _flatten(merged, names)
 
 
 def _docs_config_path(root: Path = ROOT, config_path: str | None = None) -> Path | None:
@@ -424,7 +435,11 @@ def run_docs_checks(root: Path = ROOT, config_path: str | None = None, include_f
     return 0
 
 
-def run_checks(checks: Iterable[CheckCommand], root: Path = ROOT) -> int:
+def run_checks(
+    checks: Iterable[CheckCommand],
+    root: Path = ROOT,
+    timeout: int = DEFAULT_CHECK_TIMEOUT,
+) -> int:
     checks = list(checks)
     if not checks:
         print(f"No {'/'.join(CHECK_NAMES)} commands configured or detected.")
@@ -432,17 +447,13 @@ def run_checks(checks: Iterable[CheckCommand], root: Path = ROOT) -> int:
 
     for check in checks:
         print(f"$ {check.command}  # {check.name}, {check.source}")
-        result = subprocess.run(
-            check.command,
-            cwd=root,
-            shell=True,
-            capture_output=True,
-            text=True,
-        )
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+        sys.stdout.flush()
+        try:
+            # Stream output directly so long builds show live progress.
+            result = subprocess.run(check.command, cwd=root, shell=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out after {timeout}s: {check.command}", file=sys.stderr)
+            return 124
         if result.returncode != 0:
             print(f"Command failed with exit code {result.returncode}: {check.command}", file=sys.stderr)
             return result.returncode
@@ -463,6 +474,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Include final-only docs-check rules such as browser QA PASS records.",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_CHECK_TIMEOUT,
+        help="Per-command timeout in seconds.",
+    )
     args = parser.parse_args(argv)
 
     if args.docs_check:
@@ -475,7 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         if not checks:
             print("No lint/test/build commands configured or detected.")
         return 0
-    return run_checks(checks, ROOT)
+    return run_checks(checks, ROOT, timeout=args.timeout)
 
 
 if __name__ == "__main__":

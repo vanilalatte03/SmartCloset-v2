@@ -62,10 +62,14 @@ def main() -> int:
     for rel in required:
         print(f"- {rel}: {_status((ROOT / rel).exists())}")
 
-    agents_lines = (ROOT / "AGENTS.md").read_text(encoding="utf-8").splitlines()
-    print(f"\nAGENTS.md lines: {len(agents_lines)}")
-    if len(agents_lines) > 110:
-        print("- warning: AGENTS.md is above the 100-line target.")
+    agents_md = ROOT / "AGENTS.md"
+    if agents_md.exists():
+        agents_lines = agents_md.read_text(encoding="utf-8").splitlines()
+        print(f"\nAGENTS.md lines: {len(agents_lines)}")
+        if len(agents_lines) > 110:
+            print("- warning: AGENTS.md is above the 100-line target.")
+    else:
+        print("\nAGENTS.md lines: file missing")
 
     inline_adrs = _count_inline_adrs()
     split_adrs = _count_split_adrs()

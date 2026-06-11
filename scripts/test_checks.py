@@ -60,6 +60,52 @@ def test_profile_commands_take_precedence(tmp_path):
     assert [command.command for command in selected] == ["custom test"]
 
 
+def test_collect_checks_merges_providers_per_name(tmp_path):
+    codex = tmp_path / ".codex"
+    codex.mkdir()
+    (codex / "project-profile.json").write_text(
+        json.dumps({"commands": {"lint": ["custom lint"]}})
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "COMMANDS.md").write_text(
+        """
+## 활성 명령
+| 이름 | 명령 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| lint | `docs lint` | yes | lint |
+| test | `docs test` | yes | tests |
+""".strip()
+    )
+
+    selected = checks.collect_checks(tmp_path)
+
+    # lint는 profile이 이기고, profile에 없는 test는 docs에서 채워진다.
+    assert [(command.name, command.command) for command in selected] == [
+        ("lint", "custom lint"),
+        ("test", "docs test"),
+    ]
+
+
+def test_stage_checks_profile_override_limits_stop_stage(tmp_path):
+    codex = tmp_path / ".codex"
+    codex.mkdir()
+    (codex / "project-profile.json").write_text(
+        json.dumps(
+            {
+                "commands": {"lint": ["custom lint"], "test": ["custom test"]},
+                "stageChecks": {"stop": ["lint"]},
+            }
+        )
+    )
+
+    stop_selected = checks.collect_checks(tmp_path, "stop")
+    manual_selected = checks.collect_checks(tmp_path, "manual")
+
+    assert [command.name for command in stop_selected] == ["lint"]
+    assert [command.name for command in manual_selected] == ["lint", "test"]
+
+
 def test_manual_stage_excludes_final_only_docs_check(tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()

@@ -20,23 +20,17 @@ from pathlib import Path
 from typing import Optional
 
 import checks
+import guard
+from codex_common import (
+    ALLOWED_CODEX_EFFORTS,
+    CODEX_EXEC_TIMEOUT,
+    codex_effort_config,
+    read_acceptance_commands,
+    validate_codex_effort,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
-ALLOWED_CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 DEFAULT_CODEX_EFFORT = "medium"
-
-
-def validate_codex_effort(effort: str, *, allow_xhigh: bool = False) -> str:
-    if effort not in ALLOWED_CODEX_EFFORTS:
-        allowed = ", ".join(ALLOWED_CODEX_EFFORTS)
-        raise ValueError(f"codex effort must be one of: {allowed}")
-    if effort == "xhigh" and not allow_xhigh:
-        raise ValueError("xhigh effort requires --allow-xhigh")
-    return effort
-
-
-def codex_effort_config(effort: str) -> list[str]:
-    return ["-c", f'model_reasoning_effort="{effort}"']
 
 
 @contextlib.contextmanager
@@ -254,6 +248,18 @@ class StepExecutor:
                 f"## 현재 Phase README ({getattr(self, '_phase_dir_name', phase_readme.parent.name)}/README.md)\n\n"
                 f"{phase_readme.read_text()}"
             )
+        # .codex/project-profile.json의 guardrailDocs로 첨부 문서를 선별하면
+        # 문서가 늘어나도 step 프롬프트 크기를 통제할 수 있다. 미설정 시 전체 첨부.
+        profile_docs = checks.load_project_profile(ROOT).get("guardrailDocs")
+        if isinstance(profile_docs, list) and profile_docs:
+            for rel in profile_docs:
+                if not isinstance(rel, str):
+                    continue
+                doc = ROOT / rel
+                if doc.is_file():
+                    sections.append(f"## {rel}\n\n{doc.read_text()}")
+            return "\n\n---\n\n".join(sections) if sections else ""
+
         docs_dir = ROOT / "docs"
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
@@ -338,24 +344,32 @@ class StepExecutor:
         cmd = ["codex", "exec", "--json", *codex_effort_config(self._codex_effort)]
         if self._unsafe:
             cmd.append("--dangerously-bypass-approvals-and-sandbox")
-        cmd.append(prompt)
-        result = subprocess.run(
-            cmd,
-            cwd=self._root, capture_output=True, text=True, timeout=1800,
-        )
+        # 프롬프트는 argv 대신 stdin으로 전달해서 ARG_MAX 한계를 피한다.
+        cmd.append("-")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self._root, capture_output=True, text=True,
+                timeout=CODEX_EXEC_TIMEOUT, input=prompt,
+            )
+            returncode, stdout, stderr = result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired as exc:
+            returncode = 124
+            stdout = (exc.stdout or b"").decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+            stderr = f"codex exec이 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않아 중단했습니다."
 
-        if result.returncode != 0:
-            print(f"\n  WARN: Codex가 비정상 종료됨 (code {result.returncode})")
-            if result.stderr:
-                print(f"  stderr: {result.stderr[:500]}")
+        if returncode != 0:
+            print(f"\n  WARN: Codex가 비정상 종료됨 (code {returncode})")
+            if stderr:
+                print(f"  stderr: {stderr[:500]}")
 
         output = {
             "step": step_num, "name": step_name,
-            "exitCode": result.returncode,
-            "stdout": result.stdout, "stderr": result.stderr,
+            "exitCode": returncode,
+            "stdout": stdout, "stderr": stderr,
         }
         out_path = self._phase_dir / f"step{step_num}-output.json"
-        with open(out_path, "w") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
 
         return output
@@ -417,14 +431,18 @@ class StepExecutor:
             status = next((s.get("status", "pending") for s in index["steps"] if s["step"] == step_num), "pending")
             ts = self._stamp()
 
+            ac_error = None
             if status == "completed":
-                for s in index["steps"]:
-                    if s["step"] == step_num:
-                        s["completed_at"] = ts
-                self._write_json(self._index_file, index)
-                self._commit_step(step_num, step_name)
-                print(f"  ✓ Step {step_num}: {step_name} [{elapsed}s]")
-                return True
+                # codex의 completed 자가 보고를 믿지 않고 인수 기준을 직접 재실행한다.
+                ac_error = self._verify_acceptance(step_num)
+                if ac_error is None:
+                    for s in index["steps"]:
+                        if s["step"] == step_num:
+                            s["completed_at"] = ts
+                    self._write_json(self._index_file, index)
+                    self._commit_step(step_num, step_name)
+                    print(f"  ✓ Step {step_num}: {step_name} [{elapsed}s]")
+                    return True
 
             if status == "blocked":
                 for s in index["steps"]:
@@ -437,12 +455,17 @@ class StepExecutor:
                 self._update_top_index("blocked")
                 sys.exit(2)
 
-            err_msg = next(
-                (s.get("error_message", "Step did not update status") for s in index["steps"] if s["step"] == step_num),
-                "Step did not update status",
-            )
+            if ac_error is not None:
+                err_msg = f"[AC 재검증 실패] {ac_error}"
+            else:
+                err_msg = next(
+                    (s.get("error_message", "Step did not update status") for s in index["steps"] if s["step"] == step_num),
+                    "Step did not update status",
+                )
 
             if attempt < self.MAX_RETRIES:
+                # 실패한 시도의 변경 파일은 의도적으로 남겨둔다.
+                # 다음 시도의 codex가 prev_error와 함께 이어서 자가 교정하는 흐름이다.
                 for s in index["steps"]:
                     if s["step"] == step_num:
                         s["status"] = "pending"
@@ -523,6 +546,35 @@ class StepExecutor:
             sys.exit(1)
         return target
 
+    def _verify_acceptance(self, step_num: int) -> Optional[str]:
+        """step 문서의 인수 기준 명령을 직접 실행해 통과 여부를 확인한다."""
+        commands = read_acceptance_commands(self._phase_dir / f"step{step_num}.md")
+        if not commands:
+            return None
+        print(f"  AC 재검증: {len(commands)}개 명령 실행")
+        for command in commands:
+            # step 문서는 codex가 수정할 수 있으므로 위험 명령 정책을 먼저 통과해야 한다.
+            danger = guard.danger_reason(command)
+            if danger:
+                return f"인수 기준 명령이 위험 명령 정책에 차단되었습니다: {danger}"
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=self._root,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=CODEX_EXEC_TIMEOUT,
+                )
+            except subprocess.TimeoutExpired:
+                return f"`{command}`가 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않았습니다."
+            if result.returncode != 0:
+                output = "\n".join(
+                    part for part in (result.stdout.strip(), result.stderr.strip()) if part
+                )
+                return f"`{command}` 실패 (exit {result.returncode}): {output[:1200]}"
+        return None
+
     def _has_pending_steps(self) -> bool:
         index = self._read_json(self._index_file)
         return any(s.get("status") == "pending" for s in index["steps"])
@@ -543,13 +595,18 @@ class StepExecutor:
             return
 
         cmd = [sys.executable, "scripts/checks.py", "--stage", "final"]
-        result = subprocess.run(
-            cmd,
-            cwd=self._root,
-            capture_output=True,
-            text=True,
-            timeout=1800,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=CODEX_EXEC_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            self._update_top_index("error")
+            print(f"\n  ERROR: final checks가 {CODEX_EXEC_TIMEOUT}초 안에 끝나지 않았습니다.")
+            sys.exit(1)
         if result.stdout:
             print(result.stdout, end="")
         if result.stderr:

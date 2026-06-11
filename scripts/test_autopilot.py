@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -165,20 +166,23 @@ def test_run_step_passes_xhigh_allow_flag_to_execute(tmp_repo):
 def test_codex_review_uses_high_effort(runner):
     calls = []
 
-    def fake_run(cmd, check=True, timeout=None):
-        calls.append((cmd, check, timeout))
+    def fake_run(cmd, check=True, timeout=None, input=None):
+        calls.append((cmd, check, timeout, input))
         return cp(stdout='{"pass": true, "summary": "ok", "findings": []}')
 
     runner._run = fake_run
 
     result = runner._run_codex_review({"step": 1, "name": "clothing-p0-api"})
 
-    cmd, check, timeout = calls[0]
+    cmd, check, timeout, prompt = calls[0]
     assert result.passed is True
     assert check is False
     assert timeout == 1800
     assert cmd[:3] == ["codex", "exec", "--json"]
     assert 'model_reasoning_effort="high"' in cmd
+    assert "-" in cmd
+    assert "-o" in cmd
+    assert "Read-only review only" in prompt
 
 
 def test_codex_fix_uses_medium_effort(runner, tmp_repo):
@@ -192,7 +196,7 @@ def test_codex_fix_uses_medium_effort(runner, tmp_repo):
     )
     review = ap.ReviewResult(False, ["실패"], "fail")
 
-    runner._run = lambda cmd, check=True, timeout=None: calls.append((cmd, timeout)) or cp()
+    runner._run = lambda cmd, check=True, timeout=None, input=None: calls.append((cmd, timeout, input)) or cp()
     runner._invoke_codex_fix(
         issue,
         "codex/branch",
@@ -201,10 +205,12 @@ def test_codex_fix_uses_medium_effort(runner, tmp_repo):
         1,
     )
 
-    cmd, timeout = calls[0]
+    cmd, timeout, prompt = calls[0]
     assert timeout == 1800
     assert cmd[:3] == ["codex", "exec", "--json"]
     assert 'model_reasoning_effort="medium"' in cmd
+    assert cmd[-1] == "-"
+    assert "자동 리뷰 수정 담당자" in prompt
 
 
 def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
@@ -221,7 +227,7 @@ def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
     runner._run_step = fake_run_step
     runner._run_review_gate = lambda step: ap.ReviewResult(True, [], "ok", commands=("cmd",))
 
-    def fake_gh(*args, check=True):
+    def fake_gh(*args, check=True, timeout=None):
         gh_calls.append(args)
         if args[:2] == ("pr", "create"):
             return cp(stdout=f"https://github.com/org/repo/pull/{len([c for c in gh_calls if c[:2] == ('pr', 'create')])}\n")
@@ -235,6 +241,7 @@ def test_step_success_creates_draft_pr_comments_and_merges(runner, tmp_repo):
         ("codex/1-smartcloset-mvp-step0-project-scaffold", 0),
         ("codex/1-smartcloset-mvp-step1-clothing-p0-api", 1),
     ]
+    assert ("pr", "checks", "https://github.com/org/repo/pull/1", "--watch") in gh_calls
     assert "https://github.com/org/repo/pull/1" in pr_urls
     assert "https://github.com/org/repo/pull/2" in pr_urls
     assert gh_calls[0][:8] == (
@@ -349,7 +356,7 @@ def test_review_fail_fixes_same_pr_then_merges_and_continues(runner, tmp_repo):
     runner._commit_dirty_fix = lambda step: dirty_commits.append(step["step"])
     runner._push_branch = lambda branch: pushed.append(branch)
 
-    def fake_gh(*args, check=True):
+    def fake_gh(*args, check=True, timeout=None):
         gh_calls.append(args)
         if args[:2] == ("pr", "create"):
             pr_count = len([call for call in gh_calls if call[:2] == ("pr", "create")])
@@ -950,3 +957,265 @@ def test_main_rejects_xhigh_without_allow_flag():
         ap.main(["1-smartcloset-mvp", "--step-effort", "xhigh"])
 
     assert exc_info.value.code == 2
+
+
+def test_main_rejects_zero_max_steps():
+    with pytest.raises(SystemExit) as exc_info:
+        ap.main(["1-smartcloset-mvp", "--max-steps", "0"])
+
+    assert exc_info.value.code == 2
+
+
+def test_review_gate_blocks_dangerous_acceptance_command(tmp_repo):
+    step_path = tmp_repo / "phases" / "1-smartcloset-mvp" / "step1.md"
+    step_path.write_text(
+        "\n".join([
+            "# 단계 1",
+            "",
+            "## 인수 기준",
+            "",
+            "```bash",
+            "rm -r -f build",
+            "```",
+        ]),
+        encoding="utf-8",
+    )
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+    shell_calls = []
+
+    runner._run_shell = lambda command, check=True, timeout=None: shell_calls.append(command) or cp()
+    runner._run = lambda cmd, check=True, timeout=None: cp()
+    runner._scan_forbidden_diff = lambda current_step: []
+    runner._run_codex_review = lambda current_step: ap.ReviewResult(True, [], "ok")
+
+    review = runner._run_review_gate({"step": 1, "name": "clothing-p0-api"})
+
+    assert review.passed is False
+    assert review.checks_passed is False
+    assert shell_calls == []
+    assert any("위험 명령 정책" in finding for finding in review.findings)
+
+
+def test_scope_rules_config_extends_forbidden_and_allows_messages(tmp_repo):
+    phase_dir = tmp_repo / "phases" / "1-smartcloset-mvp"
+    (phase_dir / "scope-rules.json").write_text(
+        json.dumps(
+            {
+                "extraForbidden": [
+                    {
+                        "message": "GraphQL 범위가 추가되었습니다.",
+                        "anyLowered": ["graphql"],
+                    }
+                ],
+                "allowedScopeMessages": [
+                    {
+                        "message": "Redis 범위가 추가되었습니다.",
+                        "steps": [1],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+
+    def fake_git(*args, check=True):
+        assert args[:2] == ("diff", "--unified=0")
+        return cp(
+            stdout="\n".join([
+                "diff --git a/docs/PRD.md b/docs/PRD.md",
+                "+++ b/docs/PRD.md",
+                "@@ -1,0 +1,2 @@",
+                "+GraphQL API를 구현한다.",
+                "+Redis 캐싱을 구현한다.",
+            ])
+        )
+
+    runner._git = fake_git
+
+    findings = runner._scan_forbidden_diff({"step": 1, "name": "clothing-p0-api"})
+
+    assert any("GraphQL 범위" in finding for finding in findings)
+    assert not any("Redis 범위" in finding for finding in findings)
+
+    blocked = runner._scan_forbidden_diff({"step": 0, "name": "project-scaffold"})
+    assert any("Redis 범위" in finding for finding in blocked)
+
+
+def test_merge_waits_for_pr_checks_and_blocks_on_failure(runner):
+    gh_calls = []
+
+    def fake_gh(*args, check=True, timeout=None):
+        gh_calls.append(args)
+        if args[:2] == ("pr", "checks"):
+            return cp(returncode=1, stdout="build  fail  1m  https://ci")
+        return cp()
+
+    runner._gh = fake_gh
+
+    with pytest.raises(ap.AutopilotError) as exc_info:
+        runner._mark_ready_and_merge("https://github.com/org/repo/pull/3")
+
+    assert "원격 체크" in str(exc_info.value)
+    assert not any(call[:2] == ("pr", "merge") for call in gh_calls)
+
+
+def test_merge_proceeds_when_no_checks_after_grace(runner, monkeypatch):
+    gh_calls = []
+    sleeps = []
+    monkeypatch.setattr(ap, "NO_CHECKS_GRACE_SECONDS", 0)
+    monkeypatch.setattr(ap.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    def fake_gh(*args, check=True, timeout=None):
+        gh_calls.append(args)
+        if args[:2] == ("pr", "checks"):
+            return cp(returncode=1, stderr="no checks reported on the 'codex/x' branch")
+        return cp()
+
+    runner._gh = fake_gh
+
+    runner._mark_ready_and_merge("https://github.com/org/repo/pull/3")
+
+    assert any(call[:2] == ("pr", "merge") for call in gh_calls)
+    assert sleeps == []
+
+
+def test_no_checks_grace_retries_until_checks_appear(runner, monkeypatch):
+    gh_calls = []
+    sleeps = []
+    checks_results = [
+        cp(returncode=1, stderr="no checks reported on the 'codex/x' branch"),
+        cp(returncode=0, stdout="build  pass  1m  https://ci"),
+    ]
+    monkeypatch.setattr(ap.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    def fake_gh(*args, check=True, timeout=None):
+        gh_calls.append(args)
+        if args[:2] == ("pr", "checks"):
+            return checks_results.pop(0)
+        return cp()
+
+    runner._gh = fake_gh
+
+    runner._mark_ready_and_merge("https://github.com/org/repo/pull/3")
+
+    checks_calls = [call for call in gh_calls if call[:2] == ("pr", "checks")]
+    assert len(checks_calls) == 2
+    assert sleeps == [ap.NO_CHECKS_POLL_SECONDS]
+    assert any(call[:2] == ("pr", "merge") for call in gh_calls)
+
+
+def test_no_checks_failure_during_grace_blocks_merge(runner, monkeypatch):
+    gh_calls = []
+    checks_results = [
+        cp(returncode=1, stderr="no checks reported on the 'codex/x' branch"),
+        cp(returncode=1, stdout="build  fail  1m  https://ci"),
+    ]
+    monkeypatch.setattr(ap.time, "sleep", lambda seconds: None)
+
+    def fake_gh(*args, check=True, timeout=None):
+        gh_calls.append(args)
+        if args[:2] == ("pr", "checks"):
+            return checks_results.pop(0)
+        return cp()
+
+    runner._gh = fake_gh
+
+    with pytest.raises(ap.AutopilotError, match="원격 체크"):
+        runner._mark_ready_and_merge("https://github.com/org/repo/pull/3")
+
+    assert not any(call[:2] == ("pr", "merge") for call in gh_calls)
+
+
+def test_allow_no_checks_skips_grace_wait(tmp_repo, monkeypatch):
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo, allow_no_checks=True)
+    gh_calls = []
+
+    def fail_sleep(seconds):
+        raise AssertionError("--allow-no-checks must not wait")
+
+    monkeypatch.setattr(ap.time, "sleep", fail_sleep)
+
+    def fake_gh(*args, check=True, timeout=None):
+        gh_calls.append(args)
+        if args[:2] == ("pr", "checks"):
+            return cp(returncode=1, stderr="no checks reported on the 'codex/x' branch")
+        return cp()
+
+    runner._gh = fake_gh
+
+    runner._mark_ready_and_merge("https://github.com/org/repo/pull/3")
+
+    checks_calls = [call for call in gh_calls if call[:2] == ("pr", "checks")]
+    assert len(checks_calls) == 1
+    assert any(call[:2] == ("pr", "merge") for call in gh_calls)
+
+
+def test_run_converts_timeout_to_autopilot_error(runner, monkeypatch):
+    def fake_subprocess_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="slow", timeout=5)
+
+    monkeypatch.setattr(ap.subprocess, "run", fake_subprocess_run)
+
+    with pytest.raises(ap.AutopilotError, match="끝나지 않아"):
+        runner._run(["slow"], timeout=5)
+    with pytest.raises(ap.AutopilotError, match="끝나지 않아"):
+        runner._run_shell("slow", timeout=5)
+
+
+def test_dry_run_lists_pending_steps_without_side_effects(tmp_repo):
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo, dry_run=True, max_steps=1)
+    runner._git = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("git should not run"))
+    runner._gh = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("gh should not run"))
+
+    summary = runner.run()
+
+    assert "[dry-run]" in summary
+    assert "Step 0 `project-scaffold`" in summary
+    assert "Step 1" not in summary  # max_steps=1
+    assert not (tmp_repo / ".codex" / "autopilot.lock").exists()
+
+
+def test_lock_blocks_concurrent_runs(tmp_repo):
+    lock_path = tmp_repo / ".codex" / "autopilot.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text(str(os.getpid()), encoding="utf-8")
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+
+    with pytest.raises(ap.AutopilotError, match="이미 실행 중"):
+        runner.run()
+
+    assert lock_path.exists()
+
+
+def test_stale_lock_is_replaced_and_released(tmp_repo):
+    lock_path = tmp_repo / ".codex" / "autopilot.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text("999999999", encoding="utf-8")
+    runner = ap.AutopilotRunner("1-smartcloset-mvp", root=tmp_repo)
+    runner._run_loop = lambda: "done"
+
+    assert runner.run() == "done"
+    assert not lock_path.exists()
+
+
+def test_max_steps_stops_loop_after_limit(runner, tmp_repo):
+    runner.max_steps = 1
+    runner._ensure_preconditions = lambda: None
+    runner._sync_base = lambda: None
+    runner._run_step = lambda branch, step: _mark_step_complete(tmp_repo, step["step"], "완료")
+    runner._run_review_gate = lambda step: ap.ReviewResult(True, [], "ok")
+    runner._run_final_gate = lambda: (_ for _ in ()).throw(AssertionError("final gate must not run"))
+
+    def fake_gh(*args, check=True, timeout=None):
+        if args[:2] == ("pr", "create"):
+            return cp(stdout="https://github.com/org/repo/pull/1\n")
+        return cp()
+
+    runner._gh = fake_gh
+
+    result = runner.run()
+
+    assert "https://github.com/org/repo/pull/1" in result
+    assert "--max-steps 1 도달" in result
