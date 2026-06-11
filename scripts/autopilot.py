@@ -15,16 +15,22 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import checks
 import guard
 from codex_common import (
     ALLOWED_CODEX_EFFORTS,
+    CODEX_ENV_CONFIG,
     CODEX_EXEC_TIMEOUT,
+    codex_base_cmd,
     codex_effort_config,
+    configure_utf8_stdio,
     read_acceptance_commands,
+    resolve_codex_bin,
     validate_codex_effort,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
+CODEX_BIN = resolve_codex_bin()
 DEFAULT_STEP_EFFORT = "medium"
 DEFAULT_REVIEW_EFFORT = "high"
 DEFAULT_FIX_EFFORT = "medium"
@@ -37,7 +43,25 @@ NO_CHECKS_GRACE_SECONDS = 60
 NO_CHECKS_POLL_SECONDS = 15
 SCOPE_RULES_FILENAME = "scope-rules.json"
 LOCK_RELATIVE_PATH = Path(".codex") / "autopilot.lock"
-FALLBACK_REVIEW_CHECK_COMMAND = f"{shlex.quote(sys.executable)} scripts/checks.py --stage manual"
+REVIEW_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "pass": {"type": "boolean"},
+        "summary": {"type": "string"},
+        "findings": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["pass", "summary", "findings"],
+    "additionalProperties": False,
+}
+
+
+def shell_quote(value: str) -> str:
+    if sys.platform.startswith("win"):
+        return subprocess.list2cmdline([value])
+    return shlex.quote(value)
+
+
+FALLBACK_REVIEW_CHECK_COMMAND = f"{shell_quote(sys.executable)} scripts/checks.py --stage manual"
 
 
 def detect_default_base(root: Path = ROOT) -> str:
@@ -53,7 +77,7 @@ def detect_default_base(root: Path = ROOT) -> str:
         return "main"
     ref = result.stdout.strip()
     if result.returncode == 0 and ref.startswith("origin/"):
-        return ref[len("origin/"):]
+        return ref[len("origin/") :]
     return "main"
 
 
@@ -68,7 +92,7 @@ class ReviewResult:
     summary: str = ""
     checks_passed: bool = True
     diff_passed: bool = True
-    forbidden_passed: bool = True
+    scope_passed: bool = True
     codex_passed: bool = True
     commands: tuple[str, ...] = ()
 
@@ -79,9 +103,9 @@ class ReviewResult:
             else "블로커가 있어 merge하지 않습니다."
         )
         rows = [
-            ("로컬 검증", self.checks_passed, "step 인수 기준 명령"),
+            ("로컬 검증", self.checks_passed, "step 인수 기준 또는 docs/COMMANDS.md 기준 명령"),
             ("diff 검사", self.diff_passed, "git diff --check"),
-            ("금지 범위", self.forbidden_passed, "MVP 제외 범위와 금지 API 검색"),
+            ("범위 규칙", self.scope_passed, "scope-rules.json 금지/허용 규칙"),
             ("자체 리뷰", self.codex_passed, "Codex read-only review"),
         ]
         lines = [
@@ -129,86 +153,13 @@ def _dedupe(items: list[str]) -> list[str]:
 
 
 class AutopilotRunner:
-    """Coordinates a Harness phase as a sequence of small step PRs."""
+    """Coordinates a Harness phase as a sequence of small reviewed PRs."""
 
-    TASK_REASON_ENDINGS = (
-        ("한다", "하기"),
-        ("만든다", "만들기"),
-        ("다룬다", "다루기"),
-        ("잠근다", "잠그기"),
-        ("바꾼다", "바꾸기"),
-        ("맞춘다", "맞추기"),
-        ("둔다", "두기"),
-    )
-    SAFE_NEGATION_MARKERS = (
-        "금지",
-        "제외",
-        "사용하지",
-        "구현하지",
-        "문서화하지",
-        "표시하지",
-        "추가하지",
-        "제공하지",
-        "호출하지",
-        "반환하지",
-        "변경하지",
-        "저장하지",
-        "노출하지",
-        "넣지",
-        "만들지",
-        "허용하지",
-        "포함하지",
-        "포함되지",
-        "남기지",
-        "되살리지",
-        "쓰이지 않았",
-        "않았는지",
-        "없어야",
-        "없다",
-        "없음",
-        "필수처럼 보이지",
-        "처럼 보이는",
-        "범위가 아니다",
-        "범위가 아니",
-        "범위 밖",
-        "후속 mvp",
-        "can revisit",
-        "1차 이후",
-        "후보로 이동",
-        "아니라",
-        "없이",
-        "없는",
-        "필요 없다",
-        "not ",
-        "do not",
-        "out of scope",
-        "비범위",
-        "제거",
-    )
-    SAFE_SECTION_MARKERS = (
-        "제외",
-        "제외 범위",
-        "제외되는 범위",
-        "금지사항",
-        "비범위",
-        "out of scope",
-        "1차 이후",
-        "후속",
-        "p2",
-    )
-    SAFE_COMMAND_PREFIXES = (
-        "rg ",
-        "! rg ",
-        "grep ",
-        "! grep ",
-        "git grep ",
-        "! git grep ",
-    )
     # 테스트 fixture가 금지 키워드 문자열을 포함하는 파일들. 스캐너 코드 자체는
     # 키워드를 갖지 않으므로 (.codex/scope-rules.json으로 외부화) 제외하지 않는다.
     FORBIDDEN_SCAN_EXCLUDED_PATHS = (
-        "scripts/test_autopilot.py",
-        "scripts/test_checks.py",
+        "scripts/tests/test_autopilot.py",
+        "scripts/tests/test_checks.py",
     )
     FORBIDDEN_SCAN_EXCLUDED_PREFIXES = (
         "issues/",
@@ -230,6 +181,7 @@ class AutopilotRunner:
         dry_run: bool = False,
         max_steps: int | None = None,
         allow_no_checks: bool = False,
+        skip_base_checks: bool = False,
         root: Path = ROOT,
     ):
         self.phase = phase
@@ -243,6 +195,7 @@ class AutopilotRunner:
         self.dry_run = dry_run
         self.max_steps = max_steps
         self.allow_no_checks = allow_no_checks
+        self.skip_base_checks = skip_base_checks
         self.root = Path(root)
         self._scope_rules_cache: dict | None = None
         self._global_scope_rules_cache: dict | None = None
@@ -255,7 +208,7 @@ class AutopilotRunner:
         *,
         check: bool = True,
         timeout: int | None = None,
-        input: str | None = None,
+        input_text: str | None = None,
     ) -> subprocess.CompletedProcess:
         try:
             result = subprocess.run(
@@ -264,7 +217,7 @@ class AutopilotRunner:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                input=input,
+                input=input_text,
             )
         except subprocess.TimeoutExpired as exc:
             raise AutopilotError(
@@ -376,7 +329,7 @@ class AutopilotRunner:
                     f"다른 autopilot 프로세스가 이미 실행 중입니다 (lock: {lock_path}). "
                     "동시 실행은 base 브랜치 상태를 깨뜨릴 수 있어 중단합니다."
                 )
-            with os.fdopen(fd, "w") as handle:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(str(os.getpid()))
             return
         raise AutopilotError(f"lock 파일을 획득하지 못했습니다: {lock_path}")
@@ -387,6 +340,22 @@ class AutopilotRunner:
             pid = int(lock_path.read_text(encoding="utf-8").strip())
         except (OSError, ValueError):
             return True
+        if sys.platform.startswith("win"):
+            if pid == os.getpid():
+                return False
+            try:
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}"],
+                    capture_output=True,
+                    text=True,
+                    errors="replace",
+                    timeout=5,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                return True
+            if result.stdout is None:
+                return False
+            return str(pid) not in result.stdout
         try:
             os.kill(pid, 0)
         except OSError:
@@ -441,20 +410,24 @@ class AutopilotRunner:
         self._gh("auth", "status")
         self._git("remote", "get-url", "origin")
         self._sync_base()
-        self._ensure_base_checks_pass()
+        if not self.skip_base_checks:
+            self._ensure_base_checks_pass()
+
+    def _ensure_base_checks_pass(self):
+        # base가 이미 깨져 있으면 첫 step PR의 리뷰 gate가 step 실패처럼 보이는
+        # 오인을 만든다. 루프 시작 전에 base에서 같은 검증을 돌려 fail-fast 한다.
+        result = self._run_shell(FALLBACK_REVIEW_CHECK_COMMAND, check=False, timeout=CODEX_EXEC_TIMEOUT)
+        if result.returncode != 0:
+            raise AutopilotError(
+                f"base 브랜치 `{self.base}`의 manual 검증이 이미 실패해서 자동 PR 루프를 시작하지 않습니다. "
+                "base를 먼저 고치거나, 의도된 상태라면 --skip-base-checks로 이 검증을 생략할 수 있습니다.\n"
+                + self._shell_command_failure(FALLBACK_REVIEW_CHECK_COMMAND, result)
+            )
 
     def _sync_base(self):
         self._git("fetch", "origin", self.base)
         self._git("checkout", self.base)
         self._git("pull", "--ff-only", "origin", self.base)
-
-    def _ensure_base_checks_pass(self):
-        result = self._run_shell(FALLBACK_REVIEW_CHECK_COMMAND, check=False, timeout=1800)
-        if result.returncode != 0:
-            raise AutopilotError(
-                f"base 브랜치 `{self.base}`의 manual 검증이 이미 실패해서 자동 PR 루프를 시작하지 않습니다.\n"
-                + self._shell_command_failure(FALLBACK_REVIEW_CHECK_COMMAND, result)
-            )
 
     def _phase_index_path(self) -> Path:
         return self.root / "phases" / self.phase / "index.json"
@@ -484,11 +457,11 @@ class AutopilotRunner:
             "--codex-effort",
             self.step_effort,
         ]
-        if self.step_effort == "xhigh":
+        if self.allow_xhigh:
             cmd.append("--allow-xhigh")
         if self.unsafe:
             cmd.append("--unsafe")
-        self._run(cmd, timeout=1800)
+        self._run(cmd, timeout=CODEX_EXEC_TIMEOUT)
 
     def _create_pr(self, branch: str, step: dict) -> str:
         title = f"feat: {self.phase} {step['step']}단계 {step['name']} 구현"
@@ -519,13 +492,13 @@ class AutopilotRunner:
         if not changed_section:
             changed_section = "- 코드 변경 없음"
 
-        commands = "\n".join(f"- `{command}`" for command in self._review_commands(step))
+        commands = "\n".join(f"- `{command}`" for command in self._review_check_commands(step))
         return (
             "## 작업 내용\n"
             f"- `{self.phase}` Step {step['step']} `{step['name']}` 범위를 구현했습니다.\n"
             f"- 산출물: {summary}\n\n"
             "## 변경 이유\n"
-            f"- {self._step_change_reason(step)}\n\n"
+            f"{self._pr_change_reason(summary, task)}\n\n"
             "## 주요 변경 사항\n"
             f"- Step 작업: {task}\n"
             f"{changed_section}\n\n"
@@ -535,27 +508,20 @@ class AutopilotRunner:
             "## 참고 사항\n"
             f"- 브랜치: `{branch}`\n"
             "- Draft PR로 생성하며 자체 리뷰 gate 통과 시 ready 전환 후 squash merge합니다.\n"
+            f"- Codex 지능은 구현 `{self.step_effort}`, 리뷰 `{self.review_effort}`, 자동 fix `{self.fix_effort}`로 실행합니다.\n"
         )
 
-    def _step_change_reason(self, step: dict) -> str:
-        task = self._step_task_summary(step)
-        purpose = self._task_purpose_clause(task)
-        if purpose:
-            return f"{purpose} 위해 필요한 변경을 반영했습니다."
+    def _pr_change_reason(self, summary: str, task: str) -> str:
+        task_text = self._sentence_fragment(task) or "현재 step"
+        summary_text = self._sentence_fragment(summary) or "step 실행 결과를 반영함"
         return (
-            f"`{self.phase}` Step {step['step']} `{step['name']}` 범위의 "
-            "제품/기술 계약을 충족하기 위해 필요한 변경을 반영했습니다."
+            f"- 이 PR은 \"{task_text}\" 요구사항을 완료하기 위한 변경입니다.\n"
+            f"- 실제 변경 결과: {summary_text}."
         )
 
-    def _task_purpose_clause(self, task: str) -> str:
-        normalized = " ".join(task.strip().strip("- ").rstrip(".").split())
-        if not normalized:
-            return ""
-        first_sentence = normalized.split(". ")[0].rstrip(".")
-        for ending, replacement in self.TASK_REASON_ENDINGS:
-            if first_sentence.endswith(ending):
-                return first_sentence[: -len(ending)] + replacement
-        return f"{first_sentence} 범위를 완료하기"
+    @staticmethod
+    def _sentence_fragment(text: str) -> str:
+        return text.strip().rstrip(".")
 
     def _step_from_index(self, step_num: int) -> dict | None:
         index = self._load_phase_index()
@@ -583,23 +549,7 @@ class AutopilotRunner:
             return []
         return [line for line in result.stdout.splitlines() if line.strip()]
 
-    def _review_commands(self, step: dict | None = None) -> tuple[str, ...]:
-        return (
-            *self._review_check_commands(step),
-            f"git diff --check origin/{self.base}...HEAD",
-        )
-
-    def _review_check_commands(self, step: dict | None = None) -> tuple[str, ...]:
-        return tuple(
-            command
-            for command in self._step_acceptance_commands(step)
-            if not self._is_diff_check_command(command)
-        )
-
     def _step_acceptance_commands(self, step: dict | None = None) -> tuple[str, ...]:
-        if step is None:
-            return (FALLBACK_REVIEW_CHECK_COMMAND,)
-
         step_number = self._step_number_from(step)
         if step_number is None:
             return (FALLBACK_REVIEW_CHECK_COMMAND,)
@@ -607,16 +557,25 @@ class AutopilotRunner:
         path = self.root / "phases" / self.phase / f"step{step_number}.md"
         return read_acceptance_commands(path) or (FALLBACK_REVIEW_CHECK_COMMAND,)
 
+    def _review_check_commands(self, step: dict | None = None) -> tuple[str, ...]:
+        return (
+            *self._step_acceptance_commands(step),
+            f"git diff --check origin/{self.base}...HEAD",
+        )
+
     @staticmethod
     def _is_diff_check_command(command: str) -> bool:
-        normalized = " ".join(command.split())
-        return normalized == "git diff --check" or normalized.startswith("git diff --check ")
+        return command.startswith("git diff --check")
 
     def _run_final_gate(self):
-        checks_path = self.root / "scripts" / "checks.py"
-        if not checks_path.exists():
-            return
-        self._run([sys.executable, "scripts/checks.py", "--stage", "final"], timeout=1800)
+        commands = (
+            f"{shell_quote(sys.executable)} scripts/checks.py --stage final",
+            f"git diff --check origin/{self.base}...HEAD",
+        )
+        for command in commands:
+            result = self._run_shell(command, check=False, timeout=CODEX_EXEC_TIMEOUT)
+            if result.returncode != 0:
+                raise AutopilotError(self._shell_command_failure(command, result))
 
     def _mark_ready_and_merge(self, pr_url: str):
         self._gh("pr", "ready", pr_url)
@@ -627,15 +586,16 @@ class AutopilotRunner:
         deadline = time.monotonic() + NO_CHECKS_GRACE_SECONDS
         while True:
             result = self._gh(
-                "pr", "checks", pr_url, "--watch",
+                "pr",
+                "checks",
+                pr_url,
+                "--watch",
                 check=False,
                 timeout=PR_CHECKS_TIMEOUT,
             )
             if result.returncode == 0:
                 return
-            output = "\n".join(
-                part for part in (result.stdout.strip(), result.stderr.strip()) if part
-            )
+            output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
             if "no checks reported" not in output.lower():
                 raise AutopilotError(
                     "PR 원격 체크가 통과하지 않아 merge하지 않습니다.\n"
@@ -660,19 +620,18 @@ class AutopilotRunner:
         self._gh("pr", "comment", pr_url, "--body", review.to_markdown(), check=False)
 
     def _comment_issue(self, issue: IssueRecord, body: str):
-        target = issue.github_url
-        if not target:
-            return
-        self._gh("issue", "comment", target, "--body", body, check=False)
+        if issue.github_url:
+            self._gh("issue", "comment", issue.github_url, "--body", body, check=False)
 
     # --- review gate ---
 
     def _run_review_gate(self, step: dict) -> ReviewResult:
         findings: list[str] = []
-        commands = self._review_commands(step)
+        commands = self._review_check_commands(step)
 
         checks_passed = True
-        for command in self._review_check_commands(step):
+        diff_passed = True
+        for command in commands:
             # step 문서는 codex가 수정할 수 있는 입력이므로,
             # 인수 기준 명령도 실행 전에 위험 명령 정책을 통과해야 한다.
             danger = guard.danger_reason(command)
@@ -680,34 +639,31 @@ class AutopilotRunner:
                 checks_passed = False
                 findings.append(f"인수 기준 명령이 위험 명령 정책에 차단되었습니다: {danger}")
                 continue
-            checks_result = self._run_shell(command, check=False, timeout=1800)
-            if checks_result.returncode != 0:
-                checks_passed = False
-                findings.append(self._shell_command_failure(command, checks_result))
+            result = self._run_shell(command, check=False, timeout=CODEX_EXEC_TIMEOUT)
+            if result.returncode != 0:
+                if self._is_diff_check_command(command):
+                    diff_passed = False
+                else:
+                    checks_passed = False
+                findings.append(self._shell_command_failure(command, result))
 
-        diff_cmd = ["git", "diff", "--check", f"origin/{self.base}...HEAD"]
-        diff_result = self._run(diff_cmd, check=False)
-        diff_passed = diff_result.returncode == 0
-        if not diff_passed:
-            findings.append(self._command_failure(diff_cmd, diff_result))
-
-        forbidden_findings = self._scan_forbidden_diff(step)
-        findings.extend(forbidden_findings)
-        forbidden_passed = not forbidden_findings
+        scope_findings = self._scan_scope_diff(step)
+        findings.extend(scope_findings)
+        scope_passed = not scope_findings
 
         codex_review = self._run_codex_review(step)
         if not codex_review.passed:
             findings.extend(codex_review.findings or [codex_review.summary or "Codex 자체 리뷰 실패"])
 
         findings = _dedupe(findings)
-        passed = checks_passed and diff_passed and forbidden_passed and codex_review.passed and not findings
+        passed = checks_passed and diff_passed and scope_passed and codex_review.passed and not findings
         return ReviewResult(
             passed,
             findings,
             "블로커 없음. 이 step PR은 merge 가능합니다." if passed else "블로커가 있어 merge하지 않습니다.",
             checks_passed=checks_passed,
             diff_passed=diff_passed,
-            forbidden_passed=forbidden_passed,
+            scope_passed=scope_passed,
             codex_passed=codex_review.passed,
             commands=commands,
         )
@@ -726,67 +682,46 @@ class AutopilotRunner:
             return output
         return output[:max_chars].rstrip() + "\n... output truncated ..."
 
-    def _scan_forbidden_diff(self, step: dict | None = None) -> list[str]:
-        result = self._git("diff", "--unified=0", f"origin/{self.base}...HEAD", check=False)
+    # --- scope rules ---
+
+    def _scan_scope_diff(self, step: dict | None = None) -> list[str]:
+        diff_cmd = ["git", "diff", "--unified=0", f"origin/{self.base}...HEAD"]
+        result = self._git(*diff_cmd[1:], check=False)
         if result.returncode != 0:
-            return [self._command_failure(["git", "diff", "--unified=0", f"origin/{self.base}...HEAD"], result)]
+            # diff 실패를 빈 finding으로 돌리면 scope gate가 검사 없이 통과한다.
+            # 실패 자체를 finding으로 보고해 gate를 막는다.
+            return [self._command_failure(diff_cmd, result)]
 
         findings: list[str] = []
-        finding_keys: set[tuple[str, str]] = set()
-        safe_section = False
         current_file = ""
-        new_line = 0
-
+        line_no = 0
+        skipped_file = False
         for raw in result.stdout.splitlines():
-            if raw.startswith("diff --git"):
-                current_file = self._diff_new_path(raw)
-                safe_section = False
-                new_line = 0
+            if raw.startswith("+++ b/"):
+                current_file = raw[len("+++ b/") :]
+                skipped_file = self._skip_scope_scan_file(current_file)
+                line_no = 0
                 continue
-            if raw.startswith("@@"):
+            if raw.startswith("@@ "):
                 match = self.HUNK_RE.search(raw)
-                new_line = int(match.group(1)) if match else 0
-                safe_section = False
+                line_no = int(match.group(1)) if match else 0
                 continue
-            if self._skip_forbidden_scan_file(current_file):
+            if skipped_file or not current_file:
                 continue
-            if raw.startswith(" ") and new_line:
-                new_line += 1
-                continue
-            if raw.startswith("-") and not raw.startswith("---"):
-                continue
-            if not raw.startswith("+") or raw.startswith("+++"):
-                continue
-
-            line_no = new_line
-            if new_line:
-                new_line += 1
-            line = raw[1:].strip()
-            lowered = line.lower()
-
-            if line.startswith("#"):
-                safe_section = any(marker in lowered for marker in self.SAFE_SECTION_MARKERS)
-                continue
-            if line.endswith(":") and any(marker in lowered for marker in self.SAFE_SECTION_MARKERS):
-                safe_section = True
-                continue
-            if (
-                safe_section
-                or any(marker in lowered for marker in self.SAFE_NEGATION_MARKERS)
-                or any(lowered.startswith(prefix) for prefix in self.SAFE_COMMAND_PREFIXES)
-                or self._line_in_safe_section(current_file, line_no)
-            ):
-                continue
-
-            for message in self._forbidden_messages(line):
-                if self._is_allowed_scope_message(message, line, step):
+            if raw.startswith("+") and not raw.startswith("+++"):
+                line = raw[1:]
+                active_line = line_no
+                line_no += 1
+                if self._line_in_safe_section(current_file, active_line):
                     continue
-                key = (current_file, message)
-                if key in finding_keys:
-                    continue
-                finding_keys.add(key)
-                findings.append(self._format_finding(current_file, line_no, message))
-
+                for message in self._forbidden_messages(line):
+                    if self._is_allowed_scope_message(message, line, step):
+                        continue
+                    findings.append(f"{current_file}:{active_line}: {message}")
+            elif raw.startswith("-") and not raw.startswith("---"):
+                continue
+            else:
+                line_no += 1
         return findings
 
     def _forbidden_messages(self, line: str) -> list[str]:
@@ -803,17 +738,13 @@ class AutopilotRunner:
     def _rule_matches_line(self, rule: dict, line: str, lowered: str) -> bool:
         trigger_any = self._scope_rule_strings(rule, "anySubstrings")
         trigger_lowered = self._scope_rule_strings(rule, "anyLowered")
-        if not (
-            any(s in line for s in trigger_any)
-            or any(s in lowered for s in trigger_lowered)
-        ):
+        if not (any(s in line for s in trigger_any) or any(s in lowered for s in trigger_lowered)):
             return False
 
         requires_any = self._scope_rule_strings(rule, "requiresAnySubstrings")
         requires_lowered = self._scope_rule_strings(rule, "requiresAnyLowered")
         if (requires_any or requires_lowered) and not (
-            any(s in line for s in requires_any)
-            or any(s in lowered for s in requires_lowered)
+            any(s in line for s in requires_any) or any(s in lowered for s in requires_lowered)
         ):
             return False
 
@@ -881,7 +812,7 @@ class AutopilotRunner:
             if isinstance(steps, list) and step_number is not None and step_number not in steps:
                 continue
             step_names = self._scope_rule_strings(rule, "stepNames")
-            if step_names and (not isinstance(step_name, str) or step_name not in step_names):
+            if step_names and step_name not in step_names:
                 continue
             forbids = self._scope_rule_strings(rule, "forbidsAnyLowered")
             if forbids and any(marker in lowered for marker in forbids):
@@ -896,73 +827,100 @@ class AutopilotRunner:
     def _step_number_from(step: dict | None) -> int | None:
         if not isinstance(step, dict):
             return None
-        value = step.get("step")
-        return value if isinstance(value, int) else None
+        number = step.get("step")
+        return number if isinstance(number, int) else None
 
-    @staticmethod
-    def _format_finding(path: str, line_no: int, message: str) -> str:
-        if path and line_no:
-            return f"{path}:{line_no} - {message}"
-        if path:
-            return f"{path} - {message}"
-        return message
-
-    def _diff_new_path(self, diff_header: str) -> str:
-        parts = diff_header.split()
-        if len(parts) >= 4 and parts[3].startswith("b/"):
-            return parts[3][2:]
-        return ""
-
-    def _skip_forbidden_scan_file(self, path: str) -> bool:
+    def _skip_scope_scan_file(self, path: str) -> bool:
+        normalized = path.replace("\\", "/")
         return (
-            path in self.FORBIDDEN_SCAN_EXCLUDED_PATHS
+            normalized in self.FORBIDDEN_SCAN_EXCLUDED_PATHS
             # scope-rules.json은 정의상 금지 키워드를 담으므로 스캔에서 제외한다.
-            or Path(path).name == SCOPE_RULES_FILENAME
-            or any(path.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
-            or self.STEP_OUTPUT_RE.match(path) is not None
+            or Path(normalized).name == SCOPE_RULES_FILENAME
+            or any(normalized.startswith(prefix) for prefix in self.FORBIDDEN_SCAN_EXCLUDED_PREFIXES)
+            or self.STEP_OUTPUT_RE.match(normalized) is not None
         )
 
     def _line_in_safe_section(self, path: str, line_no: int) -> bool:
-        if not path or line_no <= 0:
-            return False
-        file_path = self.root / path
-        if not file_path.exists() or not file_path.is_file():
+        target = self.root / path
+        if not target.exists() or line_no <= 0:
             return False
         try:
-            lines = file_path.read_text(encoding="utf-8").splitlines()
+            lines = target.read_text(encoding="utf-8", errors="ignore").splitlines()
         except OSError:
             return False
-        start = min(line_no - 1, len(lines) - 1)
-        for raw in reversed(lines[: start + 1]):
-            line = raw.strip()
-            if not line:
-                continue
-            lowered = line.lower()
-            if line.startswith("#"):
-                return any(marker in lowered for marker in self.SAFE_SECTION_MARKERS)
-            if line.endswith(":") and any(marker in lowered for marker in self.SAFE_SECTION_MARKERS):
-                return True
+        if line_no > len(lines):
+            return False
+        in_code_block = False
+        for index, raw in enumerate(lines, start=1):
+            stripped = raw.strip()
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+            if index == line_no:
+                return in_code_block
         return False
+
+    # --- Codex read-only review ---
 
     def _run_codex_review(self, step: dict) -> ReviewResult:
         prompt = self._codex_review_prompt(step)
-        fd, last_message_path = tempfile.mkstemp(prefix="autopilot-review-", suffix=".txt")
-        os.close(fd)
+        before_status = self._worktree_status()
+        schema_path = self._write_review_output_schema()
+        last_message_path = self._temporary_path(".txt")
         try:
-            cmd = [*self._codex_exec_cmd(self.review_effort), "-o", last_message_path]
-            result = self._run(cmd, check=False, timeout=CODEX_EXEC_TIMEOUT, input=prompt)
-            if result.returncode != 0:
-                return ReviewResult(
-                    False,
-                    [self._command_failure(self._codex_exec_cmd(self.review_effort), result)],
-                    "자체 리뷰 실행 실패",
-                    codex_passed=False,
-                )
-            parsed = self._parse_last_message_file(last_message_path)
-            if parsed is None:
-                parsed = self._parse_review_result(result.stdout)
+            cmd = [
+                resolve_codex_bin(),
+                "exec",
+                *codex_effort_config(self.review_effort),
+                "-c",
+                CODEX_ENV_CONFIG,
+                "--output-schema",
+                str(schema_path),
+                "--output-last-message",
+                str(last_message_path),
+                "--json",
+                "-",
+            ]
+            result = self._run(cmd, check=False, timeout=CODEX_EXEC_TIMEOUT, input_text=prompt)
+            last_message = (
+                last_message_path.read_text(encoding="utf-8")
+                if last_message_path.exists()
+                else ""
+            )
         finally:
-            Path(last_message_path).unlink(missing_ok=True)
+            schema_path.unlink(missing_ok=True)
+            last_message_path.unlink(missing_ok=True)
+        after_status = self._worktree_status()
+        if after_status != before_status:
+            return ReviewResult(
+                False,
+                [
+                    "Codex read-only review changed the worktree. "
+                    f"Before: {before_status or 'clean'} / After: {after_status or 'clean'}"
+                ],
+                "자체 리뷰가 worktree를 변경했습니다.",
+                codex_passed=False,
+            )
+        if result.returncode != 0:
+            return ReviewResult(
+                False,
+                [
+                    self._command_failure(
+                        [
+                            "codex",
+                            "exec",
+                            *codex_effort_config(self.review_effort),
+                            "--json",
+                            "<review-prompt>",
+                        ],
+                        result,
+                    )
+                ],
+                "자체 리뷰 실행 실패",
+                codex_passed=False,
+            )
+        parsed = self._review_from_text(last_message) or self._parse_review_result(result.stdout)
+        if parsed is None:
+            parsed = self._parse_native_review_text(last_message)
         if parsed is None:
             return ReviewResult(
                 False,
@@ -972,35 +930,68 @@ class AutopilotRunner:
             )
         return parsed
 
-    def _parse_last_message_file(self, path: str) -> ReviewResult | None:
-        try:
-            content = Path(path).read_text(encoding="utf-8").strip()
-        except OSError:
-            return None
-        if not content:
-            return None
-        return self._review_from_text(content)
+    def _write_review_output_schema(self) -> Path:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as file:
+            json.dump(REVIEW_OUTPUT_SCHEMA, file)
+            return Path(file.name)
+
+    def _temporary_path(self, suffix: str) -> Path:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as file:
+            return Path(file.name)
+
+    def _worktree_status(self) -> str:
+        result = self._git("status", "--short", "--untracked-files=all", check=False)
+        if result.returncode != 0:
+            return f"<git status failed: {self._compact_output(result.stderr.strip())}>"
+        return result.stdout.strip()
 
     def _codex_review_prompt(self, step: dict) -> str:
         step_num = step.get("step", "?")
         step_name = step.get("name", "unknown")
         phase_readme = f"phases/{self.phase}/README.md"
         step_file = f"phases/{self.phase}/step{step_num}.md"
+        python_bin = str(Path(sys.executable))
+        project_docs = self._project_review_docs()
+        project_docs_clause = (
+            " Also check project review docs: "
+            + ", ".join(f"`{path}`" for path in project_docs)
+            + "."
+            if project_docs
+            else ""
+        )
         return (
             "Read-only review only. Do not modify files. "
-            f"Review the current branch diff against origin/{self.base} for SmartCloset MVP rules. "
+            f"Review the current branch diff against origin/{self.base} for Harness project rules. "
             f"Current Harness step is Step {step_num} `{step_name}`. "
             "Ignore generated review-failure records under issues/**; they are audit logs, not implementation changes. "
-            f"Check {phase_readme} and {step_file} first, then AGENTS.md, docs/PRD.md, docs/API.md, "
-            "docs/RECOMMENDATION_RULES.md, docs/ARCHITECTURE.md, docs/adr/. "
+            f"Check {phase_readme} and {step_file} first, then AGENTS.md, docs/PRD.md, "
+            "docs/ARCHITECTURE.md, docs/ADR.md, docs/adr/, and docs/COMMANDS.md. "
+            f"{project_docs_clause} "
             "For intermediate step PRs, the current step file is the step-local review contract. "
             "Missing functionality assigned to future steps is not a blocker. "
             "Implementing future-step scope inside the current step is a blocker. "
-            "Do not require frontend auth/session, preferences API, recommendation history, preferenceScore, "
-            "or final all-/api security boundary unless the current step file explicitly requires them. "
-            "Focus on blockers: bugs, missing tests, MVP scope violations, API contract violations, build/test risk. "
+            "Focus on blockers: bugs, missing tests, MVP scope violations, API or CLI contract violations, build/test risk. "
+            f"The runner already executed local checks before this review. If you rerun Python checks on Windows, use `{python_bin}` "
+            "instead of assuming `python` or `py` is available on PATH. "
             "Return only JSON with keys: pass (boolean), summary (string), findings (array of strings)."
         )
+
+    def _project_review_docs(self) -> tuple[str, ...]:
+        profile = checks.load_project_profile(self.root)
+        paths: list[str] = []
+        for key in ("reviewDocs", "projectSkillFiles"):
+            configured = profile.get(key, [])
+            if not isinstance(configured, list):
+                continue
+            for rel in configured:
+                if not isinstance(rel, str) or not rel:
+                    continue
+                path = Path(rel)
+                if path.is_absolute() or ".." in path.parts:
+                    continue
+                if (self.root / path).is_file() and rel not in paths:
+                    paths.append(rel)
+        return tuple(paths)
 
     def _parse_review_result(self, stdout: str) -> ReviewResult | None:
         """codex exec --json JSONL 스트림에서 마지막 agent 메시지의 JSON 결과를 읽는다.
@@ -1083,6 +1074,31 @@ class AutopilotRunner:
         summary = str(payload.get("summary", ""))
         return ReviewResult(passed, [str(item) for item in findings], summary, codex_passed=passed)
 
+    def _parse_native_review_text(self, text: str) -> ReviewResult | None:
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        findings = [
+            line.strip()
+            for line in stripped.splitlines()
+            if re.match(r"^[-*]\s+\[P[0-3]\]", line.strip())
+        ]
+        if findings:
+            return ReviewResult(False, findings, "자체 리뷰에서 발견사항을 보고했습니다.", codex_passed=False)
+
+        lowered = stripped.lower()
+        pass_markers = (
+            "no issues found",
+            "no findings",
+            "블로커 없음",
+            "발견사항 없음",
+            "문제 없음",
+        )
+        if any(marker in lowered for marker in pass_markers):
+            return ReviewResult(True, [], stripped, codex_passed=True)
+        return None
+
     # --- issue recording ---
 
     def _record_failure(self, pr_url: str, review: ReviewResult, step: dict) -> IssueRecord:
@@ -1136,10 +1152,16 @@ class AutopilotRunner:
         if self._git("commit", "-m", message, check=False).returncode == 0:
             self._git("push", check=False)
 
-    def _invoke_codex_fix(self, issue: IssueRecord, branch: str, step: dict,
-                          review: ReviewResult, attempt: int):
+    def _invoke_codex_fix(
+        self,
+        issue: IssueRecord,
+        branch: str,
+        step: dict,
+        review: ReviewResult,
+        attempt: int,
+    ):
         prompt = (
-            "당신은 SmartCloset step PR 자동 리뷰 수정 담당자입니다. "
+            "당신은 Harness step PR 자동 리뷰 수정 담당자입니다. "
             f"현재 브랜치 `{branch}`에서 같은 PR의 리뷰 실패만 수정하세요.\n\n"
             "## 작업 범위\n"
             f"- Phase: {self.phase}\n"
@@ -1156,11 +1178,10 @@ class AutopilotRunner:
             f"{review.to_markdown()}\n\n"
             "수정 후 가능한 검증을 실행하고, 수정한 파일은 working tree에 남겨두세요."
         )
-        self._run(self._codex_exec_cmd(self.fix_effort), timeout=CODEX_EXEC_TIMEOUT, input=prompt)
-
-    def _codex_exec_cmd(self, effort: str) -> list[str]:
+        cmd = codex_base_cmd(self.fix_effort)
         # 프롬프트는 argv 대신 stdin으로 전달해서 ARG_MAX 한계를 피한다.
-        return ["codex", "exec", "--json", *codex_effort_config(effort), "-"]
+        cmd.append("-")
+        self._run(cmd, timeout=CODEX_EXEC_TIMEOUT, input_text=prompt)
 
     def _commit_dirty_fix(self, step: dict):
         status = self._git("status", "--short", "--untracked-files=all").stdout.strip()
@@ -1187,7 +1208,7 @@ class AutopilotRunner:
         return max(numbers, default=0) + 1
 
     def _issue_body(self, pr_url: str, review: ReviewResult, step: dict) -> str:
-        commands = "\n".join(self._review_commands(step))
+        commands = "\n".join(self._review_check_commands(step))
         return (
             "## 발생 위치\n"
             f"- Phase: {self.phase}\n"
@@ -1202,51 +1223,42 @@ class AutopilotRunner:
             "## 수정 방향\n"
             "- 같은 PR 브랜치에서 발견사항을 수정하고 같은 gate를 다시 통과시킨다.\n\n"
             "## 완료 기준\n"
-            "- 로컬 검증, 금지 범위 검색, Codex 자체 리뷰를 모두 통과한다.\n"
+            "- 로컬 검증, diff 검사, 범위 규칙, Codex 자체 리뷰를 모두 통과한다.\n"
         )
 
     # --- parsing ---
 
     @staticmethod
     def _extract_url(output: str) -> str:
-        match = re.search(r"https://\S+", output)
+        match = re.search(r"https?://\S+", output)
+        # gh 출력이 URL을 괄호/마크다운으로 감쌀 수 있어 trailing `)`를 제거한다.
         return match.group(0).rstrip(")") if match else ""
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Run a Harness phase as reviewed step PRs.")
-    parser.add_argument("phase", help="Phase directory name, e.g. 1-smartcloset-mvp")
-    parser.add_argument(
-        "--base",
-        default=None,
-        help="Base branch for PRs and merges (default: origin HEAD branch, falling back to main)",
-    )
+    parser.add_argument("phase", help="Phase directory name, e.g. 0-mvp")
+    parser.add_argument("--base", help="Base branch for PRs and merges. Defaults to origin/HEAD, then main.")
     parser.add_argument(
         "--max-review-fixes",
         type=int,
         default=2,
-        help="Maximum automatic fix attempts inside the same step PR",
+        help="Maximum automatic fix attempts before leaving the PR and issue open",
     )
-    parser.add_argument(
-        "--max-steps",
-        type=int,
-        default=None,
-        help="Merge at most N step PRs in this run, then stop",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print pending steps and planned branches without running anything",
-    )
+    parser.add_argument("--unsafe", action="store_true", help="Pass --unsafe to scripts/execute.py")
+    parser.add_argument("--dry-run", action="store_true", help="Print pending step/branch plan without side effects")
+    parser.add_argument("--max-steps", type=int, help="Maximum step PRs to merge in this run")
     parser.add_argument(
         "--allow-no-checks",
         action="store_true",
-        help=(
-            "Merge without waiting the no-checks grace period "
-            "(for repositories that intentionally have no CI checks)"
-        ),
+        help="Do not wait through the no-checks grace period for repositories without CI checks",
     )
-    parser.add_argument("--unsafe", action="store_true", help="Pass --unsafe to scripts/execute.py")
+    parser.add_argument(
+        "--skip-base-checks",
+        action="store_true",
+        help="Skip the base-branch manual check verification before starting the PR loop",
+    )
     parser.add_argument(
         "--step-effort",
         choices=ALLOWED_CODEX_EFFORTS,
@@ -1257,17 +1269,18 @@ def main(argv: list[str] | None = None) -> int:
         "--review-effort",
         choices=ALLOWED_CODEX_EFFORTS,
         default=DEFAULT_REVIEW_EFFORT,
-        help="Reasoning effort for PR self-review calls",
+        help="Reasoning effort for read-only review calls",
     )
     parser.add_argument(
         "--fix-effort",
         choices=ALLOWED_CODEX_EFFORTS,
         default=DEFAULT_FIX_EFFORT,
-        help="Reasoning effort for automatic review-fix calls",
+        help="Reasoning effort for automatic fix calls",
     )
     parser.add_argument("--allow-xhigh", action="store_true", help="Allow xhigh reasoning effort")
     args = parser.parse_args(argv)
-    for name, effort in (
+
+    for option, effort in (
         ("--step-effort", args.step_effort),
         ("--review-effort", args.review_effort),
         ("--fix-effort", args.fix_effort),
@@ -1275,12 +1288,12 @@ def main(argv: list[str] | None = None) -> int:
         try:
             validate_codex_effort(effort, allow_xhigh=args.allow_xhigh)
         except ValueError as exc:
-            parser.error(f"{name}: {exc}")
+            parser.error(f"{option}: {exc}")
     if args.max_steps is not None and args.max_steps < 1:
-        parser.error("--max-steps must be >= 1")
+        parser.error("--max-steps must be greater than 0")
 
+    base = args.base or detect_default_base()
     try:
-        base = args.base or detect_default_base()
         pr_urls = AutopilotRunner(
             args.phase,
             base=base,
@@ -1293,6 +1306,7 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             max_steps=args.max_steps,
             allow_no_checks=args.allow_no_checks,
+            skip_base_checks=args.skip_base_checks,
         ).run()
     except AutopilotError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

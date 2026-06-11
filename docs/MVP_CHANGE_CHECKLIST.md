@@ -84,7 +84,7 @@ MVP가 바뀌었다는 이유만으로 `scripts/*.py`를 먼저 수정하지 않
 | `scripts/checks.py` | docs-check 엔진, stage 처리, command discovery 자체가 바뀔 때 |
 | `scripts/execute.py` | branch/commit/final 검증 같은 phase 실행 workflow가 바뀔 때 |
 | `scripts/autopilot.py` | PR 생성, 자체 리뷰, issue 기록, merge loop workflow가 바뀔 때 |
-| `scripts/test_*.py` | 위 스크립트 동작을 바꾼 경우 |
+| `scripts/tests/test_*.py` | 위 스크립트 동작을 바꾼 경우 |
 | `.codex/project-profile.json` | lint/test/build 명령 자체를 프로젝트 프로필로 바꾸는 경우 |
 
 MVP별 문서 검증 규칙은 `scripts/checks.py`가 아니라 `phases/{phase}/docs-checks.json`에 둔다.

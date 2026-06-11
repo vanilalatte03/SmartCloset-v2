@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_CHECK_NAMES = ("lint", "test", "build", "frontend-build")
 FINAL_ONLY_CHECK_NAMES = ("harness-test", "docs-check")
 CHECK_NAMES = (*BASE_CHECK_NAMES, *FINAL_ONLY_CHECK_NAMES)
+REQUIRED_CHECK_NAMES = ("test", "build")
 STOP_STAGE_CHECK_NAMES = ("lint",)
 STAGES = ("manual", "pre-commit", "stop", "final")
 PLACEHOLDER_MARKERS = ("<", ">", "{", "}", "...", "TODO", "TBD")
@@ -62,9 +63,10 @@ def load_project_profile(root: Path = ROOT) -> dict:
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 def guard_mode(root: Path = ROOT) -> str:
@@ -176,18 +178,36 @@ def _detect_node(root: Path, result: dict[str, list[CheckCommand]]):
 def _detect_spring(root: Path, result: dict[str, list[CheckCommand]]):
     has_gradle = any(
         (root / name).exists()
-        for name in ("gradlew", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
+        for name in (
+            "gradlew",
+            "gradlew.bat",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+        )
     )
-    has_maven = any((root / name).exists() for name in ("mvnw", "pom.xml"))
+    has_maven = any((root / name).exists() for name in ("mvnw", "mvnw.cmd", "mvnw.bat", "pom.xml"))
 
     if has_gradle:
-        gradle = "./gradlew" if (root / "gradlew").exists() else "gradle"
+        if sys.platform.startswith("win"):
+            gradle = ".\\gradlew.bat" if (root / "gradlew.bat").exists() else "gradle"
+        else:
+            gradle = "./gradlew" if (root / "gradlew").exists() else "gradle"
         _append(result, "test", f"{gradle} test", "detected:spring-gradle")
         _append(result, "build", f"{gradle} build", "detected:spring-gradle")
         return
 
     if has_maven:
-        maven = "./mvnw" if (root / "mvnw").exists() else "mvn"
+        if sys.platform.startswith("win"):
+            if (root / "mvnw.cmd").exists():
+                maven = ".\\mvnw.cmd"
+            elif (root / "mvnw.bat").exists():
+                maven = ".\\mvnw.bat"
+            else:
+                maven = "mvn"
+        else:
+            maven = "./mvnw" if (root / "mvnw").exists() else "mvn"
         _append(result, "test", f"{maven} test", "detected:spring-maven")
         _append(result, "build", f"{maven} package", "detected:spring-maven")
 
@@ -200,7 +220,7 @@ def _detect_python(root: Path, result: dict[str, list[CheckCommand]]):
 
     has_uv = shutil.which("uv") is not None
     has_ruff = shutil.which("ruff") is not None
-    python_test = "uv run pytest" if has_uv and (root / "pyproject.toml").exists() else "python3 -m pytest"
+    python_test = "uv run pytest" if has_uv and (root / "pyproject.toml").exists() else "python -m pytest"
     _append(result, "test", python_test, "detected:python")
 
     if has_uv and (root / "pyproject.toml").exists():
@@ -252,6 +272,11 @@ def collect_checks(root: Path = ROOT, stage: str = "manual") -> list[CheckComman
             # so a profile that pins `test` does not silence docs/detected `build`.
             merged.setdefault(name, commands)
     return _flatten(merged, names)
+
+
+def missing_required_checks(checks: Iterable[CheckCommand]) -> list[str]:
+    present = {check.name for check in checks}
+    return [name for name in REQUIRED_CHECK_NAMES if name not in present]
 
 
 def _docs_config_path(root: Path = ROOT, config_path: str | None = None) -> Path | None:
@@ -394,7 +419,7 @@ def _find_docs_matches(
             lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
         except OSError:
             continue
-        relative = str(path.relative_to(root))
+        relative = str(path.relative_to(root)).replace("\\", "/")
         for line_number, line in enumerate(lines, start=1):
             if regex.search(line):
                 matches.append(DocsMatch(relative, line_number, line.strip()))
@@ -447,8 +472,22 @@ def run_checks(
     checks: Iterable[CheckCommand],
     root: Path = ROOT,
     timeout: int = DEFAULT_CHECK_TIMEOUT,
+    require_required: bool = True,
 ) -> int:
     checks = list(checks)
+    if require_required:
+        missing = missing_required_checks(checks)
+        if missing:
+            available = ", ".join(check.name for check in checks) or "none"
+            print(
+                "Missing required check commands: "
+                + ", ".join(missing)
+                + ". Configure docs/COMMANDS.md or .codex/project-profile.json. "
+                + f"Available checks: {available}.",
+                file=sys.stderr,
+            )
+            return 1
+
     if not checks:
         print(f"No {'/'.join(CHECK_NAMES)} commands configured or detected.")
         return 0
@@ -472,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run project checks for the Codex operating template.")
     parser.add_argument("--stage", choices=STAGES, default="manual")
     parser.add_argument("--list", action="store_true", help="Print selected commands without running them.")
-    parser.add_argument("--docs-check", action="store_true", help="Run SmartCloset docs consistency checks only.")
+    parser.add_argument("--docs-check", action="store_true", help="Run config-driven docs consistency checks only.")
     parser.add_argument(
         "--docs-check-config",
         help=f"Docs-check config path. Defaults to phases/<current-phase>/{DOCS_CHECK_CONFIG_NAME}.",
@@ -480,7 +519,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--include-final-docs",
         action="store_true",
-        help="Include final-only docs-check rules such as browser QA PASS records.",
+        help="Include final-only docs-check rules.",
     )
     parser.add_argument(
         "--timeout",
@@ -500,7 +539,14 @@ def main(argv: list[str] | None = None) -> int:
         if not checks:
             print("No lint/test/build commands configured or detected.")
         return 0
-    return run_checks(checks, ROOT, timeout=args.timeout)
+    require_required = args.stage in {"manual", "pre-commit", "final"}
+    exit_code = run_checks(checks, ROOT, timeout=args.timeout, require_required=require_required)
+    if exit_code == 0 and args.stage == "final":
+        # final gate는 docs-check 명령 등록 여부와 무관하게 phase 문서 정합성
+        # (finalRequired 포함)을 내장 실행한다. COMMANDS.md의 docs-check 행
+        # 등록에 의존하면 기본 인스턴스에서 finalRequired가 검사 없이 통과한다.
+        return run_docs_checks(ROOT, args.docs_check_config, include_final_rules=True)
+    return exit_code
 
 
 if __name__ == "__main__":

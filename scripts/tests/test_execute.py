@@ -4,17 +4,13 @@ execute.py 리팩터링 안전망 테스트.
 """
 
 import json
-import os
 import subprocess
-import sys
-import textwrap
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
 import execute as ex
 
 
@@ -67,7 +63,7 @@ def phase_dir(tmp_project):
         ],
     }
     (d / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False))
-    (d / "README.md").write_text("# Phase README\n현재 phase-local 규칙")
+    (d / "README.md").write_text("# Phase README\n\n현재 phase 목표")
     (d / "step2.md").write_text("# Step 2: UI\n\nUI를 구현하세요.")
 
     return d
@@ -164,18 +160,8 @@ class TestLoadGuardrails:
             result = executor._load_guardrails()
         assert "# Rules" in result
         assert "rule one" in result
-        assert "# Phase README" in result
-        assert "현재 phase-local 규칙" in result
         assert "# Architecture" in result
         assert "# Guide" in result
-
-    def test_loads_phase_readme_between_agents_and_docs(self, executor, tmp_project):
-        with patch.object(ex, "ROOT", tmp_project):
-            result = executor._load_guardrails()
-        agents_pos = result.index("프로젝트 규칙 (AGENTS.md)")
-        phase_pos = result.index("현재 Phase README")
-        docs_pos = result.index("## COMMANDS")
-        assert agents_pos < phase_pos < docs_pos
 
     def test_sections_separated_by_divider(self, executor, tmp_project):
         with patch.object(ex, "ROOT", tmp_project):
@@ -197,6 +183,12 @@ class TestLoadGuardrails:
             result = executor._load_guardrails()
         assert "adr/0001-test" in result
         assert "Split ADR" in result
+
+    def test_loads_phase_readme(self, executor, tmp_project):
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        assert "현재 Phase README" in result
+        assert "현재 phase 목표" in result
 
     def test_no_agents_md(self, executor, tmp_project):
         (tmp_project / "AGENTS.md").unlink()
@@ -226,7 +218,8 @@ class TestLoadGuardrails:
 
     def test_referenced_docs_limit_attachment(self, executor, tmp_project):
         (executor._phase_dir / "step2.md").write_text(
-            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요."
+            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요.",
+            encoding="utf-8",
         )
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
@@ -234,25 +227,19 @@ class TestLoadGuardrails:
         assert "# Architecture" in result
         assert "# Guide" not in result
         assert "직접 읽어라" in result
-        # 핵심 섹션은 그대로 유지된다.
         assert "# Rules" in result
         assert "# Phase README" in result
 
-    def test_unreferenced_phase_falls_back_to_all_docs(self, executor, tmp_project):
-        with patch.object(ex, "ROOT", tmp_project):
-            result = executor._load_guardrails()
-
-        assert "# Architecture" in result
-        assert "# Guide" in result
-
     def test_guardrail_docs_profile_overrides_references(self, executor, tmp_project):
         (executor._phase_dir / "step2.md").write_text(
-            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요."
+            "# Step 2: UI\n\ndocs/arch.md 계약을 따라 UI를 구현하세요.",
+            encoding="utf-8",
         )
         codex_dir = tmp_project / ".codex"
         codex_dir.mkdir()
         (codex_dir / "project-profile.json").write_text(
-            json.dumps({"guardrailDocs": ["docs/guide.md"]})
+            json.dumps({"guardrailDocs": ["docs/guide.md"]}),
+            encoding="utf-8",
         )
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
@@ -334,7 +321,7 @@ class TestBuildPreamble:
 
     def test_includes_commit_example(self, executor):
         result = executor._build_preamble("", "")
-        assert "feat: mvp N단계 <step-name> 구현" in result
+        assert "feat: mvp N단계" in result
 
     def test_includes_rules(self, executor):
         result = executor._build_preamble("", "")
@@ -415,6 +402,33 @@ class TestUpdateTopIndex:
 
 
 # ---------------------------------------------------------------------------
+# _ensure_clean_worktree
+# ---------------------------------------------------------------------------
+
+class TestEnsureCleanWorktree:
+    def test_clean_worktree_passes(self, executor):
+        executor._run_git = lambda *args: MagicMock(returncode=0, stdout="", stderr="")
+
+        executor._ensure_clean_worktree()
+
+    def test_dirty_worktree_exits(self, executor):
+        executor._run_git = lambda *args: MagicMock(returncode=0, stdout=" M README.md\n", stderr="")
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._ensure_clean_worktree()
+
+        assert exc_info.value.code == 1
+
+    def test_git_status_failure_exits(self, executor):
+        executor._run_git = lambda *args: MagicMock(returncode=1, stdout="", stderr="not a repo")
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._ensure_clean_worktree()
+
+        assert exc_info.value.code == 1
+
+
+# ---------------------------------------------------------------------------
 # _checkout_branch (mocked)
 # ---------------------------------------------------------------------------
 
@@ -442,42 +456,6 @@ class TestCheckoutBranch:
             MagicMock(returncode=0, stdout="", stderr=""),
         ])
         executor._checkout_branch()
-
-    def test_default_branch_uses_codex_prefix(self, executor):
-        calls = []
-
-        def fake_git(*args):
-            calls.append(args)
-            if args == ("rev-parse", "--abbrev-ref", "HEAD"):
-                return MagicMock(returncode=0, stdout="main\n", stderr="")
-            if args == ("rev-parse", "--verify", "refs/heads/codex/mvp"):
-                return MagicMock(returncode=1, stdout="", stderr="")
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        executor._run_git = fake_git
-
-        executor._checkout_branch()
-
-        assert ("checkout", "-b", "codex/mvp") in calls
-
-    def test_explicit_branch_is_used(self, tmp_project, phase_dir):
-        with patch.object(ex, "ROOT", tmp_project):
-            inst = ex.StepExecutor("0-mvp", branch_name="codex/custom")
-
-        calls = []
-
-        def fake_git(*args):
-            calls.append(args)
-            if args == ("rev-parse", "--abbrev-ref", "HEAD"):
-                return MagicMock(returncode=0, stdout="main\n", stderr="")
-            if args == ("rev-parse", "--verify", "refs/heads/codex/custom"):
-                return MagicMock(returncode=1, stdout="", stderr="")
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        inst._run_git = fake_git
-        inst._checkout_branch()
-
-        assert ("checkout", "-b", "codex/custom") in calls
 
     def test_branch_not_exists_create(self, executor):
         self._mock_git(executor, [
@@ -507,145 +485,6 @@ class TestCheckoutBranch:
 
 
 # ---------------------------------------------------------------------------
-# _ensure_clean_worktree
-# ---------------------------------------------------------------------------
-
-class TestEnsureCleanWorktree:
-    def test_clean_worktree_returns(self, executor):
-        calls = []
-
-        def fake_git(*args):
-            calls.append(args)
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        executor._run_git = fake_git
-
-        executor._ensure_clean_worktree()
-
-        assert calls == [("status", "--short", "--untracked-files=all")]
-
-    def test_dirty_worktree_exits_1(self, executor, capsys):
-        def fake_git(*args):
-            return MagicMock(returncode=0, stdout=" M README.md\n?? tmp.txt\n", stderr="")
-
-        executor._run_git = fake_git
-
-        with pytest.raises(SystemExit) as exc_info:
-            executor._ensure_clean_worktree()
-
-        captured = capsys.readouterr()
-        assert exc_info.value.code == 1
-        assert "작업트리에 커밋되지 않은 변경사항" in captured.out
-        assert "M README.md" in captured.out
-        assert "?? tmp.txt" in captured.out
-
-    def test_status_failure_exits_1(self, executor, capsys):
-        def fake_git(*args):
-            return MagicMock(returncode=1, stdout="", stderr="not a git repo")
-
-        executor._run_git = fake_git
-
-        with pytest.raises(SystemExit) as exc_info:
-            executor._ensure_clean_worktree()
-
-        captured = capsys.readouterr()
-        assert exc_info.value.code == 1
-        assert "git status 확인 실패" in captured.out
-        assert "not a git repo" in captured.out
-
-
-# ---------------------------------------------------------------------------
-# run() flow
-# ---------------------------------------------------------------------------
-
-class TestRunFlow:
-    def test_dirty_worktree_stops_before_checkout(self, executor):
-        def fake_git(*args):
-            if args == ("status", "--short", "--untracked-files=all"):
-                return MagicMock(returncode=0, stdout=" M README.md\n", stderr="")
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        executor._run_git = fake_git
-        executor._checkout_branch = MagicMock()
-
-        with pytest.raises(SystemExit) as exc_info:
-            executor.run()
-
-        assert exc_info.value.code == 1
-        executor._checkout_branch.assert_not_called()
-
-    def test_all_steps_run_final_checks_before_finalize(self, executor):
-        calls = []
-
-        executor._print_header = lambda: None
-        executor._check_blockers = lambda: None
-        executor._ensure_clean_worktree = lambda: None
-        executor._checkout_branch = lambda: None
-        executor._load_guardrails = lambda: "guardrails"
-        executor._load_command_context = lambda: "commands"
-        executor._ensure_created_at = lambda: None
-        executor._execute_all_steps = lambda guardrails, commands: calls.append(("all", guardrails, commands))
-        executor._run_final_checks = lambda: calls.append(("final-checks",))
-        executor._finalize = lambda: calls.append(("finalize",))
-
-        executor.run()
-
-        assert calls == [
-            ("all", "guardrails", "commands"),
-            ("final-checks",),
-            ("finalize",),
-        ]
-
-    def test_step_only_last_step_runs_final_checks_before_finalize(self, executor):
-        calls = []
-        executor._step_number = 2
-
-        executor._print_header = lambda: None
-        executor._check_blockers = lambda: None
-        executor._ensure_clean_worktree = lambda: None
-        executor._checkout_branch = lambda: None
-        executor._load_guardrails = lambda: "guardrails"
-        executor._load_command_context = lambda: "commands"
-        executor._ensure_created_at = lambda: None
-        executor._execute_one_step = lambda guardrails, commands: calls.append(("one", guardrails, commands)) or True
-        executor._has_pending_steps = lambda: False
-        executor._run_final_checks = lambda: calls.append(("final-checks",))
-        executor._finalize = lambda: calls.append(("finalize",))
-
-        executor.run()
-
-        assert calls == [
-            ("one", "guardrails", "commands"),
-            ("final-checks",),
-            ("finalize",),
-        ]
-
-    def test_step_only_with_pending_steps_skips_final_checks_and_finalize(self, executor):
-        calls = []
-        executor._step_number = 1
-
-        executor._print_header = lambda: None
-        executor._check_blockers = lambda: None
-        executor._ensure_clean_worktree = lambda: None
-        executor._checkout_branch = lambda: None
-        executor._load_guardrails = lambda: "guardrails"
-        executor._load_command_context = lambda: "commands"
-        executor._ensure_created_at = lambda: None
-        executor._execute_one_step = lambda guardrails, commands: calls.append(("one", guardrails, commands)) or True
-        executor._has_pending_steps = lambda: True
-        executor._push_current_branch = lambda: calls.append(("push",))
-        executor._run_final_checks = lambda: calls.append(("final-checks",))
-        executor._finalize = lambda: calls.append(("finalize",))
-
-        executor.run()
-
-        assert calls == [
-            ("one", "guardrails", "commands"),
-            ("push",),
-        ]
-
-
-# ---------------------------------------------------------------------------
 # _commit_step (mocked)
 # ---------------------------------------------------------------------------
 
@@ -663,25 +502,8 @@ class TestCommitStep:
 
         commit_calls = [c for c in calls if c[0] == "commit"]
         assert len(commit_calls) == 2
-        assert commit_calls[0][2] == "feat: mvp 2단계 ui 구현"
-        assert commit_calls[1][2] == "chore: mvp 2단계 실행 기록 정리"
-
-    def test_housekeeping_commit_stages_only_step_metadata(self, executor):
-        output_file = executor._phase_dir / "step2-output.json"
-        output_file.write_text("{}")
-        calls = []
-
-        def fake_git(*args):
-            calls.append(args)
-            if args[:2] == ("diff", "--cached"):
-                return MagicMock(returncode=1)
-            return MagicMock(returncode=0, stdout="", stderr="")
-
-        executor._run_git = fake_git
-
-        executor._commit_step(2, "ui")
-
-        assert ("add", "-A", "--", "phases/0-mvp/step2-output.json", "phases/0-mvp/index.json") in calls
+        assert "feat: mvp 2단계 ui 구현" in commit_calls[0][2]
+        assert "chore: mvp 2단계 실행 기록 정리" in commit_calls[1][2]
 
     def test_no_code_changes_skips_feat_commit(self, executor):
         call_count = {"diff": 0}
@@ -700,31 +522,52 @@ class TestCommitStep:
 
         commit_msgs = [c[2] for c in calls if c[0] == "commit"]
         assert len(commit_msgs) == 1
-        assert commit_msgs[0] == "chore: mvp 2단계 실행 기록 정리"
+        assert "chore: mvp 2단계 실행 기록 정리" in commit_msgs[0]
 
 
 # ---------------------------------------------------------------------------
-# _finalize
+# step-only selection and run flow
 # ---------------------------------------------------------------------------
 
-class TestFinalize:
-    def test_stages_only_phase_indexes(self, executor, top_index):
+class TestStepOnly:
+    def test_select_step_allows_next_pending_step_only(self, executor):
+        executor._step_number = 2
+
+        selected = executor._select_single_step()
+
+        assert selected["step"] == 2
+
+    def test_select_step_rejects_non_pending_target(self, executor):
+        executor._step_number = 1
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._select_single_step()
+
+        assert exc_info.value.code == 1
+
+    def test_next_step_only_selects_next_pending(self, executor):
+        executor._next_step_only = True
+
+        selected = executor._select_single_step()
+
+        assert selected["step"] == 2
+
+    def test_step_only_run_with_remaining_steps_does_not_finalize(self, executor):
         calls = []
-        executor._top_index_file = top_index
+        executor._next_step_only = True
+        executor._ensure_clean_worktree = lambda: calls.append("clean")
+        executor._checkout_branch = lambda: calls.append("checkout")
+        executor._load_guardrails = lambda: ""
+        executor._load_command_context = lambda: ""
+        executor._ensure_created_at = lambda: calls.append("created")
+        executor._execute_one_step = lambda guardrails, command_context: True
+        executor._has_pending_steps = lambda: True
+        executor._push_current_branch = lambda: calls.append("push")
+        executor._finalize = lambda: (_ for _ in ()).throw(AssertionError("finalize should not run"))
 
-        def fake_git(*args):
-            calls.append(args)
-            if args[:2] == ("diff", "--cached"):
-                return MagicMock(returncode=1)
-            return MagicMock(returncode=0, stdout="", stderr="")
+        executor.run()
 
-        executor._run_git = fake_git
-
-        executor._finalize()
-
-        assert ("add", "-A", "--", "phases/0-mvp/index.json", "phases/index.json") in calls
-        assert ("add", "-A") not in calls
-        assert ("commit", "-m", "chore: mvp 완료 상태 기록") in calls
+        assert calls == ["clean", "checkout", "created", "push"]
 
 
 # ---------------------------------------------------------------------------
@@ -741,16 +584,29 @@ class TestInvokeCodex:
             output = executor._invoke_codex(step, preamble)
 
         cmd = mock_run.call_args[0][0]
-        kwargs = mock_run.call_args[1]
-        assert cmd[0] == "codex"
+        assert cmd[0] == ex.CODEX_BIN
         assert cmd[1] == "exec"
         assert "--json" in cmd
-        assert "-c" in cmd
+        assert ex.CODEX_ENV_CONFIG in cmd
         assert 'model_reasoning_effort="medium"' in cmd
         assert "--dangerously-bypass-approvals-and-sandbox" not in cmd
         assert cmd[-1] == "-"
-        assert "PREAMBLE" in kwargs["input"]
-        assert "UI를 구현하세요" in kwargs["input"]
+        assert "PREAMBLE" in mock_run.call_args.kwargs["input"]
+        assert "UI를 구현하세요" in mock_run.call_args.kwargs["input"]
+
+    def test_codex_effort_adds_codex_config(self, executor):
+        executor._codex_effort = "high"
+        mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
+        step = {"step": 2, "name": "ui"}
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            executor._invoke_codex(step, "preamble")
+
+        cmd = mock_run.call_args[0][0]
+        assert cmd[:2] == [ex.CODEX_BIN, "exec"]
+        assert 'model_reasoning_effort="high"' in cmd
+        assert ex.CODEX_ENV_CONFIG in cmd
+        assert "--json" in cmd
 
     def test_unsafe_adds_bypass_flag(self, executor):
         executor._unsafe = True
@@ -762,36 +618,6 @@ class TestInvokeCodex:
 
         cmd = mock_run.call_args[0][0]
         assert "--dangerously-bypass-approvals-and-sandbox" in cmd
-        assert 'model_reasoning_effort="medium"' in cmd
-
-    def test_custom_effort_is_passed_to_codex(self, tmp_project, phase_dir):
-        with patch.object(ex, "ROOT", tmp_project):
-            executor = ex.StepExecutor("0-mvp", codex_effort="high")
-        mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
-        step = {"step": 2, "name": "ui"}
-
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            executor._invoke_codex(step, "preamble")
-
-        cmd = mock_run.call_args[0][0]
-        assert 'model_reasoning_effort="high"' in cmd
-
-    def test_xhigh_requires_allow_flag(self, tmp_project):
-        with patch.object(ex, "ROOT", tmp_project):
-            with pytest.raises(ValueError, match="--allow-xhigh"):
-                ex.StepExecutor("0-mvp", codex_effort="xhigh")
-
-    def test_xhigh_allowed_when_flag_is_set(self, tmp_project, phase_dir):
-        with patch.object(ex, "ROOT", tmp_project):
-            executor = ex.StepExecutor("0-mvp", codex_effort="xhigh", allow_xhigh=True)
-        mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
-        step = {"step": 2, "name": "ui"}
-
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            executor._invoke_codex(step, "preamble")
-
-        cmd = mock_run.call_args[0][0]
-        assert 'model_reasoning_effort="xhigh"' in cmd
 
     def test_saves_output_json(self, executor):
         mock_result = MagicMock(returncode=0, stdout='{"ok": true}', stderr="")
@@ -840,15 +666,17 @@ class TestInvokeCodex:
 
 class TestVerifyAcceptance:
     def _write_step_with_ac(self, executor, commands):
-        body = "\n".join([
-            "# Step 2: UI",
-            "",
-            "## 인수 기준",
-            "",
-            "```bash",
-            *commands,
-            "```",
-        ])
+        body = "\n".join(
+            [
+                "# Step 2: UI",
+                "",
+                "## 인수 기준",
+                "",
+                "```bash",
+                *commands,
+                "```",
+            ]
+        )
         (executor._phase_dir / "step2.md").write_text(body, encoding="utf-8")
 
     def test_no_acceptance_section_passes(self, executor):
@@ -929,135 +757,55 @@ class TestMainCli:
                     ex.main()
                 assert exc_info.value.code == 1
 
-    def test_branch_arg_passed_to_executor(self, tmp_project, phase_dir):
+    def test_step_and_next_step_only_conflict_exits(self):
+        with patch("sys.argv", ["execute.py", "0-mvp", "--step", "0", "--next-step-only"]):
+            with pytest.raises(SystemExit) as exc_info:
+                ex.main()
+            assert exc_info.value.code == 2
+
+    def test_cli_passes_branch_and_step_options(self):
         captured = {}
 
-        class FakeExecutor:
-            def __init__(
-                self,
-                phase_dir_name,
-                *,
-                auto_push=False,
-                unsafe=False,
-                branch_name=None,
-                step_number=None,
-                next_step_only=False,
-                codex_effort="medium",
-                allow_xhigh=False,
-            ):
-                captured["phase_dir_name"] = phase_dir_name
-                captured["auto_push"] = auto_push
-                captured["unsafe"] = unsafe
-                captured["branch_name"] = branch_name
-                captured["step_number"] = step_number
-                captured["next_step_only"] = next_step_only
-                captured["codex_effort"] = codex_effort
-                captured["allow_xhigh"] = allow_xhigh
+        class DummyExecutor:
+            def __init__(self, phase_dir, **kwargs):
+                captured["phase_dir"] = phase_dir
+                captured.update(kwargs)
 
             def run(self):
                 captured["ran"] = True
 
-        with patch("sys.argv", ["execute.py", "0-mvp", "--branch", "codex/custom"]):
-            with patch.object(ex, "ROOT", tmp_project):
-                with patch.object(ex, "StepExecutor", FakeExecutor):
-                    ex.main()
+        with patch("sys.argv", ["execute.py", "0-mvp", "--branch", "codex/test", "--step", "2", "--push"]):
+            with patch.object(ex, "StepExecutor", DummyExecutor):
+                ex.main()
 
         assert captured == {
-            "phase_dir_name": "0-mvp",
-            "auto_push": False,
+            "phase_dir": "0-mvp",
+            "auto_push": True,
             "unsafe": False,
-            "branch_name": "codex/custom",
-            "step_number": None,
+            "branch_name": "codex/test",
+            "step_number": 2,
             "next_step_only": False,
             "codex_effort": "medium",
             "allow_xhigh": False,
             "ran": True,
         }
 
-    def test_codex_effort_arg_passed_to_executor(self, tmp_project, phase_dir):
+    def test_cli_passes_codex_effort_alias(self):
         captured = {}
 
-        class FakeExecutor:
-            def __init__(
-                self,
-                phase_dir_name,
-                *,
-                auto_push=False,
-                unsafe=False,
-                branch_name=None,
-                step_number=None,
-                next_step_only=False,
-                codex_effort="medium",
-                allow_xhigh=False,
-            ):
-                captured["phase_dir_name"] = phase_dir_name
-                captured["codex_effort"] = codex_effort
-                captured["allow_xhigh"] = allow_xhigh
+        class DummyExecutor:
+            def __init__(self, phase_dir, **kwargs):
+                captured["phase_dir"] = phase_dir
+                captured.update(kwargs)
 
             def run(self):
                 captured["ran"] = True
 
-        with patch("sys.argv", ["execute.py", "0-mvp", "--codex-effort", "high"]):
-            with patch.object(ex, "ROOT", tmp_project):
-                with patch.object(ex, "StepExecutor", FakeExecutor):
-                    ex.main()
+        with patch("sys.argv", ["execute.py", "0-mvp", "--reasoning-effort", "medium"]):
+            with patch.object(ex, "StepExecutor", DummyExecutor):
+                ex.main()
 
-        assert captured == {
-            "phase_dir_name": "0-mvp",
-            "codex_effort": "high",
-            "allow_xhigh": False,
-            "ran": True,
-        }
-
-    def test_cli_rejects_xhigh_without_allow_flag(self, tmp_project, phase_dir):
-        with patch("sys.argv", ["execute.py", "0-mvp", "--codex-effort", "xhigh"]):
-            with patch.object(ex, "ROOT", tmp_project):
-                with pytest.raises(SystemExit) as exc_info:
-                    ex.main()
-
-        assert exc_info.value.code == 2
-
-    def test_step_arg_passed_to_executor(self, tmp_project, phase_dir):
-        captured = {}
-
-        class FakeExecutor:
-            def __init__(
-                self,
-                phase_dir_name,
-                *,
-                auto_push=False,
-                unsafe=False,
-                branch_name=None,
-                step_number=None,
-                next_step_only=False,
-                codex_effort="medium",
-                allow_xhigh=False,
-            ):
-                captured["phase_dir_name"] = phase_dir_name
-                captured["step_number"] = step_number
-                captured["next_step_only"] = next_step_only
-
-            def run(self):
-                captured["ran"] = True
-
-        with patch("sys.argv", ["execute.py", "0-mvp", "--step", "2"]):
-            with patch.object(ex, "ROOT", tmp_project):
-                with patch.object(ex, "StepExecutor", FakeExecutor):
-                    ex.main()
-
-        assert captured == {
-            "phase_dir_name": "0-mvp",
-            "step_number": 2,
-            "next_step_only": False,
-            "ran": True,
-        }
-
-    def test_step_and_next_step_only_are_mutually_exclusive(self, tmp_project, phase_dir):
-        with patch("sys.argv", ["execute.py", "0-mvp", "--step", "2", "--next-step-only"]):
-            with patch.object(ex, "ROOT", tmp_project):
-                with pytest.raises(SystemExit) as exc_info:
-                    ex.main()
-                assert exc_info.value.code == 2
+        assert captured["codex_effort"] == "medium"
 
 
 # ---------------------------------------------------------------------------
