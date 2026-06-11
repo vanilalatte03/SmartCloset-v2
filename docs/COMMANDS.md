@@ -34,6 +34,16 @@ git config core.hooksPath .githooks
 
 Harness Codex 호출은 전역 Codex 설정을 그대로 상속하지 않고 reasoning effort를 명시한다. `execute.py`의 step 구현 기본값은 `medium`이고, `autopilot.py`의 기본값은 step 구현 `medium`, PR self-review `high`, 자동 fix `medium`이다. `xhigh`는 `--allow-xhigh`와 함께 명시한 경우에만 허용한다.
 
+autopilot 운영 옵션과 안전장치:
+
+- `--base`를 생략하면 origin HEAD 브랜치를 자동 감지한다(실패 시 `main`).
+- `--dry-run`은 실행 없이 pending step과 브랜치 계획만 출력한다.
+- `--max-steps N`은 한 번의 실행에서 최대 N개의 step PR만 병합하고 멈춘다.
+- 동시 실행은 `.codex/autopilot.lock`으로 차단한다(stale lock은 자동 회수).
+- step 문서의 인수 기준 명령은 실행 전에 `guard.py` 위험 명령 정책을 통과해야 하고, `execute.py`도 codex의 completed 보고 후 인수 기준을 직접 재실행해 검증한다.
+- PR은 `gh pr checks --watch`로 원격 체크 통과를 확인한 뒤에만 squash merge한다. "no checks reported"는 ready 직후 체크 런 생성 전 레이스일 수 있어 60초 grace 동안 재확인하고, 그래도 없으면 체크 없는 저장소로 판단해 진행한다. CI가 없는 저장소는 `--allow-no-checks`로 grace 대기를 생략한다.
+- phase별 금지/허용 범위 규칙은 `phases/<phase>/scope-rules.json`(`extraForbidden`, `allowedScopeMessages`)으로 코드 수정 없이 확장한다.
+
 ## 문서 전환 검증 명령
 
 ```bash

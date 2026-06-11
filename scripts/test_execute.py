@@ -705,14 +705,16 @@ class TestInvokeCodex:
             output = executor._invoke_codex(step, preamble)
 
         cmd = mock_run.call_args[0][0]
+        kwargs = mock_run.call_args[1]
         assert cmd[0] == "codex"
         assert cmd[1] == "exec"
         assert "--json" in cmd
         assert "-c" in cmd
         assert 'model_reasoning_effort="medium"' in cmd
         assert "--dangerously-bypass-approvals-and-sandbox" not in cmd
-        assert "PREAMBLE" in cmd[-1]
-        assert "UI를 구현하세요" in cmd[-1]
+        assert cmd[-1] == "-"
+        assert "PREAMBLE" in kwargs["input"]
+        assert "UI를 구현하세요" in kwargs["input"]
 
     def test_unsafe_adds_bypass_flag(self, executor):
         executor._unsafe = True
@@ -783,6 +785,68 @@ class TestInvokeCodex:
             executor._invoke_codex(step, "preamble")
 
         assert mock_run.call_args[1]["timeout"] == 1800
+
+    def test_timeout_expired_is_recorded_not_raised(self, executor):
+        step = {"step": 2, "name": "ui"}
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="codex", timeout=1800)):
+            output = executor._invoke_codex(step, "preamble")
+
+        assert output["exitCode"] == 124
+        assert "1800초" in output["stderr"]
+        saved = json.loads((executor._phase_dir / "step2-output.json").read_text(encoding="utf-8"))
+        assert saved["exitCode"] == 124
+
+
+# ---------------------------------------------------------------------------
+# _verify_acceptance
+# ---------------------------------------------------------------------------
+
+class TestVerifyAcceptance:
+    def _write_step_with_ac(self, executor, commands):
+        body = "\n".join([
+            "# Step 2: UI",
+            "",
+            "## 인수 기준",
+            "",
+            "```bash",
+            *commands,
+            "```",
+        ])
+        (executor._phase_dir / "step2.md").write_text(body, encoding="utf-8")
+
+    def test_no_acceptance_section_passes(self, executor):
+        assert executor._verify_acceptance(2) is None
+
+    def test_runs_commands_and_passes(self, executor):
+        self._write_step_with_ac(executor, ["echo ok"])
+        mock_result = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            assert executor._verify_acceptance(2) is None
+
+        assert mock_run.call_args[0][0] == "echo ok"
+
+    def test_failing_command_returns_error(self, executor):
+        self._write_step_with_ac(executor, ["false"])
+        mock_result = MagicMock(returncode=1, stdout="", stderr="boom")
+
+        with patch("subprocess.run", return_value=mock_result):
+            error = executor._verify_acceptance(2)
+
+        assert error is not None
+        assert "`false` 실패" in error
+        assert "boom" in error
+
+    def test_dangerous_command_is_blocked_without_running(self, executor):
+        self._write_step_with_ac(executor, ["rm -r -f build"])
+
+        with patch("subprocess.run") as mock_run:
+            error = executor._verify_acceptance(2)
+
+        assert error is not None
+        assert "위험 명령 정책" in error
+        mock_run.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

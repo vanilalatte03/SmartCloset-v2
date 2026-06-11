@@ -5,31 +5,56 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shlex
 import subprocess
 import sys
+import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import guard
+from codex_common import (
+    ALLOWED_CODEX_EFFORTS,
+    CODEX_EXEC_TIMEOUT,
+    codex_effort_config,
+    read_acceptance_commands,
+    validate_codex_effort,
+)
+
 ROOT = Path(__file__).resolve().parent.parent
-ALLOWED_CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 DEFAULT_STEP_EFFORT = "medium"
 DEFAULT_REVIEW_EFFORT = "high"
 DEFAULT_FIX_EFFORT = "medium"
-FALLBACK_REVIEW_CHECK_COMMAND = "python3 scripts/checks.py --stage manual"
+DEFAULT_GIT_TIMEOUT = 600
+DEFAULT_GH_TIMEOUT = 600
+PR_CHECKS_TIMEOUT = 3600
+# ready 직후에는 CI가 체크 런을 아직 만들지 못해 "no checks reported"가
+# 일시적으로 나올 수 있다. grace 동안 재확인한 뒤에만 체크 없음으로 판단한다.
+NO_CHECKS_GRACE_SECONDS = 60
+NO_CHECKS_POLL_SECONDS = 15
+SCOPE_RULES_FILENAME = "scope-rules.json"
+LOCK_RELATIVE_PATH = Path(".codex") / "autopilot.lock"
+FALLBACK_REVIEW_CHECK_COMMAND = f"{shlex.quote(sys.executable)} scripts/checks.py --stage manual"
 
 
-def validate_codex_effort(effort: str, *, allow_xhigh: bool = False) -> str:
-    if effort not in ALLOWED_CODEX_EFFORTS:
-        allowed = ", ".join(ALLOWED_CODEX_EFFORTS)
-        raise ValueError(f"codex effort must be one of: {allowed}")
-    if effort == "xhigh" and not allow_xhigh:
-        raise ValueError("xhigh effort requires --allow-xhigh")
-    return effort
-
-
-def codex_effort_config(effort: str) -> list[str]:
-    return ["-c", f'model_reasoning_effort="{effort}"']
+def detect_default_base(root: Path = ROOT) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "main"
+    ref = result.stdout.strip()
+    if result.returncode == 0 and ref.startswith("origin/"):
+        return ref[len("origin/"):]
+    return "main"
 
 
 class AutopilotError(RuntimeError):
@@ -186,6 +211,8 @@ class AutopilotRunner:
     FORBIDDEN_SCAN_EXCLUDED_PREFIXES = (
         "issues/",
     )
+    # Legacy built-in scope allowances. New phases should ship a
+    # phases/<phase>/scope-rules.json instead of adding constants here.
     MVP8_ACCOUNT_STABILITY_PHASE = "8-smartcloset-account-stability"
     MVP9_UI_UX_PHASE = "9-smartcloset-ui-ux-redesign"
     MVP8_ALLOWED_SCOPE_MESSAGES_BY_STEP = {
@@ -265,6 +292,9 @@ class AutopilotRunner:
         review_effort: str = DEFAULT_REVIEW_EFFORT,
         fix_effort: str = DEFAULT_FIX_EFFORT,
         allow_xhigh: bool = False,
+        dry_run: bool = False,
+        max_steps: int | None = None,
+        allow_no_checks: bool = False,
         root: Path = ROOT,
     ):
         self.phase = phase
@@ -275,7 +305,11 @@ class AutopilotRunner:
         self.review_effort = validate_codex_effort(review_effort, allow_xhigh=allow_xhigh)
         self.fix_effort = validate_codex_effort(fix_effort, allow_xhigh=allow_xhigh)
         self.allow_xhigh = allow_xhigh
+        self.dry_run = dry_run
+        self.max_steps = max_steps
+        self.allow_no_checks = allow_no_checks
         self.root = Path(root)
+        self._scope_rules_cache: dict | None = None
 
     # --- command helpers ---
 
@@ -285,14 +319,21 @@ class AutopilotRunner:
         *,
         check: bool = True,
         timeout: int | None = None,
+        input: str | None = None,
     ) -> subprocess.CompletedProcess:
-        result = subprocess.run(
-            cmd,
-            cwd=self.root,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.root,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                input=input,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise AutopilotError(
+                f"`{' '.join(cmd)}`가 {timeout}초 안에 끝나지 않아 중단했습니다."
+            ) from exc
         if check and result.returncode != 0:
             raise AutopilotError(self._command_failure(cmd, result))
         return result
@@ -304,31 +345,54 @@ class AutopilotRunner:
         check: bool = True,
         timeout: int | None = None,
     ) -> subprocess.CompletedProcess:
-        result = subprocess.run(
-            command,
-            cwd=self.root,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        try:
+            result = subprocess.run(
+                command,
+                cwd=self.root,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise AutopilotError(
+                f"`{command}`가 {timeout}초 안에 끝나지 않아 중단했습니다."
+            ) from exc
         if check and result.returncode != 0:
             raise AutopilotError(self._shell_command_failure(command, result))
         return result
 
     def _git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-        return self._run(["git", *args], check=check)
+        return self._run(["git", *args], check=check, timeout=DEFAULT_GIT_TIMEOUT)
 
-    def _gh(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-        return self._run(["gh", *args], check=check)
+    def _gh(
+        self, *args: str, check: bool = True, timeout: int = DEFAULT_GH_TIMEOUT
+    ) -> subprocess.CompletedProcess:
+        return self._run(["gh", *args], check=check, timeout=timeout)
 
     # --- public flow ---
 
     def run(self) -> str:
+        if self.dry_run:
+            return self._dry_run_summary()
+
+        self._acquire_lock()
+        try:
+            return self._run_loop()
+        finally:
+            self._release_lock()
+
+    def _run_loop(self) -> str:
         self._ensure_preconditions()
         merged_prs: list[str] = []
 
         while True:
+            if self.max_steps is not None and len(merged_prs) >= self.max_steps:
+                return "\n".join(
+                    merged_prs
+                    + [f"--max-steps {self.max_steps} 도달. 남은 step은 다음 실행에서 처리합니다."]
+                )
+
             step = self._next_pending_step()
             if step is None:
                 self._run_final_gate()
@@ -342,6 +406,59 @@ class AutopilotRunner:
             self._mark_ready_and_merge(pr_url)
             merged_prs.append(pr_url)
             self._sync_base()
+
+    def _dry_run_summary(self) -> str:
+        index = self._load_phase_index()
+        pending = [s for s in index.get("steps", []) if s.get("status") == "pending"]
+        if not pending:
+            return f"No pending steps for {self.phase}."
+        if self.max_steps is not None:
+            pending = pending[: self.max_steps]
+        lines = [f"[dry-run] {self.phase}: {len(pending)}개 step을 실행 예정"]
+        for step in pending:
+            lines.append(
+                f"[dry-run] Step {step.get('step')} `{step.get('name')}` -> {self._step_branch(step)}"
+            )
+        return "\n".join(lines)
+
+    # --- concurrency lock ---
+
+    def _lock_path(self) -> Path:
+        return self.root / LOCK_RELATIVE_PATH
+
+    def _acquire_lock(self):
+        lock_path = self._lock_path()
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        for _ in range(2):
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                if self._lock_is_stale(lock_path):
+                    lock_path.unlink(missing_ok=True)
+                    continue
+                raise AutopilotError(
+                    f"다른 autopilot 프로세스가 이미 실행 중입니다 (lock: {lock_path}). "
+                    "동시 실행은 base 브랜치 상태를 깨뜨릴 수 있어 중단합니다."
+                )
+            with os.fdopen(fd, "w") as handle:
+                handle.write(str(os.getpid()))
+            return
+        raise AutopilotError(f"lock 파일을 획득하지 못했습니다: {lock_path}")
+
+    @staticmethod
+    def _lock_is_stale(lock_path: Path) -> bool:
+        try:
+            pid = int(lock_path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            return True
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return True
+        return False
+
+    def _release_lock(self):
+        self._lock_path().unlink(missing_ok=True)
 
     def _review_and_fix_until_passed(self, pr_url: str, branch: str, step: dict) -> ReviewResult:
         issue: IssueRecord | None = None
@@ -552,28 +669,7 @@ class AutopilotRunner:
             return (FALLBACK_REVIEW_CHECK_COMMAND,)
 
         path = self.root / "phases" / self.phase / f"step{step_number}.md"
-        if not path.exists():
-            return (FALLBACK_REVIEW_CHECK_COMMAND,)
-
-        commands: list[str] = []
-        in_acceptance = False
-        in_code_block = False
-        for raw in path.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if line.startswith("## "):
-                if in_acceptance:
-                    break
-                in_acceptance = line == "## 인수 기준"
-                continue
-            if not in_acceptance:
-                continue
-            if line.startswith("```"):
-                in_code_block = not in_code_block
-                continue
-            if in_code_block and line and not line.startswith("#"):
-                commands.append(line)
-
-        return tuple(commands) or (FALLBACK_REVIEW_CHECK_COMMAND,)
+        return read_acceptance_commands(path) or (FALLBACK_REVIEW_CHECK_COMMAND,)
 
     @staticmethod
     def _is_diff_check_command(command: str) -> bool:
@@ -588,7 +684,41 @@ class AutopilotRunner:
 
     def _mark_ready_and_merge(self, pr_url: str):
         self._gh("pr", "ready", pr_url)
+        self._wait_for_pr_checks(pr_url)
         self._gh("pr", "merge", pr_url, "--squash", "--delete-branch")
+
+    def _wait_for_pr_checks(self, pr_url: str):
+        deadline = time.monotonic() + NO_CHECKS_GRACE_SECONDS
+        while True:
+            result = self._gh(
+                "pr", "checks", pr_url, "--watch",
+                check=False,
+                timeout=PR_CHECKS_TIMEOUT,
+            )
+            if result.returncode == 0:
+                return
+            output = "\n".join(
+                part for part in (result.stdout.strip(), result.stderr.strip()) if part
+            )
+            if "no checks reported" not in output.lower():
+                raise AutopilotError(
+                    "PR 원격 체크가 통과하지 않아 merge하지 않습니다.\n"
+                    f"PR: {pr_url}\n"
+                    f"{self._compact_output(output) or f'exit {result.returncode}'}"
+                )
+            # "no checks reported"는 CI가 없는 저장소뿐 아니라 ready 직후
+            # 체크 런 생성 전의 레이스에서도 나온다. grace 동안 재확인한다.
+            if self.allow_no_checks:
+                return
+            if time.monotonic() >= deadline:
+                print(
+                    f"NOTICE: {NO_CHECKS_GRACE_SECONDS}초 동안 원격 체크가 나타나지 않아 "
+                    "체크 없는 저장소로 판단하고 merge를 진행합니다. "
+                    "CI가 없는 저장소라면 --allow-no-checks로 대기를 생략할 수 있습니다.",
+                    file=sys.stderr,
+                )
+                return
+            time.sleep(NO_CHECKS_POLL_SECONDS)
 
     def _comment_review(self, pr_url: str, review: ReviewResult):
         self._gh("pr", "comment", pr_url, "--body", review.to_markdown(), check=False)
@@ -607,6 +737,13 @@ class AutopilotRunner:
 
         checks_passed = True
         for command in self._review_check_commands(step):
+            # step 문서는 codex가 수정할 수 있는 입력이므로,
+            # 인수 기준 명령도 실행 전에 위험 명령 정책을 통과해야 한다.
+            danger = guard.danger_reason(command)
+            if danger:
+                checks_passed = False
+                findings.append(f"인수 기준 명령이 위험 명령 정책에 차단되었습니다: {danger}")
+                continue
             checks_result = self._run_shell(command, check=False, timeout=1800)
             if checks_result.returncode != 0:
                 checks_passed = False
@@ -770,9 +907,65 @@ class AutopilotRunner:
             messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
         if "외부 주소" in line or "외부 지도" in line or "지도 API" in line or "주소 API" in line:
             messages.append("외부 주소/지도 API 범위가 추가되었습니다.")
+
+        for rule in self._scope_rule_entries("extraForbidden"):
+            rule_message = rule.get("message")
+            if not isinstance(rule_message, str) or not rule_message:
+                continue
+            any_substrings = self._scope_rule_strings(rule, "anySubstrings")
+            any_lowered = self._scope_rule_strings(rule, "anyLowered")
+            if any(s in line for s in any_substrings) or any(s in lowered for s in any_lowered):
+                messages.append(rule_message)
+
         return messages
 
+    def _scope_rules(self) -> dict:
+        """phases/<phase>/scope-rules.json — 코드 수정 없이 phase별 규칙을 정의한다."""
+        if self._scope_rules_cache is None:
+            path = self.root / "phases" / self.phase / SCOPE_RULES_FILENAME
+            rules: dict = {}
+            if path.exists():
+                try:
+                    loaded = json.loads(path.read_text(encoding="utf-8"))
+                    if isinstance(loaded, dict):
+                        rules = loaded
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise AutopilotError(f"{path} 파싱 실패: {exc}") from exc
+            self._scope_rules_cache = rules
+        return self._scope_rules_cache
+
+    def _scope_rule_entries(self, key: str) -> list[dict]:
+        entries = self._scope_rules().get(key, [])
+        if not isinstance(entries, list):
+            return []
+        return [entry for entry in entries if isinstance(entry, dict)]
+
+    @staticmethod
+    def _scope_rule_strings(rule: dict, key: str) -> list[str]:
+        values = rule.get(key, [])
+        if not isinstance(values, list):
+            return []
+        return [value for value in values if isinstance(value, str)]
+
+    def _is_config_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
+        lowered = line.lower()
+        step_number = self._step_number_from(step)
+        for rule in self._scope_rule_entries("allowedScopeMessages"):
+            if rule.get("message") != message:
+                continue
+            steps = rule.get("steps")
+            if isinstance(steps, list) and step_number is not None and step_number not in steps:
+                continue
+            requires = self._scope_rule_strings(rule, "requiresAnyLowered")
+            if requires and not any(marker in lowered for marker in requires):
+                continue
+            return True
+        return False
+
     def _is_allowed_scope_message(self, message: str, line: str, step: dict | None) -> bool:
+        if self._is_config_allowed_scope_message(message, line, step):
+            return True
+
         if self.phase == self.MVP9_UI_UX_PHASE:
             return self._is_allowed_mvp9_account_maintenance_message(message, line, step)
 
@@ -866,16 +1059,23 @@ class AutopilotRunner:
 
     def _run_codex_review(self, step: dict) -> ReviewResult:
         prompt = self._codex_review_prompt(step)
-        cmd = self._codex_exec_cmd(prompt, self.review_effort)
-        result = self._run(cmd, check=False, timeout=1800)
-        if result.returncode != 0:
-            return ReviewResult(
-                False,
-                [self._command_failure(self._codex_exec_cmd("<review-prompt>", self.review_effort), result)],
-                "자체 리뷰 실행 실패",
-                codex_passed=False,
-            )
-        parsed = self._parse_review_result(result.stdout)
+        fd, last_message_path = tempfile.mkstemp(prefix="autopilot-review-", suffix=".txt")
+        os.close(fd)
+        try:
+            cmd = [*self._codex_exec_cmd(self.review_effort), "-o", last_message_path]
+            result = self._run(cmd, check=False, timeout=CODEX_EXEC_TIMEOUT, input=prompt)
+            if result.returncode != 0:
+                return ReviewResult(
+                    False,
+                    [self._command_failure(self._codex_exec_cmd(self.review_effort), result)],
+                    "자체 리뷰 실행 실패",
+                    codex_passed=False,
+                )
+            parsed = self._parse_last_message_file(last_message_path)
+            if parsed is None:
+                parsed = self._parse_review_result(result.stdout)
+        finally:
+            Path(last_message_path).unlink(missing_ok=True)
         if parsed is None:
             return ReviewResult(
                 False,
@@ -884,6 +1084,15 @@ class AutopilotRunner:
                 codex_passed=False,
             )
         return parsed
+
+    def _parse_last_message_file(self, path: str) -> ReviewResult | None:
+        try:
+            content = Path(path).read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        if not content:
+            return None
+        return self._try_parse_review_candidate(content)
 
     def _codex_review_prompt(self, step: dict) -> str:
         step_num = step.get("step", "?")
@@ -1043,10 +1252,11 @@ class AutopilotRunner:
             f"{review.to_markdown()}\n\n"
             "수정 후 가능한 검증을 실행하고, 수정한 파일은 working tree에 남겨두세요."
         )
-        self._run(self._codex_exec_cmd(prompt, self.fix_effort), timeout=1800)
+        self._run(self._codex_exec_cmd(self.fix_effort), timeout=CODEX_EXEC_TIMEOUT, input=prompt)
 
-    def _codex_exec_cmd(self, prompt: str, effort: str) -> list[str]:
-        return ["codex", "exec", "--json", *codex_effort_config(effort), prompt]
+    def _codex_exec_cmd(self, effort: str) -> list[str]:
+        # 프롬프트는 argv 대신 stdin으로 전달해서 ARG_MAX 한계를 피한다.
+        return ["codex", "exec", "--json", *codex_effort_config(effort), "-"]
 
     def _commit_dirty_fix(self, step: dict):
         status = self._git("status", "--short", "--untracked-files=all").stdout.strip()
@@ -1102,12 +1312,35 @@ class AutopilotRunner:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run a Harness phase as reviewed step PRs.")
     parser.add_argument("phase", help="Phase directory name, e.g. 1-smartcloset-mvp")
-    parser.add_argument("--base", default="main", help="Base branch for PRs and merges")
+    parser.add_argument(
+        "--base",
+        default=None,
+        help="Base branch for PRs and merges (default: origin HEAD branch, falling back to main)",
+    )
     parser.add_argument(
         "--max-review-fixes",
         type=int,
         default=2,
         help="Maximum automatic fix attempts inside the same step PR",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Merge at most N step PRs in this run, then stop",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print pending steps and planned branches without running anything",
+    )
+    parser.add_argument(
+        "--allow-no-checks",
+        action="store_true",
+        help=(
+            "Merge without waiting the no-checks grace period "
+            "(for repositories that intentionally have no CI checks)"
+        ),
     )
     parser.add_argument("--unsafe", action="store_true", help="Pass --unsafe to scripts/execute.py")
     parser.add_argument(
@@ -1139,21 +1372,30 @@ def main(argv: list[str] | None = None) -> int:
             validate_codex_effort(effort, allow_xhigh=args.allow_xhigh)
         except ValueError as exc:
             parser.error(f"{name}: {exc}")
+    if args.max_steps is not None and args.max_steps < 1:
+        parser.error("--max-steps must be >= 1")
 
     try:
+        base = args.base or detect_default_base()
         pr_urls = AutopilotRunner(
             args.phase,
-            base=args.base,
+            base=base,
             max_review_fixes=args.max_review_fixes,
             unsafe=args.unsafe,
             step_effort=args.step_effort,
             review_effort=args.review_effort,
             fix_effort=args.fix_effort,
             allow_xhigh=args.allow_xhigh,
+            dry_run=args.dry_run,
+            max_steps=args.max_steps,
+            allow_no_checks=args.allow_no_checks,
         ).run()
     except AutopilotError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        print("ERROR: 사용자 중단으로 종료합니다.", file=sys.stderr)
+        return 130
 
     print(f"Autopilot completed: {pr_urls}")
     return 0
