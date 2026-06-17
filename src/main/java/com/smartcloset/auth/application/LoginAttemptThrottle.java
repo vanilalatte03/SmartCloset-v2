@@ -70,20 +70,24 @@ public class LoginAttemptThrottle {
     }
 
     /**
-     * 정상 로그인 성공 시 같은 email/client key와 client key의 실패 window를 제거한다.
+     * 정상 로그인 성공 시 같은 email/client key 실패 window를 제거하고, client key의 현재 성공 시도분은 롤백한다.
      */
     public void recordSuccess(String email, String clientIdentifier) {
-        clearAttempts(email, clientIdentifier);
+        if (!properties.enabled()) {
+            return;
+        }
+        attempts.remove(emailClientKey(email, clientIdentifier));
+        rollbackKey(clientKey(clientIdentifier));
     }
 
     /**
      * 인증 실패가 아닌 서버 오류 경로에서는 현재 요청 예약 기록을 제거한다.
      */
-    public void clearAttempts(String email, String clientIdentifier) {
+    public void rollbackAttempt(String email, String clientIdentifier) {
         if (!properties.enabled()) {
             return;
         }
-        keys(email, clientIdentifier).forEach(attempts::remove);
+        keys(email, clientIdentifier).forEach(this::rollbackKey);
     }
 
     int attemptCountFor(String email, String clientIdentifier) {
@@ -98,6 +102,10 @@ public class LoginAttemptThrottle {
 
     private void cleanupExpiredAttempts(Instant now, Duration window) {
         attempts.entrySet().removeIf(entry -> entry.getValue().isExpired(now, window));
+    }
+
+    private void rollbackKey(LoginAttemptKey key) {
+        attempts.computeIfPresent(key, (ignored, current) -> current.decrementOrNull());
     }
 
     private List<LoginAttemptKey> keys(String email, String clientIdentifier) {
@@ -134,6 +142,13 @@ public class LoginAttemptThrottle {
 
         private AttemptWindow increment() {
             return new AttemptWindow(startedAt, failures + 1);
+        }
+
+        private AttemptWindow decrementOrNull() {
+            if (failures <= 1) {
+                return null;
+            }
+            return new AttemptWindow(startedAt, failures - 1);
         }
     }
 }

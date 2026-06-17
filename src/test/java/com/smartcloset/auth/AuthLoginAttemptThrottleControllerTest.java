@@ -122,7 +122,28 @@ class AuthLoginAttemptThrottleControllerTest {
         login("throttle-success@example.com", "bad-password", "203.0.113.70", null)
                 .andExpect(status().isUnauthorized());
         login("throttle-success@example.com", "bad-password", "203.0.113.70", null)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("LOGIN_ATTEMPT_LIMIT_EXCEEDED"));
+    }
+
+    @Test
+    void successfulLoginDoesNotClearClientWideFailuresFromOtherEmails() throws Exception {
+        userRepository.save(User.create(
+                "known-success@example.com",
+                passwordEncoder.encode("password123!"),
+                "Known User"
+        ));
+
+        login("candidate-one@example.com", "password123!", "203.0.113.80", null)
                 .andExpect(status().isUnauthorized());
+        login("known-success@example.com", "password123!", "203.0.113.80", null)
+                .andExpect(status().isOk());
+        login("candidate-two@example.com", "password123!", "203.0.113.80", null)
+                .andExpect(status().isUnauthorized());
+
+        login("candidate-three@example.com", "password123!", "203.0.113.80", null)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("LOGIN_ATTEMPT_LIMIT_EXCEEDED"));
     }
 
     private ResultActions login(String email, String password, String remoteAddress, String forwardedFor)

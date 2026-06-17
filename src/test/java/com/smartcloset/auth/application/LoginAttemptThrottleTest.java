@@ -63,17 +63,31 @@ class LoginAttemptThrottleTest {
     }
 
     @Test
-    void successfulLoginClearsPreviousAttempts() {
+    void successfulLoginClearsEmailAttemptsAndKeepsPreviousClientFailures() {
         LoginAttemptThrottle throttle = throttle(maxFailures(2), MutableClock.fixed("2026-06-17T10:00:00+09:00"));
 
+        throttle.checkAndRecordAttempt("success@example.com", "203.0.113.30");
         throttle.checkAndRecordAttempt("success@example.com", "203.0.113.30");
         throttle.recordSuccess("success@example.com", "203.0.113.30");
 
         assertThat(throttle.attemptCountFor("success@example.com", "203.0.113.30")).isZero();
-        assertThat(throttle.clientAttemptCountFor("203.0.113.30")).isZero();
-        throttle.checkAndRecordAttempt("success@example.com", "203.0.113.30");
-        throttle.checkAndRecordAttempt("success@example.com", "203.0.113.30");
-        assertThat(throttle.attemptCountFor("success@example.com", "203.0.113.30")).isEqualTo(2);
+        assertThat(throttle.clientAttemptCountFor("203.0.113.30")).isOne();
+        throttle.checkAndRecordAttempt("other@example.com", "203.0.113.30");
+        assertThatThrownBy(() -> throttle.checkAndRecordAttempt("third@example.com", "203.0.113.30"))
+                .isInstanceOfSatisfying(SmartClosetException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.LOGIN_ATTEMPT_LIMIT_EXCEEDED));
+    }
+
+    @Test
+    void rollbackAttemptRemovesOnlyCurrentReservedAttempt() {
+        LoginAttemptThrottle throttle = throttle(maxFailures(2), MutableClock.fixed("2026-06-17T10:00:00+09:00"));
+
+        throttle.checkAndRecordAttempt("rollback@example.com", "203.0.113.31");
+        throttle.checkAndRecordAttempt("rollback@example.com", "203.0.113.31");
+        throttle.rollbackAttempt("rollback@example.com", "203.0.113.31");
+
+        assertThat(throttle.attemptCountFor("rollback@example.com", "203.0.113.31")).isEqualTo(1);
+        assertThat(throttle.clientAttemptCountFor("203.0.113.31")).isEqualTo(1);
     }
 
     @Test

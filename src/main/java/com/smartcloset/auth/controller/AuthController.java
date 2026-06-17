@@ -83,7 +83,7 @@ public class AuthController {
         } catch (SmartClosetException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            loginAttemptThrottle.clearAttempts(request.email(), clientIdentifier);
+            loginAttemptThrottle.rollbackAttempt(request.email(), clientIdentifier);
             throw exception;
         }
         loginAttemptThrottle.recordSuccess(request.email(), clientIdentifier);
