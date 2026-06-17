@@ -150,6 +150,8 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 
 미인증 password 계정은 `EMAIL_VERIFICATION_REQUIRED`로 실패한다.
 
+같은 정규화 email과 client remote address 조합 또는 같은 client remote address에서 짧은 window 안에 로그인 실패가 반복되면 `LOGIN_ATTEMPT_LIMIT_EXCEEDED`로 실패한다. 현재 MVP10 구현은 Redis를 사용하지 않는 process-local in-memory 제한이며, 클라이언트가 보낸 `X-Forwarded-For` 같은 proxy header를 신뢰하지 않는다.
+
 ### AuthResponse
 
 ```json
@@ -623,6 +625,7 @@ MVP10에서 추가하는 error code:
 | `EMAIL_VERIFICATION_REQUIRED` | `403 Forbidden` | 이메일 인증 전 password login 차단 |
 | `ACCOUNT_TOKEN_INVALID` | `400 Bad Request` | 인증/재설정 token 없음, 만료, 사용 완료, 불일치 |
 | `PASSWORD_LOGIN_DISABLED` | `400 Bad Request` | password login이 없는 계정에서 password flow 사용 |
+| `LOGIN_ATTEMPT_LIMIT_EXCEEDED` | `429 Too Many Requests` | 같은 email/client key 또는 client key의 로그인 실패 반복 제한 초과 |
 | `OAUTH2_PROVIDER_UNAVAILABLE` | `503 Service Unavailable` | Google OAuth 설정 없음 또는 비활성 |
 | `CLOTHING_NOT_FOUND` | `404 Not Found` | 옷 없음 또는 다른 사용자 옷 접근 |
 | `CLOTHING_IMAGE_NOT_FOUND` | `404 Not Found` | 옷 이미지 없음 |
