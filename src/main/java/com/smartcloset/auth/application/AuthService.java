@@ -36,6 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
+    // Sentinel BCrypt hash used only to spend password verification cost for missing accounts.
+    static final String DUMMY_PASSWORD_HASH =
+            "$2a$10$eiyKEAHVmTwTH4p/OHLYF.MQ69IigaIj.M5qQn8rj1UvPDXH0kH8u";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
@@ -143,8 +147,11 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new SmartClosetException(ErrorCode.UNAUTHORIZED));
+        User user = userRepository.findByEmail(request.email()).orElse(null);
+        if (user == null) {
+            passwordEncoder.matches(request.password(), DUMMY_PASSWORD_HASH);
+            throw new SmartClosetException(ErrorCode.UNAUTHORIZED);
+        }
         if (!user.isPasswordLoginEnabled()) {
             throw new SmartClosetException(ErrorCode.PASSWORD_LOGIN_DISABLED);
         }
