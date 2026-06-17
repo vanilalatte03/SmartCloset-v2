@@ -215,6 +215,8 @@ MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
 - Logout은 멱등이며 cookie를 만료한다.
 - Password signup은 access token을 발급하지 않는다.
 - 미인증 password 계정은 login할 수 없다.
+- password login 실패는 정규화 email과 servlet remote address 조합 및 servlet remote address 단독 process-local in-memory window로 제한한다.
+- `X-Forwarded-For` 등 proxy header는 신뢰 가능한 proxy 경계가 없는 현재 MVP10 local/API 범위에서 login attempt key로 사용하지 않는다.
 - Token 원문은 저장하지 않고 hash만 저장한다.
 - Google provider 설정이 없으면 provider status는 disabled다.
 - 계정 삭제는 현재 사용자 소유 데이터와 이미지 파일을 즉시 hard delete한다.
@@ -250,7 +252,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Signup: user/action token 생성 write transaction, email sending과 신규 계정 기본 옷 onboarding은 `afterCommit` 예약으로 commit 이후 실행
 - Email verification request: 미인증 user lookup + action token 생성 write transaction, email sending은 `afterCommit` 예약으로 commit 이후 실행
 - Password reset request: password-enabled user lookup + action token 생성 write transaction, email sending은 `afterCommit` 예약으로 commit 이후 실행
-- Login: user read, refresh session issue write transaction. 기본 옷 seed/onboarding은 수행하지 않음
+- Login: process-local attempt throttle 확인, user read, refresh session issue write transaction. 기본 옷 seed/onboarding은 수행하지 않음
 - Refresh: refresh session rotation write transaction. 기본 옷 seed/onboarding은 수행하지 않음
 - Logout: refresh session revoke write transaction 또는 멱등 no-op
 - Email verification confirm: action token consume + user update write transaction
@@ -266,7 +268,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - AWS 배포 구현을 추가하지 않는다. 이유: MVP10은 AI 옷 등록 보조 MVP이며 AWS는 후속 범위다.
 - S3 구현체를 추가하지 않는다. 이유: 현재는 `ClothingImageStorage` 경계만 보존한다.
 - SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 `ConsoleEmailSender` 기준이다.
-- Redis를 추가하지 않는다. 이유: refresh session과 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
+- Redis를 추가하지 않는다. 이유: refresh session, login attempt throttle, 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
 - AI/GPT 옷차림 추천을 추가하지 않는다. 이유: 추천은 규칙 기반 계약이다.
 - AI-generated 추천 이유를 추가하지 않는다. 이유: 추천 이유는 template 기반이다.
 - 이미지 기반 추천 score, filtering, tie-break를 추가하지 않는다. 이유: 이미지와 분석 결과는 등록 보조 전용이다.

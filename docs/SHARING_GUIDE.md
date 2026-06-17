@@ -206,6 +206,7 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 ### 기존 기능 기준
 
 - 미인증 password 계정 login이 차단된다.
+- 같은 email/client key 또는 client key의 password login 실패가 반복되면 `LOGIN_ATTEMPT_LIMIT_EXCEEDED`로 제한된다.
 - `POST /api/auth/refresh`가 refresh cookie로 access token을 재발급한다.
 - 비밀번호 재설정 요청/확인이 가능하다.
 - Google provider 설정이 없으면 disabled 상태가 표시된다.

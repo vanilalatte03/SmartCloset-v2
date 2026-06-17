@@ -28,6 +28,7 @@ public enum ErrorCode {
     EMAIL_VERIFICATION_REQUIRED(HttpStatus.FORBIDDEN, "이메일 인증 후 로그인할 수 있습니다."),
     ACCOUNT_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "계정 인증 토큰이 올바르지 않습니다."),
     PASSWORD_LOGIN_DISABLED(HttpStatus.BAD_REQUEST, "비밀번호 로그인을 사용할 수 없는 계정입니다."),
+    LOGIN_ATTEMPT_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
     OAUTH2_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "OAuth2 제공자를 사용할 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     LOCATION_NOT_FOUND(HttpStatus.NOT_FOUND, "위치를 찾을 수 없습니다."),

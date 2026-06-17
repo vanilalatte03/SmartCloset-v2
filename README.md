@@ -35,7 +35,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 
 | 영역 | 구현 포인트 | 설계에서 드러나는 것 |
 | --- | --- | --- |
-| 인증/계정 | JWT access token, DB-backed refresh session, HttpOnly refresh cookie, 이메일 인증, 비밀번호 재설정, Google OAuth | 세션 안정성, token 원문 비저장, 계정 복구/삭제 흐름 |
+| 인증/계정 | JWT access token, DB-backed refresh session, HttpOnly refresh cookie, 이메일 인증, 비밀번호 재설정, Google OAuth, 로그인 실패 시도 제한 | 세션 안정성, token 원문 비저장, 계정 복구/삭제 흐름 |
 | 사용자 데이터 격리 | 공개 `userId` query parameter 제거, 인증 principal 기준 보호 API | 실제 서비스형 multi-user API 설계 |
 | 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
 | 옷 등록 AI 보조 | 보호 이미지 분석 API, Spring AI provider boundary, confidence/review DTO, 비용 제한 | AI를 저장/추천과 분리한 사용자 확인형 보조 흐름 |

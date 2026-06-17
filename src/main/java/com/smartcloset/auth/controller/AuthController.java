@@ -1,6 +1,7 @@
 package com.smartcloset.auth.controller;
 
 import com.smartcloset.auth.application.AuthService;
+import com.smartcloset.auth.application.LoginAttemptThrottle;
 import com.smartcloset.auth.application.RefreshTokenBundle;
 import com.smartcloset.auth.dto.AuthResponse;
 import com.smartcloset.auth.dto.EmailVerificationConfirmRequest;
@@ -41,15 +42,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginAttemptThrottle loginAttemptThrottle;
     private final RefreshTokenCookieReader refreshTokenCookieReader;
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
     public AuthController(
             AuthService authService,
+            LoginAttemptThrottle loginAttemptThrottle,
             RefreshTokenCookieReader refreshTokenCookieReader,
             RefreshTokenCookieWriter refreshTokenCookieWriter
     ) {
         this.authService = authService;
+        this.loginAttemptThrottle = loginAttemptThrottle;
         this.refreshTokenCookieReader = refreshTokenCookieReader;
         this.refreshTokenCookieWriter = refreshTokenCookieWriter;
     }
@@ -68,9 +72,21 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response
     ) {
-        RefreshTokenBundle bundle = authService.loginWithRefreshSession(request);
+        String clientIdentifier = clientIdentifier(httpRequest);
+        loginAttemptThrottle.checkAndRecordAttempt(request.email(), clientIdentifier);
+        RefreshTokenBundle bundle;
+        try {
+            bundle = authService.loginWithRefreshSession(request);
+        } catch (SmartClosetException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            loginAttemptThrottle.clearAttempts(request.email(), clientIdentifier);
+            throw exception;
+        }
+        loginAttemptThrottle.recordSuccess(request.email(), clientIdentifier);
         refreshTokenCookieWriter.write(response, bundle.refreshToken());
         return ApiResponse.of(bundle.authResponse());
     }
@@ -135,5 +151,13 @@ public class AuthController {
             @Valid @RequestBody PasswordResetConfirmRequest request
     ) {
         return ApiResponse.of(authService.confirmPasswordReset(request));
+    }
+
+    private String clientIdentifier(HttpServletRequest request) {
+        String remoteAddress = request.getRemoteAddr();
+        if (remoteAddress == null || remoteAddress.isBlank()) {
+            return "unknown";
+        }
+        return remoteAddress;
     }
 }

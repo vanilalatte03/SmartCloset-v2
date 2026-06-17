@@ -191,6 +191,7 @@ http://localhost:8080/swagger-ui/index.html
 - AI 분석 provider 장애 또는 timeout: `503 CLOTHING_ANALYSIS_UNAVAILABLE`
 - AI 분석 일일 제한 초과: `429 CLOTHING_ANALYSIS_LIMIT_EXCEEDED`
 - 잘못된 분석 이미지 형식 또는 크기 초과: `400 INVALID_REQUEST`
+- 로그인 실패 반복 제한 초과: `429 LOGIN_ATTEMPT_LIMIT_EXCEEDED`
 - 미인증 password 계정 login: `403 EMAIL_VERIFICATION_REQUIRED`
 - 만료/사용 완료 인증 token confirm: `400 ACCOUNT_TOKEN_INVALID`
 - reset token 재사용: `400 ACCOUNT_TOKEN_INVALID`
