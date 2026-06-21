@@ -21,6 +21,7 @@ git config core.hooksPath .githooks
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | migration-smoke | `./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest` | yes | Flyway baseline migration 후 Hibernate validate 검증 |
+| mysql-migration-smoke | 아래 `Clean MySQL migration smoke` 절차 | no | 임시 MySQL 8.4 clean DB에서 Flyway migration과 prod Hibernate validate 확인 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | harness-test | `python3 -m pytest scripts/tests` | yes | Harness 운영 스크립트 회귀 테스트 |
 | docs-check | `python3 scripts/checks.py --docs-check --include-final-docs` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
@@ -86,6 +87,41 @@ docker compose down
 Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. demo user와 최소 옷장 seed는 `local`/`demo` profile에서 `SMARTCLOSET_SEED_ENABLED=true`일 때만 생성된다. 깨끗한 MySQL volume은 Flyway `V*.sql` migration으로 생성하고 Hibernate `ddl-auto=validate`로 검증한다. MVP10 AI 분석은 기본 비활성이며, `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 Compose 실행이 가능해야 한다.
 
 `prod` profile은 local placeholder `JWT_SECRET`과 Hibernate `ddl-auto=update`를 fail-fast로 막고, Swagger UI/API docs를 기본 비활성화한다. 운영 DB schema 변경은 Flyway migration으로 추적하며, 기존 운영 DB 편입은 배포 절차에서 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 명시한 경우에만 허용한다. AWS adapter, RDS/Secrets Manager 구성은 후속 범위다.
+
+Clean MySQL migration smoke는 프로젝트 Docker Compose volume을 사용하지 않고 임시 MySQL container로 확인한다.
+
+```bash
+docker run --rm --name smartcloset-mysql-migration-smoke \
+  -e MYSQL_DATABASE=smartcloset \
+  -e MYSQL_USER=smartcloset \
+  -e MYSQL_PASSWORD=smartcloset \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -p 33307:3306 \
+  -d mysql:8.4
+
+for i in $(seq 1 60); do
+  docker exec smartcloset-mysql-migration-smoke \
+    mysqladmin ping -h 127.0.0.1 -usmartcloset -psmartcloset --silent && break
+  sleep 2
+done
+
+SPRING_PROFILES_ACTIVE=prod \
+JWT_SECRET=prod-secret-value \
+SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:33307/smartcloset?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8' \
+SPRING_DATASOURCE_USERNAME=smartcloset \
+SPRING_DATASOURCE_PASSWORD=smartcloset \
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate \
+SPRING_FLYWAY_ENABLED=true \
+SPRING_FLYWAY_BASELINE_ON_MIGRATE=false \
+SMARTCLOSET_SEED_ENABLED=false \
+SPRING_AI_MODEL_CHAT=none \
+OPENAI_API_KEY= \
+./gradlew bootRun --args='--server.port=0'
+
+docker stop smartcloset-mysql-migration-smoke
+```
+
+`Started SmartClosetApplication` 로그가 보이면 Flyway V1 적용과 Hibernate validate가 통과한 것이다. 확인 후 `Ctrl-C`로 app을 종료하고 마지막 `docker stop`을 실행한다.
 
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 
