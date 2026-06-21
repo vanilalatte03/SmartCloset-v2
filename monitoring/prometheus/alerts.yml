@@ -1,0 +1,79 @@
+groups:
+  - name: smartcloset-application
+    rules:
+      - alert: SmartClosetRecommendationFailureRate
+        expr: |
+          sum(rate(smartcloset_recommendation_requests_total{outcome="failure"}[5m]))
+          /
+          clamp_min(sum(rate(smartcloset_recommendation_requests_total[5m])), 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: SmartCloset recommendation failure rate is high
+          description: More than 5% of recommendation requests failed over the last 5 minutes.
+
+      - alert: SmartClosetRecommendationP99Latency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(smartcloset_recommendation_duration_seconds_bucket[5m]))
+          )
+          > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SmartCloset recommendation p99 latency is high
+          description: Recommendation p99 latency is above 2 seconds for 10 minutes.
+
+      - alert: SmartClosetKmaFallbackOrFailureRate
+        expr: |
+          sum(rate(smartcloset_weather_provider_requests_total{provider="kma_vilage_forecast",outcome=~"fallback|failure"}[10m]))
+          /
+          clamp_min(sum(rate(smartcloset_weather_provider_requests_total{provider="kma_vilage_forecast"}[10m])), 0.001)
+          > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SmartCloset KMA provider fallback or failure rate is high
+          description: KMA provider fallback/failure ratio is above 20% for 10 minutes.
+
+      - alert: SmartClosetClothingAnalysisUnavailableRate
+        expr: |
+          sum(rate(smartcloset_clothing_analysis_requests_total{provider="openai",outcome=~"unavailable|disabled"}[10m]))
+          /
+          clamp_min(sum(rate(smartcloset_clothing_analysis_requests_total{provider="openai"}[10m])), 0.001)
+          > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SmartCloset clothing analysis provider is unavailable
+          description: AI clothing analysis unavailable/disabled responses are above 10% for 10 minutes.
+
+      - alert: SmartClosetDbPoolSaturation
+        expr: |
+          max(hikaricp_connections_active / clamp_min(hikaricp_connections_max, 1))
+          > 0.85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: SmartCloset DB connection pool is near saturation
+          description: Hikari active connections exceed 85% of configured max connections.
+
+      - alert: SmartClosetJvmHeapHigh
+        expr: |
+          sum(jvm_memory_used_bytes{area="heap"})
+          /
+          clamp_min(sum(jvm_memory_max_bytes{area="heap"}), 1)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SmartCloset JVM heap usage is high
+          description: JVM heap usage is above 85% for 10 minutes.

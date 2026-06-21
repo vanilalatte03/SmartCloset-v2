@@ -40,6 +40,29 @@ springdoc:
     enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
     path: /swagger-ui/index.html
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus}
+  endpoint:
+    health:
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
+  prometheus:
+    metrics:
+      export:
+        enabled: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        smartcloset.recommendation.duration: true
+        smartcloset.weather.provider.duration: true
+        smartcloset.clothing.analysis.duration: true
+
 smartcloset:
   seed:
     enabled: ${SMARTCLOSET_SEED_ENABLED:false}

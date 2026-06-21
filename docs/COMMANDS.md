@@ -22,6 +22,7 @@ git config core.hooksPath .githooks
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | migration-smoke | `./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest` | yes | Flyway baseline migration 후 Hibernate validate 검증 |
 | mysql-migration-smoke | 아래 `Clean MySQL migration smoke` 절차 | no | 임시 MySQL 8.4 clean DB에서 Flyway migration과 prod Hibernate validate 확인 |
+| monitoring-smoke | 아래 `Monitoring smoke` 절차 | no | Actuator health/prometheus endpoint와 dashboard JSON 확인 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | harness-test | `python3 -m pytest scripts/tests` | yes | Harness 운영 스크립트 회귀 테스트 |
 | docs-check | `python3 scripts/checks.py --docs-check --include-final-docs` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
@@ -79,6 +80,12 @@ Docker Compose smoke:
 docker compose down -v
 test -f .env || cp .env.example .env
 docker compose up --build -d
+for i in $(seq 1 60); do
+  curl -fsS http://localhost:8080/actuator/health >/dev/null && break
+  sleep 2
+done
+curl -fsS http://localhost:8080/actuator/health >/dev/null
+curl -fsS http://localhost:8080/actuator/prometheus | rg 'jvm_info|smartcloset_'
 curl -fsS http://localhost:8080/v3/api-docs >/dev/null
 curl -fsS http://localhost:5173 >/dev/null
 docker compose down
@@ -123,6 +130,16 @@ docker stop smartcloset-mysql-migration-smoke
 
 `Started SmartClosetApplication` 로그가 보이면 Flyway V1 적용과 Hibernate validate가 통과한 것이다. 확인 후 `Ctrl-C`로 app을 종료하고 마지막 `docker stop`을 실행한다.
 
+Monitoring smoke:
+
+```bash
+curl -fsS http://localhost:8080/actuator/health
+curl -fsS http://localhost:8080/actuator/prometheus | rg 'jvm_info|hikaricp_connections|smartcloset_'
+python3 -m json.tool monitoring/grafana/smartcloset-dashboard.json >/dev/null
+```
+
+추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다.
+
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 
 - `desktop 1440px | 옷장 AI 후보 체크 | PASS`
@@ -136,6 +153,8 @@ MVP8 세션 복구, 이메일 인증, 비밀번호 재설정, Google provider �
 
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- Actuator health: `http://localhost:8080/actuator/health`
+- Prometheus metrics: `http://localhost:8080/actuator/prometheus`
 - Frontend: `http://localhost:5173`
 
 ## 문서 검증

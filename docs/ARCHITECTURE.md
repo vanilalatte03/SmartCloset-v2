@@ -99,6 +99,32 @@ Controller 이후로 전파된 HTTP API 예외는 `GlobalExceptionHandler`가 `E
 
 실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message는 로그에 남기지 않는다.
 
+## 운영 관측성
+
+운영 관측성 baseline은 Spring Boot Actuator와 Micrometer Prometheus registry를 사용한다. 기본 local endpoint 노출은 `health`, `info`, `prometheus`이고, `prod` profile 기본 노출은 `health`, `prometheus`다. health detail은 기본적으로 숨긴다.
+
+```text
+GET /actuator/health
+GET /actuator/prometheus
+```
+
+Custom metric은 `SmartClosetMetrics`가 이름과 low-cardinality tag를 관리한다.
+
+| Metric | Type | Tags | 목적 |
+| --- | --- | --- | --- |
+| `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 성공/실패 비율 |
+| `smartcloset.recommendation.duration` | timer | `situation`, `forecast_period`, `outcome` | 추천 생성 latency |
+| `smartcloset.weather.provider.requests` | counter | `provider`, `forecast_period`, `outcome` | KMA success/fallback/failure/cache hit 비율 |
+| `smartcloset.weather.provider.duration` | timer | `provider`, `forecast_period`, `outcome` | KMA provider latency |
+| `smartcloset.clothing.analysis.requests` | counter | `provider`, `outcome` | OpenAI 옷 분석 success/not analyzable/disabled/unavailable/limit/invalid request 비율 |
+| `smartcloset.clothing.analysis.duration` | timer | `provider`, `outcome` | 옷 분석 provider latency |
+
+Prometheus export에서는 Micrometer 이름이 snake_case로 변환된다. 예를 들어 `smartcloset.recommendation.requests`는 `smartcloset_recommendation_requests_total`, timer histogram은 `smartcloset_recommendation_duration_seconds_bucket` 형태로 조회한다.
+
+`monitoring/prometheus/alerts.yml`은 추천 실패율, 추천 p99 latency, KMA fallback/failure 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert baseline을 둔다. `monitoring/alertmanager/alertmanager.yml`은 실제 webhook 없이 local null receiver만 둔다. `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource를 연결해 import하는 dashboard baseline이다.
+
+Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, tracing, log aggregation, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
+
 ## 옷 사진 분석 흐름
 
 ```text

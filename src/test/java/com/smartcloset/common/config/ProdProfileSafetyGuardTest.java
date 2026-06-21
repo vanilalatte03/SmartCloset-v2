@@ -105,5 +105,7 @@ class ProdProfileSafetyGuardTest {
         assertThat(resolver.getProperty("smartcloset.security.jwt.secret")).isEmpty();
         assertThat(resolver.getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("springdoc.swagger-ui.enabled", Boolean.class)).isFalse();
+        assertThat(resolver.getProperty("management.endpoints.web.exposure.include")).isEqualTo("health,prometheus");
+        assertThat(resolver.getProperty("management.endpoint.health.show-details")).isEqualTo("never");
     }
 }

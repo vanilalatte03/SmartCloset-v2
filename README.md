@@ -28,6 +28,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 - Frontend: React, Vite, TypeScript
 - Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie
 - Weather: KMA `getVilageFcst`, local fallback provider
+- Observability: Spring Boot Actuator, Micrometer, Prometheus metrics
 - Storage: local file system, Docker Compose volume
 - Tooling: Gradle, Docker Compose, project docs-check scripts
 
@@ -42,6 +43,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
 | 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
+| 운영 관측성 | Actuator health/prometheus endpoint, 추천/KMA/AI 분석 metric, Prometheus alert rule, Grafana dashboard baseline | 장애 원인 분리와 운영 확인 지점 |
 | 운영 공유 | MySQL, Flyway migration, backend, frontend, image volume을 Docker Compose로 실행 | 로컬 재현성과 데모 가능성 |
 
 ## Domain Structure
@@ -101,6 +103,10 @@ MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 �
 **이미지는 DB가 아니라 저장소에 둠**
 
 옷 JSON API를 multipart로 바꾸지 않고 이미지 업로드/조회/삭제를 별도 보호 API로 분리했습니다. 파일 bytes는 파일 시스템 또는 volume에 저장하고 DB에는 metadata만 둡니다. AI 분석용 이미지는 후보 제안에만 쓰고 저장하지 않습니다.
+
+**Actuator와 Prometheus 기반 운영 baseline**
+
+운영 준비 범위에서는 Spring Boot Actuator의 health/prometheus endpoint를 열고, 추천 생성, KMA provider, OpenAI 옷 분석 provider outcome과 duration을 Micrometer metric으로 기록합니다. Alertmanager receiver나 외부 SaaS 연동은 포함하지 않고, `monitoring/` 아래 Prometheus alert rule과 Grafana dashboard baseline으로 운영 확인 지점을 먼저 고정합니다. 관련 결정은 ADR-018입니다.
 
 ## Current MVP
 
