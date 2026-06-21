@@ -295,7 +295,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Weather provider는 KMA `getVilageFcst`와 fallback만 사용한다.
 - KMA provider cache는 process-local bounded TTL cache이며, 날씨 값/source만 공유하고 사용자 위치 snapshot은 응답 시점에 합성한다.
 - KMA HTTP connect/read/request timeout은 env로 조정하며, KMA client에는 Resilience4j retry와 process-local circuit breaker를 적용한다.
-- KMA refresh 실패 시 같은 grid와 forecastPeriod의 마지막 정상 KMA 날씨 값이 있으면 static fallback보다 먼저 stale fallback으로 사용하고 `stale_cache_fallback` metric을 기록한다. raw KMA 응답 JSON은 저장하지 않는다.
+- KMA refresh 실패 시 같은 grid와 forecastPeriod의 마지막 정상 KMA 날씨 값이 `KMA_STALE_CACHE_TTL` 기본 30분 안에 있으면 static fallback보다 먼저 stale fallback으로 사용하고 `stale_cache_fallback` metric을 기록한다. raw KMA 응답 JSON은 저장하지 않는다.
 - 추천 생성은 `POST /api/recommendations`이며 optional `situation`, `forecastPeriod`를 받는다.
 - 추천 생성은 user별 process-local fixed-window throttle을 먼저 통과해야 하며, 기본 정책은 1분 window 안에서 user당 30회다.
 - 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.

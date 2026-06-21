@@ -163,6 +163,7 @@ smartcloset:
       connect-timeout: ${KMA_CONNECT_TIMEOUT:2s}
       read-timeout: ${KMA_READ_TIMEOUT:3s}
       request-timeout: ${KMA_REQUEST_TIMEOUT:5s}
+      stale-cache-ttl: ${KMA_STALE_CACHE_TTL:30m}
       max-attempts: ${KMA_MAX_ATTEMPTS:2}
       retry-backoff: ${KMA_RETRY_BACKOFF:200ms}
       circuit-breaker-failure-threshold: ${KMA_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}

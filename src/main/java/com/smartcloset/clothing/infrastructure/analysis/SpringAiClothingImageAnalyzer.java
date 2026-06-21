@@ -77,8 +77,11 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, Aut
 
     @Override
     public ClothingAnalysisResult analyze(ClothingAnalysisImage image) {
-        Future<OpenAiClothingAnalysisResponse> responseFuture = executorService.submit(() ->
-                resilience.execute(() -> callProvider(image)));
+        return resilience.execute(() -> analyzeOnce(image));
+    }
+
+    private ClothingAnalysisResult analyzeOnce(ClothingAnalysisImage image) {
+        Future<OpenAiClothingAnalysisResponse> responseFuture = executorService.submit(() -> callProvider(image));
         try {
             OpenAiClothingAnalysisResponse response = responseFuture.get(timeoutSeconds(), TimeUnit.SECONDS);
             return toResult(response);

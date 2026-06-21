@@ -27,6 +27,7 @@ class KmaWeatherPropertiesTest {
             assertThat(properties.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
             assertThat(properties.readTimeout()).isEqualTo(Duration.ofSeconds(3));
             assertThat(properties.requestTimeout()).isEqualTo(Duration.ofSeconds(5));
+            assertThat(properties.staleCacheTtl()).isEqualTo(Duration.ofMinutes(30));
             assertThat(properties.maxAttempts()).isEqualTo(2);
             assertThat(properties.retryBackoff()).isEqualTo(Duration.ofMillis(200));
             assertThat(properties.circuitBreakerFailureThreshold()).isEqualTo(3);
@@ -48,6 +49,7 @@ class KmaWeatherPropertiesTest {
                         "smartcloset.weather.kma.connect-timeout=750ms",
                         "smartcloset.weather.kma.read-timeout=2s",
                         "smartcloset.weather.kma.request-timeout=4s",
+                        "smartcloset.weather.kma.stale-cache-ttl=10m",
                         "smartcloset.weather.kma.max-attempts=3",
                         "smartcloset.weather.kma.retry-backoff=25ms",
                         "smartcloset.weather.kma.circuit-breaker-failure-threshold=5",
@@ -66,6 +68,7 @@ class KmaWeatherPropertiesTest {
                     assertThat(properties.connectTimeout()).isEqualTo(Duration.ofMillis(750));
                     assertThat(properties.readTimeout()).isEqualTo(Duration.ofSeconds(2));
                     assertThat(properties.requestTimeout()).isEqualTo(Duration.ofSeconds(4));
+                    assertThat(properties.staleCacheTtl()).isEqualTo(Duration.ofMinutes(10));
                     assertThat(properties.maxAttempts()).isEqualTo(3);
                     assertThat(properties.retryBackoff()).isEqualTo(Duration.ofMillis(25));
                     assertThat(properties.circuitBreakerFailureThreshold()).isEqualTo(5);

@@ -19,6 +19,7 @@ public class KmaWeatherProperties {
     public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
     public static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(3);
     public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(5);
+    public static final Duration DEFAULT_STALE_CACHE_TTL = Duration.ofMinutes(30);
     public static final int DEFAULT_MAX_ATTEMPTS = 2;
     public static final Duration DEFAULT_RETRY_BACKOFF = Duration.ofMillis(200);
     public static final int DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3;
@@ -62,6 +63,10 @@ public class KmaWeatherProperties {
 
     public Duration requestTimeout() {
         return kma.requestTimeout;
+    }
+
+    public Duration staleCacheTtl() {
+        return kma.staleCacheTtl;
     }
 
     public int maxAttempts() {
@@ -115,6 +120,8 @@ public class KmaWeatherProperties {
         private Duration readTimeout = DEFAULT_READ_TIMEOUT;
 
         private Duration requestTimeout = DEFAULT_REQUEST_TIMEOUT;
+
+        private Duration staleCacheTtl = DEFAULT_STALE_CACHE_TTL;
 
         private int maxAttempts = DEFAULT_MAX_ATTEMPTS;
 
@@ -194,6 +201,14 @@ public class KmaWeatherProperties {
 
         public void setRequestTimeout(Duration requestTimeout) {
             this.requestTimeout = requestTimeout == null ? DEFAULT_REQUEST_TIMEOUT : requestTimeout;
+        }
+
+        public Duration getStaleCacheTtl() {
+            return staleCacheTtl;
+        }
+
+        public void setStaleCacheTtl(Duration staleCacheTtl) {
+            this.staleCacheTtl = staleCacheTtl == null ? DEFAULT_STALE_CACHE_TTL : staleCacheTtl;
         }
 
         public int getMaxAttempts() {

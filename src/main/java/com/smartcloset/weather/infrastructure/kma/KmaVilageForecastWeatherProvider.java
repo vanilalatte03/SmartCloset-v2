@@ -115,6 +115,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         if (properties.cacheTtl().isZero() || properties.cacheTtl().isNegative()) {
             throw new IllegalArgumentException("KMA weather cache ttl must be positive");
         }
+        if (properties.staleCacheTtl().isZero() || properties.staleCacheTtl().isNegative()) {
+            throw new IllegalArgumentException("KMA weather stale cache ttl must be positive");
+        }
         if (properties.cacheMaxSize() <= 0) {
             throw new IllegalArgumentException("KMA weather cache max size must be positive");
         }
@@ -187,7 +190,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             rememberSuccessfulWeather(location, forecastPeriod, weather, now);
             return new ResolvedWeather(weather, WeatherResolution.KMA_SUCCESS);
         } catch (KmaForecastClientException | KmaWeatherMappingException exception) {
-            ResolvedWeather staleWeather = staleSuccessfulWeather(location, forecastPeriod);
+            ResolvedWeather staleWeather = staleSuccessfulWeather(location, forecastPeriod, now);
             if (staleWeather != null && properties.fallbackEnabled()) {
                 return staleWeather;
             }
@@ -271,9 +274,18 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         trimStaleCache(key);
     }
 
-    private ResolvedWeather staleSuccessfulWeather(UserLocationSnapshot location, ForecastPeriod forecastPeriod) {
-        StaleWeatherEntry entry = lastSuccessfulWeather.get(StaleWeatherCacheKey.from(location, forecastPeriod));
+    private ResolvedWeather staleSuccessfulWeather(
+            UserLocationSnapshot location,
+            ForecastPeriod forecastPeriod,
+            Instant now
+    ) {
+        StaleWeatherCacheKey key = StaleWeatherCacheKey.from(location, forecastPeriod);
+        StaleWeatherEntry entry = lastSuccessfulWeather.get(key);
         if (entry == null) {
+            return null;
+        }
+        if (!now.isBefore(entry.cachedAt().plus(properties.staleCacheTtl()))) {
+            lastSuccessfulWeather.remove(key, entry);
             return null;
         }
         return new ResolvedWeather(entry.weather(), WeatherResolution.STALE_KMA_FALLBACK);

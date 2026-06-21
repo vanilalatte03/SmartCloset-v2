@@ -202,6 +202,37 @@ class KmaVilageForecastWeatherProviderTest {
     }
 
     @Test
+    void skipsStaleSuccessfulKmaWeatherAfterStaleTtlExpires() {
+        MutableClock mutableClock = MutableClock.fixed("2026-05-21T14:15:00+09:00");
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        KmaWeatherProperties properties = properties("test-service-key", true);
+        properties.getKma().setCacheTtl(Duration.ofMinutes(1));
+        properties.getKma().setStaleCacheTtl(Duration.ofMinutes(3));
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        CountingStaticWeatherProvider fallbackProvider = new CountingStaticWeatherProvider();
+        KmaVilageForecastWeatherProvider provider = new KmaVilageForecastWeatherProvider(
+                properties,
+                client,
+                new KmaForecastBaseTimeCalculator(),
+                new KmaWeatherConditionMapper(),
+                fallbackProvider,
+                new FakeUserLocationReader(),
+                new SmartClosetMetrics(meterRegistry),
+                mutableClock
+        );
+
+        provider.getCurrentWeather(1L);
+        client.failWith(new KmaForecastClientException("request timeout"));
+        mutableClock.advance(Duration.ofMinutes(4));
+        WeatherSnapshot fallbackWeather = provider.getCurrentWeather(1L);
+
+        assertFallbackWeather(fallbackWeather);
+        assertThat(fallbackProvider.callCount()).isEqualTo(1);
+        assertThat(fallbackWeather.source().provider().name()).isEqualTo("STATIC_FALLBACK");
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "fallback")).isEqualTo(1.0);
+    }
+
+    @Test
     void removesExpiredEntriesBeforeCachingNewWeather() {
         MutableClock mutableClock = MutableClock.fixed("2026-05-21T14:15:00+09:00");
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
