@@ -192,6 +192,9 @@ VITE_API_BASE_URL=http://localhost:8080
 | `CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD` | 확인 필요 기준 confidence. 기본 `0.75` |
 | `CLOTHING_ANALYSIS_DAILY_LIMIT` | user별 일일 분석 제한. 기본 `20` |
 | `CLOTHING_ANALYSIS_TIMEOUT_SECONDS` | 분석 provider timeout. 기본 `10` |
+| `RECOMMENDATION_CREATION_THROTTLE_ENABLED` | 추천 생성 반복 호출 제한 활성 여부. 기본 `true` |
+| `RECOMMENDATION_CREATION_THROTTLE_MAX_REQUESTS` | user별 추천 생성 window당 허용 횟수. 기본 `30` |
+| `RECOMMENDATION_CREATION_THROTTLE_WINDOW` | 추천 생성 제한 window. 기본 `1m` |
 | `VITE_API_BASE_URL` | 브라우저에서 접근할 백엔드 API base URL |
 
 Prod runtime 필수/보안 env:
@@ -283,6 +286,7 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 
 - 미인증 password 계정 login이 차단된다.
 - 같은 email/client key 또는 client key의 password login 실패가 반복되면 `LOGIN_ATTEMPT_LIMIT_EXCEEDED`로 제한된다.
+- 같은 사용자가 짧은 시간 안에 추천 생성을 반복하면 `RECOMMENDATION_CREATION_LIMIT_EXCEEDED`로 제한된다.
 - `POST /api/auth/refresh`가 refresh cookie로 access token을 재발급한다.
 - 비밀번호 재설정 요청/확인이 가능하다.
 - Google provider 설정이 없으면 disabled 상태가 표시된다.

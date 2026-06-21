@@ -39,7 +39,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | --- | --- | --- |
 | 인증/계정 | JWT access token, DB-backed refresh session, HttpOnly refresh cookie, 이메일 인증, 비밀번호 재설정, Google OAuth, 로그인 실패 시도 제한 | 세션 안정성, token 원문 비저장, 계정 복구/삭제 흐름 |
 | 사용자 데이터 격리 | 공개 `userId` query parameter 제거, 인증 principal 기준 보호 API | 실제 서비스형 multi-user API 설계 |
-| 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
+| 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring, 생성 반복 호출 제한 | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
 | 옷 등록 AI 보조 | 보호 이미지 분석 API, Spring AI provider boundary, confidence/review DTO, 비용 제한 | AI를 저장/추천과 분리한 사용자 확인형 보조 흐름 |
 | 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
@@ -91,7 +91,7 @@ Access token은 bearer token으로 유지하되, refresh token은 HttpOnly cooki
 
 **AI가 아니라 규칙 기반 추천**
 
-추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. 대형 옷장은 날씨 필터 이후 category별 후보 pool 예산으로 계산량을 제한합니다. MVP10의 AI 분석 결과는 옷 등록 후보를 채우는 데만 쓰이며 추천 점수, 후보 pool 선정, tie-break, 추천 이유에 관여하지 않습니다.
+추천은 날씨, 색상, 착용/추천 이력, 선호도, 최근 피드백을 기반으로 계산합니다. 추천 이유도 template 기반으로 생성합니다. 대형 옷장은 날씨 필터 이후 category별 후보 pool 예산으로 계산량을 제한하고, 추천 생성 command는 user별 process-local throttle로 반복 호출을 제한합니다. MVP10의 AI 분석 결과는 옷 등록 후보를 채우는 데만 쓰이며 추천 점수, 후보 pool 선정, tie-break, 추천 이유에 관여하지 않습니다.
 
 **사진 기반 옷 등록 보조**
 

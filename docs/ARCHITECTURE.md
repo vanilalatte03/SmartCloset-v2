@@ -54,6 +54,7 @@ MVP10 clothing analysis 구성 요소:
 - `ClothingAnalysisProperties`: 활성 여부, model, timeout, low confidence threshold, daily limit 설정
 - `ClothingAnalysisDailyLimiter`: user별 in-memory 일일 호출 제한
 - `ClothingAnalysisResponse`, `ClothingAnalysisSuggestion`: API response DTO
+- `RecommendationCreationThrottle`: 추천 생성 command의 user별 process-local fixed-window 반복 호출 제한
 
 프론트엔드:
 
@@ -112,7 +113,7 @@ Custom metric은 `SmartClosetMetrics`가 이름과 low-cardinality tag를 관리
 
 | Metric | Type | Tags | 목적 |
 | --- | --- | --- | --- |
-| `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 성공/실패 비율 |
+| `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 success/failure/limit 비율 |
 | `smartcloset.recommendation.duration` | timer | `situation`, `forecast_period`, `outcome` | 추천 생성 latency |
 | `smartcloset.weather.provider.requests` | counter | `provider`, `forecast_period`, `outcome` | KMA success/fallback/failure/cache hit success/cache hit fallback 비율 |
 | `smartcloset.weather.provider.duration` | timer | `provider`, `forecast_period`, `outcome` | KMA provider latency |
@@ -289,6 +290,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Weather provider는 KMA `getVilageFcst`와 fallback만 사용한다.
 - KMA provider cache는 process-local bounded TTL cache이며, 날씨 값/source만 공유하고 사용자 위치 snapshot은 응답 시점에 합성한다.
 - 추천 생성은 `POST /api/recommendations`이며 optional `situation`, `forecastPeriod`를 받는다.
+- 추천 생성은 user별 process-local fixed-window throttle을 먼저 통과해야 하며, 기본 정책은 1분 window 안에서 user당 30회다.
 - 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.
 - 옷 이미지 API는 보호 API이며 blob fetch에 Authorization header가 필요하다.
 - 추천 피드백 PUT은 전체 교체이고 누락 필드는 `null`이다.
@@ -318,6 +320,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - S3 구현체를 추가하지 않는다. 이유: 현재는 `ClothingImageStorage` 경계만 보존한다.
 - SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 local outbox 기반 `ConsoleEmailSender` 기준이다.
 - Redis를 추가하지 않는다. 이유: refresh session, login attempt throttle, 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
+- 추천 생성 반복 호출 제한은 현재 process-local throttle로 검증한다. 이유: Redis/DB-backed distributed limiter는 운영 adapter 확정 후 별도 범위로 추가한다.
 - AI/GPT 옷차림 추천을 추가하지 않는다. 이유: 추천은 규칙 기반 계약이다.
 - AI-generated 추천 이유를 추가하지 않는다. 이유: 추천 이유는 template 기반이다.
 - 이미지 기반 추천 score, filtering, tie-break를 추가하지 않는다. 이유: 이미지와 분석 결과는 등록 보조 전용이다.

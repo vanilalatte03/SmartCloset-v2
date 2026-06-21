@@ -95,6 +95,11 @@ management:
 smartcloset:
   email:
     local-outbox-path: ${SMARTCLOSET_EMAIL_OUTBOX_PATH:${java.io.tmpdir}/smartcloset-email-outbox.log}
+  recommendation:
+    creation-throttle:
+      enabled: ${RECOMMENDATION_CREATION_THROTTLE_ENABLED:true}
+      max-requests: ${RECOMMENDATION_CREATION_THROTTLE_MAX_REQUESTS:30}
+      window: ${RECOMMENDATION_CREATION_THROTTLE_WINDOW:1m}
   seed:
     enabled: ${SMARTCLOSET_SEED_ENABLED:false}
   security:
