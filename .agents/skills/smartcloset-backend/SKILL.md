@@ -66,7 +66,7 @@ SmartCloset의 현재 기준은 MVP10 AI 옷 등록 보조 baseline Spring Boot 
 - MVP5 옷 이미지 업로드/교체/조회/삭제, MVP6 styleTags/피드백/개인화, MVP7 위치/날씨 source snapshot을 유지한다.
 - 이미지 업로드/교체/조회/삭제 API는 모두 보호 API다.
 - 이미지 존재 여부는 추천 점수, 후보 필터링, 추천 이유에 영향을 주지 않는다.
-- MVP10은 Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`를 사용해 옷 등록 후보를 제안한다.
+- MVP10은 Spring AI 2.0.0 GA와 OpenAI `gpt-5.4-nano`를 사용해 옷 등록 후보를 제안한다.
 - `POST /api/clothes/analyze-image`는 보호 API이며 multipart part `image`를 받는다.
 - AI 분석 기능은 기본 비활성이고 `CLOTHING_ANALYSIS_ENABLED=true`, `SPRING_AI_MODEL_CHAT=openai`, `OPENAI_API_KEY`가 있을 때만 실제 OpenAI 호출이 가능하다.
 - `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 API key 상태에서도 기존 local 실행이 깨지면 안 된다.

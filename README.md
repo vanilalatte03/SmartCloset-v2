@@ -23,7 +23,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 ## Tech Stack
 
 - Backend: Java 21, Spring Boot 4.0.6, Spring Security, JPA
-- AI assist: Spring AI 2.0 preview, OpenAI `gpt-5.4-nano`
+- AI assist: Spring AI 2.0.0 GA, OpenAI `gpt-5.4-nano`
 - Database: MySQL, Flyway
 - Frontend: React, Vite, TypeScript
 - Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie

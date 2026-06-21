@@ -10,7 +10,7 @@ MVP9에서 화면 구조와 반응형 UX를 정리했지만, 옷 등록은 여�
 
 사용자 수가 늘면 모델 비용이 커질 수 있으므로 비싼 모델을 기본으로 쓰지 않고, 사용자가 직접 호출한 경우에만 저비용 모델을 호출해야 한다.
 
-현재 백엔드는 Spring Boot 4.0.6이다. Spring AI stable 1.x는 Boot 3.x 중심이므로, MVP10에서는 Boot 4.0.6을 유지하고 Spring AI 2.0 preview 계열을 사용한다. 이 결정은 preview 의존성 리스크를 가진다.
+현재 백엔드는 Spring Boot 4.0.6이다. MVP10 도입 시점에는 Boot 4.0.6을 유지하기 위해 Spring AI 2.0 preview 계열을 사용했으며, 운영 준비 과정에서 ADR-023에 따라 Spring AI 2.0.0 GA로 전환했다.
 
 ## 결정
 
@@ -35,7 +35,7 @@ MVP10은 AI/GPT 추천이 아니라 AI-assisted clothing registration MVP다.
 - 사용자는 사진을 먼저 넣고 후보값을 빠르게 채운 뒤 애매한 필드만 확인할 수 있다.
 - 추천 품질에 필요한 옷장 데이터 입력 장벽이 낮아진다.
 - AI 호출은 추천 계산과 분리되어 기존 규칙 기반 추천의 설명 가능성과 테스트 가능성을 유지한다.
-- Boot 4.0.6 baseline은 유지되지만 Spring AI 2.0 preview 의존성 변화에 따른 follow-up이 필요할 수 있다.
+- Boot 4.0.6 baseline은 유지하며 Spring AI 2.0.0 GA로 옷 등록 보조 provider boundary를 안정화한다.
 - OpenAI API key가 없거나 분석 기능이 비활성인 로컬 Docker Compose 공유 흐름은 계속 동작한다.
 
 ## 범위 제외
