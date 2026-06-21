@@ -35,6 +35,8 @@ ADR-020은 운영 준비 작업으로 local/demo compose와 분리된 prod compo
 
 ADR-021은 운영 준비 작업으로 PR CI의 dependency vulnerability scan, backend/frontend Docker image build validation, image vulnerability scan gate를 정의한다.
 
+ADR-022는 운영 준비 작업으로 PR CI의 backend 정적 분석, JaCoCo coverage verification, frontend lint/test 품질 게이트를 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -56,3 +58,4 @@ ADR-021은 운영 준비 작업으로 PR CI의 dependency vulnerability scan, ba
 - [ADR-019: Harden Docker Runtime and DB Operations](adr/019-docker-db-hardening.md)
 - [ADR-020: Define Production Runtime Artifacts](adr/020-prod-runtime-artifacts.md)
 - [ADR-021: Add CI Security and Image Gates](adr/021-ci-security-image-gates.md)
+- [ADR-022: Add CI Quality and Coverage Gates](adr/022-ci-quality-coverage-gates.md)

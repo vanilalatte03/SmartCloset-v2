@@ -1,6 +1,8 @@
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.6'
+    id 'jacoco'
+    id 'checkstyle'
 }
 
 group = 'com.smartcloset'
@@ -59,4 +61,40 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+checkstyle {
+    configDirectory = file("${rootDir}/config/checkstyle")
+    maxWarnings = 0
+}
+
+jacoco {
+    toolVersion = '0.8.14'
+}
+
+jacocoTestReport {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn tasks.named('test')
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.60
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification')
 }
