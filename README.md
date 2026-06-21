@@ -44,7 +44,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
 | 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
 | 운영 관측성 | Actuator health/prometheus endpoint, 추천/KMA/AI 분석 metric, Prometheus alert rule, Grafana dashboard baseline | 장애 원인 분리와 운영 확인 지점 |
-| 운영 공유 | MySQL, Flyway migration, backend, frontend, image volume을 Docker Compose로 실행 | 로컬 재현성과 데모 가능성 |
+| 운영 공유 | non-root app image, healthcheck, JVM memory env, MySQL backup/restore script, Docker Compose 실행 | 로컬 재현성과 운영 전환 준비 |
 
 ## Domain Structure
 
@@ -107,6 +107,10 @@ MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 �
 **Actuator와 Prometheus 기반 운영 baseline**
 
 운영 준비 범위에서는 Spring Boot Actuator의 health/prometheus endpoint를 열고, 추천 생성, KMA provider, OpenAI 옷 분석 provider outcome과 duration을 Micrometer metric으로 기록합니다. Alertmanager receiver나 외부 SaaS 연동은 포함하지 않고, `monitoring/` 아래 Prometheus alert rule과 Grafana dashboard baseline으로 운영 확인 지점을 먼저 고정합니다. 관련 결정은 ADR-018입니다.
+
+**Container와 DB 운영 하드닝 baseline**
+
+운영 준비 범위에서는 app runtime image를 non-root user로 실행하고, Dockerfile healthcheck를 Actuator health endpoint에 연결합니다. Docker Compose는 app 시작 전에 `clothing-image-data` volume 소유권을 UID/GID `10001:10001`로 보정합니다. JVM container memory 비율은 `JAVA_TOOL_OPTIONS`로 조정하며, MySQL backup/restore는 로컬 검증 가능한 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh` runbook으로 시작합니다. 관련 결정은 ADR-019입니다.
 
 ## Current MVP
 

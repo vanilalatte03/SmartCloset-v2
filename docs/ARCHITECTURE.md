@@ -261,6 +261,11 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Flyway baseline migration은 깨끗한 DB에서 현재 schema를 생성하고, Hibernate `ddl-auto=validate`가 entity/schema drift를 검증한다.
 - `local`/`demo` profile은 기존 로컬 volume 편입을 위해 Flyway `baseline-on-migrate=true`를 기본값으로 둘 수 있다.
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않고, Swagger UI/API docs를 기본 비활성화한다.
+- app runtime Docker image는 UID/GID `10001:10001` non-root user로 실행한다.
+- Dockerfile healthcheck는 `SMARTCLOSET_HEALTHCHECK_URL` 기본값 `http://127.0.0.1:8080/actuator/health`를 사용한다.
+- JVM container memory option은 `JAVA_TOOL_OPTIONS`로 주입하며 local 기본값은 `-XX:MaxRAMPercentage=75.0`이다.
+- Docker Compose는 `clothing-image-volume-permissions` one-shot service로 app 시작 전에 `clothing-image-data` volume 소유권을 UID/GID `10001:10001`로 보정한다.
+- MySQL backup/restore는 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh`로 local 검증 가능한 runbook을 유지한다. backup dump는 `backups/` 아래에 생성할 수 있으며 git/docker build context에 포함하지 않는다.
 
 ## 기존 domain 흐름 유지
 

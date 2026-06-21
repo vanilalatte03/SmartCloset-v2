@@ -4,7 +4,7 @@
 
 SmartCloset MVP10 공유 방식은 Docker Compose local 실행으로 유지한다.
 
-공유 대상자는 Docker Compose로 MySQL, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드, 이미지 저장 volume을 함께 실행한다. MVP10 AI 옷 등록 보조는 기본 비활성 상태이므로 OpenAI API key 없이도 기존 기능과 앱 데모가 동작해야 한다.
+공유 대상자는 Docker Compose로 MySQL, 이미지 저장 volume 권한 helper, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드, 이미지 저장 volume을 함께 실행한다. MVP10 AI 옷 등록 보조는 기본 비활성 상태이므로 OpenAI API key 없이도 기존 기능과 앱 데모가 동작해야 한다.
 
 AWS 배포, S3, SES, Secrets Manager, CD 자동화는 MVP10 공유 범위가 아니다.
 
@@ -83,8 +83,10 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 SPRING_FLYWAY_ENABLED=true
 SPRING_PROFILES_ACTIVE=local
 SMARTCLOSET_SEED_ENABLED=true
+JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
 MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus
 MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
+SMARTCLOSET_HEALTHCHECK_URL=http://127.0.0.1:8080/actuator/health
 
 JWT_SECRET=change-me-local-development-only
 REFRESH_TOKEN_COOKIE_NAME=smartcloset.refreshToken
@@ -145,8 +147,10 @@ VITE_API_BASE_URL=http://localhost:8080
 | `SPRING_FLYWAY_BASELINE_ON_MIGRATE` | 기존 non-empty schema를 baseline으로 편입할지 여부. local/demo 기본값은 `true`, prod 기본값은 `false` |
 | `SPRING_PROFILES_ACTIVE` | Docker Compose 기본값은 `local`. local/demo profile에서만 demo seed initializer가 bean 후보가 됨 |
 | `SMARTCLOSET_SEED_ENABLED` | local/demo profile의 demo user와 최소 옷장 seed 활성 여부. local 기본값은 `true`, default/prod profile에서는 initializer가 비활성 |
+| `JAVA_TOOL_OPTIONS` | JVM container option. local 기본값은 `-XX:MaxRAMPercentage=75.0` |
 | `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | Actuator web endpoint 노출 목록. local 기본값은 `health,info,prometheus`, prod profile 기본값은 `health,prometheus` |
 | `MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED` | Prometheus metric export 활성 여부. 기본값은 `true` |
+| `SMARTCLOSET_HEALTHCHECK_URL` | Dockerfile healthcheck가 호출할 app 내부 URL. 기본값은 `http://127.0.0.1:8080/actuator/health` |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
 | `GOOGLE_OAUTH_CONNECT_TIMEOUT`, `GOOGLE_OAUTH_READ_TIMEOUT` | Google token/userinfo provider 호출 timeout |
@@ -192,6 +196,10 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 ### 기본 앱 기준
 
 - Docker Compose로 MySQL, 백엔드, 프론트엔드가 함께 실행된다.
+- app container는 non-root `10001:10001` user로 실행된다.
+- `clothing-image-volume-permissions` service가 app 시작 전에 이미지 저장 volume 소유권을 `10001:10001`로 보정한다.
+- app image는 Actuator health 기반 Dockerfile healthcheck를 가진다.
+- frontend service는 app healthcheck가 healthy가 된 뒤 시작된다.
 - `GET /actuator/health`가 `UP`을 반환한다.
 - `GET /actuator/prometheus`에서 JVM/HikariCP metric과 요청 후 SmartCloset custom metric을 확인할 수 있다.
 - `monitoring/prometheus/alerts.yml`, `monitoring/alertmanager/alertmanager.yml`, `monitoring/grafana/smartcloset-dashboard.json`이 실제 secret이나 webhook 없이 baseline으로 제공된다.
@@ -251,6 +259,9 @@ MVP10 공유 문서에는 AWS 구현을 포함하지 않는다. 후속 MVP에서
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않으며, Swagger UI/API docs를 기본 비활성화한다.
 - future AWS 배포 profile은 별도 env와 운영 adapter bean으로 추가하며 demo seed initializer를 활성화하지 않는다.
 - local Docker Compose 실행은 prod profile 추가 후에도 유지되어야 한다.
+- app image는 non-root user, healthcheck, JVM memory env override를 유지해야 한다.
+- 기존 local `clothing-image-data` volume은 app 시작 전 ownership helper로 보정되어야 한다.
+- MySQL backup/restore는 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh` 절차를 기준으로 검증한다.
 
 ## 제외 범위 확인
 
