@@ -76,7 +76,9 @@ MYSQL_PORT=3307
 SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/smartcloset?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
 SPRING_DATASOURCE_USERNAME=smartcloset
 SPRING_DATASOURCE_PASSWORD=smartcloset
-SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+SPRING_FLYWAY_ENABLED=true
+SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
 SPRING_PROFILES_ACTIVE=local
 SMARTCLOSET_SEED_ENABLED=true
 
@@ -134,6 +136,9 @@ VITE_API_BASE_URL=http://localhost:8080
 | `REFRESH_TOKEN_COOKIE_*` | refresh cookie name, secure, SameSite, domain, path 설정 |
 | `REFRESH_TOKEN_COOKIE_MAX_AGE` | refresh cookie Max-Age. local 기본값은 `14d` |
 | `REFRESH_TOKEN_TTL_DAYS` | refresh session 만료 기준 |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Hibernate schema action. local/prod 기본값은 `validate`이며 schema 생성/변경은 Flyway가 담당 |
+| `SPRING_FLYWAY_ENABLED` | Flyway migration 실행 여부. 기본값은 `true` |
+| `SPRING_FLYWAY_BASELINE_ON_MIGRATE` | 기존 non-empty schema를 baseline으로 편입할지 여부. local/demo 기본값은 `true`, prod 기본값은 `false` |
 | `SPRING_PROFILES_ACTIVE` | Docker Compose 기본값은 `local`. local/demo profile에서만 demo seed initializer가 bean 후보가 됨 |
 | `SMARTCLOSET_SEED_ENABLED` | local/demo profile의 demo user와 최소 옷장 seed 활성 여부. local 기본값은 `true`, default/prod profile에서는 initializer가 비활성 |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
@@ -233,6 +238,7 @@ MVP10 공유 문서에는 AWS 구현을 포함하지 않는다. 후속 MVP에서
 - Cookie/CORS/OAuth redirect/base URL은 env로 바꿀 수 있어야 한다.
 - AI 분석 설정과 secret은 env로만 주입해야 한다.
 - `SPRING_PROFILES_ACTIVE=local`은 Docker Compose 기본값으로 유지하고, demo seed initializer는 `local`/`demo` profile과 `SMARTCLOSET_SEED_ENABLED=true` 조건에서만 활성화한다.
+- Flyway migration이 깨끗한 DB schema를 생성하고 Hibernate `ddl-auto=validate`가 entity/schema drift를 검증한다.
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않으며, Swagger UI/API docs를 기본 비활성화한다.
 - future AWS 배포 profile은 별도 env와 운영 adapter bean으로 추가하며 demo seed initializer를 활성화하지 않는다.
 - local Docker Compose 실행은 prod profile 추가 후에도 유지되어야 한다.

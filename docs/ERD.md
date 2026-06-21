@@ -16,7 +16,7 @@ MVP10 DB baseline은 MVP8 계정 안정성 완료 schema와 MVP9 UI/UX 리디자
 - AI 분석 결과와 confidence는 DB에 저장하지 않는다.
 - `ClothingAnalysisResponse`는 API/UI 후보 제안 DTO이며 entity가 아니다.
 - AI 분석 결과는 추천 이력, 추천 score field, 추천 이유 JSON에 남기지 않는다.
-- AWS/RDS 운영 migration 도구 전환은 MVP10 범위가 아니다.
+- 운영 준비 이슈 #203부터 schema 생성/변경은 Flyway migration으로 추적한다.
 - MVP10 AI 옷 등록 보조는 table, column, relation, index를 추가하지 않는다.
 
 ## 1. 공통 DB 정책
@@ -26,8 +26,11 @@ MVP10 DB baseline은 MVP8 계정 안정성 완료 schema와 MVP9 UI/UX 리디자
 - 모든 테이블은 `created_at DATETIME(6) NOT NULL`, `updated_at DATETIME(6) NOT NULL`을 가진다.
 - enum은 DB enum이 아니라 `VARCHAR(30)`으로 저장한다.
 - JSON 값은 구현 단순성을 위해 Entity에서 `String`으로 보관한다.
-- 로컬/Docker Compose DB 검증은 기존처럼 Hibernate `ddl-auto=update`와 volume 초기화 기준을 유지한다.
-- `prod` profile은 migration tool을 도입하지 않지만 Hibernate `ddl-auto` 기본값을 `validate`로 두고, `update/create/create-drop` 계열 자동 schema 변경을 허용하지 않는다.
+- Flyway baseline migration은 `src/main/resources/db/migration/V1__baseline_schema.sql`에 둔다.
+- 깨끗한 MySQL DB는 Flyway migration만으로 현재 schema를 생성해야 한다.
+- Hibernate `ddl-auto` 기본값은 `validate`이며, schema 변경 책임은 Hibernate 자동 변경이 아니라 `V*.sql` migration에 둔다.
+- `local`/`demo` profile은 기존 로컬 volume 편입을 위해 `baseline-on-migrate=true`를 기본값으로 사용할 수 있다.
+- `prod` profile은 Hibernate `update/create/create-drop` 계열 자동 schema 변경을 허용하지 않으며, 기존 운영 DB baseline 편입은 명시적으로 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 설정한 배포 절차에서만 수행한다.
 
 ## 2. Mermaid ERD
 

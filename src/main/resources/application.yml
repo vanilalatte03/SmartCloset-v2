@@ -18,10 +18,16 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:smartcloset}
     password: ${SPRING_DATASOURCE_PASSWORD:smartcloset}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:false}
+    baseline-version: ${SPRING_FLYWAY_BASELINE_VERSION:1}
+    validate-on-migrate: true
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
     properties:
       hibernate:
         format_sql: true

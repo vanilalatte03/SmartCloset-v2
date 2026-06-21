@@ -100,6 +100,8 @@ class ProdProfileSafetyGuardTest {
         PropertySourcesPropertyResolver resolver = new PropertySourcesPropertyResolver(propertySources);
 
         assertThat(resolver.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
+        assertThat(resolver.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
+        assertThat(resolver.getProperty("spring.flyway.baseline-on-migrate", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("smartcloset.security.jwt.secret")).isEmpty();
         assertThat(resolver.getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("springdoc.swagger-ui.enabled", Boolean.class)).isFalse();

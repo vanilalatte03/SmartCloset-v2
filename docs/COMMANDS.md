@@ -20,6 +20,7 @@ git config core.hooksPath .githooks
 | frontend-build | `cd frontend && npm run build` | yes | TypeScript type check 및 Vite build |
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
+| migration-smoke | `./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest` | yes | Flyway baseline migration 후 Hibernate validate 검증 |
 | build | `./gradlew build` | yes | Spring Boot 애플리케이션 빌드 |
 | harness-test | `python3 -m pytest scripts/tests` | yes | Harness 운영 스크립트 회귀 테스트 |
 | docs-check | `python3 scripts/checks.py --docs-check --include-final-docs` | yes | phase 최종 문서 계약과 MVP 제외 범위 검증 |
@@ -57,6 +58,7 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 
 ```bash
 ./gradlew test
+./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest
 ./gradlew build
 (cd frontend && npm run build)
 docker compose config --quiet
@@ -81,9 +83,9 @@ curl -fsS http://localhost:5173 >/dev/null
 docker compose down
 ```
 
-Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. demo user와 최소 옷장 seed는 `local`/`demo` profile에서 `SMARTCLOSET_SEED_ENABLED=true`일 때만 생성된다. MVP10 AI 분석은 기본 비활성이며, `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 Compose 실행이 가능해야 한다.
+Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. demo user와 최소 옷장 seed는 `local`/`demo` profile에서 `SMARTCLOSET_SEED_ENABLED=true`일 때만 생성된다. 깨끗한 MySQL volume은 Flyway `V*.sql` migration으로 생성하고 Hibernate `ddl-auto=validate`로 검증한다. MVP10 AI 분석은 기본 비활성이며, `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 Compose 실행이 가능해야 한다.
 
-`prod` profile은 local placeholder `JWT_SECRET`과 Hibernate `ddl-auto=update`를 fail-fast로 막고, Swagger UI/API docs를 기본 비활성화한다. 운영 배포용 migration tool, AWS adapter, RDS/Secrets Manager 구성은 MVP10 범위 밖이다.
+`prod` profile은 local placeholder `JWT_SECRET`과 Hibernate `ddl-auto=update`를 fail-fast로 막고, Swagger UI/API docs를 기본 비활성화한다. 운영 DB schema 변경은 Flyway migration으로 추적하며, 기존 운영 DB 편입은 배포 절차에서 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 명시한 경우에만 허용한다. AWS adapter, RDS/Secrets Manager 구성은 후속 범위다.
 
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 
