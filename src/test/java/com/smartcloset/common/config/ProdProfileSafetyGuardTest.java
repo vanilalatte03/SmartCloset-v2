@@ -37,7 +37,9 @@ class ProdProfileSafetyGuardTest {
                 .withPropertyValues(
                         "spring.profiles.active=prod",
                         "smartcloset.security.jwt.secret=prod-secret-value",
-                        "spring.jpa.hibernate.ddl-auto=validate"
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "smartcloset.security.refresh-token.cookie.secure=true",
+                        "smartcloset.security.oauth2.state-cookie.secure=true"
                 )
                 .run(context -> {
                     assertThat(context).hasNotFailed();
@@ -50,7 +52,9 @@ class ProdProfileSafetyGuardTest {
         contextRunner
                 .withPropertyValues(
                         "spring.profiles.active=prod",
-                        "spring.jpa.hibernate.ddl-auto=validate"
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "smartcloset.security.refresh-token.cookie.secure=true",
+                        "smartcloset.security.oauth2.state-cookie.secure=true"
                 )
                 .run(context -> {
                     assertThat(context).hasFailed();
@@ -64,7 +68,9 @@ class ProdProfileSafetyGuardTest {
                 .withPropertyValues(
                         "spring.profiles.active=prod",
                         "smartcloset.security.jwt.secret=change-me-local-development-only",
-                        "spring.jpa.hibernate.ddl-auto=validate"
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "smartcloset.security.refresh-token.cookie.secure=true",
+                        "smartcloset.security.oauth2.state-cookie.secure=true"
                 )
                 .run(context -> {
                     assertThat(context).hasFailed();
@@ -79,12 +85,48 @@ class ProdProfileSafetyGuardTest {
                 .withPropertyValues(
                         "spring.profiles.active=prod",
                         "smartcloset.security.jwt.secret=prod-secret-value",
-                        "spring.jpa.hibernate.ddl-auto=update"
+                        "spring.jpa.hibernate.ddl-auto=update",
+                        "smartcloset.security.refresh-token.cookie.secure=true",
+                        "smartcloset.security.oauth2.state-cookie.secure=true"
                 )
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasMessageContaining("prod profile allows only spring.jpa.hibernate.ddl-auto");
+                });
+    }
+
+    @Test
+    void prodProfileRejectsInsecureRefreshCookie() {
+        contextRunner
+                .withPropertyValues(
+                        "spring.profiles.active=prod",
+                        "smartcloset.security.jwt.secret=prod-secret-value",
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "smartcloset.security.refresh-token.cookie.secure=false",
+                        "smartcloset.security.oauth2.state-cookie.secure=true"
+                )
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("prod profile requires refresh cookie Secure=true");
+                });
+    }
+
+    @Test
+    void prodProfileRejectsInsecureOAuthStateCookie() {
+        contextRunner
+                .withPropertyValues(
+                        "spring.profiles.active=prod",
+                        "smartcloset.security.jwt.secret=prod-secret-value",
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "smartcloset.security.refresh-token.cookie.secure=true",
+                        "smartcloset.security.oauth2.state-cookie.secure=false"
+                )
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("prod profile requires OAuth state cookie Secure=true");
                 });
     }
 
@@ -103,6 +145,16 @@ class ProdProfileSafetyGuardTest {
         assertThat(resolver.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
         assertThat(resolver.getProperty("spring.flyway.baseline-on-migrate", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("smartcloset.security.jwt.secret")).isEmpty();
+        assertThat(resolver.getProperty(
+                "smartcloset.security.refresh-token.cookie.secure",
+                Boolean.class
+        )).isTrue();
+        assertThat(resolver.getProperty("smartcloset.security.refresh-token.cookie.same-site")).isEqualTo("None");
+        assertThat(resolver.getProperty(
+                "smartcloset.security.oauth2.state-cookie.secure",
+                Boolean.class
+        )).isTrue();
+        assertThat(resolver.getProperty("smartcloset.security.oauth2.state-cookie.same-site")).isEqualTo("None");
         assertThat(resolver.getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("springdoc.swagger-ui.enabled", Boolean.class)).isFalse();
         assertThat(resolver.getProperty("management.endpoints.web.exposure.include")).isEqualTo("health,prometheus");
