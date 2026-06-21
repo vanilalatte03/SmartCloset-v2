@@ -271,7 +271,7 @@ curl -fsS http://localhost:8080/actuator/prometheus | rg 'jvm_info|hikaricp_conn
 python3 -m json.tool monitoring/grafana/smartcloset-dashboard.json >/dev/null
 ```
 
-추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다. Local Prometheus가 Alertmanager를 함께 사용할 때는 `host.docker.internal:9093`으로 접근 가능한 Alertmanager를 실행한다.
+추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. KMA 장애 중 마지막 정상 KMA 값으로 응답하면 `smartcloset_weather_provider_requests_total{outcome="stale_cache_fallback"}`로 구분된다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다. Local Prometheus가 Alertmanager를 함께 사용할 때는 `host.docker.internal:9093`으로 접근 가능한 Alertmanager를 실행한다.
 
 Structured logging/tracing smoke:
 

@@ -49,6 +49,7 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, Aut
     private final ChatClient chatClient;
     private final ClothingAnalysisProperties properties;
     private final ExecutorService executorService;
+    private final ClothingAnalysisProviderResilience resilience;
 
     public SpringAiClothingImageAnalyzer(ChatClient chatClient, ClothingAnalysisProperties properties) {
         this(chatClient, properties, Executors.newVirtualThreadPerTaskExecutor());
@@ -59,13 +60,27 @@ public class SpringAiClothingImageAnalyzer implements ClothingImageAnalyzer, Aut
             ClothingAnalysisProperties properties,
             ExecutorService executorService
     ) {
+        this(chatClient, properties, executorService, new ClothingAnalysisProviderResilience(properties));
+    }
+
+    SpringAiClothingImageAnalyzer(
+            ChatClient chatClient,
+            ClothingAnalysisProperties properties,
+            ExecutorService executorService,
+            ClothingAnalysisProviderResilience resilience
+    ) {
         this.chatClient = Objects.requireNonNull(chatClient, "chatClient must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.executorService = Objects.requireNonNull(executorService, "executorService must not be null");
+        this.resilience = Objects.requireNonNull(resilience, "resilience must not be null");
     }
 
     @Override
     public ClothingAnalysisResult analyze(ClothingAnalysisImage image) {
+        return resilience.execute(() -> analyzeOnce(image));
+    }
+
+    private ClothingAnalysisResult analyzeOnce(ClothingAnalysisImage image) {
         Future<OpenAiClothingAnalysisResponse> responseFuture = executorService.submit(() -> callProvider(image));
         try {
             OpenAiClothingAnalysisResponse response = responseFuture.get(timeoutSeconds(), TimeUnit.SECONDS);

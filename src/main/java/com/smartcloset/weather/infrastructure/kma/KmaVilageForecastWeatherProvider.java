@@ -51,6 +51,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     private final SmartClosetMetrics metrics;
     private final Clock clock;
     private final Map<WeatherCacheKey, WeatherCacheEntry> weatherCache = new ConcurrentHashMap<>();
+    private final Map<StaleWeatherCacheKey, StaleWeatherEntry> lastSuccessfulWeather = new ConcurrentHashMap<>();
 
     @Autowired
     public KmaVilageForecastWeatherProvider(
@@ -114,6 +115,9 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         if (properties.cacheTtl().isZero() || properties.cacheTtl().isNegative()) {
             throw new IllegalArgumentException("KMA weather cache ttl must be positive");
         }
+        if (properties.staleCacheTtl().isZero() || properties.staleCacheTtl().isNegative()) {
+            throw new IllegalArgumentException("KMA weather stale cache ttl must be positive");
+        }
         if (properties.cacheMaxSize() <= 0) {
             throw new IllegalArgumentException("KMA weather cache max size must be positive");
         }
@@ -137,36 +141,33 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         WeatherCacheEntry cachedWeather = weatherCache.get(cacheKey);
         if (cachedWeather != null) {
             if (now.isBefore(cachedWeather.expiresAt())) {
-                String outcome = cachedWeather.weather().source().fallbackUsed()
-                        ? "cache_hit_fallback"
-                        : "cache_hit_success";
+                String outcome = cachedWeather.weather().resolution().cacheHitOutcome();
                 metrics.recordWeatherProvider(sample, resolvedForecastPeriod, outcome);
-                return weatherSnapshot(cachedWeather.weather(), location);
+                return weatherSnapshot(cachedWeather.weather().cachedWeather(), location);
             }
             weatherCache.remove(cacheKey, cachedWeather);
         }
 
         try {
-            CachedWeather weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod);
-            weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(properties.cacheTtl()), now));
-            trimCache(cacheKey);
-            metrics.recordWeatherProvider(
-                    sample,
-                    resolvedForecastPeriod,
-                    weather.source().fallbackUsed() ? "fallback" : "success"
-            );
-            return weatherSnapshot(weather, location);
+            ResolvedWeather weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod, now);
+            if (weather.resolution().cacheable()) {
+                weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(properties.cacheTtl()), now));
+                trimCache(cacheKey);
+            }
+            metrics.recordWeatherProvider(sample, resolvedForecastPeriod, weather.resolution().freshOutcome());
+            return weatherSnapshot(weather.cachedWeather(), location);
         } catch (RuntimeException exception) {
             metrics.recordWeatherProvider(sample, resolvedForecastPeriod, "failure");
             throw exception;
         }
     }
 
-    private CachedWeather fetchWeather(
+    private ResolvedWeather fetchWeather(
             Long userId,
             UserLocationSnapshot location,
             KmaForecastBaseTime baseTime,
-            ForecastPeriod forecastPeriod
+            ForecastPeriod forecastPeriod,
+            Instant now
     ) {
         KmaGrid grid = new KmaGrid(location.nx(), location.ny());
 
@@ -177,7 +178,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         try {
             List<KmaForecastItem> items = client.getVilageForecast(baseTime, grid);
             KmaMappedWeather mappedWeather = mapper.map(items, ZonedDateTime.now(clock), forecastPeriod);
-            return new CachedWeather(
+            CachedWeather weather = new CachedWeather(
                     mappedWeather.condition(),
                     WeatherSource.kma(
                             baseTime.baseDate(),
@@ -186,7 +187,13 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                             mappedWeather.forecastTime()
                     )
             );
+            rememberSuccessfulWeather(location, forecastPeriod, weather, now);
+            return new ResolvedWeather(weather, WeatherResolution.KMA_SUCCESS);
         } catch (KmaForecastClientException | KmaWeatherMappingException exception) {
+            ResolvedWeather staleWeather = staleSuccessfulWeather(location, forecastPeriod, now);
+            if (staleWeather != null && properties.fallbackEnabled()) {
+                return staleWeather;
+            }
             return fallbackOrThrow(userId, location, baseTime, forecastPeriod);
         }
     }
@@ -194,7 +201,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     /**
      * fallback도 실제 사용자 위치 snapshot을 유지한다. 바뀌는 것은 날씨 값과 source metadata뿐이다.
      */
-    private CachedWeather fallbackOrThrow(
+    private ResolvedWeather fallbackOrThrow(
             Long userId,
             UserLocationSnapshot location,
             KmaForecastBaseTime baseTime,
@@ -202,14 +209,17 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     ) {
         if (properties.fallbackEnabled()) {
             LocalDateTime forecastDateTime = fallbackForecastDateTime(forecastPeriod);
-            return new CachedWeather(
-                    fallbackProvider.getCurrentWeather(userId).condition(),
-                    WeatherSource.fallback(
-                            baseTime.baseDate(),
-                            baseTime.baseTime(),
-                            forecastDateTime.format(FORECAST_DATE_FORMATTER),
-                            forecastDateTime.format(FORECAST_TIME_FORMATTER)
-                    )
+            return new ResolvedWeather(
+                    new CachedWeather(
+                            fallbackProvider.getCurrentWeather(userId).condition(),
+                            WeatherSource.fallback(
+                                    baseTime.baseDate(),
+                                    baseTime.baseTime(),
+                                    forecastDateTime.format(FORECAST_DATE_FORMATTER),
+                                    forecastDateTime.format(FORECAST_TIME_FORMATTER)
+                            )
+                    ),
+                    WeatherResolution.STATIC_FALLBACK
             );
         }
         throw new SmartClosetException(ErrorCode.INTERNAL_SERVER_ERROR);
@@ -251,6 +261,50 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
 
     int cacheEntryCount() {
         return weatherCache.size();
+    }
+
+    private void rememberSuccessfulWeather(
+            UserLocationSnapshot location,
+            ForecastPeriod forecastPeriod,
+            CachedWeather weather,
+            Instant now
+    ) {
+        StaleWeatherCacheKey key = StaleWeatherCacheKey.from(location, forecastPeriod);
+        lastSuccessfulWeather.put(key, new StaleWeatherEntry(weather, now));
+        trimStaleCache(key);
+    }
+
+    private ResolvedWeather staleSuccessfulWeather(
+            UserLocationSnapshot location,
+            ForecastPeriod forecastPeriod,
+            Instant now
+    ) {
+        StaleWeatherCacheKey key = StaleWeatherCacheKey.from(location, forecastPeriod);
+        StaleWeatherEntry entry = lastSuccessfulWeather.get(key);
+        if (entry == null) {
+            return null;
+        }
+        if (!now.isBefore(entry.cachedAt().plus(properties.staleCacheTtl()))) {
+            lastSuccessfulWeather.remove(key, entry);
+            return null;
+        }
+        return new ResolvedWeather(entry.weather(), WeatherResolution.STALE_KMA_FALLBACK);
+    }
+
+    private void trimStaleCache(StaleWeatherCacheKey protectedKey) {
+        int maxSize = properties.cacheMaxSize();
+        int excess = lastSuccessfulWeather.size() - maxSize;
+        if (excess <= 0) {
+            return;
+        }
+
+        lastSuccessfulWeather.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(protectedKey))
+                .sorted(Comparator.comparing(entry -> entry.getValue().cachedAt()))
+                .limit(excess)
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(lastSuccessfulWeather::remove);
     }
 
     /**
@@ -316,6 +370,17 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         }
     }
 
+    private record StaleWeatherCacheKey(int nx, int ny, ForecastPeriod forecastPeriod) {
+
+        private StaleWeatherCacheKey {
+            Objects.requireNonNull(forecastPeriod, "forecastPeriod must not be null");
+        }
+
+        private static StaleWeatherCacheKey from(UserLocationSnapshot location, ForecastPeriod forecastPeriod) {
+            return new StaleWeatherCacheKey(location.nx(), location.ny(), forecastPeriod);
+        }
+    }
+
     private record CachedWeather(WeatherCondition condition, WeatherSource source) {
 
         private CachedWeather {
@@ -324,12 +389,56 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         }
     }
 
-    private record WeatherCacheEntry(CachedWeather weather, Instant expiresAt, Instant cachedAt) {
+    private record ResolvedWeather(CachedWeather cachedWeather, WeatherResolution resolution) {
+
+        private ResolvedWeather {
+            Objects.requireNonNull(cachedWeather, "cachedWeather must not be null");
+            Objects.requireNonNull(resolution, "resolution must not be null");
+        }
+    }
+
+    private record WeatherCacheEntry(ResolvedWeather weather, Instant expiresAt, Instant cachedAt) {
 
         private WeatherCacheEntry {
             Objects.requireNonNull(weather, "weather must not be null");
             Objects.requireNonNull(expiresAt, "expiresAt must not be null");
             Objects.requireNonNull(cachedAt, "cachedAt must not be null");
+        }
+    }
+
+    private record StaleWeatherEntry(CachedWeather weather, Instant cachedAt) {
+
+        private StaleWeatherEntry {
+            Objects.requireNonNull(weather, "weather must not be null");
+            Objects.requireNonNull(cachedAt, "cachedAt must not be null");
+        }
+    }
+
+    private enum WeatherResolution {
+        KMA_SUCCESS("success", "cache_hit_success", true),
+        STATIC_FALLBACK("fallback", "cache_hit_fallback", true),
+        STALE_KMA_FALLBACK("stale_cache_fallback", "cache_hit_stale_fallback", false);
+
+        private final String freshOutcome;
+        private final String cacheHitOutcome;
+        private final boolean cacheable;
+
+        WeatherResolution(String freshOutcome, String cacheHitOutcome, boolean cacheable) {
+            this.freshOutcome = freshOutcome;
+            this.cacheHitOutcome = cacheHitOutcome;
+            this.cacheable = cacheable;
+        }
+
+        private String freshOutcome() {
+            return freshOutcome;
+        }
+
+        private String cacheHitOutcome() {
+            return cacheHitOutcome;
+        }
+
+        private boolean cacheable() {
+            return cacheable;
         }
     }
 }

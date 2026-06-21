@@ -16,6 +16,14 @@ public class KmaWeatherProperties {
     public static final int DEFAULT_NY = 127;
     public static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(2);
     public static final int DEFAULT_CACHE_MAX_SIZE = 256;
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    public static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(3);
+    public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(5);
+    public static final Duration DEFAULT_STALE_CACHE_TTL = Duration.ofMinutes(30);
+    public static final int DEFAULT_MAX_ATTEMPTS = 2;
+    public static final Duration DEFAULT_RETRY_BACKOFF = Duration.ofMillis(200);
+    public static final int DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3;
+    public static final Duration DEFAULT_CIRCUIT_BREAKER_OPEN_DURATION = Duration.ofSeconds(30);
 
     private final Kma kma = new Kma();
 
@@ -43,6 +51,38 @@ public class KmaWeatherProperties {
 
     public int cacheMaxSize() {
         return kma.cacheMaxSize;
+    }
+
+    public Duration connectTimeout() {
+        return kma.connectTimeout;
+    }
+
+    public Duration readTimeout() {
+        return kma.readTimeout;
+    }
+
+    public Duration requestTimeout() {
+        return kma.requestTimeout;
+    }
+
+    public Duration staleCacheTtl() {
+        return kma.staleCacheTtl;
+    }
+
+    public int maxAttempts() {
+        return kma.maxAttempts;
+    }
+
+    public Duration retryBackoff() {
+        return kma.retryBackoff;
+    }
+
+    public int circuitBreakerFailureThreshold() {
+        return kma.circuitBreakerFailureThreshold;
+    }
+
+    public Duration circuitBreakerOpenDuration() {
+        return kma.circuitBreakerOpenDuration;
     }
 
     public boolean fallbackEnabled() {
@@ -74,6 +114,22 @@ public class KmaWeatherProperties {
         private Duration cacheTtl = DEFAULT_CACHE_TTL;
 
         private int cacheMaxSize = DEFAULT_CACHE_MAX_SIZE;
+
+        private Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+
+        private Duration readTimeout = DEFAULT_READ_TIMEOUT;
+
+        private Duration requestTimeout = DEFAULT_REQUEST_TIMEOUT;
+
+        private Duration staleCacheTtl = DEFAULT_STALE_CACHE_TTL;
+
+        private int maxAttempts = DEFAULT_MAX_ATTEMPTS;
+
+        private Duration retryBackoff = DEFAULT_RETRY_BACKOFF;
+
+        private int circuitBreakerFailureThreshold = DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD;
+
+        private Duration circuitBreakerOpenDuration = DEFAULT_CIRCUIT_BREAKER_OPEN_DURATION;
 
         public String getServiceKey() {
             return serviceKey;
@@ -121,6 +177,72 @@ public class KmaWeatherProperties {
 
         public void setCacheMaxSize(int cacheMaxSize) {
             this.cacheMaxSize = cacheMaxSize;
+        }
+
+        public Duration getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = connectTimeout == null ? DEFAULT_CONNECT_TIMEOUT : connectTimeout;
+        }
+
+        public Duration getReadTimeout() {
+            return readTimeout;
+        }
+
+        public void setReadTimeout(Duration readTimeout) {
+            this.readTimeout = readTimeout == null ? DEFAULT_READ_TIMEOUT : readTimeout;
+        }
+
+        public Duration getRequestTimeout() {
+            return requestTimeout;
+        }
+
+        public void setRequestTimeout(Duration requestTimeout) {
+            this.requestTimeout = requestTimeout == null ? DEFAULT_REQUEST_TIMEOUT : requestTimeout;
+        }
+
+        public Duration getStaleCacheTtl() {
+            return staleCacheTtl;
+        }
+
+        public void setStaleCacheTtl(Duration staleCacheTtl) {
+            this.staleCacheTtl = staleCacheTtl == null ? DEFAULT_STALE_CACHE_TTL : staleCacheTtl;
+        }
+
+        public int getMaxAttempts() {
+            return maxAttempts;
+        }
+
+        public void setMaxAttempts(int maxAttempts) {
+            this.maxAttempts = maxAttempts;
+        }
+
+        public Duration getRetryBackoff() {
+            return retryBackoff;
+        }
+
+        public void setRetryBackoff(Duration retryBackoff) {
+            this.retryBackoff = retryBackoff == null ? DEFAULT_RETRY_BACKOFF : retryBackoff;
+        }
+
+        public int getCircuitBreakerFailureThreshold() {
+            return circuitBreakerFailureThreshold;
+        }
+
+        public void setCircuitBreakerFailureThreshold(int circuitBreakerFailureThreshold) {
+            this.circuitBreakerFailureThreshold = circuitBreakerFailureThreshold;
+        }
+
+        public Duration getCircuitBreakerOpenDuration() {
+            return circuitBreakerOpenDuration;
+        }
+
+        public void setCircuitBreakerOpenDuration(Duration circuitBreakerOpenDuration) {
+            this.circuitBreakerOpenDuration = circuitBreakerOpenDuration == null
+                    ? DEFAULT_CIRCUIT_BREAKER_OPEN_DURATION
+                    : circuitBreakerOpenDuration;
         }
     }
 }
