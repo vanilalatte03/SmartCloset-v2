@@ -86,7 +86,7 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 ### P0: Spring AI analyzer boundary
 
 - Spring Boot 4.0.6을 유지한다.
-- Spring AI는 2.0 preview 계열을 사용한다.
+- Spring AI는 2.0.0 GA를 사용한다.
 - OpenAI chat model starter를 사용한다.
 - 기본 모델은 `gpt-5.4-nano`다.
 - `ClothingImageAnalyzer` provider boundary를 둔다.
@@ -124,7 +124,7 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 - `archive/mvp-9/` 최소 요약
 - ADR-016
 - MVP10 phase 문서와 docs-check 규칙
-- Spring AI 2.0 preview 계열 의존성 도입
+- Spring AI 2.0.0 GA 의존성 도입
 - OpenAI `gpt-5.4-nano` 기반 옷 사진 분석 provider
 - 분석 기능 비활성 기본값과 env 설정
 - `POST /api/clothes/analyze-image` 보호 API
@@ -162,7 +162,7 @@ MVP10의 AI는 옷차림 추천을 생성하지 않는다. AI는 옷 등록 form
 
 - 현재 문서 baseline이 MVP10 AI 옷 등록 보조와 ADR-016을 가리킨다.
 - MVP9 UI/UX 리디자인은 archive에 최소 요약으로만 남는다.
-- Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano` 사용 결정이 문서화된다.
+- Spring AI 2.0.0 GA와 OpenAI `gpt-5.4-nano` 사용 결정이 문서화된다.
 - `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, API key 없음 상태에서 기존 local 실행이 깨지지 않는다.
 - `POST /api/clothes/analyze-image`는 인증 사용자 보호 API다.
 - 분석 API는 이미지를 저장하지 않고 후보값과 confidence만 반환한다.
@@ -200,7 +200,7 @@ MVP10 구현 phase 검증:
 ## 결정 완료 사항
 
 - MVP10 범위: AI-assisted clothing registration suggestion
-- AI provider: Spring AI 2.0 preview 계열 + OpenAI chat model
+- AI provider: Spring AI 2.0.0 GA + OpenAI chat model
 - 기본 모델: `gpt-5.4-nano`
 - 분석 endpoint: `POST /api/clothes/analyze-image`
 - 분석 결과 저장: 저장하지 않음

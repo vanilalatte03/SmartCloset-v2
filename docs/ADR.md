@@ -23,7 +23,7 @@ ADR-014는 원래 MVP9 후보였던 AWS 배포를 후속 MVP로 연기하고, MV
 
 ADR-015는 기존 `clothing_items.archived` 컬럼을 재사용해 옷장 보관함 조회와 보관 해제 API/UX를 추가하고, DB schema와 추천 규칙은 유지한다.
 
-ADR-016은 MVP10을 AI 옷 등록 보조 MVP로 확정하고, Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`로 사진 기반 등록 후보를 제안하되 추천 규칙과 DB schema는 유지한다.
+ADR-016은 MVP10을 AI 옷 등록 보조 MVP로 확정하고, Spring AI와 OpenAI `gpt-5.4-nano`로 사진 기반 등록 후보를 제안하되 추천 규칙과 DB schema는 유지한다.
 
 ADR-017은 운영 준비 작업으로 Flyway schema migration을 재도입하고, 깨끗한 DB 생성은 migration, 운영 schema 검증은 Hibernate `ddl-auto=validate`로 분리한다.
 
@@ -36,6 +36,8 @@ ADR-020은 운영 준비 작업으로 local/demo compose와 분리된 prod compo
 ADR-021은 운영 준비 작업으로 PR CI의 dependency vulnerability scan, backend/frontend Docker image build validation, image vulnerability scan gate를 정의한다.
 
 ADR-022는 운영 준비 작업으로 PR CI의 backend 정적 분석, JaCoCo coverage verification, frontend lint/test 품질 게이트를 정의한다.
+
+ADR-023은 운영 준비 작업으로 Spring AI milestone 의존성을 Spring AI 2.0.0 GA로 전환하고, Boot 4.0.6 baseline과 AI 분석 계약을 유지한다.
 
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
@@ -59,3 +61,4 @@ ADR-022는 운영 준비 작업으로 PR CI의 backend 정적 분석, JaCoCo cov
 - [ADR-020: Define Production Runtime Artifacts](adr/020-prod-runtime-artifacts.md)
 - [ADR-021: Add CI Security and Image Gates](adr/021-ci-security-image-gates.md)
 - [ADR-022: Add CI Quality and Coverage Gates](adr/022-ci-quality-coverage-gates.md)
+- [ADR-023: Promote Spring AI Dependency to 2.0.0 GA](adr/023-spring-ai-ga-dependency.md)

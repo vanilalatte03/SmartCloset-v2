@@ -4,7 +4,7 @@
 
 SmartCloset MVP10은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론트엔드 앱으로 구성한다. MVP10의 변경 지점은 사진 기반 AI 옷 등록 보조다.
 
-MVP10은 Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`를 `ClothingImageAnalyzer` provider boundary 뒤에 둔다. AI는 옷 등록 후보를 제안할 뿐이며, 옷차림 추천 domain service, 추천 점수, 추천 이유, 추천 이력에는 연결하지 않는다.
+MVP10은 Spring AI 2.0.0 GA와 OpenAI `gpt-5.4-nano`를 `ClothingImageAnalyzer` provider boundary 뒤에 둔다. AI는 옷 등록 후보를 제안할 뿐이며, 옷차림 추천 domain service, 추천 점수, 추천 이유, 추천 이력에는 연결하지 않는다.
 
 기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조와 MVP9 UI/UX 리디자인 흐름은 유지한다. MVP10 AI 옷 등록 보조는 DB schema를 변경하지 않는다.
 
