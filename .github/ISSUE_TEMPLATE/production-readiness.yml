@@ -1,0 +1,129 @@
+name: Production Readiness
+description: 운영 시작 전 안정성, 보안, 배포, 관측성 작업을 같은 형식으로 등록합니다.
+title: "[Production Readiness] "
+# Keep these field labels in sync with .github/workflows/issue-triage.yml.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        운영 준비 이슈는 리뷰어 의견을 그대로 옮기지 말고, 현재 코드에서 확인한 사실과 판단 근거를 함께 적습니다.
+        이 form으로 생성한 이슈는 자동으로 `Production Readiness` 마일스톤과 선택한 `priority:*`, `area:*`, `type:*` 라벨이 붙습니다.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: 운영 출시 기준으로 차단 정도를 고릅니다.
+      options:
+        - priority:P0
+        - priority:P1
+        - priority:P2
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Areas
+      description: 필터링에 필요한 영역 라벨을 모두 선택합니다.
+      multiple: true
+      options:
+        - area:resilience
+        - area:ci
+        - area:observability
+        - area:security
+        - area:db
+        - area:deploy
+        - area:docker
+        - area:rate-limit
+        - area:dependencies
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      description: 바로 구현할 작업인지, 먼저 조사와 결정이 필요한 작업인지 고릅니다.
+      options:
+        - type:ops
+        - type:spike
+    validations:
+      required: true
+  - type: input
+    id: phase
+    attributes:
+      label: Phase
+      description: 기본값을 유지하거나 더 구체적인 phase 이름을 적습니다.
+      value: operational-readiness-review
+    validations:
+      required: true
+  - type: input
+    id: step
+    attributes:
+      label: Step
+      value: review
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 명령
+      description: 확인에 사용한 명령을 적습니다.
+      render: bash
+      placeholder: |
+        rg -n "flyway|liquibase" build.gradle src/main/resources docs
+        nl -ba build.gradle
+    validations:
+      required: true
+  - type: textarea
+    id: core-error
+    attributes:
+      label: 핵심 에러
+      description: 리뷰어 주장 중 실제 코드에서 확인된 문제와 기각한 부분을 함께 적습니다.
+      placeholder: 현재 main 기준으로 확인한 핵심 문제를 적습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Review Findings
+      description: 파일과 라인 또는 명확한 근거를 bullet로 적습니다.
+      placeholder: |
+        - `build.gradle:14` ...
+        - `docker-compose.yml:35` ...
+    validations:
+      required: true
+  - type: textarea
+    id: direction
+    attributes:
+      label: 수정 방향
+      description: 구현 방향을 bullet로 적습니다.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 기준
+      description: 완료 후 통과해야 할 검증과 문서 반영 기준을 적습니다.
+      placeholder: |
+        - `./gradlew test`가 통과한다.
+        - 관련 문서가 갱신된다.
+    validations:
+      required: true
+  - type: input
+    id: tracked-by
+    attributes:
+      label: Tracked by
+      description: 운영 준비 트래커 이슈 번호를 적습니다.
+      value: "#207"
+    validations:
+      required: true
+  - type: textarea
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: 선행 이슈가 있으면 `#200`처럼 적습니다. 없으면 `None`을 유지합니다.
+      value: "None"
+    validations:
+      required: true
