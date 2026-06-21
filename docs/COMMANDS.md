@@ -137,7 +137,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/workspac
   --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 smartcloset-frontend:security-smoke
 ```
 
-CI security gate는 fix 가능한 `HIGH`/`CRITICAL` 취약점을 실패 처리한다. PR dependency review는 dependency manifest 변경의 high 이상 취약점을 차단하고, backend runtime library 취약점은 app image scan의 `app.jar` 분석으로 확인한다. `ignore-unfixed`로 인해 현재 fix가 없는 항목은 차단하지 않지만, 예외를 suppression으로 둘 때는 ADR이나 보안 문서에 취약점 ID, 영향 범위, 만료일, 보완 통제를 기록한다.
+CI security gate는 fix 가능한 `HIGH`/`CRITICAL` 취약점을 실패 처리한다. Frontend dependency는 `npm audit`과 Trivy filesystem scan으로 차단하고, backend runtime library 취약점은 app image scan의 `app.jar` 분석으로 확인한다. `ignore-unfixed`로 인해 현재 fix가 없는 항목은 차단하지 않지만, 예외를 suppression으로 둘 때는 ADR이나 보안 문서에 취약점 ID, 영향 범위, 만료일, 보완 통제를 기록한다.
 
 Clean MySQL migration smoke는 프로젝트 Docker Compose volume을 사용하지 않고 임시 MySQL container로 확인한다.
 

@@ -11,7 +11,6 @@ Accepted
 ## 결정
 
 - PR CI는 기존 `./gradlew test`, frontend build, `./gradlew build`를 유지한다.
-- Pull request에서는 GitHub dependency review를 `high` 이상 실패 기준으로 실행한다.
 - Frontend dependency는 `npm audit --audit-level=high`로 high 이상 취약점을 차단한다.
 - Trivy filesystem scan은 frontend dependency tree를 `HIGH,CRITICAL` severity 기준으로 검사한다.
 - CI는 backend app image와 frontend Nginx static image를 각각 빌드한다.
