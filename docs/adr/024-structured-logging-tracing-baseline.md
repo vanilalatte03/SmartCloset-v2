@@ -15,6 +15,7 @@ Spring Boot 4 baseline에서는 structured logging과 OpenTelemetry starter를 �
 - Console log 기본 format은 Spring Boot built-in ECS JSON으로 둔다.
 - API/security error log는 SLF4J key-value field로 `code`, `status`, `method`, `path`, `exception`, 고정 `error_message`를 남긴다.
 - Request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password는 로그에 남기지 않는다.
+- Local/demo 이메일 인증과 비밀번호 재설정 action token은 SLF4J 로그가 아니라 `SMARTCLOSET_EMAIL_OUTBOX_PATH` local outbox 파일에만 남긴다.
 - `spring-boot-starter-opentelemetry`를 추가해 Micrometer tracing과 OTLP export 경계를 마련한다.
 - Sampling 기본값은 `1.0`이며 `MANAGEMENT_TRACING_SAMPLING_PROBABILITY`로 조정한다.
 - OTLP trace export는 `MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED`로 켜고, endpoint는 `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT`로 주입한다. 기본 local/demo 값은 trace/log/metrics OTLP export 비활성이라 collector 없이 실행된다.

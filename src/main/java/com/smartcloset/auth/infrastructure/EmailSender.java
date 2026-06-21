@@ -3,7 +3,7 @@ package com.smartcloset.auth.infrastructure;
 /**
  * 계정 액션 메일 발송을 application service에서 분리하는 adapter boundary다.
  *
- * <p>현재 local 구현은 console logging이며, 운영 메일 provider가 추가되어도 인증 흐름은 이 interface에만 의존한다.</p>
+ * <p>현재 local 구현은 파일 outbox이며, 운영 메일 provider가 추가되어도 인증 흐름은 이 interface에만 의존한다.</p>
  */
 public interface EmailSender {
 

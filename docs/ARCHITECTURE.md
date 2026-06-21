@@ -97,7 +97,7 @@ frontend/src
 
 Controller 이후로 전파된 HTTP API 예외는 `GlobalExceptionHandler`가 `ErrorCode` 기반 JSON 실패 응답으로 변환한다. Spring Security filter 단계의 인증/인가 실패는 `SecurityErrorResponseWriter`가 같은 실패 응답 구조로 변환한다.
 
-실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message는 로그에 남기지 않는다.
+실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password는 로그에 남기지 않는다.
 
 ## 운영 관측성
 
@@ -254,7 +254,7 @@ MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
 - 미인증 password 계정은 login할 수 없다.
 - password login 실패는 정규화 email과 servlet remote address 조합 및 servlet remote address 단독 process-local in-memory window로 제한한다.
 - `X-Forwarded-For` 등 proxy header는 신뢰 가능한 proxy 경계가 없는 현재 MVP10 local/API 범위에서 login attempt key로 사용하지 않는다.
-- Token 원문은 저장하지 않고 hash만 저장한다.
+- Token 원문은 DB에 저장하지 않고 hash만 저장한다. Local/demo action token 원문 확인은 `SMARTCLOSET_EMAIL_OUTBOX_PATH` outbox 파일로만 수행한다.
 - Google provider 설정이 없으면 provider status는 disabled다.
 - 계정 삭제는 현재 사용자 소유 데이터와 이미지 파일을 즉시 hard delete한다.
 
@@ -262,7 +262,7 @@ MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
 
 MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 기존 adapter boundary를 유지한다.
 
-- `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다.
+- `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다. `ConsoleEmailSender`는 action token 원문을 SLF4J 로그에 남기지 않고 `SMARTCLOSET_EMAIL_OUTBOX_PATH` local outbox 파일에만 쓴다.
 - 후속 MVP에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
 - `ClothingImageStorage`는 기존 local file 구현을 유지한다.
 - 후속 MVP에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
@@ -316,7 +316,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 
 - AWS 배포 구현을 추가하지 않는다. 이유: MVP10은 AI 옷 등록 보조 MVP이며 AWS는 후속 범위다.
 - S3 구현체를 추가하지 않는다. 이유: 현재는 `ClothingImageStorage` 경계만 보존한다.
-- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 `ConsoleEmailSender` 기준이다.
+- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 local outbox 기반 `ConsoleEmailSender` 기준이다.
 - Redis를 추가하지 않는다. 이유: refresh session, login attempt throttle, 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
 - AI/GPT 옷차림 추천을 추가하지 않는다. 이유: 추천은 규칙 기반 계약이다.
 - AI-generated 추천 이유를 추가하지 않는다. 이유: 추천 이유는 template 기반이다.

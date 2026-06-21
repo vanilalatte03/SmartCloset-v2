@@ -10,7 +10,7 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 - 현재 사용자 전용 response DTO에 `userId`를 노출하지 않는다.
 - Access token은 JWT bearer token으로 유지한다.
 - Refresh token은 HttpOnly cookie로만 전달하고 JSON 응답에 포함하지 않는다.
-- Refresh token 원문, 이메일 인증 token 원문, 비밀번호 재설정 token 원문은 저장하지 않는다.
+- Refresh token 원문은 DB, JSON 응답, 로그에 저장하거나 노출하지 않는다. 이메일 인증 token 원문과 비밀번호 재설정 token 원문은 DB, JSON 응답, 로그에 저장하거나 노출하지 않고 local/demo `SMARTCLOSET_EMAIL_OUTBOX_PATH` outbox 파일로만 확인한다.
 - Password signup 직후 access token을 발급하지 않는다.
 - 미인증 password 계정 login은 실패한다.
 - 추천 생성은 계속 `POST /api/recommendations`다.
@@ -34,7 +34,7 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 - JSON 실패 응답은 항상 `code`, `message`, `details` 필드를 가진다.
 - `details`는 항상 배열이다.
 - 실패 응답을 만든 서버 로그는 `code`, `status`, `method`, `path`, exception class, 고정된 error message를 남긴다.
-- 서버 로그에는 request body, Authorization header, cookie, query string, raw exception message를 남기지 않는다.
+- 서버 로그에는 request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password를 남기지 않는다.
 
 ### 공통 성공 응답
 

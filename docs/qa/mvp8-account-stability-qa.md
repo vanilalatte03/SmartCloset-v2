@@ -43,7 +43,7 @@ Docker Compose 환경에서 QA용 임시 계정을 생성해 아래 항목을 �
 | --- | --- | --- |
 | 회원가입 | PASS | `POST /api/auth/signup`이 `emailVerificationRequired=true`를 반환하고 access token을 반환하지 않음 |
 | 미인증 로그인 차단 | PASS | 이메일 인증 전 login이 `403 EMAIL_VERIFICATION_REQUIRED`로 실패 |
-| 이메일 인증 | PASS | `ConsoleEmailSender` 로그 token으로 confirm 성공, 같은 token 재사용은 `400 ACCOUNT_TOKEN_INVALID` |
+| 이메일 인증 | PASS | `ConsoleEmailSender` local outbox token으로 confirm 성공, 같은 token 재사용은 `400 ACCOUNT_TOKEN_INVALID` |
 | 로그인과 refresh | PASS | 인증 후 login이 access token과 HttpOnly refresh cookie를 발급, JSON body에는 refresh token 없음 |
 | refresh rotation | PASS | `POST /api/auth/refresh`가 새 access token을 반환하고 refresh token 값을 JSON에 노출하지 않음 |
 | 비밀번호 재설정 | PASS | reset request는 중립 성공 응답, confirm 성공 후 이전 refresh session은 `401 INVALID_TOKEN` |
@@ -63,7 +63,7 @@ Docker Compose 환경에서 QA용 임시 계정을 생성해 아래 항목을 �
 | --- | --- | --- |
 | MVP8 포함/제외 범위 | PASS | refresh, 이메일 인증, reset, Google provider status, 계정 삭제는 구현/문서화되어 있고 AWS/S3/SES/Redis/admin/soft delete는 MVP8 구현에 포함되지 않음 |
 | 기존 MVP 기능 유지 | PASS | 위치 검색, 현재 날씨, 이미지 업로드/조회/삭제, 추천 생성/이력 source snapshot API smoke 통과 |
-| token 원문 저장/노출 방지 | PASS | API 응답에 refresh token이 없고, action token은 console log로만 확인해 confirm에 사용. DB 저장 원문은 smoke에서 직접 노출하지 않음 |
+| token 원문 저장/노출 방지 | PASS | API 응답에 refresh token이 없고, action token은 local outbox로만 확인해 confirm에 사용. DB 저장 원문은 smoke에서 직접 노출하지 않음 |
 | AWS-ready 경계 | PASS | `ConsoleEmailSender`, `ClothingImageStorage`, cookie/CORS/OAuth env 경계 문서 기준 유지 |
 | 문서 회귀 신호 | PASS | docs-check가 공개 `userId` query, today 추천 GET, refresh token JSON 노출, MVP8 제외 구현 표현을 검사하고 통과 |
 

@@ -93,6 +93,8 @@ management:
         smartcloset.clothing.analysis.duration: true
 
 smartcloset:
+  email:
+    local-outbox-path: ${SMARTCLOSET_EMAIL_OUTBOX_PATH:${java.io.tmpdir}/smartcloset-email-outbox.log}
   seed:
     enabled: ${SMARTCLOSET_SEED_ENABLED:false}
   security:

@@ -159,6 +159,7 @@ VITE_API_BASE_URL=http://localhost:8080
 | `SPRING_FLYWAY_BASELINE_ON_MIGRATE` | 기존 non-empty schema를 baseline으로 편입할지 여부. local/demo 기본값은 `true`, prod 기본값은 `false` |
 | `SPRING_PROFILES_ACTIVE` | Docker Compose 기본값은 `local`. local/demo profile에서만 demo seed initializer가 bean 후보가 됨 |
 | `SMARTCLOSET_SEED_ENABLED` | local/demo profile의 demo user와 최소 옷장 seed 활성 여부. local 기본값은 `true`, default/prod profile에서는 initializer가 비활성 |
+| `SMARTCLOSET_EMAIL_OUTBOX_PATH` | local/demo 이메일 인증과 비밀번호 재설정 token outbox 파일 경로. Docker Compose 기본값은 `/tmp/smartcloset-email-outbox.log` |
 | `JAVA_TOOL_OPTIONS` | JVM container option. local 기본값은 `-XX:MaxRAMPercentage=75.0` |
 | `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | Actuator web endpoint 노출 목록. local 기본값은 `health,info,prometheus`, prod profile 기본값은 `health,prometheus` |
 | `MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED` | Prometheus metric export 활성 여부. 기본값은 `true` |
@@ -250,7 +251,7 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 - Frontend에도 접속할 수 있다.
 - Auth 화면이 데스크톱/모바일에서 form을 읽을 수 있게 표시된다.
 - 회원가입 후 이메일 인증 필요 안내가 표시된다.
-- backend console/log에서 인증 token 또는 링크를 확인할 수 있다.
+- backend local outbox 파일에서 인증 token을 확인할 수 있다. Docker Compose에서는 `docker compose exec app tail -n 20 /tmp/smartcloset-email-outbox.log`를 사용한다.
 - 이메일 인증 후 로그인할 수 있다.
 - refresh cookie로 새로고침 후 세션을 복구할 수 있다.
 - 로그인 후 `추천`, `옷장`, `내 취향`, `위치`, `기록`을 탐색할 수 있다.
@@ -303,7 +304,7 @@ Access token은 JSON 응답으로 받고 frontend memory state에 저장한다. 
 
 MVP10 공유 문서에는 AWS 구현을 포함하지 않는다. 후속 MVP에서 운영 배포를 진행할 때 아래 경계를 유지한다.
 
-- `EmailSender`는 SES/SMTP 구현체로 교체 가능해야 한다.
+- `EmailSender`는 SES/SMTP 구현체로 교체 가능해야 한다. 현재 local `ConsoleEmailSender`는 token 원문을 로그가 아니라 local outbox 파일에만 남긴다.
 - `ClothingImageStorage`는 S3 구현체를 추가할 수 있어야 한다.
 - Cookie/CORS/OAuth redirect/base URL은 env로 바꿀 수 있어야 한다.
 - AI 분석 설정과 secret은 env로만 주입해야 한다.
