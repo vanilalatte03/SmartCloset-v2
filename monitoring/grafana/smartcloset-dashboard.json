@@ -146,7 +146,7 @@
       "id": 5,
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{area=\"heap\"}) / clamp_min(sum(jvm_memory_max_bytes{area=\"heap\"}), 1)",
+          "expr": "sum(jvm_memory_used_bytes{application=\"smartcloset\",area=\"heap\"}) / clamp_min(sum(jvm_memory_max_bytes{application=\"smartcloset\",area=\"heap\"}), 1)",
           "legendFormat": "heap",
           "refId": "A"
         }
@@ -174,7 +174,7 @@
       "id": 6,
       "targets": [
         {
-          "expr": "max(hikaricp_connections_active / clamp_min(hikaricp_connections_max, 1))",
+          "expr": "max(hikaricp_connections_active{application=\"smartcloset\"} / clamp_min(hikaricp_connections_max{application=\"smartcloset\"}, 1))",
           "legendFormat": "active/max",
           "refId": "A"
         }

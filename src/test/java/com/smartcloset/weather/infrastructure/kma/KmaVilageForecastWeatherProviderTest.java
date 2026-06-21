@@ -115,18 +115,20 @@ class KmaVilageForecastWeatherProviderTest {
         provider.getCurrentWeather(1L);
 
         assertThat(weatherProviderRequestCount(meterRegistry, "current", "success")).isEqualTo(1.0);
-        assertThat(weatherProviderRequestCount(meterRegistry, "current", "cache_hit")).isEqualTo(1.0);
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "cache_hit_success")).isEqualTo(1.0);
     }
 
     @Test
-    void recordsKmaFallbackMetric() {
+    void recordsKmaFallbackAndFallbackCacheHitMetrics() {
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
         KmaVilageForecastWeatherProvider provider = newProvider(properties("", true), client, meterRegistry);
 
         provider.getWeather(1L, ForecastPeriod.EVENING);
+        provider.getWeather(1L, ForecastPeriod.EVENING);
 
         assertThat(weatherProviderRequestCount(meterRegistry, "evening", "fallback")).isEqualTo(1.0);
+        assertThat(weatherProviderRequestCount(meterRegistry, "evening", "cache_hit_fallback")).isEqualTo(1.0);
     }
 
     @Test

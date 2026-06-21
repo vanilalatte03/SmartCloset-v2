@@ -30,7 +30,7 @@ groups:
 
       - alert: SmartClosetKmaFallbackOrFailureRate
         expr: |
-          sum(rate(smartcloset_weather_provider_requests_total{provider="kma_vilage_forecast",outcome=~"fallback|failure"}[10m]))
+          sum(rate(smartcloset_weather_provider_requests_total{provider="kma_vilage_forecast",outcome=~"fallback|failure|cache_hit_fallback"}[10m]))
           /
           clamp_min(sum(rate(smartcloset_weather_provider_requests_total{provider="kma_vilage_forecast"}[10m])), 0.001)
           > 0.20
@@ -56,7 +56,7 @@ groups:
 
       - alert: SmartClosetDbPoolSaturation
         expr: |
-          max(hikaricp_connections_active / clamp_min(hikaricp_connections_max, 1))
+          max(hikaricp_connections_active{application="smartcloset"} / clamp_min(hikaricp_connections_max{application="smartcloset"}, 1))
           > 0.85
         for: 5m
         labels:
@@ -67,9 +67,9 @@ groups:
 
       - alert: SmartClosetJvmHeapHigh
         expr: |
-          sum(jvm_memory_used_bytes{area="heap"})
+          sum(jvm_memory_used_bytes{application="smartcloset",area="heap"})
           /
-          clamp_min(sum(jvm_memory_max_bytes{area="heap"}), 1)
+          clamp_min(sum(jvm_memory_max_bytes{application="smartcloset",area="heap"}), 1)
           > 0.85
         for: 10m
         labels:

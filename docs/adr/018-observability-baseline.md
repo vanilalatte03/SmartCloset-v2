@@ -21,7 +21,8 @@ Spring Boot Actuator와 Micrometer Prometheus registry를 사용한다.
 - 추천 생성에는 요청 counter와 duration timer를 기록하고 `situation`, `forecast_period`, `outcome` tag를 사용한다.
 - KMA provider에는 요청 counter와 duration timer를 기록하고 `provider=kma_vilage_forecast`, `forecast_period`, `outcome` tag를 사용한다.
 - OpenAI 옷 분석 provider에는 요청 counter와 duration timer를 기록하고 `provider=openai`, `outcome` tag를 사용한다.
-- `monitoring/prometheus/alerts.yml`에 추천 실패율, 추천 p99 latency, KMA fallback/failure 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert rule baseline을 둔다.
+- `monitoring/prometheus/alerts.yml`에 추천 실패율, 추천 p99 latency, KMA fallback/failure/cache hit fallback 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert rule baseline을 둔다.
+- `monitoring/prometheus/prometheus.yml`은 local Alertmanager 예시 target을 `host.docker.internal:9093`으로 연결한다.
 - `monitoring/alertmanager/alertmanager.yml`은 실제 외부 알림이 없는 local null receiver baseline으로 둔다.
 - `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource로 import 가능한 dashboard baseline으로 둔다.
 

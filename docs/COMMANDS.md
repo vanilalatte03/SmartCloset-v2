@@ -138,7 +138,7 @@ curl -fsS http://localhost:8080/actuator/prometheus | rg 'jvm_info|hikaricp_conn
 python3 -m json.tool monitoring/grafana/smartcloset-dashboard.json >/dev/null
 ```
 
-추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다.
+추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다. Local Prometheus가 Alertmanager를 함께 사용할 때는 `host.docker.internal:9093`으로 접근 가능한 Alertmanager를 실행한다.
 
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 

@@ -137,7 +137,10 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         WeatherCacheEntry cachedWeather = weatherCache.get(cacheKey);
         if (cachedWeather != null) {
             if (now.isBefore(cachedWeather.expiresAt())) {
-                metrics.recordWeatherProvider(sample, resolvedForecastPeriod, "cache_hit");
+                String outcome = cachedWeather.weather().source().fallbackUsed()
+                        ? "cache_hit_fallback"
+                        : "cache_hit_success";
+                metrics.recordWeatherProvider(sample, resolvedForecastPeriod, outcome);
                 return weatherSnapshot(cachedWeather.weather(), location);
             }
             weatherCache.remove(cacheKey, cachedWeather);
