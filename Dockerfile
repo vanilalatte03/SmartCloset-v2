@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21-jdk-noble AS build
 
 WORKDIR /workspace
 
@@ -9,11 +9,12 @@ RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 COPY src ./src
 RUN ./gradlew --no-daemon bootJar -x test
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre-noble
 
 WORKDIR /app
 
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 smartcloset \

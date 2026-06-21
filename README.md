@@ -117,6 +117,10 @@ MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 �
 
 운영 배포 준비 범위에서는 local/demo `docker-compose.yml`과 별도로 `docker-compose.prod.yml`을 둡니다. Prod compose는 Spring `prod` profile, Flyway/validate schema, secure refresh/OAuth state cookie, Swagger/OpenAPI 비활성 기본값, 필수 secret/env 검사를 사용합니다. Frontend는 Vite dev server가 아니라 `frontend/Dockerfile`의 Nginx static image로 서빙합니다. 관련 결정은 ADR-020입니다.
 
+**CI 보안 게이트**
+
+PR CI는 기존 테스트/빌드에 더해 frontend `npm audit`, Trivy dependency scan, backend/frontend image build, Trivy image scan을 실행합니다. Fix 가능한 high/critical 취약점은 실패 처리하고, scan 예외가 필요하면 문서화된 별도 변경으로 다룹니다. 관련 결정은 ADR-021입니다.
+
 ## Current MVP
 
 현재 문서 기준은 **MVP10: AI 옷 등록 보조 MVP**입니다.

@@ -18,6 +18,7 @@ git config core.hooksPath .githooks
 | dev | `./gradlew bootRun` | no | 백엔드 로컬 개발 서버 실행 |
 | frontend-dev | `cd frontend && npm run dev` | no | 프론트엔드 Vite 개발 서버 실행 |
 | frontend-build | `cd frontend && npm run build` | yes | TypeScript type check 및 Vite build |
+| frontend-audit | `cd frontend && npm audit --audit-level=high` | yes | 프론트엔드 dependency high 이상 취약점 확인 |
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
 | migration-smoke | `./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest` | yes | Flyway baseline migration 후 Hibernate validate 검증 |
@@ -34,6 +35,7 @@ git config core.hooksPath .githooks
 | docker-build | `docker build -t smartcloset-app:local .` | no | app image build와 Dockerfile hardening 확인 |
 | frontend-prod-build | `docker build -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8080 -t smartcloset-frontend:prod-smoke frontend` | no | Vite build 산출물을 Nginx static image로 빌드 |
 | docker-image-smoke | 아래 `Docker image hardening smoke` 절차 | no | non-root user, JVM env, Dockerfile healthcheck 확인 |
+| security-scan | 아래 `CI security scan smoke` 절차 | no | Trivy dependency/image high/critical 취약점 게이트 확인 |
 | compose-volume-permission-smoke | 아래 `Compose image volume permission smoke` 절차 | no | 기존 이미지 volume 소유권을 app UID/GID로 보정하는지 확인 |
 | mysql-backup | `scripts/mysql-backup.sh` | no | 실행 중인 Compose MySQL container에서 backup dump 생성 |
 | mysql-restore | `SMARTCLOSET_RESTORE_CONFIRM=restore scripts/mysql-restore.sh <backup.sql>` | no | 명시 확인 후 기존 MySQL DB에 backup dump replay |
@@ -70,6 +72,7 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 ./gradlew test
 ./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest
 ./gradlew build
+(cd frontend && npm audit --audit-level=high)
 (cd frontend && npm run build)
 docker compose config --quiet
 sh -n scripts/mysql-backup.sh scripts/mysql-restore.sh scripts/prod-compose-smoke.sh
@@ -112,6 +115,29 @@ scripts/prod-compose-smoke.sh
 ```
 
 `docker-compose.prod.yml`은 local/demo `docker-compose.yml`과 별도 파일이고 top-level project name은 `smartcloset-prod`다. Prod volume은 기본값 `smartcloset-prod-mysql-data`, `smartcloset-prod-clothing-image-data`로 명시해 local compose volume과 충돌하지 않게 한다. Smoke는 `MYSQL_DATA_VOLUME_NAME`, `CLOTHING_IMAGE_DATA_VOLUME_NAME`을 임시 project prefix로 override해 실제 prod volume을 건드리지 않는다. `.env.prod.example`은 secret 값을 비워 둔 checklist이므로 그대로 기동하지 않고, 운영 환경 또는 smoke 전용 임시 env에서 `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL`을 채워야 한다. Prod compose는 `SPRING_PROFILES_ACTIVE=prod`, `SMARTCLOSET_SEED_ENABLED=false`, `SPRINGDOC_API_DOCS_ENABLED=false`, `SPRINGDOC_SWAGGER_UI_ENABLED=false`, refresh/OAuth state cookie `Secure=true`를 기준으로 한다. Frontend service는 `frontend/Dockerfile`로 Vite build 산출물을 만들고 Nginx non-root static server로 서빙한다. `scripts/prod-compose-smoke.sh`의 project name override는 `SMARTCLOSET_PROD_SMOKE_PROJECT`만 사용하고, 값은 `smartclosetprodsmoke` prefix로 제한한다.
+
+CI security scan smoke:
+
+```bash
+./gradlew build
+(cd frontend && npm ci && npm audit --audit-level=high && npm run build)
+docker build -t smartcloset-app:security-smoke .
+docker build -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8080 -t smartcloset-frontend:security-smoke frontend
+
+docker run --rm -v "$PWD":/workspace -w /workspace \
+  aquasec/trivy:0.71.2 fs --quiet --scanners vuln --vuln-type library \
+  --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 frontend
+
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/workspace \
+  aquasec/trivy:0.71.2 image --quiet --scanners vuln --vuln-type os,library \
+  --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 smartcloset-app:security-smoke
+
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/workspace \
+  aquasec/trivy:0.71.2 image --quiet --scanners vuln --vuln-type os,library \
+  --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 smartcloset-frontend:security-smoke
+```
+
+CI security gate는 fix 가능한 `HIGH`/`CRITICAL` 취약점을 실패 처리한다. Frontend dependency는 `npm audit`과 Trivy filesystem scan으로 차단하고, backend runtime library 취약점은 app image scan의 `app.jar` 분석으로 확인한다. `ignore-unfixed`로 인해 현재 fix가 없는 항목은 차단하지 않지만, 예외를 suppression으로 둘 때는 ADR이나 보안 문서에 취약점 ID, 영향 범위, 만료일, 보완 통제를 기록한다.
 
 Clean MySQL migration smoke는 프로젝트 Docker Compose volume을 사용하지 않고 임시 MySQL container로 확인한다.
 
