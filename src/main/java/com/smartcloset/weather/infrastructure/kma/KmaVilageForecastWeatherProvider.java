@@ -2,6 +2,7 @@ package com.smartcloset.weather.infrastructure.kma;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
 import com.smartcloset.weather.application.WeatherProvider;
@@ -11,6 +12,7 @@ import com.smartcloset.weather.domain.WeatherLocationSnapshot;
 import com.smartcloset.weather.domain.WeatherSnapshot;
 import com.smartcloset.weather.domain.WeatherSource;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
+import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +48,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
     private final KmaWeatherConditionMapper mapper;
     private final StaticWeatherProvider fallbackProvider;
     private final UserLocationReader userLocationReader;
+    private final SmartClosetMetrics metrics;
     private final Clock clock;
     private final Map<WeatherCacheKey, WeatherCacheEntry> weatherCache = new ConcurrentHashMap<>();
 
@@ -54,7 +57,8 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             KmaWeatherProperties properties,
             KmaForecastClient client,
             StaticWeatherProvider fallbackProvider,
-            UserLocationReader userLocationReader
+            UserLocationReader userLocationReader,
+            SmartClosetMetrics metrics
     ) {
         this(
                 properties,
@@ -63,6 +67,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
                 new KmaWeatherConditionMapper(),
                 fallbackProvider,
                 userLocationReader,
+                metrics,
                 Clock.system(KmaForecastBaseTimeCalculator.KST_ZONE)
         );
     }
@@ -76,12 +81,35 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
             UserLocationReader userLocationReader,
             Clock clock
     ) {
+        this(
+                properties,
+                client,
+                baseTimeCalculator,
+                mapper,
+                fallbackProvider,
+                userLocationReader,
+                SmartClosetMetrics.noop(),
+                clock
+        );
+    }
+
+    KmaVilageForecastWeatherProvider(
+            KmaWeatherProperties properties,
+            KmaForecastClient client,
+            KmaForecastBaseTimeCalculator baseTimeCalculator,
+            KmaWeatherConditionMapper mapper,
+            StaticWeatherProvider fallbackProvider,
+            UserLocationReader userLocationReader,
+            SmartClosetMetrics metrics,
+            Clock clock
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.client = Objects.requireNonNull(client, "client must not be null");
         this.baseTimeCalculator = Objects.requireNonNull(baseTimeCalculator, "baseTimeCalculator must not be null");
         this.mapper = Objects.requireNonNull(mapper, "mapper must not be null");
         this.fallbackProvider = Objects.requireNonNull(fallbackProvider, "fallbackProvider must not be null");
         this.userLocationReader = Objects.requireNonNull(userLocationReader, "userLocationReader must not be null");
+        this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         if (properties.cacheTtl().isZero() || properties.cacheTtl().isNegative()) {
             throw new IllegalArgumentException("KMA weather cache ttl must be positive");
@@ -93,6 +121,7 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
 
     @Override
     public WeatherSnapshot getWeather(Long userId, ForecastPeriod forecastPeriod) {
+        Timer.Sample sample = metrics.startTimer();
         UserLocationSnapshot location = userLocationReader.getRequiredLocationSnapshot(userId);
         KmaForecastBaseTime baseTime = baseTimeCalculator.calculate(clock);
         ForecastPeriod resolvedForecastPeriod = forecastPeriod == null ? ForecastPeriod.CURRENT : forecastPeriod;
@@ -108,15 +137,29 @@ public class KmaVilageForecastWeatherProvider implements WeatherProvider {
         WeatherCacheEntry cachedWeather = weatherCache.get(cacheKey);
         if (cachedWeather != null) {
             if (now.isBefore(cachedWeather.expiresAt())) {
+                String outcome = cachedWeather.weather().source().fallbackUsed()
+                        ? "cache_hit_fallback"
+                        : "cache_hit_success";
+                metrics.recordWeatherProvider(sample, resolvedForecastPeriod, outcome);
                 return weatherSnapshot(cachedWeather.weather(), location);
             }
             weatherCache.remove(cacheKey, cachedWeather);
         }
 
-        CachedWeather weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod);
-        weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(properties.cacheTtl()), now));
-        trimCache(cacheKey);
-        return weatherSnapshot(weather, location);
+        try {
+            CachedWeather weather = fetchWeather(userId, location, baseTime, resolvedForecastPeriod);
+            weatherCache.put(cacheKey, new WeatherCacheEntry(weather, now.plus(properties.cacheTtl()), now));
+            trimCache(cacheKey);
+            metrics.recordWeatherProvider(
+                    sample,
+                    resolvedForecastPeriod,
+                    weather.source().fallbackUsed() ? "fallback" : "success"
+            );
+            return weatherSnapshot(weather, location);
+        } catch (RuntimeException exception) {
+            metrics.recordWeatherProvider(sample, resolvedForecastPeriod, "failure");
+            throw exception;
+        }
     }
 
     private CachedWeather fetchWeather(

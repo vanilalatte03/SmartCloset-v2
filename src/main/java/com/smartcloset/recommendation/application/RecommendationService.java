@@ -10,6 +10,7 @@ import com.smartcloset.clothing.domain.ClothingMaterial;
 import com.smartcloset.clothing.repository.ClothingItemRepository;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
 import com.smartcloset.recommendation.domain.OutfitCandidate;
 import com.smartcloset.recommendation.domain.OutfitCandidateGenerator;
 import com.smartcloset.recommendation.domain.OutfitSlot;
@@ -43,6 +44,7 @@ import com.smartcloset.weather.application.WeatherProvider;
 import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherCondition;
 import com.smartcloset.weather.domain.WeatherSnapshot;
+import io.micrometer.core.instrument.Timer;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -88,6 +90,7 @@ public class RecommendationService {
     private final WeatherProvider weatherProvider;
     private final PreferenceJsonMapper preferenceJsonMapper;
     private final ClothingStyleTagMapper clothingStyleTagMapper;
+    private final SmartClosetMetrics metrics;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WeatherSuitabilityFilter weatherSuitabilityFilter = new WeatherSuitabilityFilter();
@@ -105,6 +108,7 @@ public class RecommendationService {
             WeatherProvider weatherProvider,
             PreferenceJsonMapper preferenceJsonMapper,
             ClothingStyleTagMapper clothingStyleTagMapper,
+            SmartClosetMetrics metrics,
             PlatformTransactionManager transactionManager
     ) {
         this.userRepository = userRepository;
@@ -115,6 +119,7 @@ public class RecommendationService {
         this.weatherProvider = weatherProvider;
         this.preferenceJsonMapper = preferenceJsonMapper;
         this.clothingStyleTagMapper = clothingStyleTagMapper;
+        this.metrics = metrics;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -141,13 +146,21 @@ public class RecommendationService {
             RecommendationSituation situation,
             ForecastPeriod forecastPeriod
     ) {
+        Timer.Sample sample = metrics.startTimer();
         ForecastPeriod resolvedForecastPeriod = forecastPeriod == null ? ForecastPeriod.CURRENT : forecastPeriod;
-        WeatherSnapshot weather = weatherProvider.getWeather(userId, resolvedForecastPeriod);
-        LocalDateTime requestedAt = LocalDateTime.now();
         RecommendationSituation resolvedSituation = situation == null ? RecommendationSituation.CASUAL : situation;
-        return Objects.requireNonNull(transactionTemplate.execute(status ->
-                createRecommendationInTransaction(userId, resolvedSituation, resolvedForecastPeriod, weather, requestedAt)
-        ));
+        try {
+            WeatherSnapshot weather = weatherProvider.getWeather(userId, resolvedForecastPeriod);
+            LocalDateTime requestedAt = LocalDateTime.now();
+            RecommendationResponse response = Objects.requireNonNull(transactionTemplate.execute(status ->
+                    createRecommendationInTransaction(userId, resolvedSituation, resolvedForecastPeriod, weather, requestedAt)
+            ));
+            metrics.recordRecommendation(sample, resolvedSituation, resolvedForecastPeriod, "success");
+            return response;
+        } catch (RuntimeException exception) {
+            metrics.recordRecommendation(sample, resolvedSituation, resolvedForecastPeriod, "failure");
+            throw exception;
+        }
     }
 
     private RecommendationResponse createRecommendationInTransaction(

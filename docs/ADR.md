@@ -27,6 +27,8 @@ ADR-016은 MVP10을 AI 옷 등록 보조 MVP로 확정하고, Spring AI 2.0 prev
 
 ADR-017은 운영 준비 작업으로 Flyway schema migration을 재도입하고, 깨끗한 DB 생성은 migration, 운영 schema 검증은 Hibernate `ddl-auto=validate`로 분리한다.
 
+ADR-018은 운영 준비 작업으로 Actuator와 Prometheus 기반 관측성 baseline을 도입하고, 추천/KMA/OpenAI 분석 metric과 local alert/dashboard 산출물을 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -44,3 +46,4 @@ ADR-017은 운영 준비 작업으로 Flyway schema migration을 재도입하고
 - [ADR-015: Define Closet Archive Restore](adr/015-closet-archive-restore.md)
 - [ADR-016: Define MVP10 as AI Clothing Registration Assist](adr/016-mvp10-ai-clothing-registration-assist.md)
 - [ADR-017: Reintroduce Production Schema Migration](adr/017-production-schema-migration.md)
+- [ADR-018: Introduce Observability Baseline](adr/018-observability-baseline.md)

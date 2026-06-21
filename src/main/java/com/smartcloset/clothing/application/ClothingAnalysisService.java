@@ -10,7 +10,10 @@ import com.smartcloset.clothing.infrastructure.file.ClothingImageValidator;
 import com.smartcloset.clothing.infrastructure.file.ValidatedClothingImage;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,38 +29,71 @@ public class ClothingAnalysisService {
     private final ClothingImageValidator clothingImageValidator;
     private final ClothingImageAnalyzer clothingImageAnalyzer;
     private final ClothingAnalysisDailyLimiter dailyLimiter;
+    private final SmartClosetMetrics metrics;
 
+    @Autowired
     public ClothingAnalysisService(
             ClothingImageValidator clothingImageValidator,
             ClothingImageAnalyzer clothingImageAnalyzer,
-            ClothingAnalysisDailyLimiter dailyLimiter
+            ClothingAnalysisDailyLimiter dailyLimiter,
+            SmartClosetMetrics metrics
     ) {
         this.clothingImageValidator = clothingImageValidator;
         this.clothingImageAnalyzer = clothingImageAnalyzer;
         this.dailyLimiter = dailyLimiter;
+        this.metrics = metrics;
+    }
+
+    ClothingAnalysisService(
+            ClothingImageValidator clothingImageValidator,
+            ClothingImageAnalyzer clothingImageAnalyzer,
+            ClothingAnalysisDailyLimiter dailyLimiter
+    ) {
+        this(clothingImageValidator, clothingImageAnalyzer, dailyLimiter, SmartClosetMetrics.noop());
     }
 
     /**
      * 현재 인증 사용자의 분석 요청을 처리하고 저장 전 후보 응답을 반환한다.
      */
     public ClothingAnalysisResponse analyze(Long currentUserId, MultipartFile image) {
-        ValidatedClothingImage validatedImage = clothingImageValidator.validate(image);
-        if (!clothingImageAnalyzer.isAvailable()) {
-            throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_DISABLED);
-        }
-        dailyLimiter.checkAndIncrement(currentUserId);
-
+        Timer.Sample sample = metrics.startTimer();
         try {
+            ValidatedClothingImage validatedImage = clothingImageValidator.validate(image);
+            if (!clothingImageAnalyzer.isAvailable()) {
+                throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_DISABLED);
+            }
+            dailyLimiter.checkAndIncrement(currentUserId);
             ClothingAnalysisResult result = clothingImageAnalyzer.analyze(
                     new ClothingAnalysisImage(image.getBytes(), validatedImage.contentType())
             );
-            return ClothingAnalysisResponse.from(result);
+            ClothingAnalysisResponse response = ClothingAnalysisResponse.from(result);
+            metrics.recordClothingAnalysis(sample, response.analyzable() ? "success" : "not_analyzable");
+            return response;
         } catch (ClothingImageAnalysisDisabledException exception) {
+            metrics.recordClothingAnalysis(sample, "disabled");
             throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_DISABLED);
         } catch (ClothingImageAnalysisUnavailableException exception) {
+            metrics.recordClothingAnalysis(sample, "unavailable");
             throw new SmartClosetException(ErrorCode.CLOTHING_ANALYSIS_UNAVAILABLE);
         } catch (IOException exception) {
+            metrics.recordClothingAnalysis(sample, "invalid_request");
             throw new SmartClosetException(ErrorCode.INVALID_REQUEST);
+        } catch (SmartClosetException exception) {
+            metrics.recordClothingAnalysis(sample, outcomeFrom(exception.errorCode()));
+            throw exception;
+        } catch (RuntimeException exception) {
+            metrics.recordClothingAnalysis(sample, "failure");
+            throw exception;
         }
+    }
+
+    private String outcomeFrom(ErrorCode errorCode) {
+        return switch (errorCode) {
+            case CLOTHING_ANALYSIS_DISABLED -> "disabled";
+            case CLOTHING_ANALYSIS_UNAVAILABLE -> "unavailable";
+            case CLOTHING_ANALYSIS_LIMIT_EXCEEDED -> "limit_exceeded";
+            case INVALID_REQUEST, MAX_UPLOAD_SIZE_EXCEEDED, MULTIPART_EXCEPTION -> "invalid_request";
+            default -> "failure";
+        };
     }
 }

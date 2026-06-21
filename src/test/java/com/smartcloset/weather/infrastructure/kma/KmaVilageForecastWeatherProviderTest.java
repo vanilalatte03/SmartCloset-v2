@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
 import com.smartcloset.location.domain.LocationSource;
 import com.smartcloset.user.application.UserLocationReader;
 import com.smartcloset.user.application.UserLocationSnapshot;
@@ -12,6 +13,7 @@ import com.smartcloset.weather.domain.ForecastPeriod;
 import com.smartcloset.weather.domain.WeatherSnapshot;
 import com.smartcloset.weather.domain.WeatherType;
 import com.smartcloset.weather.infrastructure.StaticWeatherProvider;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -97,6 +99,36 @@ class KmaVilageForecastWeatherProviderTest {
 
         assertThat(secondWeather).isEqualTo(firstWeather);
         assertThat(client.callCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recordsKmaSuccessAndCacheHitMetrics() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(
+                properties("test-service-key", true),
+                client,
+                meterRegistry
+        );
+
+        provider.getCurrentWeather(1L);
+        provider.getCurrentWeather(1L);
+
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "success")).isEqualTo(1.0);
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "cache_hit_success")).isEqualTo(1.0);
+    }
+
+    @Test
+    void recordsKmaFallbackAndFallbackCacheHitMetrics() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        KmaVilageForecastWeatherProvider provider = newProvider(properties("", true), client, meterRegistry);
+
+        provider.getWeather(1L, ForecastPeriod.EVENING);
+        provider.getWeather(1L, ForecastPeriod.EVENING);
+
+        assertThat(weatherProviderRequestCount(meterRegistry, "evening", "fallback")).isEqualTo(1.0);
+        assertThat(weatherProviderRequestCount(meterRegistry, "evening", "cache_hit_fallback")).isEqualTo(1.0);
     }
 
     @Test
@@ -407,6 +439,32 @@ class KmaVilageForecastWeatherProviderTest {
                 userLocationReader,
                 clock
         );
+    }
+
+    private KmaVilageForecastWeatherProvider newProvider(
+            KmaWeatherProperties properties,
+            KmaForecastClient client,
+            SimpleMeterRegistry meterRegistry
+    ) {
+        return new KmaVilageForecastWeatherProvider(
+                properties,
+                client,
+                new KmaForecastBaseTimeCalculator(),
+                new KmaWeatherConditionMapper(),
+                new StaticWeatherProvider(),
+                new FakeUserLocationReader(),
+                new SmartClosetMetrics(meterRegistry),
+                clock
+        );
+    }
+
+    private double weatherProviderRequestCount(SimpleMeterRegistry meterRegistry, String forecastPeriod, String outcome) {
+        return meterRegistry.get("smartcloset.weather.provider.requests")
+                .tag("provider", "kma_vilage_forecast")
+                .tag("forecast_period", forecastPeriod)
+                .tag("outcome", outcome)
+                .counter()
+                .count();
     }
 
     private KmaWeatherProperties properties(String serviceKey, boolean fallbackEnabled) {

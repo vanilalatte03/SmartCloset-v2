@@ -19,6 +19,8 @@ import com.smartcloset.clothing.infrastructure.file.ClothingImageProperties;
 import com.smartcloset.clothing.infrastructure.file.ClothingImageValidator;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ import org.springframework.mock.web.MockMultipartFile;
 class ClothingAnalysisServiceTest {
 
     private ClothingAnalysisProperties analysisProperties;
+    private SimpleMeterRegistry meterRegistry;
     private FakeAnalyzer analyzer;
     private ClothingAnalysisService service;
 
@@ -36,11 +39,13 @@ class ClothingAnalysisServiceTest {
         ClothingImageProperties imageProperties = new ClothingImageProperties();
         imageProperties.setMaxSizeBytes(1024);
         analysisProperties = new ClothingAnalysisProperties();
+        meterRegistry = new SimpleMeterRegistry();
         analyzer = new FakeAnalyzer();
         service = new ClothingAnalysisService(
                 new ClothingImageValidator(imageProperties),
                 analyzer,
-                new ClothingAnalysisDailyLimiter(analysisProperties)
+                new ClothingAnalysisDailyLimiter(analysisProperties),
+                new SmartClosetMetrics(meterRegistry)
         );
     }
 
@@ -78,6 +83,7 @@ class ClothingAnalysisServiceTest {
         assertThat(response.lowConfidenceThreshold()).isEqualTo(0.75);
         assertThat(analyzer.lastImage.contentType()).isEqualTo("image/jpeg");
         assertThat(analyzer.lastImage.bytes()).containsExactly(jpegBytes());
+        assertThat(analysisRequestCount("success")).isEqualTo(1.0);
     }
 
     @Test
@@ -90,6 +96,7 @@ class ClothingAnalysisServiceTest {
         assertThat(response.suggestion()).isNull();
         assertThat(response.fieldConfidence()).isEmpty();
         assertThat(response.reviewRequiredFields()).isEmpty();
+        assertThat(analysisRequestCount("not_analyzable")).isEqualTo(1.0);
     }
 
     @Test
@@ -99,6 +106,7 @@ class ClothingAnalysisServiceTest {
         assertThatThrownBy(() -> service.analyze(1L, jpegFile()))
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_UNAVAILABLE));
+        assertThat(analysisRequestCount("unavailable")).isEqualTo(1.0);
     }
 
     @Test
@@ -111,6 +119,7 @@ class ClothingAnalysisServiceTest {
         assertThatThrownBy(() -> service.analyze(1L, jpegFile()))
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_LIMIT_EXCEEDED));
+        assertThat(analysisRequestCount("limit_exceeded")).isEqualTo(1.0);
 
         service.analyze(2L, jpegFile());
     }
@@ -123,7 +132,8 @@ class ClothingAnalysisServiceTest {
         ClothingAnalysisService disabledService = new ClothingAnalysisService(
                 new ClothingImageValidator(imageProperties),
                 new DisabledClothingImageAnalyzer(),
-                new ClothingAnalysisDailyLimiter(analysisProperties)
+                new ClothingAnalysisDailyLimiter(analysisProperties),
+                new SmartClosetMetrics(meterRegistry)
         );
 
         assertThatThrownBy(() -> disabledService.analyze(1L, jpegFile()))
@@ -132,6 +142,7 @@ class ClothingAnalysisServiceTest {
         assertThatThrownBy(() -> disabledService.analyze(1L, jpegFile()))
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.CLOTHING_ANALYSIS_DISABLED));
+        assertThat(analysisRequestCount("disabled")).isEqualTo(2.0);
     }
 
     @Test
@@ -142,6 +153,15 @@ class ClothingAnalysisServiceTest {
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.INVALID_REQUEST));
         assertThat(analyzer.lastImage).isNull();
+        assertThat(analysisRequestCount("invalid_request")).isEqualTo(1.0);
+    }
+
+    private double analysisRequestCount(String outcome) {
+        return meterRegistry.get("smartcloset.clothing.analysis.requests")
+                .tag("provider", "openai")
+                .tag("outcome", outcome)
+                .counter()
+                .count();
     }
 
     private MockMultipartFile jpegFile() {

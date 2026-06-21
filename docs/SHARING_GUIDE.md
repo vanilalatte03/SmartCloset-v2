@@ -25,6 +25,9 @@ MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 신뢰도, MVP8 계
 - Frontend 경로: http://localhost:5173
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
+- Actuator health 경로: http://localhost:8080/actuator/health
+- Prometheus metrics 경로: http://localhost:8080/actuator/prometheus
+- 운영 관측성 baseline: `monitoring/`
 
 ## 실행 명령
 
@@ -80,6 +83,8 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 SPRING_FLYWAY_ENABLED=true
 SPRING_PROFILES_ACTIVE=local
 SMARTCLOSET_SEED_ENABLED=true
+MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus
+MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
 
 JWT_SECRET=change-me-local-development-only
 REFRESH_TOKEN_COOKIE_NAME=smartcloset.refreshToken
@@ -140,6 +145,8 @@ VITE_API_BASE_URL=http://localhost:8080
 | `SPRING_FLYWAY_BASELINE_ON_MIGRATE` | 기존 non-empty schema를 baseline으로 편입할지 여부. local/demo 기본값은 `true`, prod 기본값은 `false` |
 | `SPRING_PROFILES_ACTIVE` | Docker Compose 기본값은 `local`. local/demo profile에서만 demo seed initializer가 bean 후보가 됨 |
 | `SMARTCLOSET_SEED_ENABLED` | local/demo profile의 demo user와 최소 옷장 seed 활성 여부. local 기본값은 `true`, default/prod profile에서는 initializer가 비활성 |
+| `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | Actuator web endpoint 노출 목록. local 기본값은 `health,info,prometheus`, prod profile 기본값은 `health,prometheus` |
+| `MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED` | Prometheus metric export 활성 여부. 기본값은 `true` |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
 | `GOOGLE_OAUTH_CONNECT_TIMEOUT`, `GOOGLE_OAUTH_READ_TIMEOUT` | Google token/userinfo provider 호출 timeout |
@@ -185,6 +192,9 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 ### 기본 앱 기준
 
 - Docker Compose로 MySQL, 백엔드, 프론트엔드가 함께 실행된다.
+- `GET /actuator/health`가 `UP`을 반환한다.
+- `GET /actuator/prometheus`에서 JVM/HikariCP metric과 요청 후 SmartCloset custom metric을 확인할 수 있다.
+- `monitoring/prometheus/alerts.yml`, `monitoring/alertmanager/alertmanager.yml`, `monitoring/grafana/smartcloset-dashboard.json`이 실제 secret이나 webhook 없이 baseline으로 제공된다.
 - OpenAI API key 없이도 Swagger UI에 접속할 수 있다.
 - Frontend에도 접속할 수 있다.
 - Auth 화면이 데스크톱/모바일에서 form을 읽을 수 있게 표시된다.
