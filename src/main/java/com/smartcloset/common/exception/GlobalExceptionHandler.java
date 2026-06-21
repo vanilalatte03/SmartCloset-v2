@@ -287,25 +287,25 @@ public class GlobalExceptionHandler {
         String message = errorCode.message();
 
         if (errorCode.status().is5xxServerError()) {
-            log.error(
-                    "api_error code={} status={} method={} path={} exception={} message={}",
-                    errorCode.name(),
-                    errorCode.status().value(),
-                    method,
-                    path,
-                    exceptionType,
-                    message
-            );
+            log.atError()
+                    .setMessage("api_error")
+                    .addKeyValue("code", errorCode.name())
+                    .addKeyValue("status", errorCode.status().value())
+                    .addKeyValue("method", method)
+                    .addKeyValue("path", path)
+                    .addKeyValue("exception", exceptionType)
+                    .addKeyValue("error_message", message)
+                    .log();
             return;
         }
-        log.warn(
-                "api_error code={} status={} method={} path={} exception={} message={}",
-                errorCode.name(),
-                errorCode.status().value(),
-                method,
-                path,
-                exceptionType,
-                message
-        );
+        log.atWarn()
+                .setMessage("api_error")
+                .addKeyValue("code", errorCode.name())
+                .addKeyValue("status", errorCode.status().value())
+                .addKeyValue("method", method)
+                .addKeyValue("path", path)
+                .addKeyValue("exception", exceptionType)
+                .addKeyValue("error_message", message)
+                .log();
     }
 }

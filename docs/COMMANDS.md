@@ -273,6 +273,15 @@ python3 -m json.tool monitoring/grafana/smartcloset-dashboard.json >/dev/null
 
 추천, 날씨, AI 옷 분석 요청을 한 번 이상 실행한 뒤에는 `/actuator/prometheus`에서 `smartcloset_recommendation_*`, `smartcloset_weather_provider_*`, `smartcloset_clothing_analysis_*` metric을 확인할 수 있다. Prometheus scrape와 alert rule baseline은 `monitoring/prometheus/`, Alertmanager local null receiver는 `monitoring/alertmanager/`, Grafana import용 dashboard는 `monitoring/grafana/` 아래에 둔다. Local Prometheus가 Alertmanager를 함께 사용할 때는 `host.docker.internal:9093`으로 접근 가능한 Alertmanager를 실행한다.
 
+Structured logging/tracing smoke:
+
+```bash
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+curl -i http://localhost:8080/actuator/health | rg 'X-Trace-Id|HTTP/'
+```
+
+Console log는 기본적으로 ECS JSON 형식이다. 사람이 읽기 쉬운 local log가 필요하면 `LOGGING_STRUCTURED_FORMAT_CONSOLE=`로 override한다. OTLP trace export를 확인할 때는 collector를 준비한 뒤 `MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED=true`와 `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://localhost:4318/v1/traces`를 설정한다. 기본 local/demo 실행은 OTLP log/metrics push export도 비활성이다. API/auth/provider 실패 로그에는 `code`, `status`, `method`, `path`, `exception`, `error_message` field만 남기며 request body, Authorization header, cookie, query string, raw exception message는 남기지 않는다.
+
 MVP10 최종 QA에서는 Codex Browser를 우선 사용하고, 필요하면 Chrome 또는 Computer Use로 대체해 옷장 AI 후보 체크, Auth, 추천, 내 취향, 위치, 기록, 계정 설정 화면을 데스크톱 1440px과 모바일 390px 기준으로 확인한다. 결과는 `docs/qa/mvp10-ai-clothing-assist-qa.md`에 기록한다. Final docs-check는 아래 행이 없으면 실패한다.
 
 - `desktop 1440px | 옷장 AI 후보 체크 | PASS`

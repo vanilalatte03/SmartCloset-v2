@@ -61,14 +61,14 @@ public class SecurityErrorResponseWriter {
         String path = request == null ? "-" : request.getRequestURI();
         String exceptionType = exception == null ? "none" : exception.getClass().getName();
         String message = errorCode.message();
-        log.warn(
-                "security_error code={} status={} method={} path={} exception={} message={}",
-                errorCode.name(),
-                errorCode.status().value(),
-                method,
-                path,
-                exceptionType,
-                message
-        );
+        log.atWarn()
+                .setMessage("security_error")
+                .addKeyValue("code", errorCode.name())
+                .addKeyValue("status", errorCode.status().value())
+                .addKeyValue("method", method)
+                .addKeyValue("path", path)
+                .addKeyValue("exception", exceptionType)
+                .addKeyValue("error_message", message)
+                .log();
     }
 }

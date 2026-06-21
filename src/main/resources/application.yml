@@ -40,7 +40,21 @@ springdoc:
     enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
     path: /swagger-ui/index.html
 
+logging:
+  structured:
+    format:
+      console: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:ecs}
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${SMARTCLOSET_SERVICE_VERSION:${APP_VERSION:0.0.1-SNAPSHOT}}
+        environment: ${SMARTCLOSET_SERVICE_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
+
 management:
+  logging:
+    export:
+      otlp:
+        enabled: ${MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED:false}
   endpoints:
     web:
       exposure:
@@ -54,6 +68,21 @@ management:
     metrics:
       export:
         enabled: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}
+  otlp:
+    metrics:
+      export:
+        enabled: ${MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED:false}
+  tracing:
+    sampling:
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:1.0}
+    export:
+      otlp:
+        enabled: ${MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED:false}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
   metrics:
     tags:
       application: ${spring.application.name}

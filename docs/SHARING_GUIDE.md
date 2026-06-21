@@ -162,6 +162,14 @@ VITE_API_BASE_URL=http://localhost:8080
 | `JAVA_TOOL_OPTIONS` | JVM container option. local 기본값은 `-XX:MaxRAMPercentage=75.0` |
 | `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | Actuator web endpoint 노출 목록. local 기본값은 `health,info,prometheus`, prod profile 기본값은 `health,prometheus` |
 | `MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED` | Prometheus metric export 활성 여부. 기본값은 `true` |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | Console log 구조화 format. 기본 `ecs`, 빈 값으로 override하면 Spring Boot 기본 console log 사용 |
+| `SMARTCLOSET_SERVICE_VERSION` | ECS structured log service version. 기본 `APP_VERSION` 또는 `0.0.1-SNAPSHOT` |
+| `SMARTCLOSET_SERVICE_ENVIRONMENT` | ECS structured log service environment. 기본 `SPRING_PROFILES_ACTIVE` 또는 `local` |
+| `MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED` | OTLP log export 활성화 여부. 기본 `false` |
+| `MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED` | OTLP metrics push export 활성화 여부. 기본 `false` |
+| `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` | Micrometer tracing sampling 확률. 기본 `1.0` |
+| `MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED` | OTLP trace export 활성화 여부. 기본 `false` |
+| `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | OTLP trace collector endpoint. 기본 `http://localhost:4318/v1/traces` |
 | `SMARTCLOSET_HEALTHCHECK_URL` | Dockerfile healthcheck가 호출할 app 내부 URL. 기본값은 `http://127.0.0.1:8080/actuator/health` |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth 설정. 비어 있으면 provider disabled |
 | `GOOGLE_OAUTH_REDIRECT_URI` | backend Google callback URL |
@@ -200,6 +208,13 @@ Prod runtime 필수/보안 env:
 | `CORS_ALLOWED_ORIGINS` | 운영 frontend origin을 명시. wildcard credential 조합을 사용하지 않음 |
 | `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL` | 운영 frontend/backend public URL 기준으로 명시 |
 | `SPRINGDOC_API_DOCS_ENABLED`, `SPRINGDOC_SWAGGER_UI_ENABLED` | 기본 `false` |
+
+Prod 관측성 기준:
+
+- Console log는 기본 ECS JSON 구조화 log다.
+- `X-Trace-Id` response header로 사용자가 보고한 API 실패를 trace/log와 연결한다.
+- OTLP trace/log/metrics push export는 명시적으로 활성화한 환경에서만 켠다. 공유 local/demo 기본값은 collector 없이 실행되도록 비활성이다.
+- Sentry/Datadog 같은 vendor-specific error tracking SDK와 secret은 이번 공유 baseline에 포함하지 않는다.
 
 ## AI 옷 등록 보조 활성화
 

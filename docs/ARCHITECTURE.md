@@ -101,7 +101,7 @@ Controller 이후로 전파된 HTTP API 예외는 `GlobalExceptionHandler`가 `E
 
 ## 운영 관측성
 
-운영 관측성 baseline은 Spring Boot Actuator와 Micrometer Prometheus registry를 사용한다. 기본 local endpoint 노출은 `health`, `info`, `prometheus`이고, `prod` profile 기본 노출은 `health`, `prometheus`다. health detail은 기본적으로 숨긴다.
+운영 관측성 baseline은 Spring Boot Actuator, Micrometer Prometheus registry, Spring Boot structured logging, Spring Boot OpenTelemetry starter를 사용한다. 기본 local endpoint 노출은 `health`, `info`, `prometheus`이고, `prod` profile 기본 노출은 `health`, `prometheus`다. health detail은 기본적으로 숨긴다.
 
 ```text
 GET /actuator/health
@@ -123,7 +123,18 @@ Prometheus export에서는 Micrometer 이름이 snake_case로 변환된다. 예�
 
 `monitoring/prometheus/alerts.yml`은 추천 실패율, 추천 p99 latency, KMA fallback/failure/cache hit fallback 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert baseline을 둔다. `monitoring/prometheus/prometheus.yml`은 local Alertmanager 예시 target을 `host.docker.internal:9093`으로 둔다. `monitoring/alertmanager/alertmanager.yml`은 실제 webhook 없이 local null receiver만 둔다. `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource를 연결해 import하는 dashboard baseline이다.
 
-Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, tracing, log aggregation, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
+Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, log aggregation backend 운영, vendor-specific error tracking SDK, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
+
+Structured log와 tracing 정책:
+
+- Console log format 기본값은 Spring Boot built-in ECS JSON(`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`)이다.
+- ECS `service.name`, `service.version`, `service.environment`는 app/env property에서 채운다.
+- API/business/security error log는 SLF4J key-value field로 `code`, `status`, `method`, `path`, `exception`, 고정 `error_message`를 남긴다.
+- Request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password는 로그 field와 message에 남기지 않는다.
+- Micrometer tracing sampling 기본값은 `1.0`이며 `MANAGEMENT_TRACING_SAMPLING_PROBABILITY`로 조정한다.
+- OTLP trace export는 `MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED=true`일 때 `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT`로 지정한 collector에 보낸다. 기본 local/demo 실행은 OTLP trace/log/metrics export를 비활성으로 둬 collector 없이도 실행 가능해야 한다.
+- `TraceIdResponseFilter`는 현재 span이 있을 때 `X-Trace-Id` response header를 추가한다.
+- Sentry 같은 vendor-specific error tracking SDK는 이번 baseline에 넣지 않는다. 에러 추적은 structured error log, `X-Trace-Id`, OTLP trace export로 시작하고, Sentry/Datadog 등은 운영 backend 선택과 secret/scrubbing 정책이 확정될 때 별도 ADR로 추가한다.
 
 ## 옷 사진 분석 흐름
 
