@@ -54,8 +54,12 @@ public class RecommendationController {
             @AuthenticationPrincipal CurrentUserPrincipal principal,
             @RequestBody(required = false) RecommendationRequest request
     ) {
-        recommendationCreationThrottle.checkAndRecord(principal.userId());
         RecommendationRequest resolvedRequest = resolveRequest(request);
+        recommendationCreationThrottle.checkAndRecord(
+                principal.userId(),
+                resolvedRequest.situationOrDefault(),
+                resolvedRequest.forecastPeriodOrDefault()
+        );
         RecommendationResponse response = recommendationService.createRecommendation(
                 principal.userId(),
                 resolvedRequest.situationOrDefault(),

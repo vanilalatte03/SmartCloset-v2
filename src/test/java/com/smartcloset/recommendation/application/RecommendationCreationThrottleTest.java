@@ -6,6 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
+import com.smartcloset.common.observability.SmartClosetMetrics;
+import com.smartcloset.recommendation.domain.RecommendationSituation;
+import com.smartcloset.weather.domain.ForecastPeriod;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +34,36 @@ class RecommendationCreationThrottleTest {
                 .isInstanceOfSatisfying(SmartClosetException.class, exception ->
                         assertThat(exception.errorCode()).isEqualTo(ErrorCode.RECOMMENDATION_CREATION_LIMIT_EXCEEDED));
         assertThatCode(() -> throttle.checkAndRecord(2L)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void limitExceededRecordsRecommendationMetricWithResolvedTags() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        SmartClosetMetrics metrics = new SmartClosetMetrics(meterRegistry);
+        RecommendationCreationThrottle throttle = throttle(
+                maxRequests(1),
+                metrics,
+                MutableClock.fixed("2026-06-21T10:00:00+09:00")
+        );
+
+        throttle.checkAndRecord(2L, RecommendationSituation.WORK, ForecastPeriod.EVENING);
+
+        assertThatThrownBy(() ->
+                throttle.checkAndRecord(2L, RecommendationSituation.WORK, ForecastPeriod.EVENING))
+                .isInstanceOf(SmartClosetException.class);
+
+        assertThat(meterRegistry.get("smartcloset.recommendation.requests")
+                .tag("situation", "work")
+                .tag("forecast_period", "evening")
+                .tag("outcome", "limit")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("smartcloset.recommendation.duration")
+                .tag("situation", "work")
+                .tag("forecast_period", "evening")
+                .tag("outcome", "limit")
+                .timer()
+                .count()).isEqualTo(1);
     }
 
     @Test
@@ -71,6 +105,14 @@ class RecommendationCreationThrottleTest {
 
     private RecommendationCreationThrottle throttle(RecommendationCreationThrottleProperties properties, Clock clock) {
         return new RecommendationCreationThrottle(properties, clock);
+    }
+
+    private RecommendationCreationThrottle throttle(
+            RecommendationCreationThrottleProperties properties,
+            SmartClosetMetrics metrics,
+            Clock clock
+    ) {
+        return new RecommendationCreationThrottle(properties, metrics, clock);
     }
 
     private static final class MutableClock extends Clock {

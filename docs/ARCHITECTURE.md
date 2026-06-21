@@ -113,7 +113,7 @@ Custom metric은 `SmartClosetMetrics`가 이름과 low-cardinality tag를 관리
 
 | Metric | Type | Tags | 목적 |
 | --- | --- | --- | --- |
-| `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 성공/실패 비율 |
+| `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 success/failure/limit 비율 |
 | `smartcloset.recommendation.duration` | timer | `situation`, `forecast_period`, `outcome` | 추천 생성 latency |
 | `smartcloset.weather.provider.requests` | counter | `provider`, `forecast_period`, `outcome` | KMA success/fallback/failure/cache hit success/cache hit fallback 비율 |
 | `smartcloset.weather.provider.duration` | timer | `provider`, `forecast_period`, `outcome` | KMA provider latency |
