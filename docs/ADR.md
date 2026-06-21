@@ -33,6 +33,8 @@ ADR-019는 운영 준비 작업으로 Docker image non-root runtime, Actuator �
 
 ADR-020은 운영 준비 작업으로 local/demo compose와 분리된 prod compose, Nginx 기반 frontend production image, prod cookie/secret/schema runtime guard와 smoke 검증을 정의한다.
 
+ADR-021은 운영 준비 작업으로 PR CI의 dependency vulnerability scan, backend/frontend Docker image build validation, image vulnerability scan gate를 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -53,3 +55,4 @@ ADR-020은 운영 준비 작업으로 local/demo compose와 분리된 prod compo
 - [ADR-018: Introduce Observability Baseline](adr/018-observability-baseline.md)
 - [ADR-019: Harden Docker Runtime and DB Operations](adr/019-docker-db-hardening.md)
 - [ADR-020: Define Production Runtime Artifacts](adr/020-prod-runtime-artifacts.md)
+- [ADR-021: Add CI Security and Image Gates](adr/021-ci-security-image-gates.md)

@@ -267,6 +267,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - app runtime Docker image는 UID/GID `10001:10001` non-root user로 실행한다.
 - Dockerfile healthcheck는 `SMARTCLOSET_HEALTHCHECK_URL` 기본값 `http://127.0.0.1:8080/actuator/health`를 사용한다.
 - JVM container memory option은 `JAVA_TOOL_OPTIONS`로 주입하며 local 기본값은 `-XX:MaxRAMPercentage=75.0`이다.
+- PR CI는 backend/frontend dependency와 Docker image를 Trivy `HIGH,CRITICAL` 기준으로 스캔하고, backend/frontend production image build를 merge gate로 둔다.
 - Docker Compose는 `clothing-image-volume-permissions` one-shot service로 app 시작 전에 `clothing-image-data` volume 소유권을 UID/GID `10001:10001`로 보정한다.
 - MySQL backup/restore는 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh`로 local 검증 가능한 runbook을 유지한다. backup dump는 `backups/` 아래에 생성할 수 있으며 git/docker build context에 포함하지 않는다.
 

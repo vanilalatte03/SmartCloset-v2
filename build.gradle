@@ -40,6 +40,19 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'io.netty') {
+            details.useVersion '4.2.15.Final'
+            details.because 'CI security gate requires Netty versions with current high/critical CVE fixes'
+        }
+        if (details.requested.group == 'org.apache.tomcat.embed') {
+            details.useVersion '11.0.22'
+            details.because 'CI security gate requires Tomcat versions with current high/critical CVE fixes'
+        }
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }

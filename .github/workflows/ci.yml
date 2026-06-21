@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
@@ -30,6 +34,12 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Review dependency vulnerabilities
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+
       - name: Test
         run: ./gradlew test
 
@@ -37,9 +47,53 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build
 
       - name: Build
         run: ./gradlew build
+
+      - name: Scan frontend dependencies
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: frontend
+          scanners: vuln
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Build app image
+        run: docker build -t smartcloset-app:ci .
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8080 -t smartcloset-frontend:ci frontend
+
+      - name: Scan app image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: smartcloset-app:ci
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: smartcloset-frontend:ci
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
