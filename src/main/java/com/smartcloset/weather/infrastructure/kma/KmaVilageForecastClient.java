@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -30,10 +31,16 @@ public class KmaVilageForecastClient implements KmaForecastClient {
     private final KmaWeatherProperties properties;
     private final ObjectMapper objectMapper;
     private final KmaHttpTransport transport;
+    private final KmaProviderResilience resilience;
 
     @Autowired
     public KmaVilageForecastClient(KmaWeatherProperties properties) {
-        this(properties, new ObjectMapper(), new JavaNetKmaHttpTransport());
+        this(
+                properties,
+                new ObjectMapper(),
+                new JavaNetKmaHttpTransport(properties),
+                new KmaProviderResilience(properties)
+        );
     }
 
     KmaVilageForecastClient(
@@ -41,9 +48,19 @@ public class KmaVilageForecastClient implements KmaForecastClient {
             ObjectMapper objectMapper,
             KmaHttpTransport transport
     ) {
+        this(properties, objectMapper, transport, new KmaProviderResilience(properties));
+    }
+
+    KmaVilageForecastClient(
+            KmaWeatherProperties properties,
+            ObjectMapper objectMapper,
+            KmaHttpTransport transport,
+            KmaProviderResilience resilience
+    ) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
+        this.resilience = Objects.requireNonNull(resilience, "resilience must not be null");
     }
 
     /**
@@ -51,6 +68,17 @@ public class KmaVilageForecastClient implements KmaForecastClient {
      */
     @Override
     public List<KmaForecastItem> getVilageForecast(KmaForecastBaseTime baseTime, KmaGrid grid) {
+        return resilience.execute(() -> getVilageForecastOnce(baseTime, grid));
+    }
+
+    @PreDestroy
+    void close() throws Exception {
+        if (transport instanceof AutoCloseable autoCloseable) {
+            autoCloseable.close();
+        }
+    }
+
+    private List<KmaForecastItem> getVilageForecastOnce(KmaForecastBaseTime baseTime, KmaGrid grid) {
         Objects.requireNonNull(baseTime, "baseTime must not be null");
         Objects.requireNonNull(grid, "grid must not be null");
         URI uri = buildUri(baseTime, grid);

@@ -147,6 +147,10 @@ smartcloset:
       low-confidence-threshold: ${CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD:0.75}
       daily-limit: ${CLOTHING_ANALYSIS_DAILY_LIMIT:20}
       timeout-seconds: ${CLOTHING_ANALYSIS_TIMEOUT_SECONDS:10}
+      max-attempts: ${CLOTHING_ANALYSIS_MAX_ATTEMPTS:2}
+      retry-backoff: ${CLOTHING_ANALYSIS_RETRY_BACKOFF:200ms}
+      circuit-breaker-failure-threshold: ${CLOTHING_ANALYSIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      circuit-breaker-open-duration: ${CLOTHING_ANALYSIS_CIRCUIT_BREAKER_OPEN_DURATION:30s}
   weather:
     fallback-enabled: ${WEATHER_FALLBACK_ENABLED:true}
     kma:
@@ -156,3 +160,10 @@ smartcloset:
       base-url: "${KMA_BASE_URL:http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}"
       cache-ttl: ${KMA_CACHE_TTL:2m}
       cache-max-size: ${KMA_CACHE_MAX_SIZE:256}
+      connect-timeout: ${KMA_CONNECT_TIMEOUT:2s}
+      read-timeout: ${KMA_READ_TIMEOUT:3s}
+      request-timeout: ${KMA_REQUEST_TIMEOUT:5s}
+      max-attempts: ${KMA_MAX_ATTEMPTS:2}
+      retry-backoff: ${KMA_RETRY_BACKOFF:200ms}
+      circuit-breaker-failure-threshold: ${KMA_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      circuit-breaker-open-duration: ${KMA_CIRCUIT_BREAKER_OPEN_DURATION:30s}

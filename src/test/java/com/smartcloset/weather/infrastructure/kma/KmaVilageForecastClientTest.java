@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.MultiValueMap;
@@ -161,17 +162,68 @@ class KmaVilageForecastClientTest {
                 .hasMessageContaining("Failed to call KMA forecast API");
     }
 
+    @Test
+    void retriesTransportFailureUpToConfiguredAttempts() {
+        FakeTransport transport = FakeTransport.failing(new IOException("socket closed"));
+        KmaVilageForecastClient client = newClient(transport, "test-service-key", resilience(3, 10));
+
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
+                .isInstanceOf(KmaForecastClientException.class)
+                .hasMessageContaining("Failed to call KMA forecast API");
+
+        assertThat(transport.callCount()).isEqualTo(3);
+    }
+
+    @Test
+    void opensCircuitAfterRepeatedProviderFailures() {
+        FakeTransport transport = FakeTransport.failing(new IOException("socket closed"));
+        KmaVilageForecastClient client = newClient(transport, "test-service-key", resilience(2, 1));
+
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
+                .isInstanceOf(KmaForecastClientException.class)
+                .hasMessageContaining("Failed to call KMA forecast API");
+        assertThat(transport.callCount()).isEqualTo(2);
+
+        assertThatThrownBy(() -> client.getVilageForecast(baseTime, grid))
+                .isInstanceOf(KmaForecastClientException.class)
+                .hasMessageContaining("circuit breaker is open");
+        assertThat(transport.callCount()).isEqualTo(2);
+    }
+
     private KmaVilageForecastClient newClient(FakeTransport transport) {
         return newClient(transport, "test-service-key");
     }
 
     private KmaVilageForecastClient newClient(FakeTransport transport, String serviceKey) {
+        return newClient(transport, serviceKey, new KmaProviderResilience(newProperties(serviceKey)));
+    }
+
+    private KmaVilageForecastClient newClient(
+            FakeTransport transport,
+            String serviceKey,
+            KmaProviderResilience resilience
+    ) {
+        return new KmaVilageForecastClient(newProperties(serviceKey), new ObjectMapper(), transport, resilience);
+    }
+
+    private KmaWeatherProperties newProperties(String serviceKey) {
         KmaWeatherProperties properties = new KmaWeatherProperties();
         properties.getKma().setServiceKey(serviceKey);
         properties.getKma().setBaseUrl("http://example.test/kma");
         properties.getKma().setNx(61);
         properties.getKma().setNy(128);
-        return new KmaVilageForecastClient(properties, new ObjectMapper(), transport);
+        properties.getKma().setRetryBackoff(Duration.ZERO);
+        return properties;
+    }
+
+    private KmaProviderResilience resilience(int maxAttempts, int failureThreshold) {
+        return new KmaProviderResilience(
+                maxAttempts,
+                Duration.ZERO,
+                failureThreshold,
+                Duration.ofMinutes(1),
+                java.time.Clock.systemUTC()
+        );
     }
 
     private static String successResponse() {
@@ -210,6 +262,7 @@ class KmaVilageForecastClientTest {
         private final KmaHttpResponse response;
         private final IOException failure;
         private URI requestedUri;
+        private int callCount;
 
         private FakeTransport(KmaHttpResponse response, IOException failure) {
             this.response = response;
@@ -226,6 +279,7 @@ class KmaVilageForecastClientTest {
 
         @Override
         public KmaHttpResponse get(URI uri) throws IOException {
+            callCount++;
             this.requestedUri = uri;
             if (failure != null) {
                 throw failure;
@@ -235,6 +289,10 @@ class KmaVilageForecastClientTest {
 
         URI requestedUri() {
             return requestedUri;
+        }
+
+        int callCount() {
+            return callCount;
         }
     }
 }

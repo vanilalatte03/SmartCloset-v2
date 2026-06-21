@@ -183,6 +183,9 @@ VITE_API_BASE_URL=http://localhost:8080
 | `SPRINGDOC_SWAGGER_UI_ENABLED` | Swagger UI 노출 여부. local 기본값은 `true`, prod profile 기본값은 `false` |
 | `KMA_SERVICE_KEY` | 공공데이터포털에서 발급받은 인증키. 커밋 금지 |
 | `KMA_CACHE_TTL`, `KMA_CACHE_MAX_SIZE` | KMA 날씨 process-local cache의 TTL과 entry 상한. 기본 `2m`, `256` |
+| `KMA_CONNECT_TIMEOUT`, `KMA_READ_TIMEOUT`, `KMA_REQUEST_TIMEOUT` | KMA HTTP connect/read/request timeout. 기본 `2s`, `3s`, `5s` |
+| `KMA_MAX_ATTEMPTS`, `KMA_RETRY_BACKOFF` | KMA provider retry 횟수와 backoff. 기본 `2`, `200ms` |
+| `KMA_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `KMA_CIRCUIT_BREAKER_OPEN_DURATION` | KMA provider circuit breaker 실패 threshold와 open 유지 시간. 기본 `3`, `30s` |
 | `WEATHER_FALLBACK_ENABLED` | KMA 실패 시 fallback 사용 여부. 기본 `true` |
 | `CLOTHING_IMAGE_STORAGE_DIR` | app container 내부 이미지 저장 경로 |
 | `CLOTHING_ANALYSIS_ENABLED` | 옷 사진 AI 분석 기능 활성 여부. 기본 `false` |
@@ -192,6 +195,8 @@ VITE_API_BASE_URL=http://localhost:8080
 | `CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD` | 확인 필요 기준 confidence. 기본 `0.75` |
 | `CLOTHING_ANALYSIS_DAILY_LIMIT` | user별 일일 분석 제한. 기본 `20` |
 | `CLOTHING_ANALYSIS_TIMEOUT_SECONDS` | 분석 provider timeout. 기본 `10` |
+| `CLOTHING_ANALYSIS_MAX_ATTEMPTS`, `CLOTHING_ANALYSIS_RETRY_BACKOFF` | OpenAI 분석 provider retry 횟수와 backoff. 기본 `2`, `200ms` |
+| `CLOTHING_ANALYSIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `CLOTHING_ANALYSIS_CIRCUIT_BREAKER_OPEN_DURATION` | OpenAI 분석 provider circuit breaker 실패 threshold와 open 유지 시간. 기본 `3`, `30s` |
 | `RECOMMENDATION_CREATION_THROTTLE_ENABLED` | 추천 생성 반복 호출 제한 활성 여부. 기본 `true` |
 | `RECOMMENDATION_CREATION_THROTTLE_MAX_REQUESTS` | user별 추천 생성 window당 허용 횟수. 기본 `30` |
 | `RECOMMENDATION_CREATION_THROTTLE_WINDOW` | 추천 생성 제한 window. 기본 `1m` |

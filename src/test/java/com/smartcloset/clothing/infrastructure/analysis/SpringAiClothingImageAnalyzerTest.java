@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 
@@ -55,6 +56,32 @@ class SpringAiClothingImageAnalyzerTest {
         );
 
         assertMalformedUnavailable(analyzer);
+    }
+
+    @Test
+    void retriesProviderUnavailableAndOpensCircuitBreaker() {
+        AtomicInteger callCount = new AtomicInteger();
+        ClothingAnalysisProviderResilience resilience = new ClothingAnalysisProviderResilience(
+                2,
+                java.time.Duration.ZERO,
+                1,
+                java.time.Duration.ofMinutes(1)
+        );
+        SpringAiClothingImageAnalyzer analyzer = failingAnalyzer(callCount, resilience);
+
+        try {
+            assertThatThrownBy(() -> analyzer.analyze(new ClothingAnalysisImage(new byte[] {1}, "image/png")))
+                    .isInstanceOf(ClothingImageAnalysisUnavailableException.class)
+                    .hasMessageContaining("provider unavailable");
+            assertThat(callCount).hasValue(2);
+
+            assertThatThrownBy(() -> analyzer.analyze(new ClothingAnalysisImage(new byte[] {1}, "image/png")))
+                    .isInstanceOf(ClothingImageAnalysisUnavailableException.class)
+                    .hasMessageContaining("circuit breaker is open");
+            assertThat(callCount).hasValue(2);
+        } finally {
+            analyzer.close();
+        }
     }
 
     @Test
@@ -113,6 +140,24 @@ class SpringAiClothingImageAnalyzerTest {
             @Override
             OpenAiClothingAnalysisResponse callProvider(ClothingAnalysisImage image) {
                 return response;
+            }
+        };
+    }
+
+    private SpringAiClothingImageAnalyzer failingAnalyzer(
+            AtomicInteger callCount,
+            ClothingAnalysisProviderResilience resilience
+    ) {
+        return new SpringAiClothingImageAnalyzer(
+                mock(ChatClient.class),
+                new ClothingAnalysisProperties(),
+                Executors.newSingleThreadExecutor(),
+                resilience
+        ) {
+            @Override
+            OpenAiClothingAnalysisResponse callProvider(ClothingAnalysisImage image) {
+                callCount.incrementAndGet();
+                throw new ClothingImageAnalysisUnavailableException("provider unavailable");
             }
         };
     }

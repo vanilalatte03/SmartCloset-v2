@@ -41,7 +41,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | 사용자 데이터 격리 | 공개 `userId` query parameter 제거, 인증 principal 기준 보호 API | 실제 서비스형 multi-user API 설계 |
 | 추천 도메인 | 날씨, 색상, 착용 이력, 추천 이력, 선호도, 피드백 기반 scoring, 생성 반복 호출 제한 | Controller/Repository 밖에 둔 테스트 가능한 domain logic |
 | 옷 등록 AI 보조 | 보호 이미지 분석 API, Spring AI provider boundary, confidence/review DTO, 비용 제한 | AI를 저장/추천과 분리한 사용자 확인형 보조 흐름 |
-| 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
+| 날씨 연동 | KMA `getVilageFcst` provider, timeout/retry/circuit breaker, stale/static fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
 | 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
 | 운영 관측성 | Actuator health/prometheus endpoint, 추천/KMA/AI 분석 metric, Prometheus alert rule, Grafana dashboard baseline | 장애 원인 분리와 운영 확인 지점 |

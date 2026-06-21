@@ -115,14 +115,14 @@ Custom metric은 `SmartClosetMetrics`가 이름과 low-cardinality tag를 관리
 | --- | --- | --- | --- |
 | `smartcloset.recommendation.requests` | counter | `situation`, `forecast_period`, `outcome` | 추천 생성 success/failure/limit 비율 |
 | `smartcloset.recommendation.duration` | timer | `situation`, `forecast_period`, `outcome` | 추천 생성 latency |
-| `smartcloset.weather.provider.requests` | counter | `provider`, `forecast_period`, `outcome` | KMA success/fallback/failure/cache hit success/cache hit fallback 비율 |
+| `smartcloset.weather.provider.requests` | counter | `provider`, `forecast_period`, `outcome` | KMA success/fallback/failure/cache hit/stale fallback 비율 |
 | `smartcloset.weather.provider.duration` | timer | `provider`, `forecast_period`, `outcome` | KMA provider latency |
 | `smartcloset.clothing.analysis.requests` | counter | `provider`, `outcome` | OpenAI 옷 분석 success/not analyzable/disabled/unavailable/limit/invalid request 비율 |
 | `smartcloset.clothing.analysis.duration` | timer | `provider`, `outcome` | 옷 분석 provider latency |
 
 Prometheus export에서는 Micrometer 이름이 snake_case로 변환된다. 예를 들어 `smartcloset.recommendation.requests`는 `smartcloset_recommendation_requests_total`, timer histogram은 `smartcloset_recommendation_duration_seconds_bucket` 형태로 조회한다.
 
-`monitoring/prometheus/alerts.yml`은 추천 실패율, 추천 p99 latency, KMA fallback/failure/cache hit fallback 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert baseline을 둔다. `monitoring/prometheus/prometheus.yml`은 local Alertmanager 예시 target을 `host.docker.internal:9093`으로 둔다. `monitoring/alertmanager/alertmanager.yml`은 실제 webhook 없이 local null receiver만 둔다. `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource를 연결해 import하는 dashboard baseline이다.
+`monitoring/prometheus/alerts.yml`은 추천 실패율, 추천 p99 latency, KMA fallback/failure/cache hit fallback/stale fallback 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert baseline을 둔다. `monitoring/prometheus/prometheus.yml`은 local Alertmanager 예시 target을 `host.docker.internal:9093`으로 둔다. `monitoring/alertmanager/alertmanager.yml`은 실제 webhook 없이 local null receiver만 둔다. `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource를 연결해 import하는 dashboard baseline이다.
 
 Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, log aggregation backend 운영, vendor-specific error tracking SDK, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
 
@@ -187,6 +187,10 @@ smartcloset:
       low-confidence-threshold: ${CLOTHING_ANALYSIS_LOW_CONFIDENCE_THRESHOLD:0.75}
       daily-limit: ${CLOTHING_ANALYSIS_DAILY_LIMIT:20}
       timeout-seconds: ${CLOTHING_ANALYSIS_TIMEOUT_SECONDS:10}
+      max-attempts: ${CLOTHING_ANALYSIS_MAX_ATTEMPTS:2}
+      retry-backoff: ${CLOTHING_ANALYSIS_RETRY_BACKOFF:200ms}
+      circuit-breaker-failure-threshold: ${CLOTHING_ANALYSIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      circuit-breaker-open-duration: ${CLOTHING_ANALYSIS_CIRCUIT_BREAKER_OPEN_DURATION:30s}
 ```
 
 정책:
@@ -195,6 +199,7 @@ smartcloset:
 - `SPRING_AI_MODEL_CHAT=none`과 빈 API key 상태에서도 앱 시작과 기존 기능이 깨지지 않아야 한다.
 - 실제 OpenAI 호출은 기능 활성, chat model 활성, API key 존재가 모두 충족될 때만 가능하다.
 - 기본 모델은 `gpt-5.4-nano`다.
+- OpenAI provider 호출은 application timeout 안에서 Resilience4j retry와 process-local circuit breaker를 적용한다.
 - GPT-5 계열 temperature 미지원 가능성을 고려해 temperature를 강제로 설정하지 않는다.
 - 다른 모델로 자동 재시도하지 않는다.
 - 응답은 짧은 structured output으로 제한한다.
@@ -289,6 +294,8 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - 위치 검색과 좌표 resolve는 MVP7 계약을 유지한다.
 - Weather provider는 KMA `getVilageFcst`와 fallback만 사용한다.
 - KMA provider cache는 process-local bounded TTL cache이며, 날씨 값/source만 공유하고 사용자 위치 snapshot은 응답 시점에 합성한다.
+- KMA HTTP connect/read/request timeout은 env로 조정하며, KMA client에는 Resilience4j retry와 process-local circuit breaker를 적용한다.
+- KMA refresh 실패 시 같은 grid와 forecastPeriod의 마지막 정상 KMA 날씨 값이 있으면 static fallback보다 먼저 stale fallback으로 사용하고 `stale_cache_fallback` metric을 기록한다. raw KMA 응답 JSON은 저장하지 않는다.
 - 추천 생성은 `POST /api/recommendations`이며 optional `situation`, `forecastPeriod`를 받는다.
 - 추천 생성은 user별 process-local fixed-window throttle을 먼저 통과해야 하며, 기본 정책은 1분 window 안에서 user당 30회다.
 - 추천 결과와 이력의 위치/날씨 source snapshot은 유지한다.

@@ -168,6 +168,40 @@ class KmaVilageForecastWeatherProviderTest {
     }
 
     @Test
+    void returnsStaleSuccessfulKmaWeatherBeforeStaticFallbackWhenRefreshFails() {
+        MutableClock mutableClock = MutableClock.fixed("2026-05-21T14:15:00+09:00");
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        KmaWeatherProperties properties = properties("test-service-key", true);
+        properties.getKma().setCacheTtl(Duration.ofMinutes(1));
+        FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
+        CountingStaticWeatherProvider fallbackProvider = new CountingStaticWeatherProvider();
+        KmaVilageForecastWeatherProvider provider = new KmaVilageForecastWeatherProvider(
+                properties,
+                client,
+                new KmaForecastBaseTimeCalculator(),
+                new KmaWeatherConditionMapper(),
+                fallbackProvider,
+                new FakeUserLocationReader(),
+                new SmartClosetMetrics(meterRegistry),
+                mutableClock
+        );
+
+        WeatherSnapshot freshWeather = provider.getCurrentWeather(1L);
+        client.failWith(new KmaForecastClientException("request timeout"));
+        mutableClock.advance(Duration.ofMinutes(2));
+        WeatherSnapshot staleWeather = provider.getCurrentWeather(1L);
+
+        assertThat(client.callCount()).isEqualTo(2);
+        assertThat(fallbackProvider.callCount()).isZero();
+        assertThat(staleWeather.condition()).isEqualTo(freshWeather.condition());
+        assertThat(staleWeather.source().provider().name()).isEqualTo("KMA_VILAGE_FORECAST");
+        assertThat(staleWeather.source().kmaUsed()).isTrue();
+        assertThat(staleWeather.source().fallbackUsed()).isFalse();
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "success")).isEqualTo(1.0);
+        assertThat(weatherProviderRequestCount(meterRegistry, "current", "stale_cache_fallback")).isEqualTo(1.0);
+    }
+
+    @Test
     void removesExpiredEntriesBeforeCachingNewWeather() {
         MutableClock mutableClock = MutableClock.fixed("2026-05-21T14:15:00+09:00");
         FakeKmaForecastClient client = FakeKmaForecastClient.returning(completeGroup());
@@ -509,7 +543,7 @@ class KmaVilageForecastWeatherProviderTest {
     private static final class FakeKmaForecastClient implements KmaForecastClient {
 
         private final List<KmaForecastItem> items;
-        private final KmaForecastClientException failure;
+        private KmaForecastClientException failure;
         private int callCount;
         private KmaForecastBaseTime requestedBaseTime;
         private KmaGrid requestedGrid;
@@ -527,6 +561,10 @@ class KmaVilageForecastWeatherProviderTest {
 
         static FakeKmaForecastClient failing(KmaForecastClientException failure) {
             return new FakeKmaForecastClient(List.of(), failure);
+        }
+
+        void failWith(KmaForecastClientException failure) {
+            this.failure = failure;
         }
 
         @Override
