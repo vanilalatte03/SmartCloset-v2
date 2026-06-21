@@ -20,6 +20,7 @@ build/
 .idea/
 .env
 uploads/
+backups/
 prompt-summary.txt
 
 # phase execution outputs

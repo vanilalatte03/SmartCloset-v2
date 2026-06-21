@@ -35,8 +35,10 @@ services:
       SPRING_FLYWAY_ENABLED: ${SPRING_FLYWAY_ENABLED:-true}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       SMARTCLOSET_SEED_ENABLED: ${SMARTCLOSET_SEED_ENABLED:-true}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:-health,info,prometheus}
       MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:-true}
+      SMARTCLOSET_HEALTHCHECK_URL: ${SMARTCLOSET_HEALTHCHECK_URL:-http://127.0.0.1:8080/actuator/health}
       JWT_SECRET: ${JWT_SECRET:-change-me-local-development-only}
       REFRESH_TOKEN_COOKIE_NAME: ${REFRESH_TOKEN_COOKIE_NAME:-smartcloset.refreshToken}
       REFRESH_TOKEN_COOKIE_SECURE: ${REFRESH_TOKEN_COOKIE_SECURE:-false}
@@ -87,7 +89,7 @@ services:
     working_dir: /app
     depends_on:
       app:
-        condition: service_started
+        condition: service_healthy
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     ports:

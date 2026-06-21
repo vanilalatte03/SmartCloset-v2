@@ -2,6 +2,7 @@
 .gradle
 .gradle-user-home
 build
+backups
 .idea
 .pytest_cache
 .env

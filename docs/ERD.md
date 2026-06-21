@@ -31,6 +31,8 @@ MVP10 DB baseline은 MVP8 계정 안정성 완료 schema와 MVP9 UI/UX 리디자
 - Hibernate `ddl-auto` 기본값은 `validate`이며, schema 변경 책임은 Hibernate 자동 변경이 아니라 `V*.sql` migration에 둔다.
 - `local`/`demo` profile은 기존 로컬 volume 편입을 위해 `baseline-on-migrate=true`를 기본값으로 사용할 수 있다.
 - `prod` profile은 Hibernate `update/create/create-drop` 계열 자동 schema 변경을 허용하지 않으며, 기존 운영 DB baseline 편입은 명시적으로 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 설정한 배포 절차에서만 수행한다.
+- DB backup은 `scripts/mysql-backup.sh`로 생성하고, restore는 `SMARTCLOSET_RESTORE_CONFIRM=restore scripts/mysql-restore.sh <backup.sql>`로 명시 확인 후 수행한다.
+- backup dump는 데이터 파일이며 `backups/` 아래 local artifact로 취급하고 커밋하지 않는다.
 
 ## 2. Mermaid ERD
 

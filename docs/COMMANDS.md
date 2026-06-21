@@ -30,6 +30,11 @@ git config core.hooksPath .githooks
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
 | compose-down | `docker compose down` | yes | Docker Compose 중지 |
 | compose-reset | `docker compose down -v` | yes | Docker Compose 중지 및 DB/image volume 초기화 |
+| docker-build | `docker build -t smartcloset-app:local .` | no | app image build와 Dockerfile hardening 확인 |
+| docker-image-smoke | 아래 `Docker image hardening smoke` 절차 | no | non-root user, JVM env, Dockerfile healthcheck 확인 |
+| mysql-backup | `scripts/mysql-backup.sh` | no | 실행 중인 Compose MySQL container에서 backup dump 생성 |
+| mysql-restore | `SMARTCLOSET_RESTORE_CONFIRM=restore scripts/mysql-restore.sh <backup.sql>` | no | 명시 확인 후 MySQL backup dump restore |
+| mysql-backup-restore-smoke | 아래 `MySQL backup/restore smoke` 절차 | no | 임시 MySQL container에서 backup/restore script 검증 |
 | review | `python3 scripts/doctor.py --instance` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/tests/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
 | phase | `python3 scripts/execute.py <phase-name>` | no | Harness phase 실행 |
@@ -64,6 +69,7 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 ./gradlew build
 (cd frontend && npm run build)
 docker compose config --quiet
+sh -n scripts/mysql-backup.sh scripts/mysql-restore.sh
 ```
 
 MVP10 구현 step의 최소 검증:
@@ -129,6 +135,59 @@ docker stop smartcloset-mysql-migration-smoke
 ```
 
 `Started SmartClosetApplication` 로그가 보이면 Flyway V1 적용과 Hibernate validate가 통과한 것이다. 확인 후 `Ctrl-C`로 app을 종료하고 마지막 `docker stop`을 실행한다.
+
+Docker image hardening smoke:
+
+```bash
+docker build -t smartcloset-app:hardening-smoke .
+test "$(docker inspect -f '{{.Config.User}}' smartcloset-app:hardening-smoke)" = "10001:10001"
+docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' smartcloset-app:hardening-smoke | rg '^JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0$'
+docker inspect -f '{{json .Config.Healthcheck.Test}}' smartcloset-app:hardening-smoke | rg 'SMARTCLOSET_HEALTHCHECK_URL|curl'
+test "$(docker run --rm --entrypoint id smartcloset-app:hardening-smoke -u)" = "10001"
+docker image rm smartcloset-app:hardening-smoke
+```
+
+MySQL backup/restore smoke:
+
+```bash
+docker run --rm --name smartcloset-mysql-backup-smoke \
+  -e MYSQL_DATABASE=smartcloset \
+  -e MYSQL_USER=smartcloset \
+  -e MYSQL_PASSWORD=smartcloset \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -p 33309:3306 \
+  -d mysql:8.4
+
+for i in $(seq 1 60); do
+  docker exec smartcloset-mysql-backup-smoke \
+    mysqladmin ping -h 127.0.0.1 -usmartcloset -psmartcloset --silent && break
+  sleep 2
+done
+
+docker exec smartcloset-mysql-backup-smoke \
+  mysql -usmartcloset -psmartcloset smartcloset \
+  -e "CREATE TABLE backup_smoke (id BIGINT PRIMARY KEY, value VARCHAR(20)); INSERT INTO backup_smoke VALUES (1, 'ok');"
+
+MYSQL_CONTAINER_NAME=smartcloset-mysql-backup-smoke \
+  scripts/mysql-backup.sh /tmp/smartcloset-backup-smoke.sql
+
+docker exec smartcloset-mysql-backup-smoke \
+  mysql -usmartcloset -psmartcloset smartcloset \
+  -e "RENAME TABLE backup_smoke TO backup_smoke_before_restore;"
+
+SMARTCLOSET_RESTORE_CONFIRM=restore \
+MYSQL_CONTAINER_NAME=smartcloset-mysql-backup-smoke \
+  scripts/mysql-restore.sh /tmp/smartcloset-backup-smoke.sql
+
+docker exec smartcloset-mysql-backup-smoke \
+  mysql -N -usmartcloset -psmartcloset smartcloset \
+  -e "SELECT value FROM backup_smoke WHERE id = 1;" | rg '^ok$'
+
+rm -f /tmp/smartcloset-backup-smoke.sql
+docker stop smartcloset-mysql-backup-smoke
+```
+
+Restore는 대상 DB에 dump 내용을 다시 적용하는 작업이므로 `SMARTCLOSET_RESTORE_CONFIRM=restore`를 명시해야 실행된다. 운영 DB restore는 별도 점검 창, 최신 backup 확인, 애플리케이션 write traffic 중지, restore 후 migration/validate 확인을 거친다.
 
 Monitoring smoke:
 
