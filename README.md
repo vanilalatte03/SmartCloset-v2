@@ -28,7 +28,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 - Frontend: React, Vite, TypeScript
 - Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie
 - Weather: KMA `getVilageFcst`, local fallback provider
-- Observability: Spring Boot Actuator, Micrometer, Prometheus metrics
+- Observability: Spring Boot Actuator, Micrometer, Prometheus metrics, ECS structured logs, OpenTelemetry tracing boundary
 - Runtime: Docker Compose, Nginx static frontend serving
 - Storage: local file system, Docker Compose volume
 - Tooling: Gradle, Docker Compose, project docs-check scripts

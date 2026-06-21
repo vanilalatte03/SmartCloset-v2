@@ -97,11 +97,11 @@ frontend/src
 
 Controller 이후로 전파된 HTTP API 예외는 `GlobalExceptionHandler`가 `ErrorCode` 기반 JSON 실패 응답으로 변환한다. Spring Security filter 단계의 인증/인가 실패는 `SecurityErrorResponseWriter`가 같은 실패 응답 구조로 변환한다.
 
-실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message는 로그에 남기지 않는다.
+실패 응답을 만든 서버 로그는 운영 추적을 위해 `code`, `status`, HTTP method, request path, exception class, 고정된 error message를 남긴다. 민감정보 노출을 막기 위해 request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password는 로그에 남기지 않는다.
 
 ## 운영 관측성
 
-운영 관측성 baseline은 Spring Boot Actuator와 Micrometer Prometheus registry를 사용한다. 기본 local endpoint 노출은 `health`, `info`, `prometheus`이고, `prod` profile 기본 노출은 `health`, `prometheus`다. health detail은 기본적으로 숨긴다.
+운영 관측성 baseline은 Spring Boot Actuator, Micrometer Prometheus registry, Spring Boot structured logging, Spring Boot OpenTelemetry starter를 사용한다. 기본 local endpoint 노출은 `health`, `info`, `prometheus`이고, `prod` profile 기본 노출은 `health`, `prometheus`다. health detail은 기본적으로 숨긴다.
 
 ```text
 GET /actuator/health
@@ -123,7 +123,18 @@ Prometheus export에서는 Micrometer 이름이 snake_case로 변환된다. 예�
 
 `monitoring/prometheus/alerts.yml`은 추천 실패율, 추천 p99 latency, KMA fallback/failure/cache hit fallback 비율, OpenAI 분석 장애 비율, HikariCP pool saturation, JVM heap 사용률 alert baseline을 둔다. `monitoring/prometheus/prometheus.yml`은 local Alertmanager 예시 target을 `host.docker.internal:9093`으로 둔다. `monitoring/alertmanager/alertmanager.yml`은 실제 webhook 없이 local null receiver만 둔다. `monitoring/grafana/smartcloset-dashboard.json`은 Prometheus datasource를 연결해 import하는 dashboard baseline이다.
 
-Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, tracing, log aggregation, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
+Metric tag에는 user id, token, image path, raw exception message, provider secret을 넣지 않는다. 실제 운영 배포에서는 `/actuator/prometheus`를 공개 인터넷에 직접 노출하지 않고 Prometheus가 접근하는 내부 네트워크나 proxy allowlist 뒤에 둔다. 현재 범위에는 외부 알림 채널, log aggregation backend 운영, vendor-specific error tracking SDK, AWS/RDS/Secrets Manager 통합을 추가하지 않는다.
+
+Structured log와 tracing 정책:
+
+- Console log format 기본값은 Spring Boot built-in ECS JSON(`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`)이다.
+- ECS `service.name`, `service.version`, `service.environment`는 app/env property에서 채운다.
+- API/business/security error log는 SLF4J key-value field로 `code`, `status`, `method`, `path`, `exception`, 고정 `error_message`를 남긴다.
+- Request body, Authorization header, cookie, query string, raw exception message, token/action token/API key/password는 로그 field와 message에 남기지 않는다.
+- Micrometer tracing sampling 기본값은 `1.0`이며 `MANAGEMENT_TRACING_SAMPLING_PROBABILITY`로 조정한다.
+- OTLP trace export는 `MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED=true`일 때 `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT`로 지정한 collector에 보낸다. 기본 local/demo 실행은 OTLP trace/log/metrics export를 비활성으로 둬 collector 없이도 실행 가능해야 한다.
+- `TraceIdResponseFilter`는 현재 span이 있을 때 `X-Trace-Id` response header를 추가한다.
+- Sentry 같은 vendor-specific error tracking SDK는 이번 baseline에 넣지 않는다. 에러 추적은 structured error log, `X-Trace-Id`, OTLP trace export로 시작하고, Sentry/Datadog 등은 운영 backend 선택과 secret/scrubbing 정책이 확정될 때 별도 ADR로 추가한다.
 
 ## 옷 사진 분석 흐름
 
@@ -243,7 +254,7 @@ MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
 - 미인증 password 계정은 login할 수 없다.
 - password login 실패는 정규화 email과 servlet remote address 조합 및 servlet remote address 단독 process-local in-memory window로 제한한다.
 - `X-Forwarded-For` 등 proxy header는 신뢰 가능한 proxy 경계가 없는 현재 MVP10 local/API 범위에서 login attempt key로 사용하지 않는다.
-- Token 원문은 저장하지 않고 hash만 저장한다.
+- Token 원문은 DB에 저장하지 않고 hash만 저장한다. Local/demo action token 원문 확인은 `SMARTCLOSET_EMAIL_OUTBOX_PATH` outbox 파일로만 수행한다.
 - Google provider 설정이 없으면 provider status는 disabled다.
 - 계정 삭제는 현재 사용자 소유 데이터와 이미지 파일을 즉시 hard delete한다.
 
@@ -251,7 +262,7 @@ MVP8에서 추가한 auth/account 개념은 MVP10에서도 유지한다.
 
 MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 기존 adapter boundary를 유지한다.
 
-- `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다.
+- `EmailSender`는 interface로 두고 현재 local 구현체는 `ConsoleEmailSender`다. `ConsoleEmailSender`는 action token 원문을 SLF4J 로그에 남기지 않고 `SMARTCLOSET_EMAIL_OUTBOX_PATH` local outbox 파일에만 쓴다.
 - 후속 MVP에서 SES/SMTP sender를 추가해도 auth application service는 바꾸지 않는다.
 - `ClothingImageStorage`는 기존 local file 구현을 유지한다.
 - 후속 MVP에서 S3 구현체를 추가해도 account deletion service는 storage interface만 사용한다.
@@ -305,7 +316,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 
 - AWS 배포 구현을 추가하지 않는다. 이유: MVP10은 AI 옷 등록 보조 MVP이며 AWS는 후속 범위다.
 - S3 구현체를 추가하지 않는다. 이유: 현재는 `ClothingImageStorage` 경계만 보존한다.
-- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 `ConsoleEmailSender` 기준이다.
+- SES/SMTP 실제 발송 구현체를 추가하지 않는다. 이유: 현재 이메일은 local outbox 기반 `ConsoleEmailSender` 기준이다.
 - Redis를 추가하지 않는다. 이유: refresh session, login attempt throttle, 분석 daily limit은 현재 범위에서 DB-backed 또는 in-memory로 검증한다.
 - AI/GPT 옷차림 추천을 추가하지 않는다. 이유: 추천은 규칙 기반 계약이다.
 - AI-generated 추천 이유를 추가하지 않는다. 이유: 추천 이유는 template 기반이다.

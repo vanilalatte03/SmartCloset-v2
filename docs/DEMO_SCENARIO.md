@@ -46,7 +46,7 @@ MVP10 데모의 핵심은 옷 사진을 선택한 뒤 사용자가 직접 `AI �
 ## 데모 전제
 
 - `.env`는 `.env.example`을 복사해 만든다.
-- 이메일 발송은 `ConsoleEmailSender` 기준이며 실제 메일은 발송하지 않는다.
+- 이메일 발송은 local outbox 기반 `ConsoleEmailSender` 기준이며 실제 메일은 발송하지 않는다.
 - Google OAuth 설정이 없으면 provider disabled 상태로 데모한다.
 - KMA key가 없어도 `WEATHER_FALLBACK_ENABLED=true`이면 fallback weather로 추천 데모 가능하다.
 - `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 앱이 정상 실행되어야 한다.
@@ -91,7 +91,7 @@ http://localhost:8080/swagger-ui/index.html
 
 ### 2. 이메일 인증과 로그인
 
-1. backend console/log에서 인증 token 또는 인증 링크를 확인한다.
+1. backend local outbox 파일에서 인증 token을 확인한다. Docker Compose에서는 `docker compose exec app tail -n 20 /tmp/smartcloset-email-outbox.log`를 사용한다.
 2. 앱의 이메일 인증 확인 화면에 token을 입력하거나 링크를 연다.
 3. 인증된 이메일/password로 로그인한다.
 4. 앱을 새로고침한다.

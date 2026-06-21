@@ -258,7 +258,7 @@ UX 기준:
 - 넓은 visual background와 중앙 form 구조를 우선한다.
 - 모바일에서는 visual이 form 가독성을 방해하지 않아야 한다.
 - 회원가입 성공 후 "이메일 인증 후 로그인할 수 있습니다" 상태를 보여준다.
-- local 개발에서 console/log email sender를 사용한다는 문구는 문서/개발 안내에만 둔다.
+- local 개발에서 outbox email sender를 사용한다는 문구는 문서/개발 안내에만 둔다.
 - 미인증 계정 로그인 실패는 인증 재요청으로 이어질 수 있어야 한다.
 - 비밀번호 재설정 요청은 계정 존재 여부를 노출하지 않는 중립 성공 메시지를 보여준다.
 - Google provider disabled 상태면 button을 비활성화하고 설정 필요 상태를 작게 표시한다.

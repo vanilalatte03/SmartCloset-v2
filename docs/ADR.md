@@ -39,6 +39,8 @@ ADR-022는 운영 준비 작업으로 PR CI의 backend 정적 분석, JaCoCo cov
 
 ADR-023은 운영 준비 작업으로 Spring AI milestone 의존성을 Spring AI 2.0.0 GA로 전환하고, Boot 4.0.6 baseline과 AI 분석 계약을 유지한다.
 
+ADR-024는 운영 준비 작업으로 Spring Boot structured logging과 OpenTelemetry tracing baseline을 도입하고, vendor-specific Sentry 도입은 후속 선택으로 남긴다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -62,3 +64,4 @@ ADR-023은 운영 준비 작업으로 Spring AI milestone 의존성을 Spring AI
 - [ADR-021: Add CI Security and Image Gates](adr/021-ci-security-image-gates.md)
 - [ADR-022: Add CI Quality and Coverage Gates](adr/022-ci-quality-coverage-gates.md)
 - [ADR-023: Promote Spring AI Dependency to 2.0.0 GA](adr/023-spring-ai-ga-dependency.md)
+- [ADR-024: Add Structured Logging and Tracing Baseline](adr/024-structured-logging-tracing-baseline.md)

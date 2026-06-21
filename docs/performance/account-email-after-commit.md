@@ -38,7 +38,7 @@
 
 DB transaction은 user 생성과 action token 저장 같은 인증 핵심 영속성 변경 구간에 집중된다. sender나 신규 계정 기본 옷 온보딩이 느리거나 실패하더라도 이미 commit된 DB 상태는 rollback되지 않는다.
 
-현재 local profile에서는 console logging 비용만 분리되지만, 운영 sender가 붙는 후속 MVP에서도 auth application service는 `EmailSender` interface와 after-commit scheduler 경계를 유지할 수 있다.
+현재 local profile에서는 local outbox write 비용만 분리되지만, 운영 sender가 붙는 후속 MVP에서도 auth application service는 `EmailSender` interface와 after-commit scheduler 경계를 유지할 수 있다.
 
 ## 실패 정책
 계정 메일 발송 실패는 commit 이후 side effect 실패로 취급한다.
