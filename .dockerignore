@@ -6,6 +6,10 @@ backups
 .idea
 .pytest_cache
 .env
+.env.*
+!.env.example
+!.env.prod.example
 frontend/dist
 frontend/node_modules
+uploads/
 prompt-summary.txt

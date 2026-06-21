@@ -31,6 +31,8 @@ ADR-018은 운영 준비 작업으로 Actuator와 Prometheus 기반 관측성 ba
 
 ADR-019는 운영 준비 작업으로 Docker image non-root runtime, Actuator 기반 container healthcheck, JVM memory env, MySQL backup/restore runbook baseline을 정의한다.
 
+ADR-020은 운영 준비 작업으로 local/demo compose와 분리된 prod compose, Nginx 기반 frontend production image, prod cookie/secret/schema runtime guard와 smoke 검증을 정의한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -50,3 +52,4 @@ ADR-019는 운영 준비 작업으로 Docker image non-root runtime, Actuator �
 - [ADR-017: Reintroduce Production Schema Migration](adr/017-production-schema-migration.md)
 - [ADR-018: Introduce Observability Baseline](adr/018-observability-baseline.md)
 - [ADR-019: Harden Docker Runtime and DB Operations](adr/019-docker-db-hardening.md)
+- [ADR-020: Define Production Runtime Artifacts](adr/020-prod-runtime-artifacts.md)

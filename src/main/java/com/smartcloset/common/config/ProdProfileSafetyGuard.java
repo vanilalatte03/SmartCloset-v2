@@ -37,6 +37,7 @@ public class ProdProfileSafetyGuard implements BeanFactoryPostProcessor, Environ
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
         validateJwtSecret();
         validateDdlAuto();
+        validateSecureCookies();
     }
 
     private void validateJwtSecret() {
@@ -55,6 +56,23 @@ public class ProdProfileSafetyGuard implements BeanFactoryPostProcessor, Environ
             throw new IllegalStateException(
                     "prod profile allows only spring.jpa.hibernate.ddl-auto=validate or none"
             );
+        }
+    }
+
+    private void validateSecureCookies() {
+        validateTrue(
+                "smartcloset.security.refresh-token.cookie.secure",
+                "prod profile requires refresh cookie Secure=true"
+        );
+        validateTrue(
+                "smartcloset.security.oauth2.state-cookie.secure",
+                "prod profile requires OAuth state cookie Secure=true"
+        );
+    }
+
+    private void validateTrue(String name, String message) {
+        if (!Boolean.parseBoolean(property(name))) {
+            throw new IllegalStateException(message);
         }
     }
 

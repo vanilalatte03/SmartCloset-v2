@@ -30,7 +30,9 @@ git config core.hooksPath .githooks
 | compose-up | `test -f .env || cp .env.example .env; docker compose up --build` | yes | Docker Compose로 MySQL, 백엔드, 프론트엔드 실행 |
 | compose-down | `docker compose down` | yes | Docker Compose 중지 |
 | compose-reset | `docker compose down -v` | yes | Docker Compose 중지 및 DB/image volume 초기화 |
+| prod-compose-smoke | `scripts/prod-compose-smoke.sh` | no | prod compose, app health/API, disabled OpenAPI, Nginx frontend 확인 |
 | docker-build | `docker build -t smartcloset-app:local .` | no | app image build와 Dockerfile hardening 확인 |
+| frontend-prod-build | `docker build -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8080 -t smartcloset-frontend:prod-smoke frontend` | no | Vite build 산출물을 Nginx static image로 빌드 |
 | docker-image-smoke | 아래 `Docker image hardening smoke` 절차 | no | non-root user, JVM env, Dockerfile healthcheck 확인 |
 | compose-volume-permission-smoke | 아래 `Compose image volume permission smoke` 절차 | no | 기존 이미지 volume 소유권을 app UID/GID로 보정하는지 확인 |
 | mysql-backup | `scripts/mysql-backup.sh` | no | 실행 중인 Compose MySQL container에서 backup dump 생성 |
@@ -70,7 +72,8 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 ./gradlew build
 (cd frontend && npm run build)
 docker compose config --quiet
-sh -n scripts/mysql-backup.sh scripts/mysql-restore.sh
+sh -n scripts/mysql-backup.sh scripts/mysql-restore.sh scripts/prod-compose-smoke.sh
+scripts/prod-compose-smoke.sh
 ```
 
 MVP10 구현 step의 최소 검증:
@@ -101,6 +104,14 @@ docker compose down
 Docker Compose 기본 profile은 `.env.example`의 `SPRING_PROFILES_ACTIVE=local`이다. demo user와 최소 옷장 seed는 `local`/`demo` profile에서 `SMARTCLOSET_SEED_ENABLED=true`일 때만 생성된다. 깨끗한 MySQL volume은 Flyway `V*.sql` migration으로 생성하고 Hibernate `ddl-auto=validate`로 검증한다. MVP10 AI 분석은 기본 비활성이며, `CLOTHING_ANALYSIS_ENABLED=false`, `SPRING_AI_MODEL_CHAT=none`, 빈 `OPENAI_API_KEY` 상태에서도 Compose 실행이 가능해야 한다.
 
 `prod` profile은 local placeholder `JWT_SECRET`과 Hibernate `ddl-auto=update`를 fail-fast로 막고, Swagger UI/API docs를 기본 비활성화한다. 운영 DB schema 변경은 Flyway migration으로 추적하며, 기존 운영 DB 편입은 배포 절차에서 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 명시한 경우에만 허용한다. AWS adapter, RDS/Secrets Manager 구성은 후속 범위다.
+
+Production Compose smoke:
+
+```bash
+scripts/prod-compose-smoke.sh
+```
+
+`docker-compose.prod.yml`은 local/demo `docker-compose.yml`과 별도 파일이고 top-level project name은 `smartcloset-prod`다. Prod volume은 기본값 `smartcloset-prod-mysql-data`, `smartcloset-prod-clothing-image-data`로 명시해 local compose volume과 충돌하지 않게 한다. Smoke는 `MYSQL_DATA_VOLUME_NAME`, `CLOTHING_IMAGE_DATA_VOLUME_NAME`을 임시 project prefix로 override해 실제 prod volume을 건드리지 않는다. `.env.prod.example`은 secret 값을 비워 둔 checklist이므로 그대로 기동하지 않고, 운영 환경 또는 smoke 전용 임시 env에서 `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL`을 채워야 한다. Prod compose는 `SPRING_PROFILES_ACTIVE=prod`, `SMARTCLOSET_SEED_ENABLED=false`, `SPRINGDOC_API_DOCS_ENABLED=false`, `SPRINGDOC_SWAGGER_UI_ENABLED=false`, refresh/OAuth state cookie `Secure=true`를 기준으로 한다. Frontend service는 `frontend/Dockerfile`로 Vite build 산출물을 만들고 Nginx non-root static server로 서빙한다. `scripts/prod-compose-smoke.sh`의 project name override는 `SMARTCLOSET_PROD_SMOKE_PROJECT`만 사용하고, 값은 `smartclosetprodsmoke` prefix로 제한한다.
 
 Clean MySQL migration smoke는 프로젝트 Docker Compose volume을 사용하지 않고 임시 MySQL container로 확인한다.
 

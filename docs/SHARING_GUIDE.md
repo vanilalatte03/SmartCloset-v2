@@ -6,7 +6,7 @@ SmartCloset MVP10 공유 방식은 Docker Compose local 실행으로 유지한�
 
 공유 대상자는 Docker Compose로 MySQL, 이미지 저장 volume 권한 helper, Spring Boot 4.0.6 백엔드, React+Vite+TypeScript 프론트엔드, 이미지 저장 volume을 함께 실행한다. MVP10 AI 옷 등록 보조는 기본 비활성 상태이므로 OpenAI API key 없이도 기존 기능과 앱 데모가 동작해야 한다.
 
-AWS 배포, S3, SES, Secrets Manager, CD 자동화는 MVP10 공유 범위가 아니다.
+운영 준비용 prod-like runtime은 `docker-compose.prod.yml`과 Nginx frontend image로 별도 검증한다. AWS 배포, S3, SES, Secrets Manager, CD 자동화는 MVP10 공유 범위가 아니다.
 
 ## MVP10 공유 기준
 
@@ -20,8 +20,12 @@ MVP5 이미지, MVP6 피드백/개인화, MVP7 위치/날씨 신뢰도, MVP8 계
 - `README.md`
 - `Dockerfile`
 - `docker-compose.yml`
+- `docker-compose.prod.yml`
 - `.env.example`
+- `.env.prod.example`
 - `frontend/`
+- `frontend/Dockerfile`
+- `frontend/nginx.conf`
 - Frontend 경로: http://localhost:5173
 - Swagger UI 경로: http://localhost:8080/swagger-ui/index.html
 - OpenAPI JSON 경로: http://localhost:8080/v3/api-docs
@@ -62,6 +66,14 @@ DB와 이미지 volume까지 초기화:
 ```bash
 docker compose down -v
 ```
+
+Prod-like runtime smoke:
+
+```bash
+scripts/prod-compose-smoke.sh
+```
+
+`docker-compose.prod.yml`은 local/demo compose와 분리된 운영 준비 산출물이다. Top-level project name은 `smartcloset-prod`이고 prod volume은 기본값 `smartcloset-prod-mysql-data`, `smartcloset-prod-clothing-image-data`로 명시한다. Prod smoke는 volume name을 임시 project prefix로 override해 실제 prod volume을 건드리지 않는다. `.env.prod.example`은 실제 secret 값을 비워 둔 checklist이므로 그대로 실행하지 않는다. 운영 또는 prod smoke env는 최소한 `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL`을 채워야 한다. Prod smoke project override는 `SMARTCLOSET_PROD_SMOKE_PROJECT`만 사용하며 `smartclosetprodsmoke` prefix로 제한한다.
 
 ## 환경변수
 
@@ -173,6 +185,22 @@ VITE_API_BASE_URL=http://localhost:8080
 | `CLOTHING_ANALYSIS_TIMEOUT_SECONDS` | 분석 provider timeout. 기본 `10` |
 | `VITE_API_BASE_URL` | 브라우저에서 접근할 백엔드 API base URL |
 
+Prod runtime 필수/보안 env:
+
+| Variable | Prod 기준 |
+| --- | --- |
+| `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD` | 실제 운영 secret으로만 주입. `.env.prod.example`에는 값을 두지 않음 |
+| `MYSQL_DATA_VOLUME_NAME`, `CLOTHING_IMAGE_DATA_VOLUME_NAME` | prod volume 이름. 기본값은 local/demo volume과 충돌하지 않는 `smartcloset-prod-*` |
+| `JWT_SECRET` | local placeholder 금지. prod profile safety guard가 빈 값과 local placeholder를 차단 |
+| `SPRING_PROFILES_ACTIVE` | `docker-compose.prod.yml`에서 `prod`로 고정 |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | 기본 `validate`. `update/create/create-drop` 계열은 prod safety guard가 차단 |
+| `SMARTCLOSET_SEED_ENABLED` | 기본 `false` |
+| `REFRESH_TOKEN_COOKIE_SECURE`, `OAUTH_STATE_COOKIE_SECURE` | 기본 `true`. prod safety guard가 `false`를 차단 |
+| `REFRESH_TOKEN_COOKIE_SAME_SITE`, `OAUTH_STATE_COOKIE_SAME_SITE` | 기본 `None`; Secure cookie와 함께 사용 |
+| `CORS_ALLOWED_ORIGINS` | 운영 frontend origin을 명시. wildcard credential 조합을 사용하지 않음 |
+| `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL` | 운영 frontend/backend public URL 기준으로 명시 |
+| `SPRINGDOC_API_DOCS_ENABLED`, `SPRINGDOC_SWAGGER_UI_ENABLED` | 기본 `false` |
+
 ## AI 옷 등록 보조 활성화
 
 기본 공유 데모는 OpenAI 호출 없이 진행한다. 실제 분석을 확인할 때만 로컬 `.env`에 아래처럼 설정한다.
@@ -213,6 +241,16 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 - 로그인 후 `추천`, `옷장`, `내 취향`, `위치`, `기록`을 탐색할 수 있다.
 - 계정 설정은 profile pill/menu에서 진입할 수 있다.
 - local profile에서 demo user와 최소 옷장 seed가 준비된다. default/prod profile 기동만으로 seed 데이터가 생성되지 않는다.
+
+### Prod-like runtime 기준
+
+- `docker-compose.prod.yml`이 local/demo compose와 분리되어 있다.
+- prod compose는 `smartcloset-prod` project name과 명시적인 prod volume name을 사용해 local/demo Docker volume과 충돌하지 않는다.
+- prod app은 `SPRING_PROFILES_ACTIVE=prod`, `SMARTCLOSET_SEED_ENABLED=false`, Hibernate `ddl-auto=validate`, Flyway enabled로 실행된다.
+- prod app은 local JWT placeholder, unsafe ddl-auto, insecure refresh/OAuth state cookie 설정으로 기동하지 않는다.
+- Swagger UI와 OpenAPI JSON은 prod 기본값에서 비활성이다.
+- frontend는 Vite dev server가 아니라 Nginx static image로 서빙된다.
+- `scripts/prod-compose-smoke.sh`가 app health, 공개 auth provider API, disabled OpenAPI, frontend health/root HTML을 확인한다.
 
 ### MVP10 AI 옷 등록 보조 기준
 
@@ -257,6 +295,8 @@ MVP10 공유 문서에는 AWS 구현을 포함하지 않는다. 후속 MVP에서
 - `SPRING_PROFILES_ACTIVE=local`은 Docker Compose 기본값으로 유지하고, demo seed initializer는 `local`/`demo` profile과 `SMARTCLOSET_SEED_ENABLED=true` 조건에서만 활성화한다.
 - Flyway migration이 깨끗한 DB schema를 생성하고 Hibernate `ddl-auto=validate`가 entity/schema drift를 검증한다.
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않으며, Swagger UI/API docs를 기본 비활성화한다.
+- prod runtime은 `docker-compose.prod.yml`과 `frontend/Dockerfile`/`frontend/nginx.conf`를 기준으로 검증한다.
+- prod runtime은 refresh cookie와 OAuth state cookie `Secure=true`를 유지해야 한다.
 - future AWS 배포 profile은 별도 env와 운영 adapter bean으로 추가하며 demo seed initializer를 활성화하지 않는다.
 - local Docker Compose 실행은 prod profile 추가 후에도 유지되어야 한다.
 - app image는 non-root user, healthcheck, JVM memory env override를 유지해야 한다.

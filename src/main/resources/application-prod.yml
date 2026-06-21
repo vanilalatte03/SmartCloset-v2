@@ -25,3 +25,11 @@ smartcloset:
   security:
     jwt:
       secret: "${JWT_SECRET:}"
+    refresh-token:
+      cookie:
+        secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+        same-site: "${REFRESH_TOKEN_COOKIE_SAME_SITE:None}"
+    oauth2:
+      state-cookie:
+        secure: ${OAUTH_STATE_COOKIE_SECURE:true}
+        same-site: "${OAUTH_STATE_COOKIE_SAME_SITE:None}"

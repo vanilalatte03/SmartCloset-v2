@@ -261,6 +261,9 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Flyway baseline migration은 깨끗한 DB에서 현재 schema를 생성하고, Hibernate `ddl-auto=validate`가 entity/schema drift를 검증한다.
 - `local`/`demo` profile은 기존 로컬 volume 편입을 위해 Flyway `baseline-on-migrate=true`를 기본값으로 둘 수 있다.
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않고, Swagger UI/API docs를 기본 비활성화한다.
+- prod runtime은 `docker-compose.prod.yml`로 local/demo compose와 분리하고, frontend는 `frontend/Dockerfile`의 Nginx static image로 서빙한다.
+- prod compose는 `smartcloset-prod` project name과 명시적 prod volume name으로 local/demo Docker volume과 충돌하지 않게 한다. Smoke 실행은 volume name을 임시 project prefix로 override한다.
+- prod profile은 refresh cookie와 OAuth state cookie `Secure=true`를 요구하며, `ProdProfileSafetyGuard`가 insecure cookie 설정을 fail-fast로 막는다.
 - app runtime Docker image는 UID/GID `10001:10001` non-root user로 실행한다.
 - Dockerfile healthcheck는 `SMARTCLOSET_HEALTHCHECK_URL` 기본값 `http://127.0.0.1:8080/actuator/health`를 사용한다.
 - JVM container memory option은 `JAVA_TOOL_OPTIONS`로 주입하며 local 기본값은 `-XX:MaxRAMPercentage=75.0`이다.

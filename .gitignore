@@ -19,6 +19,9 @@ build/
 # local workspace files
 .idea/
 .env
+.env.*
+!.env.example
+!.env.prod.example
 uploads/
 backups/
 prompt-summary.txt
