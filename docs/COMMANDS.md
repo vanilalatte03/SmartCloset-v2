@@ -17,10 +17,14 @@ git config core.hooksPath .githooks
 | --- | --- | --- | --- |
 | dev | `./gradlew bootRun` | no | 백엔드 로컬 개발 서버 실행 |
 | frontend-dev | `cd frontend && npm run dev` | no | 프론트엔드 Vite 개발 서버 실행 |
+| frontend-lint | `cd frontend && npm run lint` | yes | ESLint 기반 frontend 정적 분석 |
+| frontend-test | `cd frontend && npm test` | yes | Vitest 기반 frontend 테스트 |
 | frontend-build | `cd frontend && npm run build` | yes | TypeScript type check 및 Vite build |
 | frontend-audit | `cd frontend && npm audit --audit-level=high` | yes | 프론트엔드 dependency high 이상 취약점 확인 |
 | lint | `python3 -m compileall scripts` | no | Harness 운영 스크립트 문법 검사 |
 | test | `./gradlew test` | yes | Spring Boot/JUnit 테스트 실행 |
+| backend-static-analysis | `./gradlew checkstyleMain checkstyleTest` | yes | Checkstyle 기반 backend 정적 분석 |
+| backend-coverage | `./gradlew jacocoTestReport jacocoTestCoverageVerification` | yes | JaCoCo report 생성 및 line coverage 60% 하한 검증 |
 | migration-smoke | `./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest` | yes | Flyway baseline migration 후 Hibernate validate 검증 |
 | mysql-migration-smoke | 아래 `Clean MySQL migration smoke` 절차 | no | 임시 MySQL 8.4 clean DB에서 Flyway migration과 prod Hibernate validate 확인 |
 | monitoring-smoke | 아래 `Monitoring smoke` 절차 | no | Actuator health/prometheus endpoint와 dashboard JSON 확인 |
@@ -35,6 +39,7 @@ git config core.hooksPath .githooks
 | docker-build | `docker build -t smartcloset-app:local .` | no | app image build와 Dockerfile hardening 확인 |
 | frontend-prod-build | `docker build -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8080 -t smartcloset-frontend:prod-smoke frontend` | no | Vite build 산출물을 Nginx static image로 빌드 |
 | docker-image-smoke | 아래 `Docker image hardening smoke` 절차 | no | non-root user, JVM env, Dockerfile healthcheck 확인 |
+| quality-gate | 아래 `CI quality gate smoke` 절차 | yes | backend static analysis/coverage와 frontend lint/test 확인 |
 | security-scan | 아래 `CI security scan smoke` 절차 | no | Trivy dependency/image high/critical 취약점 게이트 확인 |
 | compose-volume-permission-smoke | 아래 `Compose image volume permission smoke` 절차 | no | 기존 이미지 volume 소유권을 app UID/GID로 보정하는지 확인 |
 | mysql-backup | `scripts/mysql-backup.sh` | no | 실행 중인 Compose MySQL container에서 backup dump 생성 |
@@ -70,9 +75,13 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 
 ```bash
 ./gradlew test
+./gradlew checkstyleMain checkstyleTest
+./gradlew jacocoTestReport jacocoTestCoverageVerification
 ./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest
 ./gradlew build
 (cd frontend && npm audit --audit-level=high)
+(cd frontend && npm run lint)
+(cd frontend && npm test)
 (cd frontend && npm run build)
 docker compose config --quiet
 sh -n scripts/mysql-backup.sh scripts/mysql-restore.sh scripts/prod-compose-smoke.sh
@@ -138,6 +147,16 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/workspac
 ```
 
 CI security gate는 fix 가능한 `HIGH`/`CRITICAL` 취약점을 실패 처리한다. Frontend dependency는 `npm audit`과 Trivy filesystem scan으로 차단하고, backend runtime library 취약점은 app image scan의 `app.jar` 분석으로 확인한다. `ignore-unfixed`로 인해 현재 fix가 없는 항목은 차단하지 않지만, 예외를 suppression으로 둘 때는 ADR이나 보안 문서에 취약점 ID, 영향 범위, 만료일, 보완 통제를 기록한다.
+
+CI quality gate smoke:
+
+```bash
+./gradlew checkstyleMain checkstyleTest
+./gradlew jacocoTestReport jacocoTestCoverageVerification
+(cd frontend && npm ci && npm run lint && npm test && npm run build)
+```
+
+JaCoCo는 `build/reports/jacoco/test/html/index.html`과 `build/reports/jacoco/test/jacocoTestReport.xml`을 생성한다. 현재 line coverage 하한은 60%이며, 하한 미달 시 `jacocoTestCoverageVerification`과 Gradle `check`가 실패한다. Frontend lint는 ESLint flat config, frontend test는 Vitest를 기준으로 한다.
 
 Clean MySQL migration smoke는 프로젝트 Docker Compose volume을 사용하지 않고 임시 MySQL container로 확인한다.
 

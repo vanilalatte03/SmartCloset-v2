@@ -36,6 +36,12 @@ jobs:
       - name: Test
         run: ./gradlew test
 
+      - name: Analyze backend style
+        run: ./gradlew checkstyleMain checkstyleTest
+
+      - name: Verify backend coverage
+        run: ./gradlew jacocoTestReport jacocoTestCoverageVerification
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -43,6 +49,14 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: frontend
         run: npm audit --audit-level=high
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test
 
       - name: Build frontend
         working-directory: frontend
