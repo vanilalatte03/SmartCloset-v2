@@ -19,6 +19,8 @@ if [ "${SMARTCLOSET_RESTORE_CONFIRM:-}" != "restore" ]; then
   exit 2
 fi
 
+echo "Restoring dump into existing $CONTAINER database; extra objects are not removed automatically." >&2
+
 docker exec -i "$CONTAINER" sh -c \
   'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
   < "$INPUT"

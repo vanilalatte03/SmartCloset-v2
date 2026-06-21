@@ -110,7 +110,7 @@ MVP10은 Spring AI와 OpenAI `gpt-5.4-nano`로 사진을 분석해 옷 등록 �
 
 **Container와 DB 운영 하드닝 baseline**
 
-운영 준비 범위에서는 app runtime image를 non-root user로 실행하고, Dockerfile healthcheck를 Actuator health endpoint에 연결합니다. JVM container memory 비율은 `JAVA_TOOL_OPTIONS`로 조정하며, MySQL backup/restore는 로컬 검증 가능한 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh` runbook으로 시작합니다. 관련 결정은 ADR-019입니다.
+운영 준비 범위에서는 app runtime image를 non-root user로 실행하고, Dockerfile healthcheck를 Actuator health endpoint에 연결합니다. Docker Compose는 app 시작 전에 `clothing-image-data` volume 소유권을 UID/GID `10001:10001`로 보정합니다. JVM container memory 비율은 `JAVA_TOOL_OPTIONS`로 조정하며, MySQL backup/restore는 로컬 검증 가능한 `scripts/mysql-backup.sh`, `scripts/mysql-restore.sh` runbook으로 시작합니다. 관련 결정은 ADR-019입니다.
 
 ## Current MVP
 

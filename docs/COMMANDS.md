@@ -32,8 +32,9 @@ git config core.hooksPath .githooks
 | compose-reset | `docker compose down -v` | yes | Docker Compose 중지 및 DB/image volume 초기화 |
 | docker-build | `docker build -t smartcloset-app:local .` | no | app image build와 Dockerfile hardening 확인 |
 | docker-image-smoke | 아래 `Docker image hardening smoke` 절차 | no | non-root user, JVM env, Dockerfile healthcheck 확인 |
+| compose-volume-permission-smoke | 아래 `Compose image volume permission smoke` 절차 | no | 기존 이미지 volume 소유권을 app UID/GID로 보정하는지 확인 |
 | mysql-backup | `scripts/mysql-backup.sh` | no | 실행 중인 Compose MySQL container에서 backup dump 생성 |
-| mysql-restore | `SMARTCLOSET_RESTORE_CONFIRM=restore scripts/mysql-restore.sh <backup.sql>` | no | 명시 확인 후 MySQL backup dump restore |
+| mysql-restore | `SMARTCLOSET_RESTORE_CONFIRM=restore scripts/mysql-restore.sh <backup.sql>` | no | 명시 확인 후 기존 MySQL DB에 backup dump replay |
 | mysql-backup-restore-smoke | 아래 `MySQL backup/restore smoke` 절차 | no | 임시 MySQL container에서 backup/restore script 검증 |
 | review | `python3 scripts/doctor.py --instance` | no | 템플릿과 프로젝트 운영 상태 점검 |
 | autopilot-test | `python3 -m pytest scripts/tests/test_autopilot.py` | no | Harness autopilot 스크립트 테스트 |
@@ -147,6 +148,23 @@ test "$(docker run --rm --entrypoint id smartcloset-app:hardening-smoke -u)" = "
 docker image rm smartcloset-app:hardening-smoke
 ```
 
+Compose image volume permission smoke:
+
+```bash
+docker volume create smartclosetpermtest_clothing-image-data
+docker run --rm \
+  -v smartclosetpermtest_clothing-image-data:/data/smartcloset/clothing-images \
+  busybox:1.36 \
+  sh -c "mkdir -p /data/smartcloset/clothing-images && chown -R 0:0 /data/smartcloset/clothing-images"
+docker compose -p smartclosetpermtest run --rm --no-deps clothing-image-volume-permissions
+test "$(docker run --rm \
+  -v smartclosetpermtest_clothing-image-data:/data/smartcloset/clothing-images \
+  busybox:1.36 \
+  stat -c '%u:%g' /data/smartcloset/clothing-images)" = "10001:10001"
+docker compose -p smartclosetpermtest down -v
+docker volume rm smartclosetpermtest_clothing-image-data
+```
+
 MySQL backup/restore smoke:
 
 ```bash
@@ -187,7 +205,7 @@ rm -f /tmp/smartcloset-backup-smoke.sql
 docker stop smartcloset-mysql-backup-smoke
 ```
 
-Restore는 대상 DB에 dump 내용을 다시 적용하는 작업이므로 `SMARTCLOSET_RESTORE_CONFIRM=restore`를 명시해야 실행된다. 운영 DB restore는 별도 점검 창, 최신 backup 확인, 애플리케이션 write traffic 중지, restore 후 migration/validate 확인을 거친다.
+Restore는 대상 DB를 비우는 full replacement가 아니라 기존 DB에 dump 내용을 replay하는 작업이므로 `SMARTCLOSET_RESTORE_CONFIRM=restore`를 명시해야 실행된다. 위 smoke에서 `backup_smoke_before_restore` 같은 extra object가 남을 수 있는 것은 의도된 replay semantics다. 운영 DB restore는 별도 점검 창, 최신 backup 확인, 애플리케이션 write traffic 중지, 필요한 경우 clean DB/volume 준비, restore 후 migration/validate 확인을 거친다.
 
 Monitoring smoke:
 
