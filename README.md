@@ -24,7 +24,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 
 - Backend: Java 21, Spring Boot 4.0.6, Spring Security, JPA
 - AI assist: Spring AI 2.0 preview, OpenAI `gpt-5.4-nano`
-- Database: MySQL
+- Database: MySQL, Flyway
 - Frontend: React, Vite, TypeScript
 - Auth: JWT bearer access token, DB-backed refresh session, HttpOnly refresh cookie
 - Weather: KMA `getVilageFcst`, local fallback provider
@@ -42,7 +42,7 @@ SmartCloset의 핵심 질문은 "오늘 날씨와 내 옷장 기준으로 왜 �
 | 날씨 연동 | KMA `getVilageFcst` provider, `StaticWeatherProvider` fallback, source snapshot | 외부 API 장애를 흡수하는 provider boundary |
 | 위치 도메인 | KMA 행정구역 catalog 검색, 브라우저 좌표 resolve, GPS 원문 미저장 | 외부 지도 API 없이 생활권 위치를 다루는 방식 |
 | 옷 이미지 | 별도 보호 이미지 API, 파일 검증, 로컬 파일 저장소, DB metadata 분리 | 파일 저장소와 소유권 검증 경계 |
-| 운영 공유 | MySQL, backend, frontend, image volume을 Docker Compose로 실행 | 로컬 재현성과 데모 가능성 |
+| 운영 공유 | MySQL, Flyway migration, backend, frontend, image volume을 Docker Compose로 실행 | 로컬 재현성과 데모 가능성 |
 
 ## Domain Structure
 
@@ -149,6 +149,7 @@ python3 scripts/checks.py --docs-check-config phases/10-smartcloset-ai-clothing-
 
 ```bash
 ./gradlew test
+./gradlew test --tests com.smartcloset.persistence.SchemaMigrationSmokeTest
 ./gradlew build
 ```
 

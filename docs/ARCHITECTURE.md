@@ -6,7 +6,7 @@ SmartCloset MVP10은 Spring Boot 4.0.6 백엔드와 React+Vite+TypeScript 프론
 
 MVP10은 Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`를 `ClothingImageAnalyzer` provider boundary 뒤에 둔다. AI는 옷 등록 후보를 제안할 뿐이며, 옷차림 추천 domain service, 추천 점수, 추천 이유, 추천 이력에는 연결하지 않는다.
 
-기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조와 MVP9 UI/UX 리디자인 흐름은 유지한다. DB schema는 변경하지 않는다.
+기존 위치/날씨, 옷 이미지, 추천 피드백/개인화, 추천 이력, MVP8 account/auth 구조와 MVP9 UI/UX 리디자인 흐름은 유지한다. MVP10 AI 옷 등록 보조는 DB schema를 변경하지 않는다.
 
 ```text
 Controller -> Application Service -> Domain Service -> Repository / Provider
@@ -232,6 +232,8 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - Cookie, CORS, OAuth URL, AI 분석 설정은 properties/env로 분리한다.
 - `local` profile은 Docker Compose 기본 실행 경로로 유지한다.
 - demo user와 최소 옷장 seed initializer는 `local`/`demo` profile과 `smartcloset.seed.enabled=true` 조건에서만 활성화한다. default/prod profile 기동은 seed 데이터를 자동 생성하지 않는다.
+- Flyway baseline migration은 깨끗한 DB에서 현재 schema를 생성하고, Hibernate `ddl-auto=validate`가 entity/schema drift를 검증한다.
+- `local`/`demo` profile은 기존 로컬 volume 편입을 위해 Flyway `baseline-on-migrate=true`를 기본값으로 둘 수 있다.
 - `prod` profile은 local JWT secret placeholder와 Hibernate `ddl-auto=update`를 허용하지 않고, Swagger UI/API docs를 기본 비활성화한다.
 
 ## 기존 domain 흐름 유지
@@ -274,7 +276,7 @@ MVP10은 AWS 배포를 구현하지 않는다. local Docker Compose 실행과 �
 - 이미지 기반 추천 score, filtering, tie-break를 추가하지 않는다. 이유: 이미지와 분석 결과는 등록 보조 전용이다.
 - 사용자 확인 없는 자동 저장이나 자동 태깅을 추가하지 않는다. 이유: 최종 저장값은 사용자가 확인해야 한다.
 - 분석 이미지를 저장하지 않는다. 이유: MVP10은 후보 제안만 다룬다.
-- 분석 결과 전용 DB 구조를 추가하지 않는다. 이유: DB schema 변경은 MVP10 범위 밖이다.
+- 분석 결과 전용 DB 구조를 추가하지 않는다. 이유: MVP10 AI 분석 결과는 저장하지 않고, schema 변경은 Flyway migration으로 명시 추적해야 한다.
 - 다른 모델로 자동 재시도하는 흐름을 추가하지 않는다. 이유: 비용 예측 가능성을 유지해야 한다.
 - 공개 `userId` query parameter를 추가하지 않는다. 이유: 인증 사용자 API 계약과 충돌한다.
 - Refresh token 원문을 DB 또는 JSON 응답에 저장/노출하지 않는다. 이유: 계정 안정성 핵심 보안 계약이다.

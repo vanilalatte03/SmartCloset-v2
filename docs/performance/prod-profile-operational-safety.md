@@ -6,9 +6,11 @@
 
 이 문서는 ADR이 아니며 공개 API shape, DB schema, 인증/refresh token 계약, Docker Compose local 기본 실행 흐름을 변경하지 않는다. 관련 GitHub Issue는 `#181`이고, 구현은 PR `#189`에서 merge했다.
 
+현재 운영 schema migration 정책은 후속 운영 준비 작업인 ADR-017과 `docs/ERD.md`를 따른다. 이 문서의 "migration tool을 추가하지 않는다"는 표현은 PR `#189` 당시의 범위 기록이다.
+
 ## 문제
 
-기본 `application.yml`과 Docker Compose 설정은 MVP local 실행을 빠르게 검증하기 위해 Hibernate `ddl-auto=update`, local JWT placeholder, Swagger UI/API docs 노출을 허용한다.
+PR `#189` 당시 기본 `application.yml`과 Docker Compose 설정은 MVP local 실행을 빠르게 검증하기 위해 Hibernate `ddl-auto=update`, local JWT placeholder, Swagger UI/API docs 노출을 허용했다.
 
 이 기본값은 local 개발과 공유용 Docker Compose에는 맞지만, `prod` profile 또는 운영 DB 연결 환경에 그대로 적용되면 다음 위험이 생긴다.
 
@@ -41,7 +43,7 @@ guard는 `BeanFactoryPostProcessor`로 동작하므로 JPA entity manager 초기
 - Docker Compose 기본 실행은 demo user와 최소 옷장 seed를 기존처럼 준비한다.
 - `SeedDataInitializer`는 계속 `local`/`demo` profile과 `smartcloset.seed.enabled=true`에서만 활성화된다.
 - local Swagger UI와 OpenAPI JSON 경로는 기본적으로 계속 사용할 수 있다.
-- migration tool 전환, AWS 배포, RDS/Secrets Manager, 운영 adapter 구현은 추가하지 않는다.
+- PR `#189` 범위에서는 migration tool 전환, AWS 배포, RDS/Secrets Manager, 운영 adapter 구현을 추가하지 않는다.
 - 공개 `userId` query parameter 또는 현재 사용자 DTO `userId` 노출을 추가하지 않는다.
 - refresh token 원문은 DB, 로그, JSON response에 저장하거나 노출하지 않는다.
 
@@ -49,7 +51,7 @@ guard는 `BeanFactoryPostProcessor`로 동작하므로 JPA entity manager 초기
 
 운영 profile은 secret 누락과 local placeholder 사용을 시작 단계에서 명확히 실패시킨다. 따라서 잘못된 secret으로 access token을 발급하는 상황을 배포 직후 요청 처리 중이 아니라 기동 단계에서 발견할 수 있다.
 
-운영 profile의 schema action은 기본적으로 `validate`이며, guard가 `update/create/create-drop` 계열 자동 schema 변경을 막는다. MVP10은 migration tool을 도입하지 않으므로 운영 DB 변경은 별도 후속 범위에서 명시적으로 다뤄야 한다.
+운영 profile의 schema action은 기본적으로 `validate`이며, guard가 `update/create/create-drop` 계열 자동 schema 변경을 막는다. 이후 #203/ADR-017에서 Flyway migration을 재도입했으므로 현재 운영 DB 변경은 `V*.sql` migration으로 명시 추적한다.
 
 Swagger UI/API docs는 prod profile에서 기본 비활성화된다. 필요하면 `SPRINGDOC_API_DOCS_ENABLED`와 `SPRINGDOC_SWAGGER_UI_ENABLED`를 명시적으로 설정할 수 있지만, local profile처럼 기본 노출되지는 않는다.
 
@@ -57,14 +59,14 @@ Swagger UI/API docs는 prod profile에서 기본 비활성화된다. 필요하�
 
 prod profile 운영 안전장치는 다음 기준을 지킨다.
 
-- local profile 또는 Docker Compose 기본 실행에서 `ddl-auto=update`, local JWT placeholder, Swagger docs 기본 노출이 깨지면 안 된다.
+- PR `#189` 당시 local profile 또는 Docker Compose 기본 실행에서 `ddl-auto=update`, local JWT placeholder, Swagger docs 기본 노출이 깨지면 안 된다.
 - `prod` profile에서 `JWT_SECRET`이 비어 있으면 기동하면 안 된다.
 - `prod` profile에서 `JWT_SECRET=change-me-local-development-only`이면 기동하면 안 된다.
 - `prod` profile에서 Hibernate `ddl-auto`가 `validate` 또는 `none` 외 값이면 기동하면 안 된다.
 - `application-prod.yml`의 Springdoc docs/UI 기본값은 `false`여야 한다.
 - prod guard는 JPA schema action 전에 실행되어야 한다.
 - seed/demo profile gate를 완화하거나 `prod` profile에서 demo seed initializer를 활성화하면 안 된다.
-- Flyway/Liquibase, AWS/RDS/Secrets Manager, Redis, 운영 adapter를 이 안전장치 범위에 끌어오면 안 된다.
+- PR `#189` 안전장치 범위에는 Flyway/Liquibase, AWS/RDS/Secrets Manager, Redis, 운영 adapter를 끌어오면 안 된다. 현재 Flyway 정책은 ADR-017을 따른다.
 
 ## 검증
 

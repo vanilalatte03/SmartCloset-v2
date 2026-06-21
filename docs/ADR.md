@@ -25,6 +25,8 @@ ADR-015는 기존 `clothing_items.archived` 컬럼을 재사용해 옷장 보관
 
 ADR-016은 MVP10을 AI 옷 등록 보조 MVP로 확정하고, Spring AI 2.0 preview 계열과 OpenAI `gpt-5.4-nano`로 사진 기반 등록 후보를 제안하되 추천 규칙과 DB schema는 유지한다.
 
+ADR-017은 운영 준비 작업으로 Flyway schema migration을 재도입하고, 깨끗한 DB 생성은 migration, 운영 schema 검증은 Hibernate `ddl-auto=validate`로 분리한다.
+
 - [ADR-001: Use StaticWeatherProvider for MVP Weather](adr/001-static-weather-provider.md)
 - [ADR-002: Share MVP with Docker Compose](adr/002-docker-compose-sharing.md)
 - [ADR-003: MVP Scope and Implementation Constraints](adr/003-mvp-scope-decisions.md)
@@ -41,3 +43,4 @@ ADR-016은 MVP10을 AI 옷 등록 보조 MVP로 확정하고, Spring AI 2.0 prev
 - [ADR-014: Define MVP9 as UI/UX Redesign](adr/014-mvp9-ui-ux-redesign.md)
 - [ADR-015: Define Closet Archive Restore](adr/015-closet-archive-restore.md)
 - [ADR-016: Define MVP10 as AI Clothing Registration Assist](adr/016-mvp10-ai-clothing-registration-assist.md)
+- [ADR-017: Reintroduce Production Schema Migration](adr/017-production-schema-migration.md)
