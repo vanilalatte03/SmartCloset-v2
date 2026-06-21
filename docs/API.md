@@ -14,6 +14,7 @@ MVP10에서 새로 추가하는 API는 `POST /api/clothes/analyze-image` 하나�
 - Password signup 직후 access token을 발급하지 않는다.
 - 미인증 password 계정 login은 실패한다.
 - 추천 생성은 계속 `POST /api/recommendations`다.
+- 추천 생성은 user별 process-local 반복 호출 제한을 적용하며 초과 시 `RECOMMENDATION_CREATION_LIMIT_EXCEEDED`로 실패한다.
 - 옷 등록/수정은 계속 JSON `POST /api/clothes`, `PUT /api/clothes/{clothingId}`다.
 - 옷 이미지 업로드/교체는 계속 별도 multipart `PUT /api/clothes/{clothingId}/image`다.
 - AI 분석은 저장 전 후보 제안만 반환한다.
@@ -566,6 +567,12 @@ Request body는 선택이다.
 - body가 없거나 `situation`이 누락되면 `CASUAL`
 - body가 없거나 `forecastPeriod`가 누락되면 `CURRENT`
 
+반복 호출 제한:
+
+- `POST /api/recommendations`는 인증 사용자별 process-local fixed-window throttle을 적용한다.
+- 기본 정책은 1분 window 안에서 user당 30회이며, 환경변수 `RECOMMENDATION_CREATION_THROTTLE_MAX_REQUESTS`, `RECOMMENDATION_CREATION_THROTTLE_WINDOW`로 조정한다.
+- 제한을 초과하면 `429 Too Many Requests`와 `RECOMMENDATION_CREATION_LIMIT_EXCEEDED`로 실패한다.
+
 추천 이력:
 
 - `GET /api/recommendations?limit={limit}`
@@ -626,6 +633,7 @@ MVP10에서 추가하는 error code:
 | `ACCOUNT_TOKEN_INVALID` | `400 Bad Request` | 인증/재설정 token 없음, 만료, 사용 완료, 불일치 |
 | `PASSWORD_LOGIN_DISABLED` | `400 Bad Request` | password login이 없는 계정에서 password flow 사용 |
 | `LOGIN_ATTEMPT_LIMIT_EXCEEDED` | `429 Too Many Requests` | 같은 email/client key 또는 client key의 로그인 실패 반복 제한 초과 |
+| `RECOMMENDATION_CREATION_LIMIT_EXCEEDED` | `429 Too Many Requests` | 사용자별 추천 생성 반복 호출 제한 초과 |
 | `OAUTH2_PROVIDER_UNAVAILABLE` | `503 Service Unavailable` | Google OAuth 설정 없음 또는 비활성 |
 | `CLOTHING_NOT_FOUND` | `404 Not Found` | 옷 없음 또는 다른 사용자 옷 접근 |
 | `CLOTHING_IMAGE_NOT_FOUND` | `404 Not Found` | 옷 이미지 없음 |

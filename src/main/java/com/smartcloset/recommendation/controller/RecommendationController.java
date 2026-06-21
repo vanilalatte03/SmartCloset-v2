@@ -3,6 +3,7 @@ package com.smartcloset.recommendation.controller;
 import com.smartcloset.common.exception.ErrorCode;
 import com.smartcloset.common.exception.SmartClosetException;
 import com.smartcloset.common.response.ApiResponse;
+import com.smartcloset.recommendation.application.RecommendationCreationThrottle;
 import com.smartcloset.recommendation.application.RecommendationService;
 import com.smartcloset.recommendation.dto.RecommendationFeedbackRequest;
 import com.smartcloset.recommendation.dto.RecommendationFeedbackResponse;
@@ -35,9 +36,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+    private final RecommendationCreationThrottle recommendationCreationThrottle;
 
-    public RecommendationController(RecommendationService recommendationService) {
+    public RecommendationController(
+            RecommendationService recommendationService,
+            RecommendationCreationThrottle recommendationCreationThrottle
+    ) {
         this.recommendationService = recommendationService;
+        this.recommendationCreationThrottle = recommendationCreationThrottle;
     }
 
     /**
@@ -48,6 +54,7 @@ public class RecommendationController {
             @AuthenticationPrincipal CurrentUserPrincipal principal,
             @RequestBody(required = false) RecommendationRequest request
     ) {
+        recommendationCreationThrottle.checkAndRecord(principal.userId());
         RecommendationRequest resolvedRequest = resolveRequest(request);
         RecommendationResponse response = recommendationService.createRecommendation(
                 principal.userId(),
