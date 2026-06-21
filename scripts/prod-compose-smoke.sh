@@ -1,10 +1,21 @@
 #!/usr/bin/env sh
 set -eu
 
-PROJECT="${COMPOSE_PROJECT_NAME:-smartclosetprodsmoke}"
+PROJECT="${SMARTCLOSET_PROD_SMOKE_PROJECT:-smartclosetprodsmoke}"
 APP_PORT="${SMARTCLOSET_PROD_SMOKE_APP_PORT:-18080}"
 FRONTEND_PORT="${SMARTCLOSET_PROD_SMOKE_FRONTEND_PORT:-18081}"
 ENV_FILE="$(mktemp)"
+
+case "$PROJECT" in
+  smartclosetprodsmoke*)
+    ;;
+  *)
+    echo "SMARTCLOSET_PROD_SMOKE_PROJECT must start with smartclosetprodsmoke." >&2
+    exit 2
+    ;;
+esac
+
+unset COMPOSE_PROJECT_NAME
 
 cleanup() {
   docker compose -p "$PROJECT" -f docker-compose.prod.yml --env-file "$ENV_FILE" down -v >/dev/null 2>&1 || true
@@ -43,6 +54,8 @@ REFRESH_TOKEN_COOKIE_MAX_AGE=14d
 REFRESH_TOKEN_TTL_DAYS=14
 CORS_ALLOWED_ORIGINS=http://127.0.0.1:$FRONTEND_PORT,http://localhost:$FRONTEND_PORT
 CORS_ALLOW_CREDENTIALS=true
+MYSQL_DATA_VOLUME_NAME=$PROJECT-mysql-data
+CLOTHING_IMAGE_DATA_VOLUME_NAME=$PROJECT-clothing-image-data
 KMA_SERVICE_KEY=
 KMA_NX=60
 KMA_NY=127

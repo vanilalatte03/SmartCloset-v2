@@ -14,13 +14,14 @@ Accepted
 
 - local/demo runtime은 기존 `docker-compose.yml`로 유지한다.
 - prod runtime은 `docker-compose.prod.yml`로 분리한다.
+- prod compose는 top-level project name `smartcloset-prod`와 기본 명시 volume name `smartcloset-prod-mysql-data`, `smartcloset-prod-clothing-image-data`를 사용해 local/demo Docker volume과 충돌하지 않게 한다.
 - prod compose는 `SPRING_PROFILES_ACTIVE=prod`를 고정하고, secret과 URL 성격의 필수 env를 `${VAR:?message}`로 요구한다.
 - prod app은 Flyway enabled, Hibernate `ddl-auto=validate`, `SMARTCLOSET_SEED_ENABLED=false`, Swagger/OpenAPI disabled 기본값으로 실행한다.
 - prod app은 refresh cookie와 OAuth state cookie의 `Secure=true`, `SameSite=None` 기본값을 사용한다.
 - `ProdProfileSafetyGuard`는 prod profile에서 local JWT secret, unsafe ddl-auto, insecure refresh/OAuth state cookie를 fail-fast로 막는다.
 - frontend production image는 `frontend/Dockerfile`에서 Vite build 산출물을 만들고 Nginx non-root static server로 서빙한다.
 - `.env.prod.example`은 운영 env/secret checklist로 제공하되 실제 secret 값은 비워 둔다.
-- `scripts/prod-compose-smoke.sh`는 임시 env로 prod compose를 빌드/기동해 app health, public API, disabled OpenAPI, frontend health/root HTML을 확인한다.
+- `scripts/prod-compose-smoke.sh`는 임시 env로 prod compose를 빌드/기동해 app health, public API, disabled OpenAPI, frontend health/root HTML을 확인한다. Smoke project override는 `SMARTCLOSET_PROD_SMOKE_PROJECT`만 허용하고 `smartclosetprodsmoke` prefix로 제한하며, volume name도 smoke project prefix로 override한다.
 
 ## Consequences
 

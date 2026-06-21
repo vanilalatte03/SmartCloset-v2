@@ -73,7 +73,7 @@ Prod-like runtime smoke:
 scripts/prod-compose-smoke.sh
 ```
 
-`docker-compose.prod.yml`은 local/demo compose와 분리된 운영 준비 산출물이다. `.env.prod.example`은 실제 secret 값을 비워 둔 checklist이므로 그대로 실행하지 않는다. 운영 또는 prod smoke env는 최소한 `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL`을 채워야 한다.
+`docker-compose.prod.yml`은 local/demo compose와 분리된 운영 준비 산출물이다. Top-level project name은 `smartcloset-prod`이고 prod volume은 기본값 `smartcloset-prod-mysql-data`, `smartcloset-prod-clothing-image-data`로 명시한다. Prod smoke는 volume name을 임시 project prefix로 override해 실제 prod volume을 건드리지 않는다. `.env.prod.example`은 실제 secret 값을 비워 둔 checklist이므로 그대로 실행하지 않는다. 운영 또는 prod smoke env는 최소한 `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_AUTH_CALLBACK_URL`, `VITE_API_BASE_URL`을 채워야 한다. Prod smoke project override는 `SMARTCLOSET_PROD_SMOKE_PROJECT`만 사용하며 `smartclosetprodsmoke` prefix로 제한한다.
 
 ## 환경변수
 
@@ -190,6 +190,7 @@ Prod runtime 필수/보안 env:
 | Variable | Prod 기준 |
 | --- | --- |
 | `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `SPRING_DATASOURCE_PASSWORD` | 실제 운영 secret으로만 주입. `.env.prod.example`에는 값을 두지 않음 |
+| `MYSQL_DATA_VOLUME_NAME`, `CLOTHING_IMAGE_DATA_VOLUME_NAME` | prod volume 이름. 기본값은 local/demo volume과 충돌하지 않는 `smartcloset-prod-*` |
 | `JWT_SECRET` | local placeholder 금지. prod profile safety guard가 빈 값과 local placeholder를 차단 |
 | `SPRING_PROFILES_ACTIVE` | `docker-compose.prod.yml`에서 `prod`로 고정 |
 | `SPRING_JPA_HIBERNATE_DDL_AUTO` | 기본 `validate`. `update/create/create-drop` 계열은 prod safety guard가 차단 |
@@ -244,6 +245,7 @@ CLOTHING_ANALYSIS_MODEL=gpt-5.4-nano
 ### Prod-like runtime 기준
 
 - `docker-compose.prod.yml`이 local/demo compose와 분리되어 있다.
+- prod compose는 `smartcloset-prod` project name과 명시적인 prod volume name을 사용해 local/demo Docker volume과 충돌하지 않는다.
 - prod app은 `SPRING_PROFILES_ACTIVE=prod`, `SMARTCLOSET_SEED_ENABLED=false`, Hibernate `ddl-auto=validate`, Flyway enabled로 실행된다.
 - prod app은 local JWT placeholder, unsafe ddl-auto, insecure refresh/OAuth state cookie 설정으로 기동하지 않는다.
 - Swagger UI와 OpenAPI JSON은 prod 기본값에서 비활성이다.
